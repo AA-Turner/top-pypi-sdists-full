@@ -3,7 +3,6 @@ import contextlib
 import functools
 import inspect
 import logging
-from asyncio import iscoroutinefunction
 from collections.abc import AsyncGenerator, Callable, Iterator
 from typing import (
     Any,
@@ -32,7 +31,7 @@ ATTR_DOES_NOT_EXIST = object()
 
 def decorate_all_methods(decorator):
     def decorate(cls):
-        for attr in vars(cls):
+        for attr in dir(cls):
             # dunders and `get` should not be decorated
             # get is handled by `_get`
             if attr.startswith("__") or attr in {"get", "get_or_set"}:
@@ -91,6 +90,34 @@ def omit_exception(
         except ConnectionInterrupted as e:
             yield __handle_error(self, e)
 
+    # sync generators (iter_keys, sscan_iter) are only generator on client class
+    # in the backend they are just a function (that returns a generator)
+    # so inspect.isgeneratorfunction does not work
+    if not gen:
+        wrapper = _decorator
+
+    # if method is a generator or async generator, it should be iterated over by this decorator
+    # generators don't error by simply being called, they need to be iterated over.
+    else:
+        wrapper = _generator_decorator
+
+    return wrapper
+
+
+def omit_exception_async(
+    method: Callable | None = None, return_value: Any | None = None, gen=False
+):
+    if method is None:
+        return functools.partial(omit_exception, return_value=return_value)
+
+    def __handle_error(self, e) -> Any | None:
+        if getattr(self, "_ignore_exceptions", None):
+            if getattr(self, "_log_ignored_exceptions", None):
+                self.logger.exception("Exception ignored")
+
+            return return_value
+        raise e.__cause__
+
     @functools.wraps(method)
     async def _async_decorator(self, *args, **kwargs):
         try:
@@ -106,22 +133,13 @@ def omit_exception(
         except ConnectionInterrupted as e:
             yield __handle_error(self, e)
 
-    # sync generators (iter_keys, sscan_iter) are only generator on client class
-    # in the backend they are just a function (that returns a generator)
-    # so inspect.isgeneratorfunction does not work
-    if not inspect.isasyncgenfunction(method) and not gen:
-        wrapper = _async_decorator if iscoroutinefunction(method) else _decorator
-
-    # if method is a generator or async generator, it should be iterated over by this decorator
-    # generators don't error by simply being called, they need to be iterated over.
+    if inspect.isasyncgenfunction(method):
+        # if method is a generator or async generator, it should be iterated over by this decorator
+        # generators don't error by simply being called, they need to be iterated over.
+        wrapper = _async_generator_decorator
     else:
-        wrapper = (
-            _async_generator_decorator
-            if inspect.isasyncgenfunction(method)
-            else _generator_decorator
-        )
+        wrapper = _async_decorator
 
-    wrapper.original = method
     return wrapper
 
 
@@ -192,8 +210,13 @@ class BaseValkeyCache(Generic[Client, Backend]):
             self._client = self._client_cls(self._server, self._params, self)
         return self._client
 
+    def make_key(self, *args, **kwargs) -> bool:
+        return self.client.make_key(*args, **kwargs)
 
-@decorate_all_methods(omit_exception)
+    def make_pattern(self, *args, **kwargs) -> bool:
+        return self.client.make_pattern(*args, **kwargs)
+
+
 class BackendCommands:
     def __contains__(self, item):
         return self.has_key(item)
@@ -203,6 +226,9 @@ class BackendCommands:
 
     def incr_version(self: BaseValkeyCache, *args, **kwargs) -> int:
         return self.client.incr_version(*args, **kwargs)
+
+    def decr_version(self: BaseValkeyCache, *args, **kwargs) -> int:
+        return self.client.decr_version(*args, **kwargs)
 
     def add(self: BaseValkeyCache, *args, **kwargs) -> bool:
         return self.client.add(*args, **kwargs)
@@ -375,7 +401,6 @@ class BackendCommands:
         return self.client.hexists(*args, **kwargs)
 
 
-@decorate_all_methods(omit_exception)
 class AsyncBackendCommands:
     def __getattr__(self, item):
         if item.startswith("a"):
@@ -391,6 +416,9 @@ class AsyncBackendCommands:
 
     async def incr_version(self, *args, **kwargs):
         return await self.client.aincr_version(*args, **kwargs)
+
+    async def decr_version(self, *args, **kwargs):
+        return await self.client.adecr_version(*args, **kwargs)
 
     async def add(self, *args, **kwargs):
         return await self.client.aadd(*args, **kwargs)

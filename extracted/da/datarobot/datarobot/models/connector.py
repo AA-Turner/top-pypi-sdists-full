@@ -43,16 +43,14 @@ class Connector(APIObject):
 
     _path = "externalConnectors/"
     _file_upload_path = "externalDataDriverFile/"
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("creator_id"): String(),
-            t.Key("configuration_id"): String(),
-            t.Key("base_name", optional=True): t.Or(String, t.Null),
-            t.Key("canonical_name"): String(),
-            t.Key("connector_type", optional=True): t.Or(String, t.Null),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("creator_id"): String(),
+        t.Key("configuration_id"): String(),
+        t.Key("base_name", optional=True): t.Or(String, t.Null),
+        t.Key("canonical_name"): String(),
+        t.Key("connector_type", optional=True): t.Or(String, t.Null),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -128,9 +126,7 @@ class Connector(APIObject):
         return cls.from_location(f"{cls._path}{connector_id}/")
 
     @classmethod
-    def create(
-        cls, file_path: Optional[str] = None, connector_type: Optional[str] = None
-    ) -> Connector:
+    def create(cls, file_path: Optional[str] = None, connector_type: Optional[str] = None) -> Connector:
         """
         Creates the connector from a jar file. Only available to admin users.
 
@@ -183,9 +179,7 @@ class Connector(APIObject):
         else:
             raise ValueError("Must pass either file_path or connector_type")
 
-        finished_location = wait_for_async_resolution(
-            cls._client, resp.headers["Location"], max_wait=DEFAULT_MAX_WAIT
-        )
+        finished_location = wait_for_async_resolution(cls._client, resp.headers["Location"], max_wait=DEFAULT_MAX_WAIT)
         connector_id = get_id_from_location(finished_location)
         return cls.get(connector_id)
 

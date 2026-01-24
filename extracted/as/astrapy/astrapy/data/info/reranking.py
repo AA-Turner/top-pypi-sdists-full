@@ -83,9 +83,6 @@ class RerankServiceOptions:
             return RerankServiceOptions._from_dict(raw_input)
 
 
-### QUIQUI
-
-
 @dataclass
 class RerankingProviderParameter:
     """
@@ -165,6 +162,48 @@ class RerankingProviderParameter:
 
 
 @dataclass
+class RerankingAPIModelSupport:
+    """
+    A representation of the API support status for a reranking model.
+
+    Attributes:
+        status: a string describing the support status.
+        message: an optional string message alongside the status.
+    """
+
+    status: str
+    message: str | None
+
+    def __repr__(self) -> str:
+        return f"RerankingAPIModelSupport({self.status})"
+
+    def as_dict(self) -> dict[str, Any]:
+        """Recast this object into a dictionary."""
+
+        return {
+            k: v
+            for k, v in {
+                "status": self.status,
+                "message": self.message,
+            }.items()
+            if v is not None
+        }
+
+    @classmethod
+    def _from_dict(cls, raw_dict: dict[str, Any]) -> RerankingAPIModelSupport:
+        """
+        Create an instance of RerankingAPIModelSupport from a dictionary
+        such as one from the Data API.
+        """
+
+        _warn_residual_keys(cls, raw_dict, {"status", "message"})
+        return RerankingAPIModelSupport(
+            status=raw_dict.get("status") or "SUPPORTED",
+            message=raw_dict.get("message"),
+        )
+
+
+@dataclass
 class RerankingProviderModel:
     """
     A representation of a reranking model as returned by the 'findRerankingProviders'
@@ -173,10 +212,12 @@ class RerankingProviderModel:
     Attributes:
         name: the model name as must be passed when issuing
             vectorize operations to the API.
+        is_default: a flag set by the Data API to mark a reranking model as the default.
+        url: an URL associated to invoking the reranking model.
+        properties: a free-form dictionary with string keys, describing the model.
         parameters: a list of the `RerankingProviderParameter` objects the model admits.
-        vector_dimension: an integer for the dimensionality of the reranking model.
-            if this is None, the dimension can assume multiple values as specified
-            by a corresponding parameter listed with the model.
+        api_model_support: the status of API support for the model, in the form
+            of a RerankingAPIModelSupport object.
     """
 
     name: str
@@ -184,6 +225,7 @@ class RerankingProviderModel:
     url: str | None
     properties: dict[str, Any] | None
     parameters: list[RerankingProviderParameter]
+    api_model_support: RerankingAPIModelSupport
 
     def __repr__(self) -> str:
         _default_desc = "<Default> " if self.is_default else ""
@@ -206,6 +248,7 @@ class RerankingProviderModel:
                     )
                     if self.parameters
                     else None,
+                    ("apiModelSupport", self.api_model_support.as_dict()),
                 ]
                 if pair is not None
             ]
@@ -227,6 +270,7 @@ class RerankingProviderModel:
                 "url",
                 "properties",
                 "parameters",
+                "apiModelSupport",
             },
         )
         return RerankingProviderModel(
@@ -238,6 +282,9 @@ class RerankingProviderModel:
                 RerankingProviderParameter._from_dict(param_dict)
                 for param_dict in raw_dict.get("parameters") or []
             ],
+            api_model_support=RerankingAPIModelSupport._from_dict(
+                raw_dict.get("apiModelSupport") or {},
+            ),
         )
 
 

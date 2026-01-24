@@ -1,3 +1,6 @@
+from typing_extensions import Self
+
+
 class Averager:
     """
     Class for robust averaging.
@@ -16,7 +19,7 @@ class Averager:
         self._n_samples = 0
         self._mean = 0.0
 
-    def __iadd__(self, value):
+    def __iadd__(self, value) -> Self:
         """
         += Operator
 
@@ -54,7 +57,7 @@ class Averager:
     def __itruediv__(self, number):
         return self.__idiv__(number)
 
-    def __idiv__(self, number):
+    def __idiv__(self, number) -> Self:
         """Divide by number.
 
         Parameter:

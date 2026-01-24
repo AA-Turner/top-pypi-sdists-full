@@ -15,7 +15,7 @@ from typing import Any, Callable, Final, Generic, Mapping, Protocol
 from typing_extensions import TypeVar
 
 import chz
-from chz.blueprint._argmap import ArgumentMap, Layer, join_arg_path
+from chz.blueprint._argmap import ArgumentMap, Layer, _FoundArgument, join_arg_path
 from chz.blueprint._argv import argv_to_blueprint_args
 from chz.blueprint._entrypoint import (
     ConstructionException,
@@ -36,13 +36,14 @@ from chz.field import Field
 from chz.tiepin import (
     CastError,
     _simplistic_try_cast,
+    _simplistic_type_of_value,
     eval_in_context,
     is_kwargs_unpack,
     is_subtype_instance,
     is_typed_dict,
     type_repr,
 )
-from chz.util import _MISSING_TYPE, MISSING
+from chz.util import MISSING, MISSING_TYPE
 
 _T = TypeVar("_T")
 _T_cov_def = TypeVar("_T_cov_def", covariant=True, default=Any)
@@ -84,6 +85,18 @@ class Reference(SpecialArg):
         return f"Reference({self.ref!r})"
 
 
+@dataclass(frozen=True, kw_only=True)
+class Computed(SpecialArg):
+    """A parameter computed from other parameters in a Blueprint."""
+
+    src: dict[str, Reference]
+    compute: Callable[..., Any]
+
+    def __repr__(self) -> str:
+        arg_str = ", ".join(f"{k}@={v.ref}" for k, v in self.src.items())
+        return f"Computed({arg_str})"
+
+
 @dataclass(frozen=True)
 class _MakeResult:
     # `value_mapping` is a dictionary mapping from parameter paths to Evaluatable values.
@@ -117,6 +130,62 @@ def _entrypoint_caster(o: str) -> object:
     raise chz.tiepin.CastError("Will not interpret entrypoint as a value")
 
 
+def _found_arg_desc(
+    r: _MakeResult,
+    found_arg: _FoundArgument | None,
+    *,
+    param_path: str,
+    param: _Param,
+    omit_redundant: bool = True,
+    color: bool = False,
+) -> str:
+    if found_arg is None:
+        if param_path in r.meta_factory_value:
+            found_arg_str = type_repr(r.meta_factory_value[param_path])
+            if color:
+                found_arg_str += " \033[90m(meta_factory)\033[0m"
+            else:
+                found_arg_str += " (meta_factory)"
+        elif param.default is not None:
+            found_arg_str = param.default.to_help_str()
+            if color:
+                found_arg_str += " \033[90m(default)\033[0m"
+            else:
+                found_arg_str += " (default)"
+        elif (
+            param.meta_factory is not None
+            and (factory := param.meta_factory.unspecified_factory()) is not None
+            and (factory is not param.type or not omit_redundant)
+        ):
+            if getattr(factory, "__name__", None) == "<lambda>":
+                found_arg_str = _lambda_repr(factory) or type_repr(factory)
+            else:
+                found_arg_str = type_repr(factory)
+            if color:
+                found_arg_str += " \033[90m(blueprint_unspecified)\033[0m"
+            else:
+                found_arg_str += " (blueprint_unspecified)"
+        else:
+            found_arg_str = "-"
+    else:
+        if isinstance(found_arg.value, Castable):
+            found_arg_str = repr(found_arg.value.value)[1:-1]
+        elif isinstance(found_arg.value, Reference):
+            found_arg_str = f"@={found_arg.value.ref}"
+        elif isinstance(found_arg.value, Computed):
+            arg_str = ", ".join(f"{k}@={v.ref}" for k, v in found_arg.value.src.items())
+            found_arg_str = f"f({arg_str})"
+        else:
+            found_arg_str = type_repr(found_arg.value)
+        if found_arg.layer_name:
+            if color:
+                found_arg_str += f" \033[90m(from \033[94m{found_arg.layer_name}\033[90m)\033[0m"
+            else:
+                found_arg_str += f" (from {found_arg.layer_name})"
+
+    return found_arg_str
+
+
 class Blueprint(Generic[_T_cov_def]):
     def __init__(
         self, target: chz.factories.MetaFactory | type[_T_cov_def] | Callable[..., _T_cov_def]
@@ -140,12 +209,12 @@ class Blueprint(Generic[_T_cov_def]):
 
             self.entrypoint_repr = type_repr(entrypoint_type)
         else:
-            self.meta_factory = chz.factories.standard(target)
+            self.meta_factory = chz.factories.standard(annotation=target)
             entrypoint_type = target
             if self.meta_factory.unspecified_factory() is None:
                 if not callable(target):
                     raise ValueError(f"{target} is not callable")
-                self.meta_factory = chz.factories.standard(object, unspecified=target)
+                self.meta_factory = chz.factories.standard(annotation=object, unspecified=target)
                 entrypoint_type = object
 
             self.entrypoint_repr = type_repr(target)
@@ -202,7 +271,10 @@ class Blueprint(Generic[_T_cov_def]):
         if strict:
             r = self._make_lazy()
             self._arg_map.check_extraneous(
-                r.used_args, r.all_params.keys(), entrypoint_repr=self.entrypoint_repr
+                r.used_args,
+                r.all_params.keys(),
+                make_result=r,
+                entrypoint_repr=self.entrypoint_repr,
             )
 
         return self
@@ -227,6 +299,8 @@ class Blueprint(Generic[_T_cov_def]):
         used_args: set[tuple[str, int]] = set()
         meta_factory_value: dict[str, Any] = {}
         missing_params: list[str] = []
+
+        self._arg_map.consolidate()
 
         value_mapping: dict[str, Evaluatable] | ConstructionIssue | None
         value_mapping = _construct_param(
@@ -264,7 +338,10 @@ class Blueprint(Generic[_T_cov_def]):
 
     def _make_from_make_result(self, r: _MakeResult) -> _T_cov_def:
         self._arg_map.check_extraneous(
-            r.used_args, r.all_params.keys(), entrypoint_repr=self.entrypoint_repr
+            r.used_args,
+            r.all_params.keys(),
+            make_result=r,
+            entrypoint_repr=self.entrypoint_repr,
         )
         check_reference_targets(r.value_mapping, r.all_params.keys())
         # Note we check for extraneous args first, so we get better errors for typos
@@ -308,7 +385,10 @@ class Blueprint(Generic[_T_cov_def]):
 
         try:
             self._arg_map.check_extraneous(
-                r.used_args, r.all_params.keys(), entrypoint_repr=self.entrypoint_repr
+                r.used_args,
+                r.all_params.keys(),
+                make_result=r,
+                entrypoint_repr=self.entrypoint_repr,
             )
         except ExtraneousBlueprintArg as e:
             output(f"WARNING: {e}\n")
@@ -341,48 +421,9 @@ class Blueprint(Generic[_T_cov_def]):
                 # If we're not using root polymorphism, skip this param
                 continue
 
-            if found_arg is None:
-                if param_path in r.meta_factory_value:
-                    found_arg_str = type_repr(r.meta_factory_value[param_path])
-                    if color:
-                        found_arg_str += " \033[90m(meta_factory)\033[0m"
-                    else:
-                        found_arg_str += " (meta_factory)"
-                elif param.default is not None:
-                    found_arg_str = param.default.to_help_str()
-                    if color:
-                        found_arg_str += " \033[90m(default)\033[0m"
-                    else:
-                        found_arg_str += " (default)"
-                elif (
-                    param.meta_factory is not None
-                    and (factory := param.meta_factory.unspecified_factory()) is not None
-                    and factory is not param.type
-                ):
-                    if getattr(factory, "__name__", None) == "<lambda>":
-                        found_arg_str = _lambda_repr(factory) or type_repr(factory)
-                    else:
-                        found_arg_str = type_repr(factory)
-                    if color:
-                        found_arg_str += " \033[90m(blueprint_unspecified)\033[0m"
-                    else:
-                        found_arg_str += " (blueprint_unspecified)"
-                else:
-                    found_arg_str = "-"
-            else:
-                if isinstance(found_arg.value, Castable):
-                    found_arg_str = repr(found_arg.value.value)[1:-1]
-                elif isinstance(found_arg.value, Reference):
-                    found_arg_str = f"@={found_arg.value.ref}"
-                else:
-                    found_arg_str = type_repr(found_arg.value)
-                if found_arg.layer_name:
-                    if color:
-                        found_arg_str += (
-                            f" \033[90m(from \033[94m{found_arg.layer_name}\033[90m)\033[0m"
-                        )
-                    else:
-                        found_arg_str += f" (from {found_arg.layer_name})"
+            found_arg_str = _found_arg_desc(
+                r, found_arg, param_path=param_path, param=param, color=color
+            )
 
             param_output.append(
                 (param_path or "<entrypoint>", type_repr(param.type), found_arg_str, param.doc)
@@ -456,8 +497,8 @@ def _lambda_repr(fn) -> str | None:
 
 @dataclass(frozen=True, kw_only=True)
 class _Default:
-    value: Any | _MISSING_TYPE
-    factory: Callable[..., Any] | _MISSING_TYPE
+    value: Any | MISSING_TYPE
+    factory: Callable[..., Any] | MISSING_TYPE
 
     def to_help_str(self) -> str:
         if self.factory is not MISSING:
@@ -472,7 +513,7 @@ class _Default:
         return ret
 
     def instantiate(self) -> Any:
-        if not isinstance(self.factory, _MISSING_TYPE):
+        if not isinstance(self.factory, MISSING_TYPE):
             return self.factory()
         return self.value
 
@@ -515,88 +556,246 @@ class _Param:
         return _simplistic_try_cast(value, self.type)
 
 
-def _collect_params(obj) -> list[_Param] | ConstructionIssue:
-    obj_origin = getattr(obj, "__origin__", obj)  # handle generic chz classes
+def _get_variadic_elements(obj_path: str, arg_map: ArgumentMap) -> set[str]:
+    elements = set()
+    for subpath in arg_map.subpaths(obj_path, strict=True):
+        assert subpath
+        if subpath[0] != ".":
+            element = subpath.split(".")[0]
+            assert element
+            elements.add(element)
+    return elements
 
-    params: list[_Param] = []
-    if chz.is_chz(obj_origin):
-        for field in chz.chz_fields(obj_origin).values():
-            params.append(
-                _Param(
-                    name=field.logical_name,
-                    type=field.x_type,
-                    meta_factory=field.meta_factory,
-                    default=_Default.from_field(field),
-                    doc=field._doc,
-                    blueprint_cast=field._blueprint_cast,
-                    metadata=(field.metadata or {}),
-                )
+
+def _collect_params_from_chz(
+    obj: Any, obj_path: str, arg_map: ArgumentMap
+) -> tuple[list[_Param], Callable[..., Any], list[Any]]:
+    obj_origin = getattr(obj, "__origin__", obj)
+    params = []
+    for field in chz.chz_fields(obj_origin).values():
+        params.append(
+            _Param(
+                name=field.logical_name,
+                type=field.x_type,
+                meta_factory=field.meta_factory,
+                default=_Default.from_field(field),
+                doc=field._doc,
+                blueprint_cast=field._blueprint_cast,
+                metadata=(field.metadata or {}),
             )
-        return params
+        )
+    return params, obj, []
 
-    if "enum" in sys.modules:
-        import enum
 
-        if type(obj) is enum.EnumMeta:
-            return ConstructionIssue(f"Cannot collect parameters from Enum class {obj.__name__}")
+def _collect_params_from_sequence(
+    obj: Any, obj_path: str, arg_map: ArgumentMap
+) -> tuple[list[_Param], Callable[..., Any], list[Any]]:
+    elements = _get_variadic_elements(obj_path, arg_map)
+    max_element = max((int(e) for e in elements), default=-1)
 
-    if isinstance(obj, functools.partial) and chz.is_chz(obj.func):
-        if obj.args:
-            return ConstructionIssue(
-                f"Cannot collect parameters from partial function of chz class "
-                f"{type_repr(obj.func)} with positional arguments"
-            )
-        ret = _collect_params(obj.func)
-        if isinstance(ret, ConstructionIssue):
-            return ret
-        for param in ret:
-            if param.name in obj.keywords:
-                param = dataclasses.replace(
-                    param, default=_Default(value=obj.keywords[param.name], factory=MISSING)
-                )
-            params.append(param)
-        return params
+    obj_origin = getattr(obj, "__origin__", obj)
+    obj_type_construct = obj_origin
 
-    if callable(obj):
-        try:
-            signature = inspect.signature(obj)
-        except ValueError:
-            return ConstructionIssue(f"Failed to get signature for {obj.__name__}")
-        for i, (name, sigparam) in enumerate(signature.parameters.items()):
-            if sigparam.kind == sigparam.POSITIONAL_ONLY:
-                if sigparam.default is sigparam.empty:
-                    return ConstructionIssue(
-                        f"Cannot construct {obj.__name__} because it has positional-only "
-                        f"parameter {name} without a default"
+    type_for_index: Callable[[int], type]
+    if obj_origin is list:
+        element_type = getattr(obj, "__args__", [object])[0]
+        type_for_index = lambda i: element_type
+        variadic_types = [element_type]
+
+    elif obj_origin is collections.abc.Sequence:
+        element_type = getattr(obj, "__args__", [object])[0]
+        type_for_index = lambda i: element_type
+        variadic_types = [element_type]
+        obj_type_construct = tuple
+
+    elif obj_origin is tuple:
+        args: tuple[Any, ...] | None = getattr(obj, "__args__", None)
+        if args is None:
+            args = (Any, ...)
+
+        if len(args) == 2 and args[-1] is ...:
+            # homogeneous tuple
+            type_for_index = lambda i: args[0]
+            variadic_types = [args[0]]
+        else:
+            # heterogeneous tuple
+            if max_element >= len(args):
+                raise TypeError(
+                    f"Tuple type {obj} for {obj_path!r} must take {len(args)} items; "
+                    f"arguments for index {max_element} were specified"
+                    + (
+                        f". Homogeneous tuples should be typed as tuple[{type_repr(args[0])}, ...] not tuple[{type_repr(args[0])}]"
+                        if len(args) == 1
+                        else ""
                     )
-                continue
-            if sigparam.kind == sigparam.VAR_POSITIONAL:
-                return ConstructionIssue(
-                    f"Cannot collect parameters from {obj.__name__} due to *args parameter {name}"
                 )
+            type_for_index = lambda i: args[i]
+            variadic_types = list(args)
+    else:
+        raise AssertionError
 
-            param_annot: Any
-            if sigparam.annotation is sigparam.empty:
-                if i == 0 and "." in obj.__qualname__:
-                    # potentially first parameter of a method, default the annotation to the class
-                    try:
-                        cls = getattr(inspect.getmodule(obj), obj.__qualname__.rsplit(".", 1)[0])
-                        param_annot = cls
-                    except Exception:
-                        param_annot = object
-                else:
+    params = []
+    for i in range(max_element + 1):
+        element_type = type_for_index(i)
+        params.append(
+            _Param(
+                name=str(i),
+                type=element_type,
+                meta_factory=chz.factories.standard(annotation=element_type),
+                default=None,
+                doc="",
+                blueprint_cast=None,
+                metadata={},
+            )
+        )
+
+    def sequence_constructor(**kwargs):
+        return obj_type_construct(kwargs[str(i)] for i in range(max_element + 1))
+
+    obj_constructor = sequence_constructor
+    return params, obj_constructor, variadic_types
+
+
+def _collect_params_from_mapping(
+    obj: Any, obj_path: str, arg_map: ArgumentMap
+) -> tuple[list[_Param], Callable[..., Any], list[Any]] | ConstructionIssue:
+    elements = _get_variadic_elements(obj_path, arg_map)
+    args: tuple[Any, ...] = getattr(obj, "__args__", ())
+    if len(args) == 0:
+        element_type = object
+        key_type = str
+    elif len(args) == 2:
+        if args[0] not in (str, int):
+            if elements:
+                raise TypeError(
+                    f"Variadic dict type must take str or int keys, not {type_repr(args[0])}"
+                )
+            return ConstructionIssue(
+                f"Variadic dict type must take str or int keys, not {type_repr(args[0])}"
+            )
+        key_type = args[0]
+        element_type = args[1]
+    else:
+        raise TypeError(f"Dict type {obj} must take 0 or 2 items")
+
+    params = []
+    for element in elements:
+        params.append(
+            _Param(
+                name=element,
+                type=element_type,
+                meta_factory=chz.factories.standard(annotation=element_type),
+                default=None,
+                doc="",
+                blueprint_cast=None,
+                metadata={},
+            )
+        )
+
+    def _dict(**kwargs) -> dict[int | str, Any]:
+        return {key_type(k): v for k, v in kwargs.items()}
+
+    return params, _dict, [element_type]
+
+
+def _collect_params_from_typed_dict(
+    obj: Any, obj_path: str, arg_map: ArgumentMap
+) -> tuple[list[_Param], Callable[..., Any], list[Any]]:
+    obj_origin = getattr(obj, "__origin__", obj)
+    params = []
+    variadic_types = []
+    for key, annotation in typing.get_type_hints(obj_origin).items():
+        required = key in obj_origin.__required_keys__
+
+        params.append(
+            _Param(
+                name=key,
+                type=annotation,
+                meta_factory=chz.factories.standard(annotation=annotation),
+                # Mark the default as NotRequired to improve --help output
+                # We don't actually use the default values in Blueprint since we let
+                # instantiation handle insertion of default values
+                default=(None if required else _Default(value=typing.NotRequired, factory=MISSING)),
+                doc="",
+                blueprint_cast=None,
+                metadata={},
+            )
+        )
+        variadic_types.append(annotation)
+
+    return params, obj_origin, variadic_types
+
+
+def _collect_params_from_callable(
+    obj: Any, obj_path: str, arg_map: ArgumentMap
+) -> tuple[list[_Param], Callable[..., Any], list[Any]] | ConstructionIssue:
+    # Note you probably don't want to call this if obj is a primitive
+    try:
+        signature = inspect.signature(obj)
+    except ValueError:
+        return ConstructionIssue(f"Failed to get signature for {obj.__name__}")
+
+    obj_constructor = obj
+    has_pos_only = False
+    has_pos_or_kwarg = False
+    elements: set[str] | None = None
+    params = []
+    for i, (name, sigparam) in enumerate(signature.parameters.items()):
+        param_annot: Any
+        if sigparam.annotation is sigparam.empty:
+            if i == 0 and "." in obj.__qualname__:
+                # potentially first parameter of a method, default the annotation to the class
+                try:
+                    cls = getattr(inspect.getmodule(obj), obj.__qualname__.rsplit(".", 1)[0])
+                    param_annot = cls
+                except Exception:
                     param_annot = object
             else:
-                param_annot = sigparam.annotation
-            if isinstance(param_annot, str):
+                param_annot = object
+        else:
+            param_annot = sigparam.annotation
+        if isinstance(param_annot, str):
+            try:
                 param_annot = eval_in_context(param_annot, obj)
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to evaluate parameter {name}: {param_annot} in signature {signature} of object {obj}"
+                ) from e
 
-            if sigparam.kind == sigparam.VAR_KEYWORD:
-                if not is_kwargs_unpack(param_annot):
-                    return ConstructionIssue(
-                        f"Cannot collect parameters from {obj.__name__} due to "
-                        f"**kwargs parameter {name}. Only Unpack[TypedDict] is supported."
+        if sigparam.kind == sigparam.POSITIONAL_ONLY:
+            has_pos_only = True
+            name = str(i)
+
+        if sigparam.kind == sigparam.POSITIONAL_OR_KEYWORD:
+            has_pos_or_kwarg = True
+
+        if sigparam.kind == sigparam.VAR_POSITIONAL:
+            if elements is None:
+                elements = _get_variadic_elements(obj_path, arg_map)
+
+            max_element = max((int(e) for e in elements if e.isdigit()), default=-1)
+            if has_pos_or_kwarg and max_element >= 0:
+                return ConstructionIssue(
+                    "Cannot collect parameters with both positional-or-keyword and variadic positional parameters"
+                )
+
+            has_pos_only = True
+            for j in range(i, max_element + 1):
+                params.append(
+                    _Param(
+                        name=str(j),
+                        type=param_annot,
+                        meta_factory=chz.factories.standard(annotation=param_annot),
+                        default=None,
+                        doc="",
+                        blueprint_cast=None,
+                        metadata={},
                     )
+                )
+            continue
+
+        if sigparam.kind == sigparam.VAR_KEYWORD:
+            if is_kwargs_unpack(param_annot):
                 if len(param_annot.__args__) != 1 or not is_typed_dict(param_annot.__args__[0]):
                     return ConstructionIssue(
                         f"Cannot collect parameters from {obj.__name__}, expected Unpack[TypedDict], not {param_annot}"
@@ -607,178 +806,126 @@ def _collect_params(obj) -> list[_Param] | ConstructionIssue:
                         _Param(
                             name=key,
                             type=annotation,
-                            meta_factory=chz.factories.standard(annotation),
+                            meta_factory=chz.factories.standard(annotation=annotation),
                             default=None,
                             doc="",
                             blueprint_cast=None,
                             metadata={},
                         )
                     )
-                continue
+            else:
+                if elements is None:
+                    elements = _get_variadic_elements(obj_path, arg_map)
 
-            # It could be interesting to let function defaults be chz.Field :-)
-            # TODO: could be fun to parse function docstring
-            params.append(
-                _Param(
-                    name=name,
-                    type=param_annot,
-                    meta_factory=chz.factories.standard(param_annot),
-                    default=_Default.from_inspect_param(sigparam),
-                    doc="",
-                    blueprint_cast=None,
-                    metadata={},
-                )
+                for element in elements - {p.name for p in params}:
+                    params.append(
+                        _Param(
+                            name=element,
+                            type=param_annot,
+                            meta_factory=chz.factories.standard(annotation=param_annot),
+                            default=None,
+                            doc="",
+                            blueprint_cast=None,
+                            metadata={},
+                        )
+                    )
+            continue
+
+        # It could be interesting to let function defaults be chz.Field :-)
+        # TODO: could be fun to parse function docstring
+        params.append(
+            _Param(
+                name=name,
+                type=param_annot,
+                meta_factory=chz.factories.standard(annotation=param_annot),
+                default=_Default.from_inspect_param(sigparam),
+                doc="",
+                blueprint_cast=None,
+                metadata={},
             )
-        # Note params may be empty here if obj doesn't take any parameters.
-        # This is usually okay, but has some interaction with fully defaulted subcomponents.
-        # See test_nested_all_defaults and variants
-        return params
+        )
+
+    if has_pos_only:
+
+        def positional_constructor(**kwargs):
+            a = []
+            kw = {}
+            for k, v in kwargs.items():
+                if k.isdigit():
+                    a.append((int(k), v))
+                else:
+                    kw[k] = v
+            a = [v for _, v in sorted(a)]
+            return obj(*a, **kw)
+
+        obj_constructor = positional_constructor
+
+    # Note params may be empty here if obj doesn't take any parameters.
+    # This is usually okay, but has some interaction with fully defaulted subcomponents.
+    # See test_nested_all_defaults and variants
+    return params, obj_constructor, []
+
+
+def _collect_params(
+    obj: Any, obj_path: str, arg_map: ArgumentMap
+) -> (
+    ConstructionIssue
+    | tuple[
+        list[_Param],  # params discovered
+        Callable[..., Any],  # constructor to call
+        list[Any],  # vaguely like [p.type for p in params], used only for sanity checking
+    ]
+):
+    obj_origin = getattr(obj, "__origin__", obj)
+
+    if chz.is_chz(obj_origin):
+        return _collect_params_from_chz(obj, obj_path, arg_map)
+
+    if isinstance(obj, functools.partial) and chz.is_chz(obj.func):
+        if obj.args:
+            return ConstructionIssue(
+                f"Cannot collect parameters from partial function of chz class "
+                f"{type_repr(obj.func)} with positional arguments"
+            )
+        result = _collect_params(obj.func, obj_path, arg_map)
+        if isinstance(result, ConstructionIssue):
+            return result
+
+        params, _constructor, variadic_types = result
+        new_params = []
+        for param in params:
+            if param.name in obj.keywords:
+                # The actual value of the default should only matter for --help output
+                param = dataclasses.replace(
+                    param, default=_Default(value=obj.keywords[param.name], factory=MISSING)
+                )
+            new_params.append(param)
+        return new_params, obj, variadic_types
+
+    if obj_origin in {list, tuple, collections.abc.Sequence}:
+        return _collect_params_from_sequence(obj, obj_path, arg_map)
+
+    if obj_origin in {dict, collections.abc.Mapping}:
+        return _collect_params_from_mapping(obj, obj_path, arg_map)
+
+    if is_typed_dict(obj_origin):
+        return _collect_params_from_typed_dict(obj, obj_path, arg_map)
+
+    if obj_origin in {bool, int, float, str, bytes, None, type(None)}:
+        return ConstructionIssue("Cannot collect parameters from primitive")
+
+    if "enum" in sys.modules:
+        import enum
+
+        if type(obj) is enum.EnumMeta:
+            return ConstructionIssue("Cannot collect parameters from Enum class")
+
+    if callable(obj):
+        return _collect_params_from_callable(obj, obj_path, arg_map)
 
     return ConstructionIssue(
         f"Could not collect parameters to construct {obj} of type {type_repr(obj)}"
     )
-
-
-def _collect_variadic_params(
-    obj: object, obj_path: str, arg_map: ArgumentMap
-) -> tuple[list[_Param], Callable[..., Any], list[Any]] | None:
-    obj_origin: Any = getattr(obj, "__origin__", obj)
-    if obj_origin not in {
-        list,
-        tuple,
-        collections.abc.Sequence,
-        dict,
-        collections.abc.Mapping,
-    } and not is_typed_dict(obj_origin):
-        return None
-
-    elements = set()
-    for subpath in arg_map.subpaths(obj_path, strict=True):
-        assert subpath
-        if subpath[0] != ".":
-            element = subpath.split(".")[0]
-            assert element
-            elements.add(element)
-
-    if obj_origin in {list, tuple, collections.abc.Sequence}:
-        max_element = max((int(e) for e in elements), default=-1)
-        obj_type_construct = obj_origin
-
-        type_for_index: Callable[[int], type]
-        if obj_origin is list:
-            element_type = getattr(obj, "__args__", [object])[0]
-            type_for_index = lambda i: element_type
-            variadic_types = [element_type]
-
-        elif obj_origin is collections.abc.Sequence:
-            element_type = getattr(obj, "__args__", [object])[0]
-            type_for_index = lambda i: element_type
-            variadic_types = [element_type]
-            obj_type_construct = tuple
-
-        elif obj_origin is tuple:
-            args: tuple[Any, ...] = getattr(obj, "__args__", ())
-            if len(args) == 2 and args[-1] is ...:
-                # homogeneous tuple
-                type_for_index = lambda i: args[0]
-                variadic_types = [args[0]]
-            else:
-                # heterogeneous tuple
-                if max_element >= len(args):
-                    raise TypeError(
-                        f"Tuple type {obj} for {obj_path!r} must take {len(args)} items; "
-                        f"arguments for index {max_element} were specified"
-                        + (
-                            f". Homogeneous tuples should be typed as tuple[{type_repr(args[0])}, ...] not tuple[{type_repr(args[0])}]"
-                            if len(args) == 1
-                            else ""
-                        )
-                    )
-                type_for_index = lambda i: args[i]
-                variadic_types = list(args)
-        else:
-            raise AssertionError
-
-        params: list[_Param] = []
-        for i in range(max_element + 1):
-            element_type = type_for_index(i)
-            params.append(
-                _Param(
-                    name=str(i),
-                    type=element_type,
-                    meta_factory=chz.factories.standard(element_type),
-                    default=None,
-                    doc="",
-                    blueprint_cast=None,
-                    metadata={},
-                )
-            )
-
-        def sequence_constructor(**kwargs):
-            return obj_type_construct(kwargs[str(i)] for i in range(max_element + 1))
-
-        obj_constructor = sequence_constructor
-        return params, obj_constructor, variadic_types
-
-    elif obj_origin in {dict, collections.abc.Mapping}:
-        args = getattr(obj, "__args__", ())
-        if len(args) == 0:
-            element_type = object
-        elif len(args) == 2:
-            if args[0] is not str:
-                if elements:
-                    raise TypeError(
-                        f"Variadic dict type must take str keys, not {type_repr(args[0])}"
-                    )
-                return None
-            element_type = args[1]
-        else:
-            raise TypeError(f"Dict type {obj} must take 0 or 2 items")
-
-        params = []
-        for element in elements:
-            params.append(
-                _Param(
-                    name=element,
-                    type=element_type,
-                    meta_factory=chz.factories.standard(element_type),
-                    default=None,
-                    doc="",
-                    blueprint_cast=None,
-                    metadata={},
-                )
-            )
-
-        return params, dict, [element_type]
-
-    elif is_typed_dict(obj_origin):
-        params = []
-        variadic_types = []
-        for key, annotation in typing.get_type_hints(obj_origin).items():
-            required = key in obj_origin.__required_keys__
-
-            params.append(
-                _Param(
-                    name=key,
-                    type=annotation,
-                    meta_factory=chz.factories.standard(annotation),
-                    # Mark the default as NotRequired to improve --help output
-                    # We don't actually use the default values in Blueprint since we let
-                    # instantiation handle insertion of default values
-                    default=(
-                        None if required else _Default(value=typing.NotRequired, factory=MISSING)
-                    ),
-                    doc="",
-                    blueprint_cast=None,
-                    metadata={},
-                )
-            )
-            variadic_types.append(annotation)
-
-        return params, obj_origin, variadic_types
-
-    else:
-        raise AssertionError
 
 
 _K = TypeVar("_K")
@@ -808,17 +955,13 @@ def _construct_factory(
     meta_factory_value: _WriteOnlyMapping[str, Any],
     missing_params: list[str],
 ) -> dict[str, Evaluatable] | ConstructionIssue:
-    obj_constructor = obj
-    result = _collect_variadic_params(obj, obj_path, arg_map)
-    params: list[_Param] | ConstructionIssue
-    if result is not None:
-        params, obj_constructor, _ = result
-    else:
-        params = _collect_params(obj)
+    result = _collect_params(obj, obj_path, arg_map)
     del obj
 
-    if isinstance(params, ConstructionIssue):
-        return params
+    if isinstance(result, ConstructionIssue):
+        return result
+
+    params, obj_constructor, _ = result
 
     # Ideas:
 
@@ -917,7 +1060,13 @@ def _construct_unspecified_param(
                     chz.is_chz(factory)
                     or (isinstance(factory, functools.partial) and chz.is_chz(factory.func))
                 )
-                and all(p.default is not None for p in sub_all_params.values())
+                and (
+                    all(
+                        p.default is not None
+                        for path, p in sub_all_params.items()
+                        if "." not in path.removeprefix(param_path + ".")
+                    )
+                )
             ):
                 assert not sub_missing_params
                 meta_factory_value[param_path] = factory
@@ -999,6 +1148,47 @@ def _construct_param(
         if not (param.meta_factory is not None and arg_map.subpaths(param_path, strict=True)):
             # TODO: deep copy?
             return {param_path: Value(spec)}
+
+    # ..or if it's a Reference to some other parameter
+    if isinstance(spec, Reference):
+        if spec.ref == param_path:
+            # If it's a self reference, treat it as if it were unspecified
+            value_mapping = _construct_unspecified_param(
+                param,
+                param_path=param_path,
+                arg_map=arg_map,
+                all_params=all_params,
+                used_args=used_args,
+                meta_factory_value=meta_factory_value,
+                missing_params=missing_params,
+            )
+            if isinstance(value_mapping, ConstructionIssue):
+                return value_mapping
+            if value_mapping is None and param.default is not None:
+                # See test_blueprint_reference_wildcard_default
+                # TODO: this is the only place we instantiate a default
+                default = param.default.instantiate()
+                return {param_path: Value(default)}
+            return value_mapping
+
+        return {param_path: ParamRef(spec.ref)}
+
+    elif isinstance(spec, Computed):
+        # If it inherits from a set of other parameters
+        if param_path in {spec.ref for spec in spec.src.values()}:
+            # Same as the unspecified param case
+            return _construct_unspecified_param(
+                param,
+                param_path=param_path,
+                arg_map=arg_map,
+                all_params=all_params,
+                used_args=used_args,
+                meta_factory_value=meta_factory_value,
+                missing_params=missing_params,
+            )
+        else:
+            kwargs = {k: ParamRef(v.ref) for k, v in spec.src.items()}
+            return {param_path: Thunk(kwargs=kwargs, fn=spec.compute)}
 
     # Otherwise, we see if we can cast it to the expected type:
     # `attr = trycast(spec.value, param.type)`
@@ -1110,8 +1300,18 @@ def _construct_param(
             f"Expected {param_path!r} to be castable to {type_repr(param.type)}, got {spec.value!r}"
         )
 
+    if not isinstance(spec, SpecialArg) and is_subtype_instance(spec, param.type):
+        if param.meta_factory is not None:
+            subpaths = arg_map.subpaths(param_path, strict=True)
+            if subpaths:
+                raise InvalidBlueprintArg(
+                    f"Could not interpret {spec!r} provided for param {param_path!r} "
+                    f"as a value, since subparameters were provided "
+                    f"(e.g. {join_arg_path(param_path, subpaths[0])!r})"
+                )
+
     raise TypeError(
-        f"Expected {param_path!r} to be {type_repr(param.type)}, got {type_repr(type(spec))}"
+        f"Expected {param_path!r} to be {type_repr(param.type)}, got {type_repr(_simplistic_type_of_value(spec))}"
     )
 
 
@@ -1124,9 +1324,10 @@ def _check_for_wildcard_matching_variadic_top_level(
     ) or param.default.factory in {tuple, list, dict}:
         return
 
-    result = _collect_variadic_params(obj, obj_path, arg_map)
-    if result is None:
+    result = _collect_params(obj, obj_path, arg_map)
+    if isinstance(result, ConstructionIssue):
         return
+
     variadic_params, _, variadic_types = result
     if variadic_params:
         return
@@ -1134,7 +1335,7 @@ def _check_for_wildcard_matching_variadic_top_level(
         variadic_types = list(
             set(variadic_types) | {type(element) for element in param.default.value}
         )
-    if isinstance(param.default.value, dict):
+    elif isinstance(param.default.value, dict):
         variadic_types = list(
             set(variadic_types) | {type(element) for element in param.default.value.values()}
         )
@@ -1152,9 +1353,10 @@ def _check_for_wildcard_matching_variadic_top_level(
     # are opaque and have no interaction with wildcards beyond their presence or absence).
     # See test_variadic_default_wildcard_error
     for element_type in variadic_types:
-        subparams = _collect_params(element_type)
-        if isinstance(subparams, ConstructionIssue):
+        result = _collect_params(element_type, obj_path + ".__chz_empty_variadic", arg_map)
+        if isinstance(result, ConstructionIssue):
             continue
+        subparams, _, _ = result
         for subparam in subparams:
             param_path = obj_path + ".__chz_empty_variadic." + subparam.name
             found_arg = arg_map.get_kv(param_path)

@@ -90,7 +90,7 @@ def sparse_chunk(
                     "soma_dim_0": new_dim0,
                     "soma_dim_1": new_dim1,
                     "soma_data": tbl["soma_data"],
-                }
+                },
             )
             new_tbls.append(new_tbl)
         cm = CompressedMatrix.from_soma(
@@ -100,8 +100,7 @@ def sparse_chunk(
             make_sorted=True,
             context=soma_ctx,
         )
-        csx = cm.to_scipy()
-        return csx
+        return cm.to_scipy()
 
 
 def load_daskarray(
@@ -113,7 +112,7 @@ def load_daskarray(
     format: Format = "csr",
     result_order: ResultOrderStr = ResultOrder.AUTO,
     platform_config: PlatformConfig | None = None,
-) -> "da.Array":
+) -> da.Array:
     """Load a TileDB-SOMA X layer as a Dask array."""
     import dask.array as da
 
@@ -130,8 +129,8 @@ def load_daskarray(
         obs_chunk_size = chunk_size
         var_chunk_size = nvar
     else:
-        _obs_chunk_size, var_chunk_size = chunk_size
-        obs_chunk_size = _obs_chunk_size or nobs
+        obs_chunk_size_, var_chunk_size = chunk_size
+        obs_chunk_size = obs_chunk_size_ or nobs
 
     obs_chunk_joinids, obs_chunk_sizes = chunk_ids_sizes(obs_ids, obs_chunk_size, nobs)
     var_chunk_joinids, var_chunk_sizes = chunk_ids_sizes(var_ids, var_chunk_size, nvar)
@@ -149,11 +148,7 @@ def load_daskarray(
             tiledb_config = layer.context.tiledb_config
 
         chunk_joinids = da.from_array(arr, chunks=(1, 1))
-        meta = (
-            sp.csr_matrix((0, 0), dtype=dtype)
-            if format == "csr"
-            else sp.csc_matrix((0, 0), dtype=dtype)
-        )
+        meta = sp.csr_matrix((0, 0), dtype=dtype) if format == "csr" else sp.csc_matrix((0, 0), dtype=dtype)
         X = da.map_blocks(
             sparse_chunk,
             chunk_joinids,
@@ -168,7 +163,5 @@ def load_daskarray(
         )
     else:
         # TODO: combine with Spatial DenseNDArray Dask code
-        raise NotImplementedError(
-            f"Dask-loading not implemented yet for DenseNDArray ({layer.uri})"
-        )
+        raise NotImplementedError(f"Dask-loading not implemented yet for DenseNDArray ({layer.uri})")
     return X

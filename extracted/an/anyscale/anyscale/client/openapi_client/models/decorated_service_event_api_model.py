@@ -38,7 +38,7 @@ class DecoratedServiceEventAPIModel(object):
         'event_type': 'ServiceEventType',
         'current_state': 'ServiceEventCurrentState',
         'goal_state': 'ServiceGoalStates',
-        'level': 'ServiceEventLevel',
+        'level': 'EventLevel',
         'message': 'str',
         'origin': 'ServiceEventOrigin',
         'service_id': 'str',
@@ -244,7 +244,7 @@ class DecoratedServiceEventAPIModel(object):
 
 
         :return: The level of this DecoratedServiceEventAPIModel.  # noqa: E501
-        :rtype: ServiceEventLevel
+        :rtype: EventLevel
         """
         return self._level
 
@@ -254,7 +254,7 @@ class DecoratedServiceEventAPIModel(object):
 
 
         :param level: The level of this DecoratedServiceEventAPIModel.  # noqa: E501
-        :type: ServiceEventLevel
+        :type: EventLevel
         """
 
         self._level = level

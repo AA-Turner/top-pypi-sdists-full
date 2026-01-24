@@ -9,30 +9,30 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 
-class GroupMappingType(TypedDict):
-    """GroupMapping
+class DependabotPublicKeyType(TypedDict):
+    """DependabotPublicKey
 
-    External Groups to be mapped to a team for membership
+    The public key used for setting Dependabot Secrets.
     """
 
-    groups: NotRequired[list[GroupMappingPropGroupsItemsType]]
+    key_id: str
+    key: str
 
 
-class GroupMappingPropGroupsItemsType(TypedDict):
-    """GroupMappingPropGroupsItems"""
+class DependabotPublicKeyTypeForResponse(TypedDict):
+    """DependabotPublicKey
 
-    group_id: str
-    group_name: str
-    group_description: str
-    status: NotRequired[str]
-    synced_at: NotRequired[Union[str, None]]
+    The public key used for setting Dependabot Secrets.
+    """
+
+    key_id: str
+    key: str
 
 
 __all__ = (
-    "GroupMappingPropGroupsItemsType",
-    "GroupMappingType",
+    "DependabotPublicKeyType",
+    "DependabotPublicKeyTypeForResponse",
 )

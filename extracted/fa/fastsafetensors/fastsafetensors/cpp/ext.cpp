@@ -1,7 +1,4 @@
-/*
- * Copyright 2024 IBM Inc. All rights reserved
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-License-Identifier: Apache-2.0
 
 #include <fcntl.h>
 #include <cstring>
@@ -9,12 +6,16 @@
 #include <sys/mman.h>
 #include <chrono>
 #include <dlfcn.h>
+#include <cstdlib>
+#include <algorithm>
 
+#include "cuda_compat.h"
 #include "ext.hpp"
 
 #define ALIGN 4096
 
 static bool debug_log = false;
+static bool enable_gil_release = false;
 
 static cpp_metrics_t mc = {.bounce_buffer_bytes = 0};
 
@@ -78,6 +79,7 @@ ext_funcs_t cpu_fns = ext_funcs_t {
 ext_funcs_t cuda_fns;
 
 static bool cuda_found = false;
+static bool is_hip_runtime = false;  // Track if we loaded HIP (not auto-hipified)
 static bool cufile_found = false;
 
 static int cufile_ver = 0;
@@ -86,10 +88,10 @@ template <typename T> void mydlsym(T** h, void* lib, std::string const& name) {
     *h = reinterpret_cast<T*>(dlsym(lib, name.c_str()));
 }
 
-static void load_nvidia_functions() {
+static void load_library_functions() {
     cudaError_t (*cudaGetDeviceCount)(int*);
     const char* cufileLib = "libcufile.so.0";
-    const char* cudartLib = "libcudart.so";
+    const char* cudartLib = GPU_RUNTIME_LIB;
     const char* numaLib = "libnuma.so.1";
     bool init_log = getenv(ENV_ENABLE_INIT_LOG);
     int mode = RTLD_LAZY | RTLD_GLOBAL | RTLD_NODELETE;
@@ -122,8 +124,12 @@ static void load_nvidia_functions() {
                 count = 0; // why cudaGetDeviceCount returns non-zero for errors?
             }
             cuda_found = count > 0;
+            // Detect if we loaded HIP runtime (ROCm) vs CUDA runtime
+            if (cuda_found && std::string(cudartLib).find("hip") != std::string::npos) {
+                is_hip_runtime = true;
+            }
             if (init_log) {
-                fprintf(stderr, "[DEBUG] device count=%d, cuda_found=%d\n", count, cuda_found);
+                fprintf(stderr, "[DEBUG] device count=%d, cuda_found=%d, is_hip_runtime=%d\n", count, cuda_found, is_hip_runtime);
             }
         } else {
             cuda_found = false;
@@ -139,7 +145,13 @@ static void load_nvidia_functions() {
             mydlsym(&cuda_fns.cudaDeviceGetPCIBusId, handle_cudart, "cudaDeviceGetPCIBusId");
             mydlsym(&cuda_fns.cudaDeviceMalloc, handle_cudart, "cudaMalloc");
             mydlsym(&cuda_fns.cudaDeviceFree, handle_cudart, "cudaFree");
-            bool success = cuda_fns.cudaMemcpy && cuda_fns.cudaDeviceSynchronize && cuda_fns.cudaHostAlloc && cuda_fns.cudaFreeHost && cuda_fns.cudaDeviceGetPCIBusId && cuda_fns.cudaDeviceMalloc && cuda_fns.cudaDeviceFree;
+            mydlsym(&cuda_fns.cudaDriverGetVersion, handle_cudart, "cudaDriverGetVersion");
+            mydlsym(&cuda_fns.cudaDeviceGetAttribute, handle_cudart, "cudaDeviceGetAttribute");
+            bool success = cuda_fns.cudaMemcpy && cuda_fns.cudaDeviceSynchronize;
+            success = success && cuda_fns.cudaHostAlloc && cuda_fns.cudaFreeHost;
+            success = success && cuda_fns.cudaDeviceGetPCIBusId && cuda_fns.cudaDeviceMalloc;
+            success = success && cuda_fns.cudaDeviceFree && cuda_fns.cudaDriverGetVersion;
+            success = success && cuda_fns.cudaDeviceGetAttribute;
             if (!success) {
                 cuda_found = false;
                 if (init_log) {
@@ -150,6 +162,8 @@ static void load_nvidia_functions() {
             }
         }
         dlclose(handle_cudart);
+    } else if (init_log) {
+        fprintf(stderr, "[DEBUG] %s is not installed. fallback\n", cudartLib);
     }
     if (!cuda_found) {
         cuda_fns.cudaMemcpy = cpu_cudaMemcpy;
@@ -217,9 +231,26 @@ static void load_nvidia_functions() {
     }
 }
 
+// Note: is_cuda_found gets auto-hipified to is_hip_found on ROCm builds
+// So this function will be is_hip_found() after hipification on ROCm
 bool is_cuda_found()
 {
     return cuda_found;
+}
+
+// Separate function that always returns false on ROCm (CUDA not available on ROCm)
+// This will be used for the "is_cuda_found" Python export on ROCm builds
+bool cuda_not_available()
+{
+    return false;  // On ROCm, CUDA is never available
+}
+
+// Separate function for checking HIP runtime detection (not hipified)
+// On CUDA: checks if HIP runtime was detected
+// On ROCm: not used (is_cuda_found gets hipified to is_hip_found)
+bool check_hip_runtime()
+{
+    return is_hip_runtime;
 }
 
 bool is_cufile_found()
@@ -241,6 +272,54 @@ int get_alignment_size()
 void set_debug_log(bool _debug_log)
 {
     debug_log = _debug_log;
+}
+
+void set_gil_release(bool enable) {
+    enable_gil_release = enable;
+}
+
+bool get_gil_release() {
+    return enable_gil_release;
+}
+
+void init_gil_release_from_env() {
+    const char* env_val = std::getenv("FASTSAFETENSORS_ENABLE_GIL_RELEASE");
+    if (env_val != nullptr) {
+        std::string env_str(env_val);
+        // Convert to lowercase for case-insensitive comparison
+        std::transform(env_str.begin(), env_str.end(), env_str.begin(), ::tolower);
+        enable_gil_release = (env_str == "1" || env_str == "true" || env_str == "yes" || env_str == "on");
+        if (debug_log) {
+            std::printf("[DEBUG] GIL release %s via environment variable FASTSAFETENSORS_ENABLE_GIL_RELEASE=%s\n",
+                       enable_gil_release ? "enabled" : "disabled", env_val);
+        }
+    }
+}
+
+int is_gds_supported(int deviceId)
+{
+#ifndef USE_ROCM
+    int gdr_support = 1;
+    int driverVersion = 0;
+    cudaError_t err;
+
+    err = cuda_fns.cudaDriverGetVersion(&driverVersion);
+    if (err != cudaSuccess) {
+        std::fprintf(stderr, "is_gds_supported: cudaDriverGetVersion failed, deviceId=%d, err=%d\n", deviceId, err);
+        return -1;
+    }
+
+    if (driverVersion > 11030) {
+        err = cuda_fns.cudaDeviceGetAttribute(&gdr_support, cudaDevAttrGPUDirectRDMASupported, deviceId);
+        if (err != cudaSuccess) {
+            std::fprintf(stderr, "is_gds_supported: cudaDeviceGetAttribute failed, deviceId=%d, err=%d\n", deviceId, err);
+            return -1;
+        }
+    }
+    return gdr_support;
+#endif
+    // ROCm does not have GDS
+    return 0;
 }
 
 int init_gds()
@@ -718,11 +797,28 @@ cpp_metrics_t get_cpp_metrics() {
 
 PYBIND11_MODULE(__MOD_NAME__, m)
 {
-    m.def("is_cuda_found", &is_cuda_found);
+    // Initialize GIL release setting from environment variable on module load
+    init_gil_release_from_env();
+    // Export both is_cuda_found and is_hip_found on all platforms
+    // Use string concatenation to prevent hipify from converting the export names
+#ifdef USE_ROCM
+    // On ROCm after hipify:
+    // - is_cuda_found() becomes is_hip_found(), so export it as "is_hip_found"
+    // - Export cuda_not_available() as "is_cuda_found" (CUDA not available on ROCm)
+    m.def(("is_" "cuda" "_found"), &cuda_not_available);  // Returns false on ROCm
+    m.def(("is_" "hip" "_found"), &is_cuda_found);  // hipified to is_hip_found, returns hip status
+#else
+    // On CUDA:
+    // - is_cuda_found() checks for CUDA
+    // - check_hip_runtime() checks if HIP runtime was loaded
+    m.def(("is_" "cuda" "_found"), &is_cuda_found);
+    m.def(("is_" "hip" "_found"), &check_hip_runtime);
+#endif
     m.def("is_cufile_found", &is_cufile_found);
     m.def("cufile_version", &cufile_version);
     m.def("set_debug_log", &set_debug_log);
     m.def("get_alignment_size", &get_alignment_size);
+    m.def("is_gds_supported", &is_gds_supported);
     m.def("init_gds", &init_gds);
     m.def("close_gds", &close_gds);
     m.def("get_device_pci_bus", &get_device_pci_bus);
@@ -732,8 +828,10 @@ PYBIND11_MODULE(__MOD_NAME__, m)
     m.def("cpu_free", &cpu_free);
     m.def("gpu_malloc", &gpu_malloc);
     m.def("gpu_free", &gpu_free);
-    m.def("load_nvidia_functions", &load_nvidia_functions);
+    m.def("load_library_functions", &load_library_functions);
     m.def("get_cpp_metrics", &get_cpp_metrics);
+    m.def("set_gil_release", &set_gil_release);
+    m.def("get_gil_release", &get_gil_release);
 
     pybind11::class_<gds_device_buffer>(m, "gds_device_buffer")
         .def(pybind11::init<const uintptr_t, const uint64_t, bool>())
@@ -743,18 +841,56 @@ PYBIND11_MODULE(__MOD_NAME__, m)
         .def("get_base_address", &gds_device_buffer::get_base_address)
         .def("get_length", &gds_device_buffer::get_length);
 
+    // Helper lambdas to conditionally apply GIL release
+    auto nogds_submit_read = [](nogds_file_reader& self, const int fd, const gds_device_buffer& dst, const int64_t offset, const int64_t length, const uint64_t ptr_off) {
+        if (enable_gil_release) {
+            pybind11::gil_scoped_release release;
+            return self.submit_read(fd, dst, offset, length, ptr_off);
+        } else {
+            return self.submit_read(fd, dst, offset, length, ptr_off);
+        }
+    };
+
+    auto nogds_wait_read = [](nogds_file_reader& self, const int thread_id) {
+        if (enable_gil_release) {
+            pybind11::gil_scoped_release release;
+            return self.wait_read(thread_id);
+        } else {
+            return self.wait_read(thread_id);
+        }
+    };
+
     pybind11::class_<nogds_file_reader>(m, "nogds_file_reader")
         .def(pybind11::init<const bool, const uint64_t, const int, bool>())
-        .def("submit_read", &nogds_file_reader::submit_read)
-        .def("wait_read", &nogds_file_reader::wait_read);
+        .def("submit_read", nogds_submit_read)
+        .def("wait_read", nogds_wait_read);
 
     pybind11::class_<gds_file_handle>(m, "gds_file_handle")
         .def(pybind11::init<std::string, bool, bool>());
 
+    // Helper lambdas for gds_file_reader to conditionally apply GIL release
+    auto gds_submit_read = [](gds_file_reader& self, const gds_file_handle &fh, const gds_device_buffer &dst, const uint64_t offset, const uint64_t length, const uint64_t ptr_off, const uint64_t file_length) {
+        if (enable_gil_release) {
+            pybind11::gil_scoped_release release;
+            return self.submit_read(fh, dst, offset, length, ptr_off, file_length);
+        } else {
+            return self.submit_read(fh, dst, offset, length, ptr_off, file_length);
+        }
+    };
+
+    auto gds_wait_read = [](gds_file_reader& self, const int id) {
+        if (enable_gil_release) {
+            pybind11::gil_scoped_release release;
+            return self.wait_read(id);
+        } else {
+            return self.wait_read(id);
+        }
+    };
+
     pybind11::class_<gds_file_reader>(m, "gds_file_reader")
         .def(pybind11::init<const int, bool>())
-        .def("submit_read", &gds_file_reader::submit_read)
-        .def("wait_read", &gds_file_reader::wait_read);
+        .def("submit_read", gds_submit_read)
+        .def("wait_read", gds_wait_read);
 
     pybind11::class_<cpp_metrics_t>(m, "cpp_metrics")
         .def(pybind11::init<>())

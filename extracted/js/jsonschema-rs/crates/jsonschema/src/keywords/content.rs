@@ -5,9 +5,9 @@ use crate::{
     content_media_type::ContentMediaTypeCheckType,
     error::ValidationError,
     keywords::CompilationResult,
-    paths::{LazyLocation, Location},
+    paths::{LazyLocation, Location, RefTracker},
     types::JsonType,
-    validator::Validate,
+    validator::{Validate, ValidationContext},
 };
 use serde_json::{Map, Value};
 
@@ -35,7 +35,7 @@ impl ContentMediaTypeValidator {
 
 /// Validator delegates validation to the stored function.
 impl Validate for ContentMediaTypeValidator {
-    fn is_valid(&self, instance: &Value) -> bool {
+    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
         if let Value::String(item) = instance {
             (self.func)(item)
         } else {
@@ -47,18 +47,20 @@ impl Validate for ContentMediaTypeValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::String(item) = instance {
-            if (self.func)(item) {
-                Ok(())
-            } else {
-                Err(ValidationError::content_media_type(
-                    self.location.clone(),
-                    location.into(),
-                    instance,
-                    &self.media_type,
-                ))
-            }
+        if self.is_valid(instance, ctx) {
+            Ok(())
+        } else if let Value::String(_) = instance {
+            let loc = &self.location;
+            Err(ValidationError::content_media_type(
+                loc.clone(),
+                crate::paths::capture_evaluation_path(tracker, loc),
+                location.into(),
+                instance,
+                &self.media_type,
+            ))
         } else {
             Ok(())
         }
@@ -88,7 +90,7 @@ impl ContentEncodingValidator {
 }
 
 impl Validate for ContentEncodingValidator {
-    fn is_valid(&self, instance: &Value) -> bool {
+    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
         if let Value::String(item) = instance {
             (self.func)(item)
         } else {
@@ -100,18 +102,20 @@ impl Validate for ContentEncodingValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::String(item) = instance {
-            if (self.func)(item) {
-                Ok(())
-            } else {
-                Err(ValidationError::content_encoding(
-                    self.location.clone(),
-                    location.into(),
-                    instance,
-                    &self.encoding,
-                ))
-            }
+        if self.is_valid(instance, ctx) {
+            Ok(())
+        } else if let Value::String(_) = instance {
+            let loc = &self.location;
+            Err(ValidationError::content_encoding(
+                loc.clone(),
+                crate::paths::capture_evaluation_path(tracker, loc),
+                location.into(),
+                instance,
+                &self.encoding,
+            ))
         } else {
             Ok(())
         }
@@ -148,7 +152,7 @@ impl ContentMediaTypeAndEncodingValidator {
 
 /// Decode the input value & check media type
 impl Validate for ContentMediaTypeAndEncodingValidator {
-    fn is_valid(&self, instance: &Value) -> bool {
+    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
         if let Value::String(item) = instance {
             match (self.converter)(item) {
                 Ok(None) | Err(_) => false,
@@ -163,21 +167,33 @@ impl Validate for ContentMediaTypeAndEncodingValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        _ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
         if let Value::String(item) = instance {
             match (self.converter)(item) {
-                Ok(None) => Err(ValidationError::content_encoding(
-                    self.location.join("contentEncoding"),
-                    location.into(),
-                    instance,
-                    &self.encoding,
-                )),
+                Ok(None) => {
+                    let encoding_location = self.location.join("contentEncoding");
+                    let eval_path =
+                        crate::paths::capture_evaluation_path(tracker, &encoding_location);
+                    Err(ValidationError::content_encoding(
+                        encoding_location,
+                        eval_path,
+                        location.into(),
+                        instance,
+                        &self.encoding,
+                    ))
+                }
                 Ok(Some(converted)) => {
                     if (self.func)(&converted) {
                         Ok(())
                     } else {
+                        let media_type_location = self.location.join("contentMediaType");
+                        let eval_path =
+                            crate::paths::capture_evaluation_path(tracker, &media_type_location);
                         Err(ValidationError::content_media_type(
-                            self.location.join("contentMediaType"),
+                            media_type_location,
+                            eval_path,
                             location.into(),
                             instance,
                             &self.media_type,
@@ -198,42 +214,44 @@ pub(crate) fn compile_media_type<'a>(
     schema: &'a Map<String, Value>,
     subschema: &'a Value,
 ) -> Option<CompilationResult<'a>> {
-    match subschema {
-        Value::String(media_type) => {
-            let func = ctx.get_content_media_type_check(media_type.as_str())?;
-            if let Some(content_encoding) = schema.get("contentEncoding") {
-                match content_encoding {
-                    Value::String(content_encoding) => {
-                        let converter = ctx.get_content_encoding_convert(content_encoding)?;
-                        Some(ContentMediaTypeAndEncodingValidator::compile(
-                            media_type,
-                            content_encoding,
-                            func,
-                            converter,
-                            ctx.location().clone(),
-                        ))
-                    }
-                    _ => Some(Err(ValidationError::single_type_error(
-                        Location::new(),
-                        ctx.location().clone(),
-                        content_encoding,
-                        JsonType::String,
-                    ))),
-                }
-            } else {
-                Some(ContentMediaTypeValidator::compile(
+    if let Value::String(media_type) = subschema {
+        let func = ctx.get_content_media_type_check(media_type.as_str())?;
+        if let Some(content_encoding) = schema.get("contentEncoding") {
+            if let Value::String(content_encoding) = content_encoding {
+                let converter = ctx.get_content_encoding_convert(content_encoding)?;
+                Some(ContentMediaTypeAndEncodingValidator::compile(
                     media_type,
+                    content_encoding,
                     func,
-                    ctx.location().join("contentMediaType"),
+                    converter,
+                    ctx.location().clone(),
                 ))
+            } else {
+                let location = ctx.location().join("contentEncoding");
+                Some(Err(ValidationError::single_type_error(
+                    location.clone(),
+                    location,
+                    Location::new(),
+                    content_encoding,
+                    JsonType::String,
+                )))
             }
+        } else {
+            Some(ContentMediaTypeValidator::compile(
+                media_type,
+                func,
+                ctx.location().join("contentMediaType"),
+            ))
         }
-        _ => Some(Err(ValidationError::single_type_error(
+    } else {
+        let location = ctx.location().join("contentMediaType");
+        Some(Err(ValidationError::single_type_error(
+            location.clone(),
+            location,
             Location::new(),
-            ctx.location().clone(),
             subschema,
             JsonType::String,
-        ))),
+        )))
     }
 }
 
@@ -248,21 +266,22 @@ pub(crate) fn compile_content_encoding<'a>(
         // TODO. what if media type is not supported?
         return None;
     }
-    match subschema {
-        Value::String(content_encoding) => {
-            let func = ctx.get_content_encoding_check(content_encoding)?;
-            Some(ContentEncodingValidator::compile(
-                content_encoding,
-                func,
-                ctx.location().join("contentEncoding"),
-            ))
-        }
-        _ => Some(Err(ValidationError::single_type_error(
+    if let Value::String(content_encoding) = subschema {
+        let func = ctx.get_content_encoding_check(content_encoding)?;
+        Some(ContentEncodingValidator::compile(
+            content_encoding,
+            func,
+            ctx.location().join("contentEncoding"),
+        ))
+    } else {
+        let location = ctx.location().join("contentEncoding");
+        Some(Err(ValidationError::single_type_error(
+            location.clone(),
+            location,
             Location::new(),
-            ctx.location().clone(),
             subschema,
             JsonType::String,
-        ))),
+        )))
     }
 }
 
@@ -282,6 +301,6 @@ mod tests {
             .build(schema)
             .expect("Invalid schema");
         let error = validator.validate(instance).expect_err("Should fail");
-        assert_eq!(error.schema_path.as_str(), expected);
+        assert_eq!(error.schema_path().as_str(), expected);
     }
 }

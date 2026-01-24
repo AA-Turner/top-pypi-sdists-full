@@ -94,8 +94,11 @@ DEFAULT_PATTERNS_ALL = {
     Split.TRAIN: ["**"],
 }
 
+DEFAULT_PATTERNS_LOGS = {"logs": ["**/*.eval"]}
+
 ALL_SPLIT_PATTERNS = [SPLIT_PATTERN_SHARDED]
 ALL_DEFAULT_PATTERNS = [
+    DEFAULT_PATTERNS_LOGS,
     DEFAULT_PATTERNS_SPLIT_IN_DIR_NAME,
     DEFAULT_PATTERNS_SPLIT_IN_FILENAME,
     DEFAULT_PATTERNS_ALL,
@@ -349,14 +352,18 @@ def resolve_pattern(
     pattern, storage_options = _prepare_path_and_storage_options(pattern, download_config=download_config)
     fs, fs_pattern = url_to_fs(pattern, **storage_options)
     files_to_ignore = set(FILES_TO_IGNORE) - {xbasename(pattern)}
-    protocol = fs.protocol if isinstance(fs.protocol, str) else fs.protocol[0]
+    protocol = (
+        pattern.split("://")[0]
+        if "://" in pattern
+        else (fs.protocol if isinstance(fs.protocol, str) else fs.protocol[0])
+    )
     protocol_prefix = protocol + "://" if protocol != "file" else ""
     glob_kwargs = {}
-    if protocol == "hf" and config.HF_HUB_VERSION >= version.parse("0.20.0"):
+    if protocol == "hf":
         # 10 times faster glob with detail=True (ignores costly info like lastCommit)
         glob_kwargs["expand_info"] = False
     matched_paths = [
-        filepath if filepath.startswith(protocol_prefix) else protocol_prefix + filepath
+        filepath if "://" in filepath else protocol_prefix + filepath
         for filepath, info in fs.glob(pattern, detail=True, **glob_kwargs).items()
         if (info["type"] == "file" or (info.get("islink") and os.path.isfile(os.path.realpath(filepath))))
         and (xbasename(filepath) not in files_to_ignore)
@@ -503,6 +510,18 @@ def _get_origin_metadata(
     max_workers: Optional[int] = None,
 ) -> list[SingleOriginMetadata]:
     max_workers = max_workers if max_workers is not None else config.HF_DATASETS_MULTITHREADING_MAX_WORKERS
+    if all("hf://" in data_file for data_file in data_files):
+        # No need for multithreading here since the origin metadata of HF files
+        # is (repo_id, revision) and is cached after first .info() call.
+        return [
+            _get_single_origin_metadata(data_file, download_config=download_config)
+            for data_file in hf_tqdm(
+                data_files,
+                desc="Resolving data files",
+                # set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
+                disable=len(data_files) <= 16 or None,
+            )
+        ]
     return thread_map(
         partial(_get_single_origin_metadata, download_config=download_config),
         data_files,

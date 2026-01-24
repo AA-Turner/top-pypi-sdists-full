@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from abc import ABC, abstractmethod
 from typing import Any, Union, Generic, TypeVar, Callable, Iterable, Coroutine, cast, overload
 from inspect import iscoroutinefunction
 from typing_extensions import TypeAlias, override
@@ -13,8 +14,9 @@ from ... import _compat
 from ..._utils import is_dict
 from ..._compat import cached_property
 from ..._models import TypeAdapter
+from ...types.beta import BetaToolParam, BetaToolUnionParam
 from ..._utils._utils import CallableT
-from ...types.tool_param import ToolParam, InputSchema
+from ...types.tool_param import InputSchema
 from ...types.beta.beta_tool_result_block_param import Content as BetaContent
 
 log = logging.getLogger(__name__)
@@ -26,6 +28,36 @@ FunctionT = TypeVar("FunctionT", bound=Function)
 
 AsyncFunction = Callable[..., Coroutine[Any, Any, BetaFunctionToolResultType]]
 AsyncFunctionT = TypeVar("AsyncFunctionT", bound=AsyncFunction)
+
+
+class BetaBuiltinFunctionTool(ABC):
+    @abstractmethod
+    def to_dict(self) -> BetaToolUnionParam: ...
+
+    @abstractmethod
+    def call(self, input: object) -> BetaFunctionToolResultType: ...
+
+    @property
+    def name(self) -> str:
+        raw = self.to_dict()
+        if "mcp_server_name" in raw:
+            return raw["mcp_server_name"]
+        return raw["name"]
+
+
+class BetaAsyncBuiltinFunctionTool(ABC):
+    @abstractmethod
+    def to_dict(self) -> BetaToolUnionParam: ...
+
+    @abstractmethod
+    async def call(self, input: object) -> BetaFunctionToolResultType: ...
+
+    @property
+    def name(self) -> str:
+        raw = self.to_dict()
+        if "mcp_server_name" in raw:
+            return raw["mcp_server_name"]
+        return raw["name"]
 
 
 class BaseFunctionTool(Generic[CallableT]):
@@ -46,6 +78,7 @@ class BaseFunctionTool(Generic[CallableT]):
         name: str | None = None,
         description: str | None = None,
         input_schema: InputSchema | type[BaseModel] | None = None,
+        defer_loading: bool | None = None,
     ) -> None:
         if _compat.PYDANTIC_V1:
             raise RuntimeError("Tool functions are only supported with Pydantic v2")
@@ -53,6 +86,7 @@ class BaseFunctionTool(Generic[CallableT]):
         self.func = func
         self._func_with_validate = pydantic.validate_call(func)
         self.name = name or func.__name__
+        self._defer_loading = defer_loading
 
         self.description = description or self._get_description_from_docstring()
 
@@ -68,12 +102,15 @@ class BaseFunctionTool(Generic[CallableT]):
     def __call__(self) -> CallableT:
         return self.func
 
-    def to_dict(self) -> ToolParam:
-        return {
+    def to_dict(self) -> BetaToolParam:
+        defn: BetaToolParam = {
             "name": self.name,
             "description": self.description,
             "input_schema": self.input_schema,
         }
+        if self._defer_loading is not None:
+            defn["defer_loading"] = self._defer_loading
+        return defn
 
     @cached_property
     def _parsed_docstring(self) -> docstring_parser.Docstring:
@@ -185,6 +222,7 @@ def beta_tool(
     name: str | None = None,
     description: str | None = None,
     input_schema: InputSchema | type[BaseModel] | None = None,
+    defer_loading: bool | None = None,
 ) -> Callable[[FunctionT], BetaFunctionTool[FunctionT]]: ...
 
 
@@ -194,6 +232,7 @@ def beta_tool(
     name: str | None = None,
     description: str | None = None,
     input_schema: InputSchema | type[BaseModel] | None = None,
+    defer_loading: bool | None = None,
 ) -> BetaFunctionTool[FunctionT] | Callable[[FunctionT], BetaFunctionTool[FunctionT]]:
     """Create a FunctionTool from a function with automatic schema inference.
 
@@ -213,11 +252,15 @@ def beta_tool(
 
     if func is not None:
         # @beta_tool called without parentheses
-        return BetaFunctionTool(func=func, name=name, description=description, input_schema=input_schema)
+        return BetaFunctionTool(
+            func=func, name=name, description=description, input_schema=input_schema, defer_loading=defer_loading
+        )
 
     # @beta_tool()
     def decorator(func: FunctionT) -> BetaFunctionTool[FunctionT]:
-        return BetaFunctionTool(func=func, name=name, description=description, input_schema=input_schema)
+        return BetaFunctionTool(
+            func=func, name=name, description=description, input_schema=input_schema, defer_loading=defer_loading
+        )
 
     return decorator
 
@@ -233,6 +276,7 @@ def beta_async_tool(
     name: str | None = None,
     description: str | None = None,
     input_schema: InputSchema | type[BaseModel] | None = None,
+    defer_loading: bool | None = None,
 ) -> BetaAsyncFunctionTool[AsyncFunctionT]: ...
 
 
@@ -242,6 +286,7 @@ def beta_async_tool(
     name: str | None = None,
     description: str | None = None,
     input_schema: InputSchema | type[BaseModel] | None = None,
+    defer_loading: bool | None = None,
 ) -> Callable[[AsyncFunctionT], BetaAsyncFunctionTool[AsyncFunctionT]]: ...
 
 
@@ -251,6 +296,7 @@ def beta_async_tool(
     name: str | None = None,
     description: str | None = None,
     input_schema: InputSchema | type[BaseModel] | None = None,
+    defer_loading: bool | None = None,
 ) -> BetaAsyncFunctionTool[AsyncFunctionT] | Callable[[AsyncFunctionT], BetaAsyncFunctionTool[AsyncFunctionT]]:
     """Create an AsyncFunctionTool from a function with automatic schema inference.
 
@@ -275,6 +321,7 @@ def beta_async_tool(
             name=name,
             description=description,
             input_schema=input_schema,
+            defer_loading=defer_loading,
         )
 
     # @beta_async_tool()
@@ -284,6 +331,11 @@ def beta_async_tool(
             name=name,
             description=description,
             input_schema=input_schema,
+            defer_loading=defer_loading,
         )
 
     return decorator
+
+
+BetaRunnableTool = Union[BetaFunctionTool[Any], BetaBuiltinFunctionTool]
+BetaAsyncRunnableTool = Union[BetaAsyncFunctionTool[Any], BetaAsyncBuiltinFunctionTool]

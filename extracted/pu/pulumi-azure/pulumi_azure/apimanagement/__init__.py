@@ -36,6 +36,7 @@ from .get_product import *
 from .get_service import *
 from .get_subscription import *
 from .get_user import *
+from .get_workspace import *
 from .global_schema import *
 from .group import *
 from .group_user import *
@@ -64,5 +65,9 @@ from .subscription import *
 from .tag import *
 from .user import *
 from .workspace import *
+from .workspace_api_version_set import *
+from .workspace_certificate import *
+from .workspace_policy import *
+from .workspace_policy_fragment import *
 from ._inputs import *
 from . import outputs

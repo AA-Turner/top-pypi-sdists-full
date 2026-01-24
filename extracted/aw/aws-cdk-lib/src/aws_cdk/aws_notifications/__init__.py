@@ -77,6 +77,153 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
+from ..interfaces.aws_notifications import (
+    ChannelAssociationReference as _ChannelAssociationReference_72294042,
+    EventRuleReference as _EventRuleReference_7519f795,
+    IChannelAssociationRef as _IChannelAssociationRef_f253c84c,
+    IEventRuleRef as _IEventRuleRef_2a7b3cf1,
+    IManagedNotificationAccountContactAssociationRef as _IManagedNotificationAccountContactAssociationRef_8c4c0998,
+    IManagedNotificationAdditionalChannelAssociationRef as _IManagedNotificationAdditionalChannelAssociationRef_b1ea4951,
+    INotificationConfigurationRef as _INotificationConfigurationRef_52a9226d,
+    INotificationHubRef as _INotificationHubRef_463bb6d4,
+    IOrganizationalUnitAssociationRef as _IOrganizationalUnitAssociationRef_aab78d4f,
+    ManagedNotificationAccountContactAssociationReference as _ManagedNotificationAccountContactAssociationReference_e7cb9818,
+    ManagedNotificationAdditionalChannelAssociationReference as _ManagedNotificationAdditionalChannelAssociationReference_929878f3,
+    NotificationConfigurationReference as _NotificationConfigurationReference_ab5ea829,
+    NotificationHubReference as _NotificationHubReference_8c4cd07b,
+    OrganizationalUnitAssociationReference as _OrganizationalUnitAssociationReference_7b321074,
+)
+
+
+@jsii.implements(_IInspectable_c2943556, _IChannelAssociationRef_f253c84c)
+class CfnChannelAssociation(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_notifications.CfnChannelAssociation",
+):
+    '''The ``AWS::Notifications::ChannelAssociation`` resource associates a ``Channel`` with a ``NotificationConfiguration`` for AWS User Notifications .
+
+    For more information about AWS User Notifications , see the `AWS User Notifications User Guide <https://docs.aws.amazon.com/notifications/latest/userguide/what-is-service.html>`_ .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-channelassociation.html
+    :cloudformationResource: AWS::Notifications::ChannelAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_notifications as notifications
+        
+        cfn_channel_association = notifications.CfnChannelAssociation(self, "MyCfnChannelAssociation",
+            arn="arn",
+            notification_configuration_arn="notificationConfigurationArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        arn: builtins.str,
+        notification_configuration_arn: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::Notifications::ChannelAssociation``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param arn: The Amazon Resource Name (ARN) of the ``Channel`` .
+        :param notification_configuration_arn: The ARN of the ``NotificationConfiguration`` associated with the ``Channel`` .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96bfb9a9cbe4c6b38cb964bde4e63ccdb746cc48ac8dd61661a318886da6ba7f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnChannelAssociationProps(
+            arn=arn, notification_configuration_arn=notification_configuration_arn
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnChannelAssociation")
+    @builtins.classmethod
+    def is_cfn_channel_association(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnChannelAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d621959c24b3197b8ee401ef6943b14353e1a7b94c3ae4ed6f8ed72937f60021)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnChannelAssociation", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a0ffcf7c83a3beb5a9feedb6bf40d486b1aa9bad41565ae2a782129cc7450e94)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad26b3aa74c912ac52ae9f4bfb186ae1996d8ffa2fff5b28d9a9dcb2f5ceffbf)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="channelAssociationRef")
+    def channel_association_ref(self) -> "_ChannelAssociationReference_72294042":
+        '''A reference to a ChannelAssociation resource.'''
+        return typing.cast("_ChannelAssociationReference_72294042", jsii.get(self, "channelAssociationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="arn")
+    def arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the ``Channel`` .'''
+        return typing.cast(builtins.str, jsii.get(self, "arn"))
+
+    @arn.setter
+    def arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02aa05d5cab2ed92674dea9fe8bfd20781091f494e9c3e3da3e1cedb24710ade)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "arn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="notificationConfigurationArn")
+    def notification_configuration_arn(self) -> builtins.str:
+        '''The ARN of the ``NotificationConfiguration`` associated with the ``Channel`` .'''
+        return typing.cast(builtins.str, jsii.get(self, "notificationConfigurationArn"))
+
+    @notification_configuration_arn.setter
+    def notification_configuration_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6b2d69598efa0d97ebfbcf163b7e00dfefacab9bb759efc23a009243fcbc29fc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "notificationConfigurationArn", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -154,1394 +301,7 @@ class CfnChannelAssociationProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_notifications.CfnEventRuleProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "event_type": "eventType",
-        "notification_configuration_arn": "notificationConfigurationArn",
-        "regions": "regions",
-        "source": "source",
-        "event_pattern": "eventPattern",
-    },
-)
-class CfnEventRuleProps:
-    def __init__(
-        self,
-        *,
-        event_type: builtins.str,
-        notification_configuration_arn: builtins.str,
-        regions: typing.Sequence[builtins.str],
-        source: builtins.str,
-        event_pattern: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEventRule``.
-
-        :param event_type: The event type this rule should match with the EventBridge events. It must match with atleast one of the valid EventBridge event types. For example, Amazon EC2 Instance State change Notification and Amazon CloudWatch State Change. For more information, see `Event delivery from AWS services <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-service-event.html#eb-service-event-delivery-level>`_ in the *Amazon EventBridge User Guide* .
-        :param notification_configuration_arn: The ARN for the ``NotificationConfiguration`` associated with this ``EventRule`` .
-        :param regions: A list of AWS Regions that send events to this ``EventRule`` .
-        :param source: The event source this rule should match with the EventBridge event sources. It must match with atleast one of the valid EventBridge event sources. Only AWS service sourced events are supported. For example, ``aws.ec2`` and ``aws.cloudwatch`` . For more information, see `Event delivery from AWS services <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-service-event.html#eb-service-event-delivery-level>`_ in the *Amazon EventBridge User Guide* .
-        :param event_pattern: An additional event pattern used to further filter the events this ``EventRule`` receives. For more information, see `Amazon EventBridge event patterns <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-patterns.html>`_ in the *Amazon EventBridge User Guide.*
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-eventrule.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_notifications as notifications
-            
-            cfn_event_rule_props = notifications.CfnEventRuleProps(
-                event_type="eventType",
-                notification_configuration_arn="notificationConfigurationArn",
-                regions=["regions"],
-                source="source",
-            
-                # the properties below are optional
-                event_pattern="eventPattern"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9518b7cf584ffb7ba5a4fb79f7584397ea33a005b8aebaa07c3bc5e5dc33bddb)
-            check_type(argname="argument event_type", value=event_type, expected_type=type_hints["event_type"])
-            check_type(argname="argument notification_configuration_arn", value=notification_configuration_arn, expected_type=type_hints["notification_configuration_arn"])
-            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
-            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
-            check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "event_type": event_type,
-            "notification_configuration_arn": notification_configuration_arn,
-            "regions": regions,
-            "source": source,
-        }
-        if event_pattern is not None:
-            self._values["event_pattern"] = event_pattern
-
-    @builtins.property
-    def event_type(self) -> builtins.str:
-        '''The event type this rule should match with the EventBridge events.
-
-        It must match with atleast one of the valid EventBridge event types. For example, Amazon EC2 Instance State change Notification and Amazon CloudWatch State Change. For more information, see `Event delivery from AWS services <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-service-event.html#eb-service-event-delivery-level>`_ in the *Amazon EventBridge User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-eventrule.html#cfn-notifications-eventrule-eventtype
-        '''
-        result = self._values.get("event_type")
-        assert result is not None, "Required property 'event_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def notification_configuration_arn(self) -> builtins.str:
-        '''The ARN for the ``NotificationConfiguration`` associated with this ``EventRule`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-eventrule.html#cfn-notifications-eventrule-notificationconfigurationarn
-        '''
-        result = self._values.get("notification_configuration_arn")
-        assert result is not None, "Required property 'notification_configuration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def regions(self) -> typing.List[builtins.str]:
-        '''A list of AWS Regions that send events to this ``EventRule`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-eventrule.html#cfn-notifications-eventrule-regions
-        '''
-        result = self._values.get("regions")
-        assert result is not None, "Required property 'regions' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def source(self) -> builtins.str:
-        '''The event source this rule should match with the EventBridge event sources.
-
-        It must match with atleast one of the valid EventBridge event sources. Only AWS service sourced events are supported. For example, ``aws.ec2`` and ``aws.cloudwatch`` . For more information, see `Event delivery from AWS services <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-service-event.html#eb-service-event-delivery-level>`_ in the *Amazon EventBridge User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-eventrule.html#cfn-notifications-eventrule-source
-        '''
-        result = self._values.get("source")
-        assert result is not None, "Required property 'source' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def event_pattern(self) -> typing.Optional[builtins.str]:
-        '''An additional event pattern used to further filter the events this ``EventRule`` receives.
-
-        For more information, see `Amazon EventBridge event patterns <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-patterns.html>`_ in the *Amazon EventBridge User Guide.*
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-eventrule.html#cfn-notifications-eventrule-eventpattern
-        '''
-        result = self._values.get("event_pattern")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEventRuleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_notifications.CfnManagedNotificationAccountContactAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "contact_identifier": "contactIdentifier",
-        "managed_notification_configuration_arn": "managedNotificationConfigurationArn",
-    },
-)
-class CfnManagedNotificationAccountContactAssociationProps:
-    def __init__(
-        self,
-        *,
-        contact_identifier: builtins.str,
-        managed_notification_configuration_arn: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnManagedNotificationAccountContactAssociation``.
-
-        :param contact_identifier: The unique identifier of the notification contact associated with the AWS account. For more information about the contact types associated with an account, see the `Account Management Reference Guide <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact-alternate.html#manage-acct-update-contact-alternate-orgs>`_ .
-        :param managed_notification_configuration_arn: The ARN of the ``ManagedNotificationConfiguration`` to be associated with the ``Channel`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-managednotificationaccountcontactassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_notifications as notifications
-            
-            cfn_managed_notification_account_contact_association_props = notifications.CfnManagedNotificationAccountContactAssociationProps(
-                contact_identifier="contactIdentifier",
-                managed_notification_configuration_arn="managedNotificationConfigurationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ba701ff30108b1aeca6e33e95e36c02bce0446db03324798ed5b79a966800cc)
-            check_type(argname="argument contact_identifier", value=contact_identifier, expected_type=type_hints["contact_identifier"])
-            check_type(argname="argument managed_notification_configuration_arn", value=managed_notification_configuration_arn, expected_type=type_hints["managed_notification_configuration_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "contact_identifier": contact_identifier,
-            "managed_notification_configuration_arn": managed_notification_configuration_arn,
-        }
-
-    @builtins.property
-    def contact_identifier(self) -> builtins.str:
-        '''The unique identifier of the notification contact associated with the AWS account.
-
-        For more information about the contact types associated with an account, see the `Account Management Reference Guide <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact-alternate.html#manage-acct-update-contact-alternate-orgs>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-managednotificationaccountcontactassociation.html#cfn-notifications-managednotificationaccountcontactassociation-contactidentifier
-        '''
-        result = self._values.get("contact_identifier")
-        assert result is not None, "Required property 'contact_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def managed_notification_configuration_arn(self) -> builtins.str:
-        '''The ARN of the ``ManagedNotificationConfiguration`` to be associated with the ``Channel`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-managednotificationaccountcontactassociation.html#cfn-notifications-managednotificationaccountcontactassociation-managednotificationconfigurationarn
-        '''
-        result = self._values.get("managed_notification_configuration_arn")
-        assert result is not None, "Required property 'managed_notification_configuration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnManagedNotificationAccountContactAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_notifications.CfnManagedNotificationAdditionalChannelAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "channel_arn": "channelArn",
-        "managed_notification_configuration_arn": "managedNotificationConfigurationArn",
-    },
-)
-class CfnManagedNotificationAdditionalChannelAssociationProps:
-    def __init__(
-        self,
-        *,
-        channel_arn: builtins.str,
-        managed_notification_configuration_arn: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnManagedNotificationAdditionalChannelAssociation``.
-
-        :param channel_arn: The ARN of the ``Channel`` .
-        :param managed_notification_configuration_arn: The ARN of the ``ManagedNotificationAdditionalChannelAssociation`` associated with the ``Channel`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-managednotificationadditionalchannelassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_notifications as notifications
-            
-            cfn_managed_notification_additional_channel_association_props = notifications.CfnManagedNotificationAdditionalChannelAssociationProps(
-                channel_arn="channelArn",
-                managed_notification_configuration_arn="managedNotificationConfigurationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63600091503bee10f7ba2c01f3247b370b8b2bca175e1cc3db1e6800e18fedd9)
-            check_type(argname="argument channel_arn", value=channel_arn, expected_type=type_hints["channel_arn"])
-            check_type(argname="argument managed_notification_configuration_arn", value=managed_notification_configuration_arn, expected_type=type_hints["managed_notification_configuration_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "channel_arn": channel_arn,
-            "managed_notification_configuration_arn": managed_notification_configuration_arn,
-        }
-
-    @builtins.property
-    def channel_arn(self) -> builtins.str:
-        '''The ARN of the ``Channel`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-managednotificationadditionalchannelassociation.html#cfn-notifications-managednotificationadditionalchannelassociation-channelarn
-        '''
-        result = self._values.get("channel_arn")
-        assert result is not None, "Required property 'channel_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def managed_notification_configuration_arn(self) -> builtins.str:
-        '''The ARN of the ``ManagedNotificationAdditionalChannelAssociation`` associated with the ``Channel`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-managednotificationadditionalchannelassociation.html#cfn-notifications-managednotificationadditionalchannelassociation-managednotificationconfigurationarn
-        '''
-        result = self._values.get("managed_notification_configuration_arn")
-        assert result is not None, "Required property 'managed_notification_configuration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnManagedNotificationAdditionalChannelAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_notifications.CfnNotificationConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "description": "description",
-        "name": "name",
-        "aggregation_duration": "aggregationDuration",
-        "tags": "tags",
-    },
-)
-class CfnNotificationConfigurationProps:
-    def __init__(
-        self,
-        *,
-        description: builtins.str,
-        name: builtins.str,
-        aggregation_duration: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnNotificationConfiguration``.
-
-        :param description: The description of the ``NotificationConfiguration`` .
-        :param name: The name of the ``NotificationConfiguration`` . Supports RFC 3986's unreserved characters.
-        :param aggregation_duration: The aggregation preference of the ``NotificationConfiguration`` . - Values: - ``LONG`` - Aggregate notifications for long periods of time (12 hours). - ``SHORT`` - Aggregate notifications for short periods of time (5 minutes). - ``NONE`` - Don't aggregate notifications.
-        :param tags: A map of tags assigned to a ``NotificationConfiguration`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-notificationconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_notifications as notifications
-            
-            cfn_notification_configuration_props = notifications.CfnNotificationConfigurationProps(
-                description="description",
-                name="name",
-            
-                # the properties below are optional
-                aggregation_duration="aggregationDuration",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2533f954a13ead8ba0e86dbad3d4401450ff85451a17c80b370344cb112ae478)
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument aggregation_duration", value=aggregation_duration, expected_type=type_hints["aggregation_duration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "description": description,
-            "name": name,
-        }
-        if aggregation_duration is not None:
-            self._values["aggregation_duration"] = aggregation_duration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def description(self) -> builtins.str:
-        '''The description of the ``NotificationConfiguration`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-notificationconfiguration.html#cfn-notifications-notificationconfiguration-description
-        '''
-        result = self._values.get("description")
-        assert result is not None, "Required property 'description' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the ``NotificationConfiguration`` .
-
-        Supports RFC 3986's unreserved characters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-notificationconfiguration.html#cfn-notifications-notificationconfiguration-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def aggregation_duration(self) -> typing.Optional[builtins.str]:
-        '''The aggregation preference of the ``NotificationConfiguration`` .
-
-        - Values:
-        - ``LONG``
-        - Aggregate notifications for long periods of time (12 hours).
-        - ``SHORT``
-        - Aggregate notifications for short periods of time (5 minutes).
-        - ``NONE``
-        - Don't aggregate notifications.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-notificationconfiguration.html#cfn-notifications-notificationconfiguration-aggregationduration
-        '''
-        result = self._values.get("aggregation_duration")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A map of tags assigned to a ``NotificationConfiguration`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-notificationconfiguration.html#cfn-notifications-notificationconfiguration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnNotificationConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_notifications.CfnNotificationHubProps",
-    jsii_struct_bases=[],
-    name_mapping={"region": "region"},
-)
-class CfnNotificationHubProps:
-    def __init__(self, *, region: builtins.str) -> None:
-        '''Properties for defining a ``CfnNotificationHub``.
-
-        :param region: The ``NotificationHub`` Region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-notificationhub.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_notifications as notifications
-            
-            cfn_notification_hub_props = notifications.CfnNotificationHubProps(
-                region="region"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__920924baa84f6463cdd237bcaa739a631a79dad627c4370064c68f1de8c3c630)
-            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "region": region,
-        }
-
-    @builtins.property
-    def region(self) -> builtins.str:
-        '''The ``NotificationHub`` Region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-notificationhub.html#cfn-notifications-notificationhub-region
-        '''
-        result = self._values.get("region")
-        assert result is not None, "Required property 'region' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnNotificationHubProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_notifications.CfnOrganizationalUnitAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "notification_configuration_arn": "notificationConfigurationArn",
-        "organizational_unit_id": "organizationalUnitId",
-    },
-)
-class CfnOrganizationalUnitAssociationProps:
-    def __init__(
-        self,
-        *,
-        notification_configuration_arn: builtins.str,
-        organizational_unit_id: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnOrganizationalUnitAssociation``.
-
-        :param notification_configuration_arn: ARN identifier of the NotificationConfiguration. Example: arn:aws:notifications::123456789012:configuration/a01jes88qxwkbj05xv9c967pgm1
-        :param organizational_unit_id: The ID of the organizational unit.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-organizationalunitassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_notifications as notifications
-            
-            cfn_organizational_unit_association_props = notifications.CfnOrganizationalUnitAssociationProps(
-                notification_configuration_arn="notificationConfigurationArn",
-                organizational_unit_id="organizationalUnitId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed76c0102562b65b59e77b5029771fa9c9a0ff702c51abaa9355a1ae95122a98)
-            check_type(argname="argument notification_configuration_arn", value=notification_configuration_arn, expected_type=type_hints["notification_configuration_arn"])
-            check_type(argname="argument organizational_unit_id", value=organizational_unit_id, expected_type=type_hints["organizational_unit_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "notification_configuration_arn": notification_configuration_arn,
-            "organizational_unit_id": organizational_unit_id,
-        }
-
-    @builtins.property
-    def notification_configuration_arn(self) -> builtins.str:
-        '''ARN identifier of the NotificationConfiguration.
-
-        Example: arn:aws:notifications::123456789012:configuration/a01jes88qxwkbj05xv9c967pgm1
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-organizationalunitassociation.html#cfn-notifications-organizationalunitassociation-notificationconfigurationarn
-        '''
-        result = self._values.get("notification_configuration_arn")
-        assert result is not None, "Required property 'notification_configuration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def organizational_unit_id(self) -> builtins.str:
-        '''The ID of the organizational unit.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-organizationalunitassociation.html#cfn-notifications-organizationalunitassociation-organizationalunitid
-        '''
-        result = self._values.get("organizational_unit_id")
-        assert result is not None, "Required property 'organizational_unit_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnOrganizationalUnitAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_notifications.ChannelAssociationReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "channel_association_arn": "channelAssociationArn",
-        "notification_configuration_arn": "notificationConfigurationArn",
-    },
-)
-class ChannelAssociationReference:
-    def __init__(
-        self,
-        *,
-        channel_association_arn: builtins.str,
-        notification_configuration_arn: builtins.str,
-    ) -> None:
-        '''A reference to a ChannelAssociation resource.
-
-        :param channel_association_arn: The Arn of the ChannelAssociation resource.
-        :param notification_configuration_arn: The NotificationConfigurationArn of the ChannelAssociation resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_notifications as notifications
-            
-            channel_association_reference = notifications.ChannelAssociationReference(
-                channel_association_arn="channelAssociationArn",
-                notification_configuration_arn="notificationConfigurationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a814ad0d1f33cf438877c6c5e6647a2478179f8e4b4594ebfaf427151868dea6)
-            check_type(argname="argument channel_association_arn", value=channel_association_arn, expected_type=type_hints["channel_association_arn"])
-            check_type(argname="argument notification_configuration_arn", value=notification_configuration_arn, expected_type=type_hints["notification_configuration_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "channel_association_arn": channel_association_arn,
-            "notification_configuration_arn": notification_configuration_arn,
-        }
-
-    @builtins.property
-    def channel_association_arn(self) -> builtins.str:
-        '''The Arn of the ChannelAssociation resource.'''
-        result = self._values.get("channel_association_arn")
-        assert result is not None, "Required property 'channel_association_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def notification_configuration_arn(self) -> builtins.str:
-        '''The NotificationConfigurationArn of the ChannelAssociation resource.'''
-        result = self._values.get("notification_configuration_arn")
-        assert result is not None, "Required property 'notification_configuration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ChannelAssociationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_notifications.EventRuleReference",
-    jsii_struct_bases=[],
-    name_mapping={"event_rule_arn": "eventRuleArn"},
-)
-class EventRuleReference:
-    def __init__(self, *, event_rule_arn: builtins.str) -> None:
-        '''A reference to a EventRule resource.
-
-        :param event_rule_arn: The Arn of the EventRule resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_notifications as notifications
-            
-            event_rule_reference = notifications.EventRuleReference(
-                event_rule_arn="eventRuleArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__193490676dedc03c3be95fb4cf0fecb1d1c67b8a38caaef542cef100a4a1ffa9)
-            check_type(argname="argument event_rule_arn", value=event_rule_arn, expected_type=type_hints["event_rule_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "event_rule_arn": event_rule_arn,
-        }
-
-    @builtins.property
-    def event_rule_arn(self) -> builtins.str:
-        '''The Arn of the EventRule resource.'''
-        result = self._values.get("event_rule_arn")
-        assert result is not None, "Required property 'event_rule_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EventRuleReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_notifications.IChannelAssociationRef")
-class IChannelAssociationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ChannelAssociation.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="channelAssociationRef")
-    def channel_association_ref(self) -> ChannelAssociationReference:
-        '''(experimental) A reference to a ChannelAssociation resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IChannelAssociationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ChannelAssociation.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_notifications.IChannelAssociationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="channelAssociationRef")
-    def channel_association_ref(self) -> ChannelAssociationReference:
-        '''(experimental) A reference to a ChannelAssociation resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ChannelAssociationReference, jsii.get(self, "channelAssociationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IChannelAssociationRef).__jsii_proxy_class__ = lambda : _IChannelAssociationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_notifications.IEventRuleRef")
-class IEventRuleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a EventRule.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="eventRuleRef")
-    def event_rule_ref(self) -> EventRuleReference:
-        '''(experimental) A reference to a EventRule resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IEventRuleRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a EventRule.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_notifications.IEventRuleRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="eventRuleRef")
-    def event_rule_ref(self) -> EventRuleReference:
-        '''(experimental) A reference to a EventRule resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(EventRuleReference, jsii.get(self, "eventRuleRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEventRuleRef).__jsii_proxy_class__ = lambda : _IEventRuleRefProxy
-
-
-@jsii.interface(
-    jsii_type="aws-cdk-lib.aws_notifications.IManagedNotificationAccountContactAssociationRef"
-)
-class IManagedNotificationAccountContactAssociationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ManagedNotificationAccountContactAssociation.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="managedNotificationAccountContactAssociationRef")
-    def managed_notification_account_contact_association_ref(
-        self,
-    ) -> "ManagedNotificationAccountContactAssociationReference":
-        '''(experimental) A reference to a ManagedNotificationAccountContactAssociation resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IManagedNotificationAccountContactAssociationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ManagedNotificationAccountContactAssociation.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_notifications.IManagedNotificationAccountContactAssociationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="managedNotificationAccountContactAssociationRef")
-    def managed_notification_account_contact_association_ref(
-        self,
-    ) -> "ManagedNotificationAccountContactAssociationReference":
-        '''(experimental) A reference to a ManagedNotificationAccountContactAssociation resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ManagedNotificationAccountContactAssociationReference", jsii.get(self, "managedNotificationAccountContactAssociationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IManagedNotificationAccountContactAssociationRef).__jsii_proxy_class__ = lambda : _IManagedNotificationAccountContactAssociationRefProxy
-
-
-@jsii.interface(
-    jsii_type="aws-cdk-lib.aws_notifications.IManagedNotificationAdditionalChannelAssociationRef"
-)
-class IManagedNotificationAdditionalChannelAssociationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ManagedNotificationAdditionalChannelAssociation.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="managedNotificationAdditionalChannelAssociationRef")
-    def managed_notification_additional_channel_association_ref(
-        self,
-    ) -> "ManagedNotificationAdditionalChannelAssociationReference":
-        '''(experimental) A reference to a ManagedNotificationAdditionalChannelAssociation resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IManagedNotificationAdditionalChannelAssociationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ManagedNotificationAdditionalChannelAssociation.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_notifications.IManagedNotificationAdditionalChannelAssociationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="managedNotificationAdditionalChannelAssociationRef")
-    def managed_notification_additional_channel_association_ref(
-        self,
-    ) -> "ManagedNotificationAdditionalChannelAssociationReference":
-        '''(experimental) A reference to a ManagedNotificationAdditionalChannelAssociation resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ManagedNotificationAdditionalChannelAssociationReference", jsii.get(self, "managedNotificationAdditionalChannelAssociationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IManagedNotificationAdditionalChannelAssociationRef).__jsii_proxy_class__ = lambda : _IManagedNotificationAdditionalChannelAssociationRefProxy
-
-
-@jsii.interface(
-    jsii_type="aws-cdk-lib.aws_notifications.INotificationConfigurationRef"
-)
-class INotificationConfigurationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a NotificationConfiguration.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="notificationConfigurationRef")
-    def notification_configuration_ref(self) -> "NotificationConfigurationReference":
-        '''(experimental) A reference to a NotificationConfiguration resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _INotificationConfigurationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a NotificationConfiguration.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_notifications.INotificationConfigurationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="notificationConfigurationRef")
-    def notification_configuration_ref(self) -> "NotificationConfigurationReference":
-        '''(experimental) A reference to a NotificationConfiguration resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("NotificationConfigurationReference", jsii.get(self, "notificationConfigurationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, INotificationConfigurationRef).__jsii_proxy_class__ = lambda : _INotificationConfigurationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_notifications.INotificationHubRef")
-class INotificationHubRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a NotificationHub.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="notificationHubRef")
-    def notification_hub_ref(self) -> "NotificationHubReference":
-        '''(experimental) A reference to a NotificationHub resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _INotificationHubRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a NotificationHub.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_notifications.INotificationHubRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="notificationHubRef")
-    def notification_hub_ref(self) -> "NotificationHubReference":
-        '''(experimental) A reference to a NotificationHub resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("NotificationHubReference", jsii.get(self, "notificationHubRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, INotificationHubRef).__jsii_proxy_class__ = lambda : _INotificationHubRefProxy
-
-
-@jsii.interface(
-    jsii_type="aws-cdk-lib.aws_notifications.IOrganizationalUnitAssociationRef"
-)
-class IOrganizationalUnitAssociationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a OrganizationalUnitAssociation.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="organizationalUnitAssociationRef")
-    def organizational_unit_association_ref(
-        self,
-    ) -> "OrganizationalUnitAssociationReference":
-        '''(experimental) A reference to a OrganizationalUnitAssociation resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IOrganizationalUnitAssociationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a OrganizationalUnitAssociation.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_notifications.IOrganizationalUnitAssociationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="organizationalUnitAssociationRef")
-    def organizational_unit_association_ref(
-        self,
-    ) -> "OrganizationalUnitAssociationReference":
-        '''(experimental) A reference to a OrganizationalUnitAssociation resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("OrganizationalUnitAssociationReference", jsii.get(self, "organizationalUnitAssociationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IOrganizationalUnitAssociationRef).__jsii_proxy_class__ = lambda : _IOrganizationalUnitAssociationRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_notifications.ManagedNotificationAccountContactAssociationReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "contact_identifier": "contactIdentifier",
-        "managed_notification_configuration_arn": "managedNotificationConfigurationArn",
-    },
-)
-class ManagedNotificationAccountContactAssociationReference:
-    def __init__(
-        self,
-        *,
-        contact_identifier: builtins.str,
-        managed_notification_configuration_arn: builtins.str,
-    ) -> None:
-        '''A reference to a ManagedNotificationAccountContactAssociation resource.
-
-        :param contact_identifier: The ContactIdentifier of the ManagedNotificationAccountContactAssociation resource.
-        :param managed_notification_configuration_arn: The ManagedNotificationConfigurationArn of the ManagedNotificationAccountContactAssociation resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_notifications as notifications
-            
-            managed_notification_account_contact_association_reference = notifications.ManagedNotificationAccountContactAssociationReference(
-                contact_identifier="contactIdentifier",
-                managed_notification_configuration_arn="managedNotificationConfigurationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e682922484e9396cc019a37bb012c182dfbfa55b107db5a48832a73a4ac712b5)
-            check_type(argname="argument contact_identifier", value=contact_identifier, expected_type=type_hints["contact_identifier"])
-            check_type(argname="argument managed_notification_configuration_arn", value=managed_notification_configuration_arn, expected_type=type_hints["managed_notification_configuration_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "contact_identifier": contact_identifier,
-            "managed_notification_configuration_arn": managed_notification_configuration_arn,
-        }
-
-    @builtins.property
-    def contact_identifier(self) -> builtins.str:
-        '''The ContactIdentifier of the ManagedNotificationAccountContactAssociation resource.'''
-        result = self._values.get("contact_identifier")
-        assert result is not None, "Required property 'contact_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def managed_notification_configuration_arn(self) -> builtins.str:
-        '''The ManagedNotificationConfigurationArn of the ManagedNotificationAccountContactAssociation resource.'''
-        result = self._values.get("managed_notification_configuration_arn")
-        assert result is not None, "Required property 'managed_notification_configuration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ManagedNotificationAccountContactAssociationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_notifications.ManagedNotificationAdditionalChannelAssociationReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "channel_arn": "channelArn",
-        "managed_notification_configuration_arn": "managedNotificationConfigurationArn",
-    },
-)
-class ManagedNotificationAdditionalChannelAssociationReference:
-    def __init__(
-        self,
-        *,
-        channel_arn: builtins.str,
-        managed_notification_configuration_arn: builtins.str,
-    ) -> None:
-        '''A reference to a ManagedNotificationAdditionalChannelAssociation resource.
-
-        :param channel_arn: The ChannelArn of the ManagedNotificationAdditionalChannelAssociation resource.
-        :param managed_notification_configuration_arn: The ManagedNotificationConfigurationArn of the ManagedNotificationAdditionalChannelAssociation resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_notifications as notifications
-            
-            managed_notification_additional_channel_association_reference = notifications.ManagedNotificationAdditionalChannelAssociationReference(
-                channel_arn="channelArn",
-                managed_notification_configuration_arn="managedNotificationConfigurationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecece573f2986cfa247677c47c0d5c3f5c54a6a3d70b3c0c258c73778dc67eaf)
-            check_type(argname="argument channel_arn", value=channel_arn, expected_type=type_hints["channel_arn"])
-            check_type(argname="argument managed_notification_configuration_arn", value=managed_notification_configuration_arn, expected_type=type_hints["managed_notification_configuration_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "channel_arn": channel_arn,
-            "managed_notification_configuration_arn": managed_notification_configuration_arn,
-        }
-
-    @builtins.property
-    def channel_arn(self) -> builtins.str:
-        '''The ChannelArn of the ManagedNotificationAdditionalChannelAssociation resource.'''
-        result = self._values.get("channel_arn")
-        assert result is not None, "Required property 'channel_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def managed_notification_configuration_arn(self) -> builtins.str:
-        '''The ManagedNotificationConfigurationArn of the ManagedNotificationAdditionalChannelAssociation resource.'''
-        result = self._values.get("managed_notification_configuration_arn")
-        assert result is not None, "Required property 'managed_notification_configuration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ManagedNotificationAdditionalChannelAssociationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_notifications.NotificationConfigurationReference",
-    jsii_struct_bases=[],
-    name_mapping={"notification_configuration_arn": "notificationConfigurationArn"},
-)
-class NotificationConfigurationReference:
-    def __init__(self, *, notification_configuration_arn: builtins.str) -> None:
-        '''A reference to a NotificationConfiguration resource.
-
-        :param notification_configuration_arn: The Arn of the NotificationConfiguration resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_notifications as notifications
-            
-            notification_configuration_reference = notifications.NotificationConfigurationReference(
-                notification_configuration_arn="notificationConfigurationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0446c48c91aa54ca5acd74fb740ad8b7b4ba3476ed3edce01a63ec2da08c5c44)
-            check_type(argname="argument notification_configuration_arn", value=notification_configuration_arn, expected_type=type_hints["notification_configuration_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "notification_configuration_arn": notification_configuration_arn,
-        }
-
-    @builtins.property
-    def notification_configuration_arn(self) -> builtins.str:
-        '''The Arn of the NotificationConfiguration resource.'''
-        result = self._values.get("notification_configuration_arn")
-        assert result is not None, "Required property 'notification_configuration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NotificationConfigurationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_notifications.NotificationHubReference",
-    jsii_struct_bases=[],
-    name_mapping={"region": "region"},
-)
-class NotificationHubReference:
-    def __init__(self, *, region: builtins.str) -> None:
-        '''A reference to a NotificationHub resource.
-
-        :param region: The Region of the NotificationHub resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_notifications as notifications
-            
-            notification_hub_reference = notifications.NotificationHubReference(
-                region="region"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cda50524bd65c9b7d735c24fc37c675e1f8421f5a4b50fefe2825fd37879344e)
-            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "region": region,
-        }
-
-    @builtins.property
-    def region(self) -> builtins.str:
-        '''The Region of the NotificationHub resource.'''
-        result = self._values.get("region")
-        assert result is not None, "Required property 'region' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NotificationHubReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_notifications.OrganizationalUnitAssociationReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "notification_configuration_arn": "notificationConfigurationArn",
-        "organizational_unit_id": "organizationalUnitId",
-    },
-)
-class OrganizationalUnitAssociationReference:
-    def __init__(
-        self,
-        *,
-        notification_configuration_arn: builtins.str,
-        organizational_unit_id: builtins.str,
-    ) -> None:
-        '''A reference to a OrganizationalUnitAssociation resource.
-
-        :param notification_configuration_arn: The NotificationConfigurationArn of the OrganizationalUnitAssociation resource.
-        :param organizational_unit_id: The OrganizationalUnitId of the OrganizationalUnitAssociation resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_notifications as notifications
-            
-            organizational_unit_association_reference = notifications.OrganizationalUnitAssociationReference(
-                notification_configuration_arn="notificationConfigurationArn",
-                organizational_unit_id="organizationalUnitId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8257a168bc7e7384a22c44f76e3de75a9fee81c2fc61b91470c6145ceaad4fba)
-            check_type(argname="argument notification_configuration_arn", value=notification_configuration_arn, expected_type=type_hints["notification_configuration_arn"])
-            check_type(argname="argument organizational_unit_id", value=organizational_unit_id, expected_type=type_hints["organizational_unit_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "notification_configuration_arn": notification_configuration_arn,
-            "organizational_unit_id": organizational_unit_id,
-        }
-
-    @builtins.property
-    def notification_configuration_arn(self) -> builtins.str:
-        '''The NotificationConfigurationArn of the OrganizationalUnitAssociation resource.'''
-        result = self._values.get("notification_configuration_arn")
-        assert result is not None, "Required property 'notification_configuration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def organizational_unit_id(self) -> builtins.str:
-        '''The OrganizationalUnitId of the OrganizationalUnitAssociation resource.'''
-        result = self._values.get("organizational_unit_id")
-        assert result is not None, "Required property 'organizational_unit_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "OrganizationalUnitAssociationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IChannelAssociationRef)
-class CfnChannelAssociation(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_notifications.CfnChannelAssociation",
-):
-    '''The ``AWS::Notifications::ChannelAssociation`` resource associates a ``Channel`` with a ``NotificationConfiguration`` for AWS User Notifications .
-
-    For more information about AWS User Notifications , see the `AWS User Notifications User Guide <https://docs.aws.amazon.com/notifications/latest/userguide/what-is-service.html>`_ .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-channelassociation.html
-    :cloudformationResource: AWS::Notifications::ChannelAssociation
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_notifications as notifications
-        
-        cfn_channel_association = notifications.CfnChannelAssociation(self, "MyCfnChannelAssociation",
-            arn="arn",
-            notification_configuration_arn="notificationConfigurationArn"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        arn: builtins.str,
-        notification_configuration_arn: builtins.str,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param arn: The Amazon Resource Name (ARN) of the ``Channel`` .
-        :param notification_configuration_arn: The ARN of the ``NotificationConfiguration`` associated with the ``Channel`` .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96bfb9a9cbe4c6b38cb964bde4e63ccdb746cc48ac8dd61661a318886da6ba7f)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnChannelAssociationProps(
-            arn=arn, notification_configuration_arn=notification_configuration_arn
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0ffcf7c83a3beb5a9feedb6bf40d486b1aa9bad41565ae2a782129cc7450e94)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad26b3aa74c912ac52ae9f4bfb186ae1996d8ffa2fff5b28d9a9dcb2f5ceffbf)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="channelAssociationRef")
-    def channel_association_ref(self) -> ChannelAssociationReference:
-        '''A reference to a ChannelAssociation resource.'''
-        return typing.cast(ChannelAssociationReference, jsii.get(self, "channelAssociationRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="arn")
-    def arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the ``Channel`` .'''
-        return typing.cast(builtins.str, jsii.get(self, "arn"))
-
-    @arn.setter
-    def arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02aa05d5cab2ed92674dea9fe8bfd20781091f494e9c3e3da3e1cedb24710ade)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "arn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="notificationConfigurationArn")
-    def notification_configuration_arn(self) -> builtins.str:
-        '''The ARN of the ``NotificationConfiguration`` associated with the ``Channel`` .'''
-        return typing.cast(builtins.str, jsii.get(self, "notificationConfigurationArn"))
-
-    @notification_configuration_arn.setter
-    def notification_configuration_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b2d69598efa0d97ebfbcf163b7e00dfefacab9bb759efc23a009243fcbc29fc)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "notificationConfigurationArn", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IEventRuleRef)
+@jsii.implements(_IInspectable_c2943556, _IEventRuleRef_2a7b3cf1)
 class CfnEventRule(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1572,7 +332,7 @@ class CfnEventRule(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         event_type: builtins.str,
@@ -1581,7 +341,8 @@ class CfnEventRule(
         source: builtins.str,
         event_pattern: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Notifications::EventRule``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param event_type: The event type this rule should match with the EventBridge events. It must match with atleast one of the valid EventBridge event types. For example, Amazon EC2 Instance State change Notification and Amazon CloudWatch State Change. For more information, see `Event delivery from AWS services <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-service-event.html#eb-service-event-delivery-level>`_ in the *Amazon EventBridge User Guide* .
@@ -1604,8 +365,31 @@ class CfnEventRule(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForEventRule")
+    @builtins.classmethod
+    def arn_for_event_rule(cls, resource: "_IEventRuleRef_2a7b3cf1") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c1c85cd911fafeebce60e0eaf3204899ea9837ab8a933a65d031abc11018c42c)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEventRule", [resource]))
+
+    @jsii.member(jsii_name="isCfnEventRule")
+    @builtins.classmethod
+    def is_cfn_event_rule(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEventRule.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__876e43b05b416fe386996d1e8a2baf6c805296a074ff2a2c9793b1cd4a0c24f1)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEventRule", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1639,7 +423,7 @@ class CfnEventRule(
     def attr_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the ``EventRule`` .
 
-        AWS CloudFormation stack generates this ARN and then uses this ARN associated with the ``NotificationConfiguration`` .
+        CloudFormation stack generates this ARN and then uses this ARN associated with the ``NotificationConfiguration`` .
 
         :cloudformationAttribute: Arn
         '''
@@ -1669,11 +453,11 @@ class CfnEventRule(
 
     @builtins.property
     @jsii.member(jsii_name="attrStatusSummaryByRegion")
-    def attr_status_summary_by_region(self) -> _IResolvable_da3f097b:
+    def attr_status_summary_by_region(self) -> "_IResolvable_da3f097b":
         '''
         :cloudformationAttribute: StatusSummaryByRegion
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrStatusSummaryByRegion"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrStatusSummaryByRegion"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1682,9 +466,9 @@ class CfnEventRule(
 
     @builtins.property
     @jsii.member(jsii_name="eventRuleRef")
-    def event_rule_ref(self) -> EventRuleReference:
+    def event_rule_ref(self) -> "_EventRuleReference_7519f795":
         '''A reference to a EventRule resource.'''
-        return typing.cast(EventRuleReference, jsii.get(self, "eventRuleRef"))
+        return typing.cast("_EventRuleReference_7519f795", jsii.get(self, "eventRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="eventType")
@@ -1838,7 +622,138 @@ class CfnEventRule(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IManagedNotificationAccountContactAssociationRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_notifications.CfnEventRuleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "event_type": "eventType",
+        "notification_configuration_arn": "notificationConfigurationArn",
+        "regions": "regions",
+        "source": "source",
+        "event_pattern": "eventPattern",
+    },
+)
+class CfnEventRuleProps:
+    def __init__(
+        self,
+        *,
+        event_type: builtins.str,
+        notification_configuration_arn: builtins.str,
+        regions: typing.Sequence[builtins.str],
+        source: builtins.str,
+        event_pattern: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEventRule``.
+
+        :param event_type: The event type this rule should match with the EventBridge events. It must match with atleast one of the valid EventBridge event types. For example, Amazon EC2 Instance State change Notification and Amazon CloudWatch State Change. For more information, see `Event delivery from AWS services <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-service-event.html#eb-service-event-delivery-level>`_ in the *Amazon EventBridge User Guide* .
+        :param notification_configuration_arn: The ARN for the ``NotificationConfiguration`` associated with this ``EventRule`` .
+        :param regions: A list of AWS Regions that send events to this ``EventRule`` .
+        :param source: The event source this rule should match with the EventBridge event sources. It must match with atleast one of the valid EventBridge event sources. Only AWS service sourced events are supported. For example, ``aws.ec2`` and ``aws.cloudwatch`` . For more information, see `Event delivery from AWS services <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-service-event.html#eb-service-event-delivery-level>`_ in the *Amazon EventBridge User Guide* .
+        :param event_pattern: An additional event pattern used to further filter the events this ``EventRule`` receives. For more information, see `Amazon EventBridge event patterns <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-patterns.html>`_ in the *Amazon EventBridge User Guide.*
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-eventrule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_notifications as notifications
+            
+            cfn_event_rule_props = notifications.CfnEventRuleProps(
+                event_type="eventType",
+                notification_configuration_arn="notificationConfigurationArn",
+                regions=["regions"],
+                source="source",
+            
+                # the properties below are optional
+                event_pattern="eventPattern"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9518b7cf584ffb7ba5a4fb79f7584397ea33a005b8aebaa07c3bc5e5dc33bddb)
+            check_type(argname="argument event_type", value=event_type, expected_type=type_hints["event_type"])
+            check_type(argname="argument notification_configuration_arn", value=notification_configuration_arn, expected_type=type_hints["notification_configuration_arn"])
+            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
+            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_type": event_type,
+            "notification_configuration_arn": notification_configuration_arn,
+            "regions": regions,
+            "source": source,
+        }
+        if event_pattern is not None:
+            self._values["event_pattern"] = event_pattern
+
+    @builtins.property
+    def event_type(self) -> builtins.str:
+        '''The event type this rule should match with the EventBridge events.
+
+        It must match with atleast one of the valid EventBridge event types. For example, Amazon EC2 Instance State change Notification and Amazon CloudWatch State Change. For more information, see `Event delivery from AWS services <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-service-event.html#eb-service-event-delivery-level>`_ in the *Amazon EventBridge User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-eventrule.html#cfn-notifications-eventrule-eventtype
+        '''
+        result = self._values.get("event_type")
+        assert result is not None, "Required property 'event_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def notification_configuration_arn(self) -> builtins.str:
+        '''The ARN for the ``NotificationConfiguration`` associated with this ``EventRule`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-eventrule.html#cfn-notifications-eventrule-notificationconfigurationarn
+        '''
+        result = self._values.get("notification_configuration_arn")
+        assert result is not None, "Required property 'notification_configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def regions(self) -> typing.List[builtins.str]:
+        '''A list of AWS Regions that send events to this ``EventRule`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-eventrule.html#cfn-notifications-eventrule-regions
+        '''
+        result = self._values.get("regions")
+        assert result is not None, "Required property 'regions' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def source(self) -> builtins.str:
+        '''The event source this rule should match with the EventBridge event sources.
+
+        It must match with atleast one of the valid EventBridge event sources. Only AWS service sourced events are supported. For example, ``aws.ec2`` and ``aws.cloudwatch`` . For more information, see `Event delivery from AWS services <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-service-event.html#eb-service-event-delivery-level>`_ in the *Amazon EventBridge User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-eventrule.html#cfn-notifications-eventrule-source
+        '''
+        result = self._values.get("source")
+        assert result is not None, "Required property 'source' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def event_pattern(self) -> typing.Optional[builtins.str]:
+        '''An additional event pattern used to further filter the events this ``EventRule`` receives.
+
+        For more information, see `Amazon EventBridge event patterns <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-patterns.html>`_ in the *Amazon EventBridge User Guide.*
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-eventrule.html#cfn-notifications-eventrule-eventpattern
+        '''
+        result = self._values.get("event_pattern")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEventRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IManagedNotificationAccountContactAssociationRef_8c4c0998)
 class CfnManagedNotificationAccountContactAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1866,13 +781,14 @@ class CfnManagedNotificationAccountContactAssociation(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         contact_identifier: builtins.str,
         managed_notification_configuration_arn: builtins.str,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Notifications::ManagedNotificationAccountContactAssociation``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param contact_identifier: The unique identifier of the notification contact associated with the AWS account. For more information about the contact types associated with an account, see the `Account Management Reference Guide <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact-alternate.html#manage-acct-update-contact-alternate-orgs>`_ .
@@ -1889,8 +805,23 @@ class CfnManagedNotificationAccountContactAssociation(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnManagedNotificationAccountContactAssociation")
+    @builtins.classmethod
+    def is_cfn_managed_notification_account_contact_association(
+        cls,
+        x: typing.Any,
+    ) -> builtins.bool:
+        '''Checks whether the given object is a CfnManagedNotificationAccountContactAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc9e960b2569101c2fac06d0b32ad02a577935f39b2c645b032a4f37e53939e0)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnManagedNotificationAccountContactAssociation", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1928,9 +859,9 @@ class CfnManagedNotificationAccountContactAssociation(
     @jsii.member(jsii_name="managedNotificationAccountContactAssociationRef")
     def managed_notification_account_contact_association_ref(
         self,
-    ) -> ManagedNotificationAccountContactAssociationReference:
+    ) -> "_ManagedNotificationAccountContactAssociationReference_e7cb9818":
         '''A reference to a ManagedNotificationAccountContactAssociation resource.'''
-        return typing.cast(ManagedNotificationAccountContactAssociationReference, jsii.get(self, "managedNotificationAccountContactAssociationRef"))
+        return typing.cast("_ManagedNotificationAccountContactAssociationReference_e7cb9818", jsii.get(self, "managedNotificationAccountContactAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="contactIdentifier")
@@ -1959,7 +890,84 @@ class CfnManagedNotificationAccountContactAssociation(
         jsii.set(self, "managedNotificationConfigurationArn", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IManagedNotificationAdditionalChannelAssociationRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_notifications.CfnManagedNotificationAccountContactAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "contact_identifier": "contactIdentifier",
+        "managed_notification_configuration_arn": "managedNotificationConfigurationArn",
+    },
+)
+class CfnManagedNotificationAccountContactAssociationProps:
+    def __init__(
+        self,
+        *,
+        contact_identifier: builtins.str,
+        managed_notification_configuration_arn: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnManagedNotificationAccountContactAssociation``.
+
+        :param contact_identifier: The unique identifier of the notification contact associated with the AWS account. For more information about the contact types associated with an account, see the `Account Management Reference Guide <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact-alternate.html#manage-acct-update-contact-alternate-orgs>`_ .
+        :param managed_notification_configuration_arn: The ARN of the ``ManagedNotificationConfiguration`` to be associated with the ``Channel`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-managednotificationaccountcontactassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_notifications as notifications
+            
+            cfn_managed_notification_account_contact_association_props = notifications.CfnManagedNotificationAccountContactAssociationProps(
+                contact_identifier="contactIdentifier",
+                managed_notification_configuration_arn="managedNotificationConfigurationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4ba701ff30108b1aeca6e33e95e36c02bce0446db03324798ed5b79a966800cc)
+            check_type(argname="argument contact_identifier", value=contact_identifier, expected_type=type_hints["contact_identifier"])
+            check_type(argname="argument managed_notification_configuration_arn", value=managed_notification_configuration_arn, expected_type=type_hints["managed_notification_configuration_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "contact_identifier": contact_identifier,
+            "managed_notification_configuration_arn": managed_notification_configuration_arn,
+        }
+
+    @builtins.property
+    def contact_identifier(self) -> builtins.str:
+        '''The unique identifier of the notification contact associated with the AWS account.
+
+        For more information about the contact types associated with an account, see the `Account Management Reference Guide <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact-alternate.html#manage-acct-update-contact-alternate-orgs>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-managednotificationaccountcontactassociation.html#cfn-notifications-managednotificationaccountcontactassociation-contactidentifier
+        '''
+        result = self._values.get("contact_identifier")
+        assert result is not None, "Required property 'contact_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def managed_notification_configuration_arn(self) -> builtins.str:
+        '''The ARN of the ``ManagedNotificationConfiguration`` to be associated with the ``Channel`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-managednotificationaccountcontactassociation.html#cfn-notifications-managednotificationaccountcontactassociation-managednotificationconfigurationarn
+        '''
+        result = self._values.get("managed_notification_configuration_arn")
+        assert result is not None, "Required property 'managed_notification_configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnManagedNotificationAccountContactAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IManagedNotificationAdditionalChannelAssociationRef_b1ea4951)
 class CfnManagedNotificationAdditionalChannelAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1987,13 +995,14 @@ class CfnManagedNotificationAdditionalChannelAssociation(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         channel_arn: builtins.str,
         managed_notification_configuration_arn: builtins.str,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Notifications::ManagedNotificationAdditionalChannelAssociation``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param channel_arn: The ARN of the ``Channel`` .
@@ -2010,8 +1019,23 @@ class CfnManagedNotificationAdditionalChannelAssociation(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnManagedNotificationAdditionalChannelAssociation")
+    @builtins.classmethod
+    def is_cfn_managed_notification_additional_channel_association(
+        cls,
+        x: typing.Any,
+    ) -> builtins.bool:
+        '''Checks whether the given object is a CfnManagedNotificationAdditionalChannelAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e9b3081569b34481c3342f3ac9585f4f79fed1f73196e7c70f17b62a75f1541f)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnManagedNotificationAdditionalChannelAssociation", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2049,9 +1073,9 @@ class CfnManagedNotificationAdditionalChannelAssociation(
     @jsii.member(jsii_name="managedNotificationAdditionalChannelAssociationRef")
     def managed_notification_additional_channel_association_ref(
         self,
-    ) -> ManagedNotificationAdditionalChannelAssociationReference:
+    ) -> "_ManagedNotificationAdditionalChannelAssociationReference_929878f3":
         '''A reference to a ManagedNotificationAdditionalChannelAssociation resource.'''
-        return typing.cast(ManagedNotificationAdditionalChannelAssociationReference, jsii.get(self, "managedNotificationAdditionalChannelAssociationRef"))
+        return typing.cast("_ManagedNotificationAdditionalChannelAssociationReference_929878f3", jsii.get(self, "managedNotificationAdditionalChannelAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="channelArn")
@@ -2080,7 +1104,82 @@ class CfnManagedNotificationAdditionalChannelAssociation(
         jsii.set(self, "managedNotificationConfigurationArn", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, INotificationConfigurationRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_notifications.CfnManagedNotificationAdditionalChannelAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "channel_arn": "channelArn",
+        "managed_notification_configuration_arn": "managedNotificationConfigurationArn",
+    },
+)
+class CfnManagedNotificationAdditionalChannelAssociationProps:
+    def __init__(
+        self,
+        *,
+        channel_arn: builtins.str,
+        managed_notification_configuration_arn: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnManagedNotificationAdditionalChannelAssociation``.
+
+        :param channel_arn: The ARN of the ``Channel`` .
+        :param managed_notification_configuration_arn: The ARN of the ``ManagedNotificationAdditionalChannelAssociation`` associated with the ``Channel`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-managednotificationadditionalchannelassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_notifications as notifications
+            
+            cfn_managed_notification_additional_channel_association_props = notifications.CfnManagedNotificationAdditionalChannelAssociationProps(
+                channel_arn="channelArn",
+                managed_notification_configuration_arn="managedNotificationConfigurationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__63600091503bee10f7ba2c01f3247b370b8b2bca175e1cc3db1e6800e18fedd9)
+            check_type(argname="argument channel_arn", value=channel_arn, expected_type=type_hints["channel_arn"])
+            check_type(argname="argument managed_notification_configuration_arn", value=managed_notification_configuration_arn, expected_type=type_hints["managed_notification_configuration_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_arn": channel_arn,
+            "managed_notification_configuration_arn": managed_notification_configuration_arn,
+        }
+
+    @builtins.property
+    def channel_arn(self) -> builtins.str:
+        '''The ARN of the ``Channel`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-managednotificationadditionalchannelassociation.html#cfn-notifications-managednotificationadditionalchannelassociation-channelarn
+        '''
+        result = self._values.get("channel_arn")
+        assert result is not None, "Required property 'channel_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def managed_notification_configuration_arn(self) -> builtins.str:
+        '''The ARN of the ``ManagedNotificationAdditionalChannelAssociation`` associated with the ``Channel`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-managednotificationadditionalchannelassociation.html#cfn-notifications-managednotificationadditionalchannelassociation-managednotificationconfigurationarn
+        '''
+        result = self._values.get("managed_notification_configuration_arn")
+        assert result is not None, "Required property 'managed_notification_configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnManagedNotificationAdditionalChannelAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _INotificationConfigurationRef_52a9226d, _ITaggableV2_4e6798f8)
 class CfnNotificationConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2094,6 +1193,7 @@ class CfnNotificationConfiguration(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_notifications as notifications
@@ -2113,15 +1213,16 @@ class CfnNotificationConfiguration(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         description: builtins.str,
         name: builtins.str,
         aggregation_duration: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Notifications::NotificationConfiguration``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param description: The description of the ``NotificationConfiguration`` .
@@ -2142,8 +1243,34 @@ class CfnNotificationConfiguration(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForNotificationConfiguration")
+    @builtins.classmethod
+    def arn_for_notification_configuration(
+        cls,
+        resource: "_INotificationConfigurationRef_52a9226d",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__12fcc600bb6d698b1177b4ab6b9265ffccc4c77e1396850195df3ea6113db7d4)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForNotificationConfiguration", [resource]))
+
+    @jsii.member(jsii_name="isCfnNotificationConfiguration")
+    @builtins.classmethod
+    def is_cfn_notification_configuration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnNotificationConfiguration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2df47dbfae59747b61c2262f58a20136ac6b72df77bb8535fcba09e9bf65f2b5)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnNotificationConfiguration", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2201,9 +1328,9 @@ class CfnNotificationConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2212,9 +1339,11 @@ class CfnNotificationConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="notificationConfigurationRef")
-    def notification_configuration_ref(self) -> NotificationConfigurationReference:
+    def notification_configuration_ref(
+        self,
+    ) -> "_NotificationConfigurationReference_ab5ea829":
         '''A reference to a NotificationConfiguration resource.'''
-        return typing.cast(NotificationConfigurationReference, jsii.get(self, "notificationConfigurationRef"))
+        return typing.cast("_NotificationConfigurationReference_ab5ea829", jsii.get(self, "notificationConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -2257,19 +1386,142 @@ class CfnNotificationConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A map of tags assigned to a ``NotificationConfiguration`` .'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d80fd02377dda29814fae801cf32c8200e2aa5b9ff4b7440916ad6d4efbeb00b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, INotificationHubRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_notifications.CfnNotificationConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "name": "name",
+        "aggregation_duration": "aggregationDuration",
+        "tags": "tags",
+    },
+)
+class CfnNotificationConfigurationProps:
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        name: builtins.str,
+        aggregation_duration: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnNotificationConfiguration``.
+
+        :param description: The description of the ``NotificationConfiguration`` .
+        :param name: The name of the ``NotificationConfiguration`` . Supports RFC 3986's unreserved characters.
+        :param aggregation_duration: The aggregation preference of the ``NotificationConfiguration`` . - Values: - ``LONG`` - Aggregate notifications for long periods of time (12 hours). - ``SHORT`` - Aggregate notifications for short periods of time (5 minutes). - ``NONE`` - Don't aggregate notifications.
+        :param tags: A map of tags assigned to a ``NotificationConfiguration`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-notificationconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_notifications as notifications
+            
+            cfn_notification_configuration_props = notifications.CfnNotificationConfigurationProps(
+                description="description",
+                name="name",
+            
+                # the properties below are optional
+                aggregation_duration="aggregationDuration",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2533f954a13ead8ba0e86dbad3d4401450ff85451a17c80b370344cb112ae478)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument aggregation_duration", value=aggregation_duration, expected_type=type_hints["aggregation_duration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+            "name": name,
+        }
+        if aggregation_duration is not None:
+            self._values["aggregation_duration"] = aggregation_duration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''The description of the ``NotificationConfiguration`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-notificationconfiguration.html#cfn-notifications-notificationconfiguration-description
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the ``NotificationConfiguration`` .
+
+        Supports RFC 3986's unreserved characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-notificationconfiguration.html#cfn-notifications-notificationconfiguration-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def aggregation_duration(self) -> typing.Optional[builtins.str]:
+        '''The aggregation preference of the ``NotificationConfiguration`` .
+
+        - Values:
+        - ``LONG``
+        - Aggregate notifications for long periods of time (12 hours).
+        - ``SHORT``
+        - Aggregate notifications for short periods of time (5 minutes).
+        - ``NONE``
+        - Don't aggregate notifications.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-notificationconfiguration.html#cfn-notifications-notificationconfiguration-aggregationduration
+        '''
+        result = self._values.get("aggregation_duration")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A map of tags assigned to a ``NotificationConfiguration`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-notificationconfiguration.html#cfn-notifications-notificationconfiguration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnNotificationConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _INotificationHubRef_463bb6d4)
 class CfnNotificationHub(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2296,12 +1548,13 @@ class CfnNotificationHub(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         region: builtins.str,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Notifications::NotificationHub``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param region: The ``NotificationHub`` Region.
@@ -2314,8 +1567,20 @@ class CfnNotificationHub(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnNotificationHub")
+    @builtins.classmethod
+    def is_cfn_notification_hub(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnNotificationHub.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1f114133b9f963dd4338ad37d19258ad52e61b805d22a73dc09a8c54922aba31)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnNotificationHub", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2355,11 +1620,11 @@ class CfnNotificationHub(
 
     @builtins.property
     @jsii.member(jsii_name="attrNotificationHubStatusSummary")
-    def attr_notification_hub_status_summary(self) -> _IResolvable_da3f097b:
+    def attr_notification_hub_status_summary(self) -> "_IResolvable_da3f097b":
         '''
         :cloudformationAttribute: NotificationHubStatusSummary
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrNotificationHubStatusSummary"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrNotificationHubStatusSummary"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2368,9 +1633,9 @@ class CfnNotificationHub(
 
     @builtins.property
     @jsii.member(jsii_name="notificationHubRef")
-    def notification_hub_ref(self) -> NotificationHubReference:
+    def notification_hub_ref(self) -> "_NotificationHubReference_8c4cd07b":
         '''A reference to a NotificationHub resource.'''
-        return typing.cast(NotificationHubReference, jsii.get(self, "notificationHubRef"))
+        return typing.cast("_NotificationHubReference_8c4cd07b", jsii.get(self, "notificationHubRef"))
 
     @builtins.property
     @jsii.member(jsii_name="region")
@@ -2460,7 +1725,60 @@ class CfnNotificationHub(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IOrganizationalUnitAssociationRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_notifications.CfnNotificationHubProps",
+    jsii_struct_bases=[],
+    name_mapping={"region": "region"},
+)
+class CfnNotificationHubProps:
+    def __init__(self, *, region: builtins.str) -> None:
+        '''Properties for defining a ``CfnNotificationHub``.
+
+        :param region: The ``NotificationHub`` Region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-notificationhub.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_notifications as notifications
+            
+            cfn_notification_hub_props = notifications.CfnNotificationHubProps(
+                region="region"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__920924baa84f6463cdd237bcaa739a631a79dad627c4370064c68f1de8c3c630)
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "region": region,
+        }
+
+    @builtins.property
+    def region(self) -> builtins.str:
+        '''The ``NotificationHub`` Region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-notificationhub.html#cfn-notifications-notificationhub-region
+        '''
+        result = self._values.get("region")
+        assert result is not None, "Required property 'region' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnNotificationHubProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IOrganizationalUnitAssociationRef_aab78d4f)
 class CfnOrganizationalUnitAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2486,13 +1804,14 @@ class CfnOrganizationalUnitAssociation(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         notification_configuration_arn: builtins.str,
         organizational_unit_id: builtins.str,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Notifications::OrganizationalUnitAssociation``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param notification_configuration_arn: ARN identifier of the NotificationConfiguration. Example: arn:aws:notifications::123456789012:configuration/a01jes88qxwkbj05xv9c967pgm1
@@ -2509,8 +1828,20 @@ class CfnOrganizationalUnitAssociation(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnOrganizationalUnitAssociation")
+    @builtins.classmethod
+    def is_cfn_organizational_unit_association(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnOrganizationalUnitAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4c142749f689f50aaa058a6afbe12ac79089afe89b944bfec33273d4f7ed4d2b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOrganizationalUnitAssociation", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2548,9 +1879,9 @@ class CfnOrganizationalUnitAssociation(
     @jsii.member(jsii_name="organizationalUnitAssociationRef")
     def organizational_unit_association_ref(
         self,
-    ) -> OrganizationalUnitAssociationReference:
+    ) -> "_OrganizationalUnitAssociationReference_7b321074":
         '''A reference to a OrganizationalUnitAssociation resource.'''
-        return typing.cast(OrganizationalUnitAssociationReference, jsii.get(self, "organizationalUnitAssociationRef"))
+        return typing.cast("_OrganizationalUnitAssociationReference_7b321074", jsii.get(self, "organizationalUnitAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="notificationConfigurationArn")
@@ -2579,6 +1910,83 @@ class CfnOrganizationalUnitAssociation(
         jsii.set(self, "organizationalUnitId", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_notifications.CfnOrganizationalUnitAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "notification_configuration_arn": "notificationConfigurationArn",
+        "organizational_unit_id": "organizationalUnitId",
+    },
+)
+class CfnOrganizationalUnitAssociationProps:
+    def __init__(
+        self,
+        *,
+        notification_configuration_arn: builtins.str,
+        organizational_unit_id: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnOrganizationalUnitAssociation``.
+
+        :param notification_configuration_arn: ARN identifier of the NotificationConfiguration. Example: arn:aws:notifications::123456789012:configuration/a01jes88qxwkbj05xv9c967pgm1
+        :param organizational_unit_id: The ID of the organizational unit.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-organizationalunitassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_notifications as notifications
+            
+            cfn_organizational_unit_association_props = notifications.CfnOrganizationalUnitAssociationProps(
+                notification_configuration_arn="notificationConfigurationArn",
+                organizational_unit_id="organizationalUnitId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed76c0102562b65b59e77b5029771fa9c9a0ff702c51abaa9355a1ae95122a98)
+            check_type(argname="argument notification_configuration_arn", value=notification_configuration_arn, expected_type=type_hints["notification_configuration_arn"])
+            check_type(argname="argument organizational_unit_id", value=organizational_unit_id, expected_type=type_hints["organizational_unit_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "notification_configuration_arn": notification_configuration_arn,
+            "organizational_unit_id": organizational_unit_id,
+        }
+
+    @builtins.property
+    def notification_configuration_arn(self) -> builtins.str:
+        '''ARN identifier of the NotificationConfiguration.
+
+        Example: arn:aws:notifications::123456789012:configuration/a01jes88qxwkbj05xv9c967pgm1
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-organizationalunitassociation.html#cfn-notifications-organizationalunitassociation-notificationconfigurationarn
+        '''
+        result = self._values.get("notification_configuration_arn")
+        assert result is not None, "Required property 'notification_configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def organizational_unit_id(self) -> builtins.str:
+        '''The ID of the organizational unit.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-organizationalunitassociation.html#cfn-notifications-organizationalunitassociation-organizationalunitid
+        '''
+        result = self._values.get("organizational_unit_id")
+        assert result is not None, "Required property 'organizational_unit_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnOrganizationalUnitAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnChannelAssociation",
     "CfnChannelAssociationProps",
@@ -2594,136 +2002,9 @@ __all__ = [
     "CfnNotificationHubProps",
     "CfnOrganizationalUnitAssociation",
     "CfnOrganizationalUnitAssociationProps",
-    "ChannelAssociationReference",
-    "EventRuleReference",
-    "IChannelAssociationRef",
-    "IEventRuleRef",
-    "IManagedNotificationAccountContactAssociationRef",
-    "IManagedNotificationAdditionalChannelAssociationRef",
-    "INotificationConfigurationRef",
-    "INotificationHubRef",
-    "IOrganizationalUnitAssociationRef",
-    "ManagedNotificationAccountContactAssociationReference",
-    "ManagedNotificationAdditionalChannelAssociationReference",
-    "NotificationConfigurationReference",
-    "NotificationHubReference",
-    "OrganizationalUnitAssociationReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__3df32ecb43a8f1e94c1f975e24a79631c45fd6739c1d7bea0e44c5c169b5137c(
-    *,
-    arn: builtins.str,
-    notification_configuration_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9518b7cf584ffb7ba5a4fb79f7584397ea33a005b8aebaa07c3bc5e5dc33bddb(
-    *,
-    event_type: builtins.str,
-    notification_configuration_arn: builtins.str,
-    regions: typing.Sequence[builtins.str],
-    source: builtins.str,
-    event_pattern: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4ba701ff30108b1aeca6e33e95e36c02bce0446db03324798ed5b79a966800cc(
-    *,
-    contact_identifier: builtins.str,
-    managed_notification_configuration_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__63600091503bee10f7ba2c01f3247b370b8b2bca175e1cc3db1e6800e18fedd9(
-    *,
-    channel_arn: builtins.str,
-    managed_notification_configuration_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2533f954a13ead8ba0e86dbad3d4401450ff85451a17c80b370344cb112ae478(
-    *,
-    description: builtins.str,
-    name: builtins.str,
-    aggregation_duration: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__920924baa84f6463cdd237bcaa739a631a79dad627c4370064c68f1de8c3c630(
-    *,
-    region: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ed76c0102562b65b59e77b5029771fa9c9a0ff702c51abaa9355a1ae95122a98(
-    *,
-    notification_configuration_arn: builtins.str,
-    organizational_unit_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a814ad0d1f33cf438877c6c5e6647a2478179f8e4b4594ebfaf427151868dea6(
-    *,
-    channel_association_arn: builtins.str,
-    notification_configuration_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__193490676dedc03c3be95fb4cf0fecb1d1c67b8a38caaef542cef100a4a1ffa9(
-    *,
-    event_rule_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e682922484e9396cc019a37bb012c182dfbfa55b107db5a48832a73a4ac712b5(
-    *,
-    contact_identifier: builtins.str,
-    managed_notification_configuration_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ecece573f2986cfa247677c47c0d5c3f5c54a6a3d70b3c0c258c73778dc67eaf(
-    *,
-    channel_arn: builtins.str,
-    managed_notification_configuration_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0446c48c91aa54ca5acd74fb740ad8b7b4ba3476ed3edce01a63ec2da08c5c44(
-    *,
-    notification_configuration_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cda50524bd65c9b7d735c24fc37c675e1f8421f5a4b50fefe2825fd37879344e(
-    *,
-    region: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8257a168bc7e7384a22c44f76e3de75a9fee81c2fc61b91470c6145ceaad4fba(
-    *,
-    notification_configuration_arn: builtins.str,
-    organizational_unit_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__96bfb9a9cbe4c6b38cb964bde4e63ccdb746cc48ac8dd61661a318886da6ba7f(
     scope: _constructs_77d1e7e8.Construct,
@@ -2731,6 +2012,12 @@ def _typecheckingstub__96bfb9a9cbe4c6b38cb964bde4e63ccdb746cc48ac8dd61661a318886
     *,
     arn: builtins.str,
     notification_configuration_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d621959c24b3197b8ee401ef6943b14353e1a7b94c3ae4ed6f8ed72937f60021(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2759,6 +2046,14 @@ def _typecheckingstub__6b2d69598efa0d97ebfbcf163b7e00dfefacab9bb759efc23a009243f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3df32ecb43a8f1e94c1f975e24a79631c45fd6739c1d7bea0e44c5c169b5137c(
+    *,
+    arn: builtins.str,
+    notification_configuration_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ec202e2ad7890be955535389c490f73db69e1ae4c0e2b9af79f33a0bb4e4dd47(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2768,6 +2063,18 @@ def _typecheckingstub__ec202e2ad7890be955535389c490f73db69e1ae4c0e2b9af79f33a0bb
     regions: typing.Sequence[builtins.str],
     source: builtins.str,
     event_pattern: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c1c85cd911fafeebce60e0eaf3204899ea9837ab8a933a65d031abc11018c42c(
+    resource: _IEventRuleRef_2a7b3cf1,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__876e43b05b416fe386996d1e8a2baf6c805296a074ff2a2c9793b1cd4a0c24f1(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2822,12 +2129,29 @@ def _typecheckingstub__0862e7de7e4f6b1de2036652d175c4ef1949f04dadc360833e7e48991
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9518b7cf584ffb7ba5a4fb79f7584397ea33a005b8aebaa07c3bc5e5dc33bddb(
+    *,
+    event_type: builtins.str,
+    notification_configuration_arn: builtins.str,
+    regions: typing.Sequence[builtins.str],
+    source: builtins.str,
+    event_pattern: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__96181d9832ab883e4a967003ef3b840ed10f8d410e4b8ceaf721368c4c5a02c5(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     contact_identifier: builtins.str,
     managed_notification_configuration_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc9e960b2569101c2fac06d0b32ad02a577935f39b2c645b032a4f37e53939e0(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2856,12 +2180,26 @@ def _typecheckingstub__723689b4f7e0ee73e180c6e8b0a172092e4905133e6f8e7994d8a793b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4ba701ff30108b1aeca6e33e95e36c02bce0446db03324798ed5b79a966800cc(
+    *,
+    contact_identifier: builtins.str,
+    managed_notification_configuration_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1ca734986c83660130935052d366897b8c8be9a3097eeb3e4d8a8e55d157be14(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     channel_arn: builtins.str,
     managed_notification_configuration_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9b3081569b34481c3342f3ac9585f4f79fed1f73196e7c70f17b62a75f1541f(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2890,6 +2228,14 @@ def _typecheckingstub__3420dbc2928b8b5bd017053f781f8eb1c6893c1b43a27f7854a5dbeb6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__63600091503bee10f7ba2c01f3247b370b8b2bca175e1cc3db1e6800e18fedd9(
+    *,
+    channel_arn: builtins.str,
+    managed_notification_configuration_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e5a1cf31f790937b5967ad78a42e8a6c98b04b21643bfcdd379cabb7f43b17f1(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2898,6 +2244,18 @@ def _typecheckingstub__e5a1cf31f790937b5967ad78a42e8a6c98b04b21643bfcdd379cabb7f
     name: builtins.str,
     aggregation_duration: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12fcc600bb6d698b1177b4ab6b9265ffccc4c77e1396850195df3ea6113db7d4(
+    resource: _INotificationConfigurationRef_52a9226d,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2df47dbfae59747b61c2262f58a20136ac6b72df77bb8535fcba09e9bf65f2b5(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2938,11 +2296,27 @@ def _typecheckingstub__d80fd02377dda29814fae801cf32c8200e2aa5b9ff4b7440916ad6d4e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2533f954a13ead8ba0e86dbad3d4401450ff85451a17c80b370344cb112ae478(
+    *,
+    description: builtins.str,
+    name: builtins.str,
+    aggregation_duration: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__68d72929c95357a15821df7d24b28076913c2c16ae8caa651de92ab7110ee545(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     region: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f114133b9f963dd4338ad37d19258ad52e61b805d22a73dc09a8c54922aba31(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2973,12 +2347,25 @@ def _typecheckingstub__8aa8a0cc3749f69e28b77cefd47fc05557b9a1869a97350b92cdcb9f3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__920924baa84f6463cdd237bcaa739a631a79dad627c4370064c68f1de8c3c630(
+    *,
+    region: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f2140e5015b013b82a8e1ec6df08aecb46b39731d8f2e3afa2f7ab43c33e9347(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     notification_configuration_arn: builtins.str,
     organizational_unit_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4c142749f689f50aaa058a6afbe12ac79089afe89b944bfec33273d4f7ed4d2b(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3003,6 +2390,14 @@ def _typecheckingstub__f1050c8c0e02257c3a533fa23fa3a54a2ebd6b98c600866de92f1c1ca
 
 def _typecheckingstub__fcef0a4f0c9aa956b05de5c689fc8d5dcbac4d3d2eb89e00f7e33d9d59e20f68(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed76c0102562b65b59e77b5029771fa9c9a0ff702c51abaa9355a1ae95122a98(
+    *,
+    notification_configuration_arn: builtins.str,
+    organizational_unit_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

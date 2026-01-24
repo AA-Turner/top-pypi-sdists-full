@@ -67,7 +67,7 @@ class NotifyDingTalk(NotifyBase):
     secure_protocol = "dingtalk"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_dingtalk"
+    setup_url = "https://appriseit.com/services/dingtalk/"
 
     # DingTalk API
     notify_url = "https://oapi.dingtalk.com/robot/send?access_token={token}"
@@ -246,6 +246,7 @@ class NotifyDingTalk(NotifyBase):
                 headers=headers,
                 params=params,
                 verify=self.verify_certificate,
+                timeout=self.request_timeout,
             )
 
             if r.status_code != requests.codes.ok:
@@ -261,7 +262,9 @@ class NotifyDingTalk(NotifyBase):
                     )
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
+
                 return False
 
             else:

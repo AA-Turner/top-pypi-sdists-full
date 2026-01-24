@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2025, Jice and the libtcod contributors.
+ * Copyright © 2008-2026, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -786,8 +786,11 @@ static TCOD_Error sdl2_present(
  */
 static void sdl2_pixel_to_tile(struct TCOD_Context* __restrict self, double* __restrict x, double* __restrict y) {
   struct TCOD_RendererSDL2* context = self->contextdata_;
-  *x = (*x - context->cursor_transform.offset_x) * context->cursor_transform.scale_x;
-  *y = (*y - context->cursor_transform.offset_y) * context->cursor_transform.scale_y;
+  float float_x = (float)*x;
+  float float_y = (float)*y;
+  SDL_RenderCoordinatesFromWindow(context->renderer, float_x, float_y, &float_x, &float_y);
+  *x = (float_x - context->cursor_transform.offset_x) * context->cursor_transform.scale_x;
+  *y = (float_y - context->cursor_transform.offset_y) * context->cursor_transform.scale_y;
 }
 /**
  *  Save a PNG screen-shot to `file`.

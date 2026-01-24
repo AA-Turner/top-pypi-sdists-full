@@ -10,6 +10,8 @@ from ..types.batch_change_inventory_response import BatchChangeInventoryResponse
 from ..types.batch_get_inventory_changes_response import BatchGetInventoryChangesResponse
 from ..types.batch_get_inventory_counts_response import BatchGetInventoryCountsResponse
 from ..types.get_inventory_adjustment_response import GetInventoryAdjustmentResponse
+from ..types.get_inventory_changes_response import GetInventoryChangesResponse
+from ..types.get_inventory_count_response import GetInventoryCountResponse
 from ..types.get_inventory_physical_count_response import GetInventoryPhysicalCountResponse
 from ..types.get_inventory_transfer_response import GetInventoryTransferResponse
 from ..types.inventory_change import InventoryChange
@@ -434,7 +436,7 @@ class InventoryClient:
         cursor: typing.Optional[str] = OMIT,
         limit: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[InventoryChange]:
+    ) -> SyncPager[InventoryChange, BatchGetInventoryChangesResponse]:
         """
         Returns historical physical counts and adjustments based on the
         provided filter criteria.
@@ -488,7 +490,7 @@ class InventoryClient:
 
         Returns
         -------
-        SyncPager[InventoryChange]
+        SyncPager[InventoryChange, BatchGetInventoryChangesResponse]
             Success
 
         Examples
@@ -534,7 +536,7 @@ class InventoryClient:
         states: typing.Optional[typing.Sequence[InventoryState]] = OMIT,
         limit: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[InventoryCount]:
+    ) -> SyncPager[InventoryCount, BatchGetInventoryCountsResponse]:
         """
         Returns current counts for the provided
         [CatalogObject](entity:CatalogObject)s at the requested
@@ -582,7 +584,7 @@ class InventoryClient:
 
         Returns
         -------
-        SyncPager[InventoryCount]
+        SyncPager[InventoryCount, BatchGetInventoryCountsResponse]
             Success
 
         Examples
@@ -724,7 +726,7 @@ class InventoryClient:
         location_ids: typing.Optional[str] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[InventoryCount]:
+    ) -> SyncPager[InventoryCount, GetInventoryCountResponse]:
         """
         Retrieves the current calculated stock count for a given
         [CatalogObject](entity:CatalogObject) at a given set of
@@ -751,7 +753,7 @@ class InventoryClient:
 
         Returns
         -------
-        SyncPager[InventoryCount]
+        SyncPager[InventoryCount, GetInventoryCountResponse]
             Success
 
         Examples
@@ -763,6 +765,8 @@ class InventoryClient:
         )
         response = client.inventory.get(
             catalog_object_id="catalog_object_id",
+            location_ids="location_ids",
+            cursor="cursor",
         )
         for item in response:
             yield item
@@ -781,7 +785,7 @@ class InventoryClient:
         location_ids: typing.Optional[str] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[InventoryChange]:
+    ) -> SyncPager[InventoryChange, GetInventoryChangesResponse]:
         """
         Returns a set of physical counts and inventory adjustments for the
         provided [CatalogObject](entity:CatalogObject) at the requested
@@ -817,7 +821,7 @@ class InventoryClient:
 
         Returns
         -------
-        SyncPager[InventoryChange]
+        SyncPager[InventoryChange, GetInventoryChangesResponse]
             Success
 
         Examples
@@ -829,6 +833,8 @@ class InventoryClient:
         )
         response = client.inventory.changes(
             catalog_object_id="catalog_object_id",
+            location_ids="location_ids",
+            cursor="cursor",
         )
         for item in response:
             yield item
@@ -1301,7 +1307,7 @@ class AsyncInventoryClient:
         cursor: typing.Optional[str] = OMIT,
         limit: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[InventoryChange]:
+    ) -> AsyncPager[InventoryChange, BatchGetInventoryChangesResponse]:
         """
         Returns historical physical counts and adjustments based on the
         provided filter criteria.
@@ -1355,7 +1361,7 @@ class AsyncInventoryClient:
 
         Returns
         -------
-        AsyncPager[InventoryChange]
+        AsyncPager[InventoryChange, BatchGetInventoryChangesResponse]
             Success
 
         Examples
@@ -1410,7 +1416,7 @@ class AsyncInventoryClient:
         states: typing.Optional[typing.Sequence[InventoryState]] = OMIT,
         limit: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[InventoryCount]:
+    ) -> AsyncPager[InventoryCount, BatchGetInventoryCountsResponse]:
         """
         Returns current counts for the provided
         [CatalogObject](entity:CatalogObject)s at the requested
@@ -1458,7 +1464,7 @@ class AsyncInventoryClient:
 
         Returns
         -------
-        AsyncPager[InventoryCount]
+        AsyncPager[InventoryCount, BatchGetInventoryCountsResponse]
             Success
 
         Examples
@@ -1635,7 +1641,7 @@ class AsyncInventoryClient:
         location_ids: typing.Optional[str] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[InventoryCount]:
+    ) -> AsyncPager[InventoryCount, GetInventoryCountResponse]:
         """
         Retrieves the current calculated stock count for a given
         [CatalogObject](entity:CatalogObject) at a given set of
@@ -1662,7 +1668,7 @@ class AsyncInventoryClient:
 
         Returns
         -------
-        AsyncPager[InventoryCount]
+        AsyncPager[InventoryCount, GetInventoryCountResponse]
             Success
 
         Examples
@@ -1679,6 +1685,8 @@ class AsyncInventoryClient:
         async def main() -> None:
             response = await client.inventory.get(
                 catalog_object_id="catalog_object_id",
+                location_ids="location_ids",
+                cursor="cursor",
             )
             async for item in response:
                 yield item
@@ -1701,7 +1709,7 @@ class AsyncInventoryClient:
         location_ids: typing.Optional[str] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[InventoryChange]:
+    ) -> AsyncPager[InventoryChange, GetInventoryChangesResponse]:
         """
         Returns a set of physical counts and inventory adjustments for the
         provided [CatalogObject](entity:CatalogObject) at the requested
@@ -1737,7 +1745,7 @@ class AsyncInventoryClient:
 
         Returns
         -------
-        AsyncPager[InventoryChange]
+        AsyncPager[InventoryChange, GetInventoryChangesResponse]
             Success
 
         Examples
@@ -1754,6 +1762,8 @@ class AsyncInventoryClient:
         async def main() -> None:
             response = await client.inventory.changes(
                 catalog_object_id="catalog_object_id",
+                location_ids="location_ids",
+                cursor="cursor",
             )
             async for item in response:
                 yield item

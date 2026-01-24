@@ -1,5 +1,6 @@
 import json
 import os
+import platform
 import signal
 import subprocess
 import time
@@ -9,6 +10,14 @@ import pytest
 
 from ddapm_test_agent.trace import decode_v1
 from ddapm_test_agent.trace import trace_id
+
+
+# Windows-only import for named pipes
+if platform.system() == "Windows":
+    try:
+        import win32pipe
+    except ImportError:
+        win32pipe = None
 
 
 async def test_trace(
@@ -96,6 +105,7 @@ async def test_info(agent):
             "/v0.7/config",
             "/tracer_flare/v1",
             "/evp_proxy/v2/",
+            "/evp_proxy/v4/",
         ],
         "peer_tags": [
             "db.name",
@@ -107,6 +117,21 @@ async def test_info(agent):
         "client_drop_p0s": True,
         "span_events": True,
     }
+
+
+async def test_info_custom_version(agent, monkeypatch):
+    custom_version = "1.2.3"
+    monkeypatch.setenv("TEST_AGENT_VERSION", custom_version)
+
+    resp = await agent.get("/info")
+    assert resp.status == 200
+
+    info = await resp.json()
+    assert info["version"] == custom_version
+
+    # Verify other fields are still present
+    assert "endpoints" in info
+    assert "peer_tags" in info
 
 
 async def test_apmtelemetry(
@@ -384,6 +409,7 @@ async def test_put_integrations(
     )
 
 
+@pytest.mark.skipif(platform.system() == "Windows", reason="Unix domain sockets are not supported on Windows")
 async def test_uds(tmp_path, agent, available_port, loop):
     env = os.environ.copy()
     env["DD_APM_RECEIVER_SOCKET"] = str(tmp_path / "apm.socket")
@@ -413,6 +439,63 @@ async def test_uds(tmp_path, agent, available_port, loop):
         pass
     else:
         raise Exception("Test agent failed to start")
+
+
+@pytest.mark.skipif(platform.system() != "Windows", reason="Named pipes are Windows-specific")
+def test_named_pipe(available_port):
+
+    # Windows named pipe path
+    pipe_path = "\\\\.\\pipe\\dd-apm-test-agent"
+
+    env = os.environ.copy()
+    env["DD_APM_RECEIVER_NAMED_PIPE"] = pipe_path
+    env["PORT"] = str(available_port)
+
+    p = subprocess.Popen(["ddapm-test-agent"], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    try:
+        # Wait a bit for startup
+        time.sleep(2)
+
+        # Check if process is still running (didn't crash on startup)
+        if p.poll() is not None:
+            stdout, stderr = p.communicate()
+            raise AssertionError(f"Agent failed to start with named pipe. stderr: {stderr}, stdout: {stdout}")
+
+        # Test named pipe functionality by sending a request
+        try:
+            # Give agent a moment to fully initialize named pipe server
+            time.sleep(1)
+
+            # Create a simple HTTP request to send via named pipe
+            # This tests actual functionality rather than just pipe existence
+            http_request = (
+                "POST /v0.4/traces HTTP/1.1\r\n"
+                "Host: localhost\r\n"
+                "Content-Type: application/msgpack\r\n"
+                "Content-Length: 1\r\n"
+                "\r\n"
+                "\x90"  # Empty msgpack array
+            ).encode()
+
+            # Connect to named pipe and send request
+            with open(pipe_path, "wb") as pipe:
+                pipe.write(http_request)
+                pipe.flush()
+
+            print(f"Successfully sent request through named pipe: {pipe_path}")
+
+        except Exception as e:
+            raise AssertionError(f"Named pipe functionality test failed: {e}. Agent stderr: {stderr} stdout: {stdout}")
+
+    finally:
+        # Clean up: kill the process
+        try:
+            p.terminate()
+            p.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            p.kill()
+            p.wait()
 
 
 async def test_post_known_settings(agent):
@@ -447,6 +530,16 @@ async def test_post_unknown_settings(
     assert "dummy_setting" not in agent.app
 
 
+async def test_evp_proxy_v4_api_v2_errorsintake(agent):
+    resp = await agent.post("/evp_proxy/v4/api/v2/errorsintake", data='{"key": "value"}')
+    assert resp.status == 200, await resp.text()
+
+    resp = await agent.get("/test/session/requests")
+    assert resp.status == 200
+    reqs = await resp.json()
+    assert len(reqs) == 1
+
+
 async def test_evp_proxy_v2_api_v2_llmobs(agent):
     resp = await agent.post("/evp_proxy/v2/api/v2/llmobs", data='{"key": "value"}')
     assert resp.status == 200, await resp.text()
@@ -469,6 +562,16 @@ async def test_evp_proxy_v2_api_intake_llmobs_v1_eval_metric(agent):
 
 async def test_evp_proxy_v2_api_intake_llmobs_v2_eval_metric(agent):
     resp = await agent.post("/evp_proxy/v2/api/intake/llm-obs/v2/eval-metric", data='{"key": "value"}')
+    assert resp.status == 200, await resp.text()
+
+    resp = await agent.get("/test/session/requests")
+    assert resp.status == 200
+    reqs = await resp.json()
+    assert len(reqs) == 1
+
+
+async def test_evp_proxy_v2_api_v2_exposures(agent):
+    resp = await agent.post("/evp_proxy/v2/api/v2/exposures", data='{"key": "value"}')
     assert resp.status == 200, await resp.text()
 
     resp = await agent.get("/test/session/requests")
@@ -779,9 +882,12 @@ async def test_trace_v1_span_links():
 
 @pytest.fixture
 def testagent_connection_type():
+    if platform.system() == "Windows":
+        pytest.skip("Unix domain sockets are not supported on Windows")
     return "uds"
 
 
+@pytest.mark.skipif(platform.system() == "Windows", reason="Unix domain sockets are not supported on Windows")
 async def test_traces_via_uds(
     testagent,
     testagent_uds_socket_path,

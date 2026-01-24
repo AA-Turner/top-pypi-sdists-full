@@ -8,9 +8,10 @@ T = TypeVar("T", bound="GetGcpTriggerResponse200RetryRetryIf")
 
 @_attrs_define
 class GetGcpTriggerResponse200RetryRetryIf:
-    """
+    """Conditional retry based on error or result
+
     Attributes:
-        expr (str):
+        expr (str): JavaScript expression that returns true to retry. Has access to 'result' and 'error' variables
     """
 
     expr: str

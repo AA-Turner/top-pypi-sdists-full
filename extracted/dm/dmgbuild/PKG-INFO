@@ -1,41 +1,34 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: dmgbuild
-Version: 1.6.5
+Version: 1.6.7
 Summary: macOS command line utility to build disk images
 Author-email: Alastair Houghton <alastair@alastairs-place.net>
 Maintainer-email: Russell Keith-Magee <russell@keith-magee.com>
-License: New BSD
+License-Expression: MIT
 Project-URL: Documentation, https://dmgbuild.readthedocs.io/en/latest/
 Project-URL: Homepage, https://github.com/dmgbuild/dmgbuild
 Project-URL: Tracker, https://github.com/dmgbuild/dmgbuild/issues
 Project-URL: Source, https://github.com/dmgbuild/dmgbuild
 Keywords: dmg
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Desktop Environment
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: ds_store>=1.1.0
 Requires-Dist: mac_alias>=2.0.1
-Provides-Extra: dev
-Requires-Dist: coverage==7.7.0; extra == "dev"
-Requires-Dist: pre-commit==4.1.0; extra == "dev"
-Requires-Dist: pytest==8.3.5; extra == "dev"
-Requires-Dist: tox==4.24.2; extra == "dev"
-Provides-Extra: docs
-Requires-Dist: furo==2024.8.6; extra == "docs"
-Requires-Dist: sphinx==8.2.3; extra == "docs"
-Requires-Dist: sphinx-autobuild==2024.10.3; extra == "docs"
+Provides-Extra: badge-icons
+Requires-Dist: pyobjc-framework-Quartz>=3.0.4; extra == "badge-icons"
+Dynamic: license-file
 
 ========
 dmgbuild

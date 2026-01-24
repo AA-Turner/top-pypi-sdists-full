@@ -12,13 +12,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use dupe::Dupe;
+use pyrefly_graph::calculation::Calculation;
+use pyrefly_graph::index::Idx;
+use pyrefly_graph::index_map::IndexMap;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::display::DisplayWith;
 use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::lock::Mutex;
-use pyrefly_util::recurser::Recurser;
 use pyrefly_util::uniques::UniqueFactory;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::name::Name;
@@ -42,11 +44,9 @@ use crate::binding::table::TableKeyed;
 use crate::error::collector::ErrorCollector;
 use crate::error::style::ErrorStyle;
 use crate::export::exports::LookupExport;
-use crate::graph::calculation::Calculation;
-use crate::graph::index::Idx;
-use crate::graph::index_map::IndexMap;
 use crate::module::module_info::ModuleInfo;
 use crate::solver::solver::Solver;
+use crate::solver::solver::VarRecurser;
 use crate::state::ide::IntermediateDefinition;
 use crate::state::ide::key_to_intermediate_definition;
 use crate::table;
@@ -73,13 +73,21 @@ pub struct Index {
     /// A map from (attribute definition module) to a list of pairs of
     /// (range of attribute definition in the definition, range of reference in the current module).
     pub externally_defined_attribute_references: SmallMap<ModulePath, Vec<(TextRange, TextRange)>>,
+    /// A map from (child method range) to a list of parent method definitions (ModulePath, parent method range).
+    /// This is used to find reimplementations when doing find-references on parent methods.
+    pub parent_methods_map: SmallMap<TextRange, Vec<(ModulePath, TextRange)>>,
 }
 
 #[derive(Debug)]
-struct OverloadedCallee {
-    all_overloads: Vec<Callable>,
-    closest_overload: Callable,
-    is_closest_overload_chosen: bool,
+enum OverloadedCallee {
+    Resolved {
+        callable: Callable,
+    },
+    Candidates {
+        all: Vec<Callable>,
+        closest: Callable,
+        is_closest_chosen: bool,
+    },
 }
 
 #[derive(Debug, Default)]
@@ -429,7 +437,7 @@ impl Answers {
                 }
             }
         }
-        let recurser = &Recurser::new();
+        let recurser = &VarRecurser::new();
         let thread_state = &ThreadState::new();
         let answers_solver = AnswersSolver::new(
             answers,
@@ -456,7 +464,7 @@ impl Answers {
                     match key_to_intermediate_definition(bindings, key) {
                         None => continue,
                         Some(IntermediateDefinition::Local(_)) => continue,
-                        Some(IntermediateDefinition::Module(_)) => continue,
+                        Some(IntermediateDefinition::Module(..)) => continue,
                         Some(IntermediateDefinition::NamedImport(
                             _import_key,
                             module_name,
@@ -521,7 +529,7 @@ impl Answers {
         AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
     {
-        let recurser = &Recurser::new();
+        let recurser = &VarRecurser::new();
         let solver = AnswersSolver::new(
             answers,
             self,
@@ -546,8 +554,8 @@ impl Answers {
         self.table.get::<K>().get(k)?.get()
     }
 
-    fn for_display(&self, t: Type) -> Type {
-        self.solver.for_display(t)
+    fn deep_force(&self, t: Type) -> Type {
+        self.solver.deep_force(t)
     }
 
     pub fn solver(&self) -> &Solver {
@@ -555,28 +563,33 @@ impl Answers {
     }
 
     pub fn get_type_at(&self, idx: Idx<Key>) -> Option<Type> {
-        Some(self.for_display(self.get_idx(idx)?.arc_clone_ty()))
+        Some(self.deep_force(self.get_idx(idx)?.arc_clone_ty()))
     }
 
     pub fn get_type_trace(&self, range: TextRange) -> Option<Type> {
         let lock = self.trace.as_ref()?.lock();
-        Some(self.for_display(lock.types.get(&range)?.as_ref().clone()))
+        Some(self.deep_force(lock.types.get(&range)?.as_ref().clone()))
     }
 
     pub fn try_get_getter_for_range(&self, range: TextRange) -> Option<Type> {
         let lock = self.trace.as_ref()?.lock();
-        Some(self.for_display(lock.invoked_properties.get(&range)?.as_ref().clone()))
+        Some(self.deep_force(lock.invoked_properties.get(&range)?.as_ref().clone()))
     }
 
     pub fn get_chosen_overload_trace(&self, range: TextRange) -> Option<Type> {
         let lock = self.trace.as_ref()?.lock();
-        let overloaded_callee = lock.overloaded_callees.get(&range)?;
-        if overloaded_callee.is_closest_overload_chosen {
-            Some(self.for_display(Type::Callable(Box::new(
-                overloaded_callee.closest_overload.clone(),
-            ))))
-        } else {
-            None
+        match lock.overloaded_callees.get(&range)? {
+            OverloadedCallee::Resolved { callable } => {
+                Some(self.deep_force(Type::Callable(Box::new(callable.clone()))))
+            }
+            OverloadedCallee::Candidates {
+                closest,
+                is_closest_chosen,
+                ..
+            } if *is_closest_chosen => {
+                Some(self.deep_force(Type::Callable(Box::new(closest.clone()))))
+            }
+            _ => None,
         }
     }
 
@@ -586,23 +599,29 @@ impl Answers {
         range: TextRange,
     ) -> Option<(Vec<Callable>, Option<usize>)> {
         let lock = self.trace.as_ref()?.lock();
-        let overloaded_callee = lock.overloaded_callees.get(&range)?;
-        let chosen_overload_index =
-            overloaded_callee
-                .all_overloads
-                .iter()
-                .enumerate()
-                .find_map(|(index, signature)| {
-                    if signature == &overloaded_callee.closest_overload {
-                        Some(index)
-                    } else {
-                        None
-                    }
-                });
-        Some((
-            overloaded_callee.all_overloads.clone(),
-            chosen_overload_index,
-        ))
+        match lock.overloaded_callees.get(&range)? {
+            OverloadedCallee::Resolved { callable } => Some((vec![callable.clone()], Some(0))),
+            OverloadedCallee::Candidates { all, closest, .. } => {
+                let chosen_index = all.iter().position(|signature| signature == closest);
+                Some((all.clone(), chosen_index))
+            }
+        }
+    }
+
+    pub fn add_parent_method_mapping(
+        &self,
+        child_range: TextRange,
+        parent_module: ModulePath,
+        parent_range: TextRange,
+    ) {
+        if let Some(index) = &self.index {
+            index
+                .lock()
+                .parent_methods_map
+                .entry(child_range)
+                .or_default()
+                .push((parent_module, parent_range));
+        }
     }
 }
 
@@ -628,18 +647,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self.current().solver
     }
 
-    pub fn record_overload_trace_from_type(&self, loc: TextRange, ty: Type) {
+    pub fn record_resolved_trace(&self, loc: TextRange, ty: Type) {
         if let Some(trace) = &self.current().trace
             && let Some(callable) = ty.to_callable()
         {
-            trace.lock().overloaded_callees.insert(
-                loc,
-                OverloadedCallee {
-                    all_overloads: vec![callable.clone()],
-                    closest_overload: callable,
-                    is_closest_overload_chosen: true,
-                },
-            );
+            trace
+                .lock()
+                .overloaded_callees
+                .insert(loc, OverloadedCallee::Resolved { callable });
         }
     }
 
@@ -655,13 +670,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(trace) = &self.current().trace {
             trace.lock().overloaded_callees.insert(
                 loc,
-                OverloadedCallee {
-                    all_overloads: all_overloads
-                        .into_iter()
-                        .map(|func| (*func).clone())
-                        .collect(),
-                    closest_overload: closest_overload.clone(),
-                    is_closest_overload_chosen,
+                OverloadedCallee::Candidates {
+                    all: all_overloads.into_iter().cloned().collect(),
+                    closest: closest_overload.clone(),
+                    is_closest_chosen: is_closest_overload_chosen,
                 },
             );
         }
@@ -677,7 +689,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             for AttrInfo {
                 name: _,
                 ty: _,
+                is_deprecated: _,
                 definition,
+                docstring_range: _,
+                is_reexport: _,
             } in self.completions(base.clone(), Some(attribute_name), false)
             {
                 match definition {
@@ -717,7 +732,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn record_type_trace(&self, loc: TextRange, ty: &Type) {
-        if let Some(trace) = &self.current().trace {
+        if let Some(trace) = &self.current().trace
+            && !loc.is_empty()
+        {
             trace.lock().types.insert(loc, Arc::new(ty.clone()));
         }
     }

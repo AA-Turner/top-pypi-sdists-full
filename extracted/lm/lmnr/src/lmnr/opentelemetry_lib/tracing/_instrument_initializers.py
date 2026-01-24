@@ -6,6 +6,9 @@ from lmnr.opentelemetry_lib.utils.package_check import (
     get_package_version,
     is_package_installed,
 )
+from lmnr.sdk.log import get_default_logger
+
+logger = get_default_logger(__name__)
 
 
 class InstrumentorInitializer(abc.ABC):
@@ -80,7 +83,7 @@ class BrowserUseInstrumentorInitializer(InstrumentorInitializer):
 
 class BrowserUseSessionInstrumentorInitializer(InstrumentorInitializer):
     def init_instrumentor(
-        self, client, async_client, *args, **kwargs
+        self, async_client, *args, **kwargs
     ) -> BaseInstrumentor | None:
         if not is_package_installed("browser-use"):
             return None
@@ -119,6 +122,19 @@ class ChromaInstrumentorInitializer(InstrumentorInitializer):
         from opentelemetry.instrumentation.chromadb import ChromaInstrumentor
 
         return ChromaInstrumentor()
+
+
+class ClaudeAgentInstrumentorInitializer(InstrumentorInitializer):
+    def init_instrumentor(self, *args, **kwargs) -> BaseInstrumentor | None:
+        if not is_package_installed("claude-agent-sdk"):
+            return None
+
+        if not is_package_installed("lmnr-claude-code-proxy"):
+            return None
+
+        from ..opentelemetry.instrumentation.claude_agent import ClaudeAgentInstrumentor
+
+        return ClaudeAgentInstrumentor()
 
 
 class CohereInstrumentorInitializer(InstrumentorInitializer):
@@ -199,6 +215,16 @@ class HaystackInstrumentorInitializer(InstrumentorInitializer):
         return HaystackInstrumentor()
 
 
+class KernelInstrumentorInitializer(InstrumentorInitializer):
+    def init_instrumentor(self, *args, **kwargs) -> BaseInstrumentor | None:
+        if not is_package_installed("kernel"):
+            return None
+
+        from ..opentelemetry.instrumentation.kernel import KernelInstrumentor
+
+        return KernelInstrumentor()
+
+
 class LanceDBInstrumentorInitializer(InstrumentorInitializer):
     def init_instrumentor(self, *args, **kwargs) -> BaseInstrumentor | None:
         if not is_package_installed("lancedb"):
@@ -233,6 +259,16 @@ class LanggraphInstrumentorInitializer(InstrumentorInitializer):
         from ..opentelemetry.instrumentation.langgraph import LanggraphInstrumentor
 
         return LanggraphInstrumentor()
+
+
+class LitellmInstrumentorInitializer(InstrumentorInitializer):
+    def init_instrumentor(self, *args, **kwargs) -> BaseInstrumentor | None:
+        if not is_package_installed("litellm"):
+            return None
+
+        from ..opentelemetry.instrumentation.litellm import LitellmInstrumentor
+
+        return LitellmInstrumentor()
 
 
 class LlamaIndexInstrumentorInitializer(InstrumentorInitializer):
@@ -344,17 +380,17 @@ class OpenTelemetryInstrumentorInitializer(InstrumentorInitializer):
 
 class PatchrightInstrumentorInitializer(InstrumentorInitializer):
     def init_instrumentor(
-        self, client, async_client, *args, **kwargs
+        self, async_client, *args, **kwargs
     ) -> BaseInstrumentor | None:
         if not is_package_installed("patchright"):
             return None
 
         from lmnr.sdk.browser.patchright_otel import PatchrightInstrumentor
 
-        if client is None and async_client is None:
+        if async_client is None:
             return None
 
-        return PatchrightInstrumentor(client, async_client)
+        return PatchrightInstrumentor(async_client)
 
 
 class PineconeInstrumentorInitializer(InstrumentorInitializer):
@@ -371,17 +407,17 @@ class PineconeInstrumentorInitializer(InstrumentorInitializer):
 
 class PlaywrightInstrumentorInitializer(InstrumentorInitializer):
     def init_instrumentor(
-        self, client, async_client, *args, **kwargs
+        self, async_client, *args, **kwargs
     ) -> BaseInstrumentor | None:
         if not is_package_installed("playwright"):
             return None
 
         from lmnr.sdk.browser.playwright_otel import PlaywrightInstrumentor
 
-        if client is None and async_client is None:
+        if async_client is None:
             return None
 
-        return PlaywrightInstrumentor(client, async_client)
+        return PlaywrightInstrumentor(async_client)
 
 
 class QdrantInstrumentorInitializer(InstrumentorInitializer):

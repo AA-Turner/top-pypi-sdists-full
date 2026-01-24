@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -31,12 +32,6 @@ from .type_defs import (
     PutRawMessageContentRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -45,11 +40,11 @@ else:
 __all__ = ("WorkMailMessageFlowClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InvalidContentLocation: Type[BotocoreClientError]
-    MessageFrozen: Type[BotocoreClientError]
-    MessageRejected: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InvalidContentLocation: type[BotocoreClientError]
+    MessageFrozen: type[BotocoreClientError]
+    MessageRejected: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
 
 class WorkMailMessageFlowClient(BaseClient):
     """
@@ -98,7 +93,7 @@ class WorkMailMessageFlowClient(BaseClient):
 
     def put_raw_message_content(
         self, **kwargs: Unpack[PutRawMessageContentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the raw content of an in-transit email message, in MIME format.
 

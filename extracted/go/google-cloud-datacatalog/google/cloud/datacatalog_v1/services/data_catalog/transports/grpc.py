@@ -157,9 +157,10 @@ class DataCatalogGrpcTransport(DataCatalogTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -293,9 +294,10 @@ class DataCatalogGrpcTransport(DataCatalogTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -403,10 +405,10 @@ class DataCatalogGrpcTransport(DataCatalogTransport):
         Data Catalog automatically creates entry groups with names that
         start with the ``@`` symbol for the following resources:
 
-        -  BigQuery entries (``@bigquery``)
-        -  Pub/Sub topics (``@pubsub``)
-        -  Dataproc Metastore services
-           (``@dataproc_metastore_{SERVICE_NAME_HASH}``)
+        - BigQuery entries (``@bigquery``)
+        - Pub/Sub topics (``@pubsub``)
+        - Dataproc Metastore services
+          (``@dataproc_metastore_{SERVICE_NAME_HASH}``)
 
         You can create your own entry groups for Cloud Storage fileset
         entries and custom entries together with the corresponding IAM
@@ -1095,12 +1097,11 @@ class DataCatalogGrpcTransport(DataCatalogTransport):
 
         Creates a tag and assigns it to:
 
-        -  An [Entry][google.cloud.datacatalog.v1.Entry] if the method
-           name is
-           ``projects.locations.entryGroups.entries.tags.create``.
-        -  Or [EntryGroup][google.cloud.datacatalog.v1.EntryGroup]if the
-           method name is
-           ``projects.locations.entryGroups.tags.create``.
+        - An [Entry][google.cloud.datacatalog.v1.Entry] if the method
+          name is
+          ``projects.locations.entryGroups.entries.tags.create``.
+        - Or [EntryGroup][google.cloud.datacatalog.v1.EntryGroup]if the
+          method name is ``projects.locations.entryGroups.tags.create``.
 
         Note: The project identified by the ``parent`` parameter for the
         [tag]
@@ -1309,8 +1310,8 @@ class DataCatalogGrpcTransport(DataCatalogTransport):
 
         Supported resources are:
 
-        -  Tag templates
-        -  Entry groups
+        - Tag templates
+        - Entry groups
 
         Note: This method sets policies only within Data Catalog and
         can't be used to manage policies in BigQuery, Pub/Sub, Dataproc
@@ -1320,10 +1321,10 @@ class DataCatalogGrpcTransport(DataCatalogTransport):
         To call this method, you must have the following Google IAM
         permissions:
 
-        -  ``datacatalog.tagTemplates.setIamPolicy`` to set policies on
-           tag templates.
-        -  ``datacatalog.entryGroups.setIamPolicy`` to set policies on
-           entry groups.
+        - ``datacatalog.tagTemplates.setIamPolicy`` to set policies on
+          tag templates.
+        - ``datacatalog.entryGroups.setIamPolicy`` to set policies on
+          entry groups.
 
         Returns:
             Callable[[~.SetIamPolicyRequest],
@@ -1353,15 +1354,15 @@ class DataCatalogGrpcTransport(DataCatalogTransport):
 
         May return:
 
-        -  A\ ``NOT_FOUND`` error if the resource doesn't exist or you
-           don't have the permission to view it.
-        -  An empty policy if the resource exists but doesn't have a set
-           policy.
+        - A\ ``NOT_FOUND`` error if the resource doesn't exist or you
+          don't have the permission to view it.
+        - An empty policy if the resource exists but doesn't have a set
+          policy.
 
         Supported resources are:
 
-        -  Tag templates
-        -  Entry groups
+        - Tag templates
+        - Entry groups
 
         Note: This method doesn't get policies from Google Cloud
         Platform resources ingested into Data Catalog.
@@ -1369,10 +1370,10 @@ class DataCatalogGrpcTransport(DataCatalogTransport):
         To call this method, you must have the following Google IAM
         permissions:
 
-        -  ``datacatalog.tagTemplates.getIamPolicy`` to get policies on
-           tag templates.
-        -  ``datacatalog.entryGroups.getIamPolicy`` to get policies on
-           entry groups.
+        - ``datacatalog.tagTemplates.getIamPolicy`` to get policies on
+          tag templates.
+        - ``datacatalog.entryGroups.getIamPolicy`` to get policies on
+          entry groups.
 
         Returns:
             Callable[[~.GetIamPolicyRequest],

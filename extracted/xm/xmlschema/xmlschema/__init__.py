@@ -1,5 +1,5 @@
 #
-# Copyright (c), 2016-2022, SISSA (International School for Advanced Studies).
+# Copyright (c), 2016-2026, SISSA (International School for Advanced Studies).
 # All rights reserved.
 # This file is distributed under the terms of the MIT License.
 # See the file 'LICENSE' in the root directory of the present
@@ -7,8 +7,8 @@
 #
 # @author Davide Brunato <brunato@sissa.it>
 #
-from . import limits
 from . import translation
+from . import limits
 from .exceptions import XMLSchemaException, XMLResourceError, XMLSchemaNamespaceError
 from .resources import fetch_resource, fetch_namespaces, fetch_schema_locations, \
     fetch_schema, XMLResource
@@ -33,10 +33,10 @@ from .validators import (
     XMLSchema, XMLSchema10, XMLSchema11, XsdComponent, XsdType, XsdElement, XsdAttribute
 )
 
-__version__ = '4.1.0'
+__version__ = '4.3.1'
 __author__ = "Davide Brunato"
 __contact__ = "brunato@sissa.it"
-__copyright__ = "Copyright 2016-2025, SISSA"
+__copyright__ = "Copyright 2016-2026, SISSA"
 __license__ = "MIT"
 __status__ = "Production/Stable"
 

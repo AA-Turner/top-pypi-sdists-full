@@ -3,7 +3,7 @@ Type annotations for snowball service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_snowball/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -86,12 +87,6 @@ from .type_defs import (
     UpdateLongTermPricingRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -102,18 +97,18 @@ __all__ = ("SnowballClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ClusterLimitExceededException: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    Ec2RequestFailedException: Type[BotocoreClientError]
-    InvalidAddressException: Type[BotocoreClientError]
-    InvalidInputCombinationException: Type[BotocoreClientError]
-    InvalidJobStateException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    InvalidResourceException: Type[BotocoreClientError]
-    KMSRequestFailedException: Type[BotocoreClientError]
-    ReturnShippingLabelAlreadyExistsException: Type[BotocoreClientError]
-    UnsupportedAddressException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ClusterLimitExceededException: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    Ec2RequestFailedException: type[BotocoreClientError]
+    InvalidAddressException: type[BotocoreClientError]
+    InvalidInputCombinationException: type[BotocoreClientError]
+    InvalidJobStateException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    InvalidResourceException: type[BotocoreClientError]
+    KMSRequestFailedException: type[BotocoreClientError]
+    ReturnShippingLabelAlreadyExistsException: type[BotocoreClientError]
+    UnsupportedAddressException: type[BotocoreClientError]
 
 
 class SnowballClient(AioBaseClient):
@@ -151,7 +146,7 @@ class SnowballClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_snowball/client/#generate_presigned_url)
         """
 
-    async def cancel_cluster(self, **kwargs: Unpack[CancelClusterRequestTypeDef]) -> Dict[str, Any]:
+    async def cancel_cluster(self, **kwargs: Unpack[CancelClusterRequestTypeDef]) -> dict[str, Any]:
         """
         Cancels a cluster job.
 
@@ -159,7 +154,7 @@ class SnowballClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_snowball/client/#cancel_cluster)
         """
 
-    async def cancel_job(self, **kwargs: Unpack[CancelJobRequestTypeDef]) -> Dict[str, Any]:
+    async def cancel_job(self, **kwargs: Unpack[CancelJobRequestTypeDef]) -> dict[str, Any]:
         """
         Cancels the specified job.
 
@@ -383,7 +378,7 @@ class SnowballClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_snowball/client/#list_service_versions)
         """
 
-    async def update_cluster(self, **kwargs: Unpack[UpdateClusterRequestTypeDef]) -> Dict[str, Any]:
+    async def update_cluster(self, **kwargs: Unpack[UpdateClusterRequestTypeDef]) -> dict[str, Any]:
         """
         While a cluster's <code>ClusterState</code> value is in the
         <code>AwaitingQuorum</code> state, you can update some of the information
@@ -393,7 +388,7 @@ class SnowballClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_snowball/client/#update_cluster)
         """
 
-    async def update_job(self, **kwargs: Unpack[UpdateJobRequestTypeDef]) -> Dict[str, Any]:
+    async def update_job(self, **kwargs: Unpack[UpdateJobRequestTypeDef]) -> dict[str, Any]:
         """
         While a job's <code>JobState</code> value is <code>New</code>, you can update
         some of the information associated with a job.
@@ -404,7 +399,7 @@ class SnowballClient(AioBaseClient):
 
     async def update_job_shipment_state(
         self, **kwargs: Unpack[UpdateJobShipmentStateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the state when a shipment state changes to a different state.
 
@@ -414,7 +409,7 @@ class SnowballClient(AioBaseClient):
 
     async def update_long_term_pricing(
         self, **kwargs: Unpack[UpdateLongTermPricingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the long-term pricing type.
 
@@ -496,7 +491,7 @@ class SnowballClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

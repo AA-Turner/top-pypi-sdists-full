@@ -9,9 +9,10 @@ import pytest
 
 from telnyx import Telnyx, AsyncTelnyx
 from tests.utils import assert_matches_type
+from telnyx.pagination import SyncDefaultFlatPagination, AsyncDefaultFlatPagination
 from telnyx.types.ai.conversations import (
+    InsightTemplateGroup,
     InsightTemplateGroupDetail,
-    InsightGroupRetrieveInsightGroupsResponse,
 )
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
@@ -121,7 +122,7 @@ class TestInsightGroups:
         insight_group = client.ai.conversations.insight_groups.delete(
             "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
-        assert_matches_type(object, insight_group, path=["response"])
+        assert insight_group is None
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -133,7 +134,7 @@ class TestInsightGroups:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         insight_group = response.parse()
-        assert_matches_type(object, insight_group, path=["response"])
+        assert insight_group is None
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -145,7 +146,7 @@ class TestInsightGroups:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             insight_group = response.parse()
-            assert_matches_type(object, insight_group, path=["response"])
+            assert insight_group is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -205,18 +206,16 @@ class TestInsightGroups:
     @parametrize
     def test_method_retrieve_insight_groups(self, client: Telnyx) -> None:
         insight_group = client.ai.conversations.insight_groups.retrieve_insight_groups()
-        assert_matches_type(InsightGroupRetrieveInsightGroupsResponse, insight_group, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[InsightTemplateGroup], insight_group, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_method_retrieve_insight_groups_with_all_params(self, client: Telnyx) -> None:
         insight_group = client.ai.conversations.insight_groups.retrieve_insight_groups(
-            page={
-                "number": 1,
-                "size": 1,
-            },
+            page_number=0,
+            page_size=0,
         )
-        assert_matches_type(InsightGroupRetrieveInsightGroupsResponse, insight_group, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[InsightTemplateGroup], insight_group, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -226,7 +225,7 @@ class TestInsightGroups:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         insight_group = response.parse()
-        assert_matches_type(InsightGroupRetrieveInsightGroupsResponse, insight_group, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[InsightTemplateGroup], insight_group, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -236,7 +235,7 @@ class TestInsightGroups:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             insight_group = response.parse()
-            assert_matches_type(InsightGroupRetrieveInsightGroupsResponse, insight_group, path=["response"])
+            assert_matches_type(SyncDefaultFlatPagination[InsightTemplateGroup], insight_group, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -347,7 +346,7 @@ class TestAsyncInsightGroups:
         insight_group = await async_client.ai.conversations.insight_groups.delete(
             "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
-        assert_matches_type(object, insight_group, path=["response"])
+        assert insight_group is None
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -359,7 +358,7 @@ class TestAsyncInsightGroups:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         insight_group = await response.parse()
-        assert_matches_type(object, insight_group, path=["response"])
+        assert insight_group is None
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -371,7 +370,7 @@ class TestAsyncInsightGroups:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             insight_group = await response.parse()
-            assert_matches_type(object, insight_group, path=["response"])
+            assert insight_group is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -431,18 +430,16 @@ class TestAsyncInsightGroups:
     @parametrize
     async def test_method_retrieve_insight_groups(self, async_client: AsyncTelnyx) -> None:
         insight_group = await async_client.ai.conversations.insight_groups.retrieve_insight_groups()
-        assert_matches_type(InsightGroupRetrieveInsightGroupsResponse, insight_group, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[InsightTemplateGroup], insight_group, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_method_retrieve_insight_groups_with_all_params(self, async_client: AsyncTelnyx) -> None:
         insight_group = await async_client.ai.conversations.insight_groups.retrieve_insight_groups(
-            page={
-                "number": 1,
-                "size": 1,
-            },
+            page_number=0,
+            page_size=0,
         )
-        assert_matches_type(InsightGroupRetrieveInsightGroupsResponse, insight_group, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[InsightTemplateGroup], insight_group, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -452,7 +449,7 @@ class TestAsyncInsightGroups:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         insight_group = await response.parse()
-        assert_matches_type(InsightGroupRetrieveInsightGroupsResponse, insight_group, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[InsightTemplateGroup], insight_group, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -464,6 +461,6 @@ class TestAsyncInsightGroups:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             insight_group = await response.parse()
-            assert_matches_type(InsightGroupRetrieveInsightGroupsResponse, insight_group, path=["response"])
+            assert_matches_type(AsyncDefaultFlatPagination[InsightTemplateGroup], insight_group, path=["response"])
 
         assert cast(Any, response.is_closed) is True

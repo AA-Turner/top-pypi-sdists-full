@@ -8,6 +8,7 @@ from __future__ import annotations as _
 import logging as _logging
 import os as _os
 import sys as _sys
+import warnings as _warnings
 from pathlib import Path as _Path
 
 import astroid as _ast
@@ -74,7 +75,6 @@ def _run_check(
     check_property_returns: bool,
     ignore_no_params: bool,
     ignore_typechecker: bool,
-    enforce_capitalization: bool,
     no_ansi: bool,
     target: _Messages,
     failures: _Failures,
@@ -97,7 +97,6 @@ def _run_check(
                 target,
                 check_property_returns,
                 ignore_typechecker,
-                enforce_capitalization,
             )
             if failure:
                 failures.append(failure)
@@ -116,7 +115,6 @@ def _run_check(
                     check_property_returns,
                     ignore_no_params,
                     ignore_typechecker,
-                    enforce_capitalization,
                     no_ansi,
                     target,
                     failures,
@@ -136,7 +134,6 @@ def _run_check(
                 check_property_returns,
                 ignore_no_params,
                 ignore_typechecker,
-                enforce_capitalization,
                 no_ansi,
                 target,
                 failures,
@@ -219,7 +216,6 @@ def _get_failures(
     ignore_no_params: bool,
     ignore_typechecker: bool,
     check_protected_class_methods: bool,
-    enforce_capitalization,
     no_ansi: bool,
     target: _Messages,
 ) -> _Failures:
@@ -242,7 +238,6 @@ def _get_failures(
                 check_property_returns,
                 ignore_no_params,
                 ignore_typechecker,
-                enforce_capitalization,
                 no_ansi,
                 target or _Messages(),
                 failures,
@@ -297,7 +292,6 @@ def runner(
     ignore_kwargs: bool = False,
     ignore_typechecker: bool = False,
     check_protected_class_methods: bool = False,
-    enforce_capitalization: bool = False,
     no_ansi: bool = False,
     target: _Messages | None = None,
 ) -> _Failures:
@@ -320,11 +314,9 @@ def runner(
     :param ignore_typechecker: Ignore checking return values.
     :param check_protected_class_methods: Check public methods belonging
         to protected classes.
-    :param enforce_capitalization: Ensure param descriptions are
-        capitalised.
     :param no_ansi: Disable ANSI output.
     :param target: List of errors to target.
-    :return: Exit status for whether test failed or not.
+    :return: Exit status for whether the test failed or not.
     """
     module = _from_file(
         path,
@@ -345,10 +337,24 @@ def runner(
         ignore_no_params,
         ignore_typechecker,
         check_protected_class_methods,
-        enforce_capitalization,
         no_ansi,
         target or _Messages(),
     )
+
+
+def handle_deprecations(enforce_capitalization: bool, stacklevel: int) -> None:
+    """Warn for deprecated arguments.
+
+    :param enforce_capitalization: Whether using or not.
+    :param stacklevel: Warning stacklevel.
+    """
+    if enforce_capitalization:
+        _warnings.warn(
+            "enforce-capitalization is deprecated and will be removed in a"
+            " future version",
+            category=FutureWarning,
+            stacklevel=stacklevel,
+        )
 
 
 @_decorators.parse_msgs
@@ -370,7 +376,7 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
     ignore_args: bool = False,
     ignore_kwargs: bool = False,
     ignore_typechecker: bool = False,
-    enforce_capitalization: bool = False,
+    enforce_capitalization: bool = False,  # deprecated
     no_ansi: bool = False,
     verbose: bool = False,
     target: _Messages | None = None,
@@ -408,7 +414,7 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
     :param ignore_kwargs: Ignore kwargs prefixed with two asterisks.
     :param ignore_typechecker: Ignore checking return values.
     :param enforce_capitalization: Ensure param descriptions are
-        capitalised.
+        capitalized.
     :param no_ansi: Disable ANSI output.
     :param verbose: Increase output verbosity.
     :param target: List of errors to target.
@@ -416,8 +422,9 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
     :param exclude: Regular expression of files and dirs to exclude from
         checks.
     :param excludes: Files or dirs to exclude from checks.
-    :return: Exit status for whether test failed or not.
+    :return: Exit status for whether a test failed or not.
     """
+    handle_deprecations(enforce_capitalization, stacklevel=5)
     setup_logger(verbose)
     if list_checks:
         return int(bool(_print_checks()))  # type: ignore
@@ -450,7 +457,6 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
                 ignore_kwargs,
                 ignore_typechecker,
                 check_protected_class_methods,
-                enforce_capitalization,
                 no_ansi,
                 target,
             )
@@ -479,7 +485,6 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
         ignore_no_params,
         ignore_typechecker,
         check_protected_class_methods,
-        enforce_capitalization,
         no_ansi,
         target or _Messages(),
     )
@@ -491,7 +496,7 @@ def derive_module_name(
 ) -> str:
     """Extract Python module names from paths.
 
-    A dot separated Python module name is generated from the given file
+    A dot-separated Python module name is generated from the given file
     path.
 
     :param file_path: A file system path.

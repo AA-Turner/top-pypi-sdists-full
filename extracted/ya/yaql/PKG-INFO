@@ -1,29 +1,28 @@
 Metadata-Version: 2.1
 Name: yaql
-Version: 3.1.0
+Version: 3.2.0
 Summary: YAQL - Yet Another Query Language
-Home-page: http://yaql.readthedocs.io
-Author: OpenStack
-Author-email: openstack-discuss@lists.openstack.org
+Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+License: Apache-2.0
+Project-URL: Homepage, http://yaql.readthedocs.io
+Project-URL: Repository, https://opendev.org/openstack/yaql/
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pbr>=1.8
 Requires-Dist: python-dateutil>=2.4.2
-Requires-Dist: ply
 
 YAQL: Yet Another Query Language
 ================================
@@ -75,9 +74,11 @@ Project Resources
 * Project status, bugs, and blueprints are tracked on
   `Launchpad <https://launchpad.net/yaql>`_
 
+* The yaql._ply module is a copy of
+  the `ply library <https://github.com/dabeaz/ply>`_ .
 
 License
 -------
 
-Apache License Version 2.0 http://www.apache.org/licenses/LICENSE-2.0
-
+Apache License Version 2.0 http://www.apache.org/licenses/LICENSE-2.0 ,
+unless otherwise noted

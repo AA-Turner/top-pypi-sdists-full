@@ -274,6 +274,11 @@ class ExperimentConfig:
             default=None,
             not_set_value=None,
         )
+        # Implement this hacky change following user report of inconsistent behavior when the name
+        # is an empty string - An empty string is not a valid experiment name anyways.
+        if self.name == "":
+            self.name = None
+
         self.tags = config.get_string_list(
             tags,
             "comet.start.experiment_tags",

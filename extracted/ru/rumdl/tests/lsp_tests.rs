@@ -35,6 +35,7 @@ fn test_rumdl_lsp_config_serde() {
         enable_auto_fix: false,
         enable_rules: None,
         disable_rules: None,
+        ..Default::default()
     };
 
     // Test serialization
@@ -59,7 +60,7 @@ fn test_warning_to_diagnostic_conversion() {
         end_column: 15,
         severity: Severity::Warning,
         fix: None,
-        rule_name: Some("MD001"),
+        rule_name: Some("MD001".to_string()),
     };
 
     let diagnostic = warning_to_diagnostic(&warning);
@@ -94,7 +95,7 @@ fn test_warning_to_diagnostic_error_severity() {
         end_column: 5,
         severity: Severity::Error,
         fix: None,
-        rule_name: Some("MD999"),
+        rule_name: Some("MD999".to_string()),
     };
 
     let diagnostic = warning_to_diagnostic(&warning);
@@ -115,7 +116,7 @@ fn test_warning_to_code_action_with_fix() {
             range: 0..47,
             replacement: "shorter text".to_string(),
         }),
-        rule_name: Some("MD013"),
+        rule_name: Some("MD013".to_string()),
     };
 
     let uri = Url::parse("file:///test.md").expect("Invalid URI");
@@ -153,7 +154,7 @@ fn test_warning_to_code_action_without_fix() {
         end_column: 5,
         severity: Severity::Warning,
         fix: None,
-        rule_name: Some("MD001"),
+        rule_name: Some("MD001".to_string()),
     };
 
     let uri = Url::parse("file:///test.md").expect("Invalid URI");
@@ -166,7 +167,7 @@ fn test_warning_to_code_action_without_fix() {
 /// Test LSP server initialization
 #[tokio::test]
 async fn test_lsp_server_initialization() {
-    let (service, _socket) = LspService::new(RumdlLanguageServer::new);
+    let (service, _socket) = LspService::new(|client| RumdlLanguageServer::new(client, None));
 
     let init_params = InitializeParams {
         process_id: None,
@@ -205,7 +206,7 @@ async fn test_lsp_server_initialization() {
 /// Test LSP server initialization with custom config
 #[tokio::test]
 async fn test_lsp_server_initialization_with_config() {
-    let (service, _socket) = LspService::new(RumdlLanguageServer::new);
+    let (service, _socket) = LspService::new(|client| RumdlLanguageServer::new(client, None));
 
     let custom_config = RumdlLspConfig {
         config_path: Some("/custom/path/.rumdl.toml".to_string()),
@@ -213,6 +214,7 @@ async fn test_lsp_server_initialization_with_config() {
         enable_auto_fix: true,
         enable_rules: None,
         disable_rules: None,
+        ..Default::default()
     };
 
     let init_params = InitializeParams {
@@ -234,7 +236,7 @@ async fn test_lsp_server_initialization_with_config() {
 /// Test document lifecycle (open, change, save, close)
 #[tokio::test]
 async fn test_document_lifecycle() {
-    let (service, _socket) = LspService::new(RumdlLanguageServer::new);
+    let (service, _socket) = LspService::new(|client| RumdlLanguageServer::new(client, None));
     let server = service.inner();
 
     // Initialize server first
@@ -301,7 +303,7 @@ async fn test_document_lifecycle() {
 /// Test code action request
 #[tokio::test]
 async fn test_code_action_request() {
-    let (service, _socket) = LspService::new(RumdlLanguageServer::new);
+    let (service, _socket) = LspService::new(|client| RumdlLanguageServer::new(client, None));
     let server = service.inner();
 
     // Initialize server
@@ -363,7 +365,7 @@ async fn test_code_action_request() {
 /// Test diagnostic request
 #[tokio::test]
 async fn test_diagnostic_request() {
-    let (service, _socket) = LspService::new(RumdlLanguageServer::new);
+    let (service, _socket) = LspService::new(|client| RumdlLanguageServer::new(client, None));
     let server = service.inner();
 
     // Initialize server
@@ -418,10 +420,102 @@ async fn test_diagnostic_request() {
     }
 }
 
+/// Diagnostics should clear after a document is closed.
+#[tokio::test]
+async fn test_diagnostic_clears_on_close() {
+    let (service, _socket) = LspService::new(|client| RumdlLanguageServer::new(client, None));
+    let server = service.inner();
+
+    // Force default config (avoid picking up user/global config in tests).
+    let config_path = std::env::temp_dir().join("rumdl_nonexistent.toml");
+    let _ = std::fs::remove_file(&config_path);
+
+    // Initialize server
+    let init_params = InitializeParams {
+        process_id: None,
+        root_path: None, // Deprecated but required
+        root_uri: Some(Url::parse("file:///test").unwrap()),
+        initialization_options: Some(serde_json::json!({
+            "configPath": config_path.to_string_lossy(),
+        })),
+        capabilities: ClientCapabilities::default(),
+        trace: None,
+        workspace_folders: None,
+        client_info: None,
+        locale: None,
+    };
+
+    server.initialize(init_params).await.unwrap();
+    server.initialized(InitializedParams {}).await;
+
+    let uri = Url::parse("file:///test.md").unwrap();
+
+    // Open a document with a known issue (trailing spaces)
+    let open_params = DidOpenTextDocumentParams {
+        text_document: TextDocumentItem {
+            uri: uri.clone(),
+            language_id: "markdown".to_string(),
+            version: 1,
+            text: "#Heading\n\nThis is a test.".to_string(),
+        },
+    };
+
+    server.did_open(open_params).await;
+
+    let diagnostic_params = DocumentDiagnosticParams {
+        text_document: TextDocumentIdentifier { uri: uri.clone() },
+        identifier: None,
+        previous_result_id: None,
+        work_done_progress_params: WorkDoneProgressParams::default(),
+        partial_result_params: PartialResultParams::default(),
+    };
+
+    let report = server.diagnostic(diagnostic_params).await.unwrap();
+    let items = match report {
+        DocumentDiagnosticReportResult::Report(DocumentDiagnosticReport::Full(report)) => {
+            report.full_document_diagnostic_report.items
+        }
+        _ => panic!("Unexpected diagnostic report type"),
+    };
+
+    assert!(
+        !items.is_empty(),
+        "Expected diagnostics for open document with a missing heading space"
+    );
+
+    // Close the document
+    server
+        .did_close(DidCloseTextDocumentParams {
+            text_document: TextDocumentIdentifier { uri: uri.clone() },
+        })
+        .await;
+
+    // Diagnostics should clear once the document is closed
+    let report = server
+        .diagnostic(DocumentDiagnosticParams {
+            text_document: TextDocumentIdentifier { uri },
+            identifier: None,
+            previous_result_id: None,
+            work_done_progress_params: WorkDoneProgressParams::default(),
+            partial_result_params: PartialResultParams::default(),
+        })
+        .await
+        .unwrap();
+
+    let items = match report {
+        DocumentDiagnosticReportResult::Report(DocumentDiagnosticReport::Full(report)) => {
+            report.full_document_diagnostic_report.items
+        }
+        _ => panic!("Unexpected diagnostic report type"),
+    };
+
+    assert!(items.is_empty(), "Expected diagnostics to clear after close");
+}
+
 /// Integration test that simulates real LSP workflow
 #[tokio::test]
 async fn test_real_workflow_integration() {
-    let (service, _socket) = LspService::new(RumdlLanguageServer::new);
+    let (service, _socket) = LspService::new(|client| RumdlLanguageServer::new(client, None));
     let server = service.inner();
 
     // 1. Initialize
@@ -564,7 +658,7 @@ mod edge_cases {
             end_column: 5,
             severity: Severity::Warning,
             fix: None,
-            rule_name: Some("MD001"),
+            rule_name: Some("MD001".to_string()),
         };
 
         let diagnostic = warning_to_diagnostic(&warning);
@@ -576,7 +670,7 @@ mod edge_cases {
     /// Test empty document handling
     #[tokio::test]
     async fn test_empty_document_handling() {
-        let (service, _socket) = LspService::new(RumdlLanguageServer::new);
+        let (service, _socket) = LspService::new(|client| RumdlLanguageServer::new(client, None));
         let server = service.inner();
 
         // Initialize
@@ -619,5 +713,85 @@ mod edge_cases {
 
         let result = server.diagnostic(diagnostic_params).await;
         assert!(result.is_ok());
+    }
+
+    /// Test config fallback when no project config exists
+    /// This test would have caught the bug where LSP fell back to Config::default()
+    /// instead of using the global/user config passed via initialization_options
+    #[tokio::test]
+    async fn test_global_config_fallback_when_no_project_config() {
+        let (service, _socket) = LspService::new(|client| RumdlLanguageServer::new(client, None));
+        let server = service.inner();
+
+        // Use non-existent path - we're testing config fallback, not file I/O
+        // The LSP server works with in-memory content passed via did_open
+        let fake_workspace = Url::parse("file:///nonexistent/workspace").unwrap();
+
+        // Configure global config via initialization_options to disable a specific rule
+        // If the server incorrectly falls back to defaults, this rule will still be enabled
+        let init_params = InitializeParams {
+            process_id: None,
+            root_path: None,
+            root_uri: Some(fake_workspace),
+            initialization_options: Some(serde_json::json!({
+                "enableLinting": true,
+                "disableRules": ["MD041"]  // Disable "First line should be H1"
+            })),
+            capabilities: ClientCapabilities::default(),
+            trace: None,
+            workspace_folders: None,
+            client_info: None,
+            locale: None,
+        };
+
+        server.initialize(init_params).await.unwrap();
+        server.initialized(InitializedParams {}).await;
+
+        // Open a document in memory (no actual file needed)
+        // Content would trigger MD041 with default config but not with our global config
+        let uri = Url::parse("file:///nonexistent/test.md").unwrap();
+        let content = "This is not a heading\n\n# Heading later";
+
+        let open_params = DidOpenTextDocumentParams {
+            text_document: TextDocumentItem {
+                uri: uri.clone(),
+                language_id: "markdown".to_string(),
+                version: 1,
+                text: content.to_string(),
+            },
+        };
+
+        server.did_open(open_params).await;
+
+        // Request diagnostics
+        let diagnostic_params = DocumentDiagnosticParams {
+            text_document: TextDocumentIdentifier { uri },
+            identifier: None,
+            previous_result_id: None,
+            work_done_progress_params: WorkDoneProgressParams::default(),
+            partial_result_params: PartialResultParams::default(),
+        };
+
+        let result = server.diagnostic(diagnostic_params).await.unwrap();
+
+        // Verify diagnostics
+        match result {
+            DocumentDiagnosticReportResult::Report(DocumentDiagnosticReport::Full(report)) => {
+                // MD041 should NOT be in the diagnostics because we disabled it in global config
+                // If the bug exists, MD041 would appear because server used Config::default()
+                let has_md041 = report
+                    .full_document_diagnostic_report
+                    .items
+                    .iter()
+                    .any(|d| matches!(&d.code, Some(NumberOrString::String(code)) if code == "MD041"));
+
+                assert!(
+                    !has_md041,
+                    "MD041 should be disabled via global config, but it was triggered. \
+                     This indicates the server fell back to Config::default() instead of using global config."
+                );
+            }
+            _ => panic!("Expected full diagnostic report"),
+        }
     }
 }

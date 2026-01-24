@@ -6,7 +6,7 @@ import yaml
 from .models import Currency, CurrencyFXRates
 
 with open(pathlib.Path(__file__).parent.joinpath("fixtures").joinpath("currency.yaml"), "r") as yaml_file:
-    currency_dict = yaml.load(yaml_file, Loader=yaml.CLoader)
+    currency_dict = yaml.load(yaml_file, Loader=yaml.CLoader)  # noqa: S506
 
 
 class CurrencyFactory(factory.django.DjangoModelFactory):

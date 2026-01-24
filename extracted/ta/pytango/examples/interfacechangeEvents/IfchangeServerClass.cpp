@@ -53,22 +53,18 @@ static const char *HttpServer = "http://www.esrf.eu/computing/cs/tango/tango_doc
  *	return it in a C function for Python usage
  */
 //-------------------------------------------------------------------
-extern "C"
-{
+extern "C" {
 #ifdef _TG_WINDOWS_
 
-    __declspec(dllexport)
-
+__declspec(dllexport)
 #endif
 
-        Tango::DeviceClass *_create_IfchangeServer_class(const char *name)
-    {
-        return IfchangeServer_ns::IfchangeServerClass::init(name);
-    }
+    Tango::DeviceClass *_create_IfchangeServer_class(const char *name) {
+    return IfchangeServer_ns::IfchangeServerClass::init(name);
+}
 }
 
-namespace IfchangeServer_ns
-{
+namespace IfchangeServer_ns {
 //===================================================================
 //	Initialize pointer for singleton pattern
 //===================================================================
@@ -83,8 +79,7 @@ IfchangeServerClass *IfchangeServerClass::_instance = NULL;
  */
 //--------------------------------------------------------
 IfchangeServerClass::IfchangeServerClass(string &s) :
-    Tango::DeviceClass(s)
-{
+    Tango::DeviceClass(s) {
     cout2 << "Entering IfchangeServerClass constructor" << endl;
     set_default_property();
     write_class_property();
@@ -102,8 +97,7 @@ IfchangeServerClass::IfchangeServerClass(string &s) :
  * description : 	destructor for the IfchangeServerClass
  */
 //--------------------------------------------------------
-IfchangeServerClass::~IfchangeServerClass()
-{
+IfchangeServerClass::~IfchangeServerClass() {
     /*----- PROTECTED REGION ID(IfchangeServerClass::destructor) ENABLED START -----*/
 
     /*----- PROTECTED REGION END -----*/ //	IfchangeServerClass::destructor
@@ -120,17 +114,12 @@ IfchangeServerClass::~IfchangeServerClass()
  * @param	name	The class name
  */
 //--------------------------------------------------------
-IfchangeServerClass *IfchangeServerClass::init(const char *name)
-{
-    if(_instance == NULL)
-    {
-        try
-        {
+IfchangeServerClass *IfchangeServerClass::init(const char *name) {
+    if(_instance == NULL) {
+        try {
             string s(name);
             _instance = new IfchangeServerClass(s);
-        }
-        catch(bad_alloc &)
-        {
+        } catch(bad_alloc &) {
             throw;
         }
     }
@@ -144,10 +133,8 @@ IfchangeServerClass *IfchangeServerClass::init(const char *name)
  *                  and return a pointer to the object
  */
 //--------------------------------------------------------
-IfchangeServerClass *IfchangeServerClass::instance()
-{
-    if(_instance == NULL)
-    {
+IfchangeServerClass *IfchangeServerClass::instance() {
+    if(_instance == NULL) {
         cerr << "Class is not initialised !!" << endl;
         exit(-1);
     }
@@ -168,8 +155,7 @@ IfchangeServerClass *IfchangeServerClass::instance()
  *	returns The command output data (packed in the Any object)
  */
 //--------------------------------------------------------
-CORBA::Any *Add_dynamicClass::execute(Tango::DeviceImpl *device, TANGO_UNUSED(const CORBA::Any &in_any))
-{
+CORBA::Any *Add_dynamicClass::execute(Tango::DeviceImpl *device, TANGO_UNUSED(const CORBA::Any &in_any)) {
     cout2 << "Add_dynamicClass::execute(): arrived" << endl;
     ((static_cast<IfchangeServer *>(device))->add_dynamic());
     return new CORBA::Any();
@@ -186,8 +172,7 @@ CORBA::Any *Add_dynamicClass::execute(Tango::DeviceImpl *device, TANGO_UNUSED(co
  *	returns The command output data (packed in the Any object)
  */
 //--------------------------------------------------------
-CORBA::Any *Delete_DynamicClass::execute(Tango::DeviceImpl *device, TANGO_UNUSED(const CORBA::Any &in_any))
-{
+CORBA::Any *Delete_DynamicClass::execute(Tango::DeviceImpl *device, TANGO_UNUSED(const CORBA::Any &in_any)) {
     cout2 << "Delete_DynamicClass::execute(): arrived" << endl;
     ((static_cast<IfchangeServer *>(device))->delete__dynamic());
     return new CORBA::Any();
@@ -204,8 +189,7 @@ CORBA::Any *Delete_DynamicClass::execute(Tango::DeviceImpl *device, TANGO_UNUSED
  *	returns The command output data (packed in the Any object)
  */
 //--------------------------------------------------------
-CORBA::Any *iocmdClass::execute(Tango::DeviceImpl *device, TANGO_UNUSED(const CORBA::Any &in_any))
-{
+CORBA::Any *iocmdClass::execute(Tango::DeviceImpl *device, TANGO_UNUSED(const CORBA::Any &in_any)) {
     cout2 << "iocmdClass::execute(): arrived" << endl;
     ((static_cast<IfchangeServer *>(device))->iocmd(*this));
     return new CORBA::Any();
@@ -220,12 +204,9 @@ CORBA::Any *iocmdClass::execute(Tango::DeviceImpl *device, TANGO_UNUSED(const CO
  *	Description : Get the class property for specified name.
  */
 //--------------------------------------------------------
-Tango::DbDatum IfchangeServerClass::get_class_property(string &prop_name)
-{
-    for(unsigned int i = 0; i < cl_prop.size(); i++)
-    {
-        if(cl_prop[i].name == prop_name)
-        {
+Tango::DbDatum IfchangeServerClass::get_class_property(string &prop_name) {
+    for(unsigned int i = 0; i < cl_prop.size(); i++) {
+        if(cl_prop[i].name == prop_name) {
             return cl_prop[i];
         }
     }
@@ -239,12 +220,9 @@ Tango::DbDatum IfchangeServerClass::get_class_property(string &prop_name)
  *	Description : Return the default value for device property.
  */
 //--------------------------------------------------------
-Tango::DbDatum IfchangeServerClass::get_default_device_property(string &prop_name)
-{
-    for(unsigned int i = 0; i < dev_def_prop.size(); i++)
-    {
-        if(dev_def_prop[i].name == prop_name)
-        {
+Tango::DbDatum IfchangeServerClass::get_default_device_property(string &prop_name) {
+    for(unsigned int i = 0; i < dev_def_prop.size(); i++) {
+        if(dev_def_prop[i].name == prop_name) {
             return dev_def_prop[i];
         }
     }
@@ -258,12 +236,9 @@ Tango::DbDatum IfchangeServerClass::get_default_device_property(string &prop_nam
  *	Description : Return the default value for class property.
  */
 //--------------------------------------------------------
-Tango::DbDatum IfchangeServerClass::get_default_class_property(string &prop_name)
-{
-    for(unsigned int i = 0; i < cl_def_prop.size(); i++)
-    {
-        if(cl_def_prop[i].name == prop_name)
-        {
+Tango::DbDatum IfchangeServerClass::get_default_class_property(string &prop_name) {
+    for(unsigned int i = 0; i < cl_def_prop.size(); i++) {
+        if(cl_def_prop[i].name == prop_name) {
             return cl_def_prop[i];
         }
     }
@@ -280,8 +255,7 @@ Tango::DbDatum IfchangeServerClass::get_default_class_property(string &prop_name
  *                store it in a DbDatum.
  */
 //--------------------------------------------------------
-void IfchangeServerClass::set_default_property()
-{
+void IfchangeServerClass::set_default_property() {
     string prop_name;
     string prop_desc;
     string prop_def;
@@ -298,11 +272,9 @@ void IfchangeServerClass::set_default_property()
  *	Description : Set class description fields as property in database
  */
 //--------------------------------------------------------
-void IfchangeServerClass::write_class_property()
-{
+void IfchangeServerClass::write_class_property() {
     //	First time, check if database used
-    if(Tango::Util::_UseDb == false)
-    {
+    if(Tango::Util::_UseDb == false) {
         return;
     }
 
@@ -346,8 +318,7 @@ void IfchangeServerClass::write_class_property()
  *                and store them in the device list
  */
 //--------------------------------------------------------
-void IfchangeServerClass::device_factory(const Tango::DevVarStringArray *devlist_ptr)
-{
+void IfchangeServerClass::device_factory(const Tango::DevVarStringArray *devlist_ptr) {
     /*----- PROTECTED REGION ID(IfchangeServerClass::device_factory_before) ENABLED START -----*/
 
     //	Add your own code
@@ -355,8 +326,7 @@ void IfchangeServerClass::device_factory(const Tango::DevVarStringArray *devlist
     /*----- PROTECTED REGION END -----*/ //	IfchangeServerClass::device_factory_before
 
     //	Create devices and add it into the device list
-    for(unsigned long i = 0; i < devlist_ptr->length(); i++)
-    {
+    for(unsigned long i = 0; i < devlist_ptr->length(); i++) {
         cout4 << "Device name : " << (*devlist_ptr)[i].in() << endl;
         device_list.push_back(new IfchangeServer(this, (*devlist_ptr)[i]));
     }
@@ -365,20 +335,16 @@ void IfchangeServerClass::device_factory(const Tango::DevVarStringArray *devlist
     erase_dynamic_attributes(devlist_ptr, get_class_attr()->get_attr_list());
 
     //	Export devices to the outside world
-    for(unsigned long i = 1; i <= devlist_ptr->length(); i++)
-    {
+    for(unsigned long i = 1; i <= devlist_ptr->length(); i++) {
         //	Add dynamic attributes if any
         IfchangeServer *dev = static_cast<IfchangeServer *>(device_list[device_list.size() - i]);
         dev->add_dynamic_attributes();
         dev->add_dynamic_commands();
 
         //	Check before if database used.
-        if((Tango::Util::_UseDb == true) && (Tango::Util::_FileDb == false))
-        {
+        if((Tango::Util::_UseDb == true) && (Tango::Util::_FileDb == false)) {
             export_device(dev);
-        }
-        else
-        {
+        } else {
             export_device(dev, dev->get_name().c_str());
         }
     }
@@ -397,8 +363,7 @@ void IfchangeServerClass::device_factory(const Tango::DevVarStringArray *devlist
  *                and store them in the attribute list
  */
 //--------------------------------------------------------
-void IfchangeServerClass::attribute_factory(vector<Tango::Attr *> &att_list)
-{
+void IfchangeServerClass::attribute_factory(vector<Tango::Attr *> &att_list) {
     /*----- PROTECTED REGION ID(IfchangeServerClass::attribute_factory_before) ENABLED START -----*/
 
     //	Add your own code
@@ -444,8 +409,7 @@ void IfchangeServerClass::attribute_factory(vector<Tango::Attr *> &att_list)
  *                and store them in the pipe list
  */
 //--------------------------------------------------------
-void IfchangeServerClass::pipe_factory()
-{
+void IfchangeServerClass::pipe_factory() {
     /*----- PROTECTED REGION ID(IfchangeServerClass::pipe_factory_before) ENABLED START -----*/
 
     //	Add your own code
@@ -465,8 +429,7 @@ void IfchangeServerClass::pipe_factory()
  *                and store them in the command list
  */
 //--------------------------------------------------------
-void IfchangeServerClass::command_factory()
-{
+void IfchangeServerClass::command_factory() {
     /*----- PROTECTED REGION ID(IfchangeServerClass::command_factory_before) ENABLED START -----*/
 
     //	Add your own code
@@ -502,10 +465,8 @@ void IfchangeServerClass::command_factory()
  * @param	att_list	the ceated attribute list
  */
 //--------------------------------------------------------
-void IfchangeServerClass::create_static_attribute_list(vector<Tango::Attr *> &att_list)
-{
-    for(unsigned long i = 0; i < att_list.size(); i++)
-    {
+void IfchangeServerClass::create_static_attribute_list(vector<Tango::Attr *> &att_list) {
+    for(unsigned long i = 0; i < att_list.size(); i++) {
         string att_name(att_list[i]->get_name());
         transform(att_name.begin(), att_name.end(), att_name.begin(), ::tolower);
         defaultAttList.push_back(att_name);
@@ -528,27 +489,22 @@ void IfchangeServerClass::create_static_attribute_list(vector<Tango::Attr *> &at
  */
 //--------------------------------------------------------
 void IfchangeServerClass::erase_dynamic_attributes(const Tango::DevVarStringArray *devlist_ptr,
-                                                   vector<Tango::Attr *> &att_list)
-{
+                                                   vector<Tango::Attr *> &att_list) {
     Tango::Util *tg = Tango::Util::instance();
 
-    for(unsigned long i = 0; i < devlist_ptr->length(); i++)
-    {
+    for(unsigned long i = 0; i < devlist_ptr->length(); i++) {
         Tango::DeviceImpl *dev_impl = tg->get_device_by_name(((string) (*devlist_ptr)[i]).c_str());
         IfchangeServer *dev = static_cast<IfchangeServer *>(dev_impl);
 
         vector<Tango::Attribute *> &dev_att_list = dev->get_device_attr()->get_attribute_list();
         vector<Tango::Attribute *>::iterator ite_att;
-        for(ite_att = dev_att_list.begin(); ite_att != dev_att_list.end(); ++ite_att)
-        {
+        for(ite_att = dev_att_list.begin(); ite_att != dev_att_list.end(); ++ite_att) {
             string att_name((*ite_att)->get_name_lower());
-            if((att_name == "state") || (att_name == "status"))
-            {
+            if((att_name == "state") || (att_name == "status")) {
                 continue;
             }
             vector<string>::iterator ite_str = find(defaultAttList.begin(), defaultAttList.end(), att_name);
-            if(ite_str == defaultAttList.end())
-            {
+            if(ite_str == defaultAttList.end()) {
                 cout2 << att_name << " is a UNWANTED dynamic attribute for device " << (*devlist_ptr)[i] << endl;
                 Tango::Attribute &att = dev->get_device_attr()->get_attr_by_name(att_name.c_str());
                 dev->remove_attribute(att_list[att.get_attr_idx()], true, false);
@@ -567,13 +523,10 @@ void IfchangeServerClass::erase_dynamic_attributes(const Tango::DevVarStringArra
  *	Description : returns Tango::Attr * object found by name
  */
 //--------------------------------------------------------
-Tango::Attr *IfchangeServerClass::get_attr_object_by_name(vector<Tango::Attr *> &att_list, string attname)
-{
+Tango::Attr *IfchangeServerClass::get_attr_object_by_name(vector<Tango::Attr *> &att_list, string attname) {
     vector<Tango::Attr *>::iterator it;
-    for(it = att_list.begin(); it < att_list.end(); ++it)
-    {
-        if((*it)->get_name() == attname)
-        {
+    for(it = att_list.begin(); it < att_list.end(); ++it) {
+        if((*it)->get_name() == attname) {
             return (*it);
         }
     }

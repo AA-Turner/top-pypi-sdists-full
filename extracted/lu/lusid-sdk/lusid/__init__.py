@@ -74,6 +74,7 @@ from lusid.api.reference_lists_api import ReferenceListsApi
 from lusid.api.reference_portfolio_api import ReferencePortfolioApi
 from lusid.api.relation_definitions_api import RelationDefinitionsApi
 from lusid.api.relational_dataset_definition_api import RelationalDatasetDefinitionApi
+from lusid.api.relational_datasets_api import RelationalDatasetsApi
 from lusid.api.relations_api import RelationsApi
 from lusid.api.relationship_definitions_api import RelationshipDefinitionsApi
 from lusid.api.relationships_api import RelationshipsApi
@@ -175,6 +176,8 @@ from lusid.models.append_fx_forward_tenor_curve_data import AppendFxForwardTenor
 from lusid.models.append_fx_forward_tenor_pips_curve_data import AppendFxForwardTenorPipsCurveData
 from lusid.models.append_market_data import AppendMarketData
 from lusid.models.append_market_data_type import AppendMarketDataType
+from lusid.models.applicable_entity import ApplicableEntity
+from lusid.models.applicable_entity_types import ApplicableEntityTypes
 from lusid.models.applicable_instrument_event import ApplicableInstrumentEvent
 from lusid.models.asset_class import AssetClass
 from lusid.models.asset_leg import AssetLeg
@@ -183,6 +186,7 @@ from lusid.models.basket import Basket
 from lusid.models.basket_identifier import BasketIdentifier
 from lusid.models.batch_adjust_holdings_response import BatchAdjustHoldingsResponse
 from lusid.models.batch_amend_custom_data_model_membership_response import BatchAmendCustomDataModelMembershipResponse
+from lusid.models.batch_delete_relational_data_response import BatchDeleteRelationalDataResponse
 from lusid.models.batch_update_user_review_for_comparison_result_request import BatchUpdateUserReviewForComparisonResultRequest
 from lusid.models.batch_update_user_review_for_comparison_result_response import BatchUpdateUserReviewForComparisonResultResponse
 from lusid.models.batch_upsert_dates_for_calendar_response import BatchUpsertDatesForCalendarResponse
@@ -192,6 +196,8 @@ from lusid.models.batch_upsert_portfolio_access_metadata_response import BatchUp
 from lusid.models.batch_upsert_portfolio_access_metadata_response_item import BatchUpsertPortfolioAccessMetadataResponseItem
 from lusid.models.batch_upsert_portfolio_transactions_response import BatchUpsertPortfolioTransactionsResponse
 from lusid.models.batch_upsert_property_definition_properties_response import BatchUpsertPropertyDefinitionPropertiesResponse
+from lusid.models.batch_upsert_relational_datasets_response import BatchUpsertRelationalDatasetsResponse
+from lusid.models.batch_upsert_transaction_settlement_instruction_response import BatchUpsertTransactionSettlementInstructionResponse
 from lusid.models.block import Block
 from lusid.models.block_and_order_id_request import BlockAndOrderIdRequest
 from lusid.models.block_and_orders import BlockAndOrders
@@ -248,6 +254,7 @@ from lusid.models.cash_flow_value_set import CashFlowValueSet
 from lusid.models.cash_ladder_record import CashLadderRecord
 from lusid.models.cash_offer_election import CashOfferElection
 from lusid.models.cash_perpetual import CashPerpetual
+from lusid.models.category_settlement_status import CategorySettlementStatus
 from lusid.models.cds_credit_event import CdsCreditEvent
 from lusid.models.cds_flow_conventions import CdsFlowConventions
 from lusid.models.cds_index import CdsIndex
@@ -370,6 +377,7 @@ from lusid.models.create_relational_dataset_definition_request import CreateRela
 from lusid.models.create_relationship_definition_request import CreateRelationshipDefinitionRequest
 from lusid.models.create_relationship_request import CreateRelationshipRequest
 from lusid.models.create_sequence_request import CreateSequenceRequest
+from lusid.models.create_series_identifier_field import CreateSeriesIdentifierField
 from lusid.models.create_simple_position_portfolio_request import CreateSimplePositionPortfolioRequest
 from lusid.models.create_staging_rule_set_request import CreateStagingRuleSetRequest
 from lusid.models.create_tax_rule_set_request import CreateTaxRuleSetRequest
@@ -405,6 +413,7 @@ from lusid.models.custom_entity_properties import CustomEntityProperties
 from lusid.models.custom_entity_request import CustomEntityRequest
 from lusid.models.custom_entity_response import CustomEntityResponse
 from lusid.models.custom_entity_type import CustomEntityType
+from lusid.models.custom_sort_by import CustomSortBy
 from lusid.models.cut_label_definition import CutLabelDefinition
 from lusid.models.cut_local_time import CutLocalTime
 from lusid.models.data_definition import DataDefinition
@@ -412,7 +421,10 @@ from lusid.models.data_map_key import DataMapKey
 from lusid.models.data_mapping import DataMapping
 from lusid.models.data_model_membership import DataModelMembership
 from lusid.models.data_model_summary import DataModelSummary
+from lusid.models.data_point_version import DataPointVersion
+from lusid.models.data_quality_check_result import DataQualityCheckResult
 from lusid.models.data_scope import DataScope
+from lusid.models.data_series import DataSeries
 from lusid.models.data_type import DataType
 from lusid.models.data_type_entity import DataTypeEntity
 from lusid.models.data_type_summary import DataTypeSummary
@@ -431,16 +443,21 @@ from lusid.models.decimal_list_compliance_parameter import DecimalListCompliance
 from lusid.models.decorated_compliance_run_summary import DecoratedComplianceRunSummary
 from lusid.models.delete_accounts_response import DeleteAccountsResponse
 from lusid.models.delete_custodian_accounts_response import DeleteCustodianAccountsResponse
+from lusid.models.delete_data_quality_rule import DeleteDataQualityRule
 from lusid.models.delete_instrument_properties_response import DeleteInstrumentPropertiesResponse
 from lusid.models.delete_instrument_response import DeleteInstrumentResponse
 from lusid.models.delete_instruments_response import DeleteInstrumentsResponse
 from lusid.models.delete_modes import DeleteModes
 from lusid.models.delete_relation_request import DeleteRelationRequest
+from lusid.models.delete_relational_data_point_request import DeleteRelationalDataPointRequest
 from lusid.models.delete_relationship_request import DeleteRelationshipRequest
 from lusid.models.deleted_entity_response import DeletedEntityResponse
 from lusid.models.dependency_source_filter import DependencySourceFilter
 from lusid.models.deposit_close_event import DepositCloseEvent
 from lusid.models.deposit_interest_payment_event import DepositInterestPaymentEvent
+from lusid.models.deposit_roll_event import DepositRollEvent
+from lusid.models.derivation_formula_explain_request import DerivationFormulaExplainRequest
+from lusid.models.derived_property_component import DerivedPropertyComponent
 from lusid.models.described_address_key import DescribedAddressKey
 from lusid.models.dialect import Dialect
 from lusid.models.dialect_id import DialectId
@@ -453,6 +470,7 @@ from lusid.models.discounting_method import DiscountingMethod
 from lusid.models.dividend_option_event import DividendOptionEvent
 from lusid.models.dividend_reinvestment_event import DividendReinvestmentEvent
 from lusid.models.drawdown_event import DrawdownEvent
+from lusid.models.early_close_out_event import EarlyCloseOutEvent
 from lusid.models.early_redemption_election import EarlyRedemptionElection
 from lusid.models.early_redemption_event import EarlyRedemptionEvent
 from lusid.models.economic_dependency import EconomicDependency
@@ -712,6 +730,8 @@ from lusid.models.loan_interest_repayment_event import LoanInterestRepaymentEven
 from lusid.models.loan_period import LoanPeriod
 from lusid.models.loan_principal_repayment_event import LoanPrincipalRepaymentEvent
 from lusid.models.lock_period_diary_entry_request import LockPeriodDiaryEntryRequest
+from lusid.models.lusid_entity_dataset import LusidEntityDataset
+from lusid.models.lusid_entity_result import LusidEntityResult
 from lusid.models.lusid_instrument import LusidInstrument
 from lusid.models.lusid_problem_details import LusidProblemDetails
 from lusid.models.lusid_trade_ticket import LusidTradeTicket
@@ -756,6 +776,8 @@ from lusid.models.moved_order_to_different_block_response import MovedOrderToDif
 from lusid.models.movement_settlement_summary import MovementSettlementSummary
 from lusid.models.movement_type import MovementType
 from lusid.models.multi_currency_amounts import MultiCurrencyAmounts
+from lusid.models.nav_activity_adjustment import NavActivityAdjustment
+from lusid.models.nav_activity_adjustment_type import NavActivityAdjustmentType
 from lusid.models.nav_type_definition import NavTypeDefinition
 from lusid.models.new_instrument import NewInstrument
 from lusid.models.next_value_in_sequence_response import NextValueInSequenceResponse
@@ -869,6 +891,7 @@ from lusid.models.paged_resource_list_of_property_definition import PagedResourc
 from lusid.models.paged_resource_list_of_property_definition_search_result import PagedResourceListOfPropertyDefinitionSearchResult
 from lusid.models.paged_resource_list_of_reconciliation import PagedResourceListOfReconciliation
 from lusid.models.paged_resource_list_of_reference_list_response import PagedResourceListOfReferenceListResponse
+from lusid.models.paged_resource_list_of_relational_data_point_response import PagedResourceListOfRelationalDataPointResponse
 from lusid.models.paged_resource_list_of_relational_dataset_definition import PagedResourceListOfRelationalDatasetDefinition
 from lusid.models.paged_resource_list_of_relationship_definition import PagedResourceListOfRelationshipDefinition
 from lusid.models.paged_resource_list_of_sequence_definition import PagedResourceListOfSequenceDefinition
@@ -927,6 +950,7 @@ from lusid.models.portfolio_return_breakdown import PortfolioReturnBreakdown
 from lusid.models.portfolio_search_result import PortfolioSearchResult
 from lusid.models.portfolio_settlement_configuration import PortfolioSettlementConfiguration
 from lusid.models.portfolio_trade_ticket import PortfolioTradeTicket
+from lusid.models.portfolio_transaction import PortfolioTransaction
 from lusid.models.portfolio_type import PortfolioType
 from lusid.models.portfolio_without_href import PortfolioWithoutHref
 from lusid.models.portfolios_reconciliation_request import PortfoliosReconciliationRequest
@@ -972,6 +996,7 @@ from lusid.models.query_applicable_instrument_events_request import QueryApplica
 from lusid.models.query_bucketed_cash_flows_request import QueryBucketedCashFlowsRequest
 from lusid.models.query_cash_flows_request import QueryCashFlowsRequest
 from lusid.models.query_instrument_events_request import QueryInstrumentEventsRequest
+from lusid.models.query_relational_dataset_request import QueryRelationalDatasetRequest
 from lusid.models.query_trade_tickets_request import QueryTradeTicketsRequest
 from lusid.models.queryable_key import QueryableKey
 from lusid.models.quote import Quote
@@ -1018,8 +1043,14 @@ from lusid.models.reference_portfolio_weight_type import ReferencePortfolioWeigh
 from lusid.models.related_entity import RelatedEntity
 from lusid.models.relation import Relation
 from lusid.models.relation_definition import RelationDefinition
+from lusid.models.relational_data_point_field_value_response import RelationalDataPointFieldValueResponse
+from lusid.models.relational_data_point_response import RelationalDataPointResponse
+from lusid.models.relational_data_series_response import RelationalDataSeriesResponse
 from lusid.models.relational_dataset_definition import RelationalDatasetDefinition
 from lusid.models.relational_dataset_field_definition import RelationalDatasetFieldDefinition
+from lusid.models.relational_dataset_fields_to_add import RelationalDatasetFieldsToAdd
+from lusid.models.relational_dataset_fields_to_remove import RelationalDatasetFieldsToRemove
+from lusid.models.relational_dataset_fields_to_update import RelationalDatasetFieldsToUpdate
 from lusid.models.relationship import Relationship
 from lusid.models.relationship_definition import RelationshipDefinition
 from lusid.models.relative_date_offset import RelativeDateOffset
@@ -1072,6 +1103,7 @@ from lusid.models.resource_list_of_legal_entity import ResourceListOfLegalEntity
 from lusid.models.resource_list_of_list_complex_market_data_with_meta_data_response import ResourceListOfListComplexMarketDataWithMetaDataResponse
 from lusid.models.resource_list_of_mapping import ResourceListOfMapping
 from lusid.models.resource_list_of_moved_order_to_different_block_response import ResourceListOfMovedOrderToDifferentBlockResponse
+from lusid.models.resource_list_of_nav_activity_adjustment import ResourceListOfNavActivityAdjustment
 from lusid.models.resource_list_of_order import ResourceListOfOrder
 from lusid.models.resource_list_of_order_instruction import ResourceListOfOrderInstruction
 from lusid.models.resource_list_of_output_transaction import ResourceListOfOutputTransaction
@@ -1121,11 +1153,16 @@ from lusid.models.result_value_type import ResultValueType
 from lusid.models.return_zero_pv_options import ReturnZeroPvOptions
 from lusid.models.returns_entity import ReturnsEntity
 from lusid.models.reverse_stock_split_event import ReverseStockSplitEvent
+from lusid.models.revert_valuation_point_data_request import RevertValuationPointDataRequest
+from lusid.models.roll_interest_updates import RollInterestUpdates
+from lusid.models.roll_principal_updates import RollPrincipalUpdates
 from lusid.models.rollover_constituent import RolloverConstituent
 from lusid.models.rounding_configuration import RoundingConfiguration
 from lusid.models.rounding_configuration_component import RoundingConfigurationComponent
 from lusid.models.rounding_convention import RoundingConvention
 from lusid.models.rules_interval import RulesInterval
+from lusid.models.run_check_request import RunCheckRequest
+from lusid.models.run_check_response import RunCheckResponse
 from lusid.models.scaling_methodology import ScalingMethodology
 from lusid.models.schedule import Schedule
 from lusid.models.schedule_type import ScheduleType
@@ -1145,9 +1182,11 @@ from lusid.models.set_transaction_configuration_alias import SetTransactionConfi
 from lusid.models.set_transaction_configuration_source_request import SetTransactionConfigurationSourceRequest
 from lusid.models.settlement_configuration_category import SettlementConfigurationCategory
 from lusid.models.settlement_cycle import SettlementCycle
+from lusid.models.settlement_in_lieu import SettlementInLieu
 from lusid.models.settlement_instruction_query import SettlementInstructionQuery
 from lusid.models.settlement_instruction_request import SettlementInstructionRequest
 from lusid.models.settlement_instruction_with_transaction import SettlementInstructionWithTransaction
+from lusid.models.settlement_problem import SettlementProblem
 from lusid.models.settlement_schedule import SettlementSchedule
 from lusid.models.share_class_amount import ShareClassAmount
 from lusid.models.share_class_breakdown import ShareClassBreakdown
@@ -1240,6 +1279,7 @@ from lusid.models.transaction_settlement_bucket import TransactionSettlementBuck
 from lusid.models.transaction_settlement_instruction import TransactionSettlementInstruction
 from lusid.models.transaction_settlement_movement import TransactionSettlementMovement
 from lusid.models.transaction_settlement_status import TransactionSettlementStatus
+from lusid.models.transaction_settlement_summary import TransactionSettlementSummary
 from lusid.models.transaction_status import TransactionStatus
 from lusid.models.transaction_template import TransactionTemplate
 from lusid.models.transaction_template_request import TransactionTemplateRequest
@@ -1277,6 +1317,7 @@ from lusid.models.unmatched_holding_method import UnmatchedHoldingMethod
 from lusid.models.update_amortisation_rule_set_details_request import UpdateAmortisationRuleSetDetailsRequest
 from lusid.models.update_calendar_request import UpdateCalendarRequest
 from lusid.models.update_check_definition_request import UpdateCheckDefinitionRequest
+from lusid.models.update_check_definition_rule_set import UpdateCheckDefinitionRuleSet
 from lusid.models.update_compliance_template_request import UpdateComplianceTemplateRequest
 from lusid.models.update_custom_data_model_request import UpdateCustomDataModelRequest
 from lusid.models.update_custom_entity_definition_request import UpdateCustomEntityDefinitionRequest
@@ -1298,7 +1339,10 @@ from lusid.models.update_property_definition_request import UpdatePropertyDefini
 from lusid.models.update_reconciliation_request import UpdateReconciliationRequest
 from lusid.models.update_reference_data_request import UpdateReferenceDataRequest
 from lusid.models.update_relational_dataset_definition_request import UpdateRelationalDatasetDefinitionRequest
+from lusid.models.update_relational_dataset_details import UpdateRelationalDatasetDetails
+from lusid.models.update_relational_dataset_field_schema import UpdateRelationalDatasetFieldSchema
 from lusid.models.update_relationship_definition_request import UpdateRelationshipDefinitionRequest
+from lusid.models.update_series_identifier_field import UpdateSeriesIdentifierField
 from lusid.models.update_staging_rule_set_request import UpdateStagingRuleSetRequest
 from lusid.models.update_tax_rule_set_request import UpdateTaxRuleSetRequest
 from lusid.models.update_timeline_request import UpdateTimelineRequest
@@ -1314,6 +1358,7 @@ from lusid.models.upsert_counterparty_agreement_request import UpsertCounterpart
 from lusid.models.upsert_credit_support_annex_request import UpsertCreditSupportAnnexRequest
 from lusid.models.upsert_custom_entities_response import UpsertCustomEntitiesResponse
 from lusid.models.upsert_custom_entity_access_metadata_request import UpsertCustomEntityAccessMetadataRequest
+from lusid.models.upsert_data_quality_rule import UpsertDataQualityRule
 from lusid.models.upsert_dialect_request import UpsertDialectRequest
 from lusid.models.upsert_flow_conventions_request import UpsertFlowConventionsRequest
 from lusid.models.upsert_fund_bookmark_request import UpsertFundBookmarkRequest
@@ -1345,6 +1390,7 @@ from lusid.models.upsert_reference_portfolio_constituent_properties_request impo
 from lusid.models.upsert_reference_portfolio_constituent_properties_response import UpsertReferencePortfolioConstituentPropertiesResponse
 from lusid.models.upsert_reference_portfolio_constituents_request import UpsertReferencePortfolioConstituentsRequest
 from lusid.models.upsert_reference_portfolio_constituents_response import UpsertReferencePortfolioConstituentsResponse
+from lusid.models.upsert_relational_data_point_request import UpsertRelationalDataPointRequest
 from lusid.models.upsert_result_values_data_request import UpsertResultValuesDataRequest
 from lusid.models.upsert_returns_response import UpsertReturnsResponse
 from lusid.models.upsert_single_structured_data_response import UpsertSingleStructuredDataResponse
@@ -1378,6 +1424,7 @@ from lusid.models.versioned_resource_list_of_journal_entry_line import Versioned
 from lusid.models.versioned_resource_list_of_output_transaction import VersionedResourceListOfOutputTransaction
 from lusid.models.versioned_resource_list_of_portfolio_holding import VersionedResourceListOfPortfolioHolding
 from lusid.models.versioned_resource_list_of_transaction import VersionedResourceListOfTransaction
+from lusid.models.versioned_resource_list_of_transaction_settlement_instruction import VersionedResourceListOfTransactionSettlementInstruction
 from lusid.models.versioned_resource_list_of_trial_balance import VersionedResourceListOfTrialBalance
 from lusid.models.versioned_resource_list_with_post_bodies_of_settlement_instruction_with_transaction_to_settlement_instruction_query import VersionedResourceListWithPostBodiesOfSettlementInstructionWithTransactionToSettlementInstructionQuery
 from lusid.models.versioned_resource_list_with_warnings_of_portfolio_holding import VersionedResourceListWithWarningsOfPortfolioHolding
@@ -1470,6 +1517,7 @@ __all__ = [
     "ReferencePortfolioApi",
     "RelationDefinitionsApi",
     "RelationalDatasetDefinitionApi",
+    "RelationalDatasetsApi",
     "RelationsApi",
     "RelationshipDefinitionsApi",
     "RelationshipsApi",
@@ -1561,6 +1609,8 @@ __all__ = [
     "AppendFxForwardTenorPipsCurveData",
     "AppendMarketData",
     "AppendMarketDataType",
+    "ApplicableEntity",
+    "ApplicableEntityTypes",
     "ApplicableInstrumentEvent",
     "AssetClass",
     "AssetLeg",
@@ -1569,6 +1619,7 @@ __all__ = [
     "BasketIdentifier",
     "BatchAdjustHoldingsResponse",
     "BatchAmendCustomDataModelMembershipResponse",
+    "BatchDeleteRelationalDataResponse",
     "BatchUpdateUserReviewForComparisonResultRequest",
     "BatchUpdateUserReviewForComparisonResultResponse",
     "BatchUpsertDatesForCalendarResponse",
@@ -1578,6 +1629,8 @@ __all__ = [
     "BatchUpsertPortfolioAccessMetadataResponseItem",
     "BatchUpsertPortfolioTransactionsResponse",
     "BatchUpsertPropertyDefinitionPropertiesResponse",
+    "BatchUpsertRelationalDatasetsResponse",
+    "BatchUpsertTransactionSettlementInstructionResponse",
     "Block",
     "BlockAndOrderIdRequest",
     "BlockAndOrders",
@@ -1634,6 +1687,7 @@ __all__ = [
     "CashLadderRecord",
     "CashOfferElection",
     "CashPerpetual",
+    "CategorySettlementStatus",
     "CdsCreditEvent",
     "CdsFlowConventions",
     "CdsIndex",
@@ -1756,6 +1810,7 @@ __all__ = [
     "CreateRelationshipDefinitionRequest",
     "CreateRelationshipRequest",
     "CreateSequenceRequest",
+    "CreateSeriesIdentifierField",
     "CreateSimplePositionPortfolioRequest",
     "CreateStagingRuleSetRequest",
     "CreateTaxRuleSetRequest",
@@ -1791,6 +1846,7 @@ __all__ = [
     "CustomEntityRequest",
     "CustomEntityResponse",
     "CustomEntityType",
+    "CustomSortBy",
     "CutLabelDefinition",
     "CutLocalTime",
     "DataDefinition",
@@ -1798,7 +1854,10 @@ __all__ = [
     "DataMapping",
     "DataModelMembership",
     "DataModelSummary",
+    "DataPointVersion",
+    "DataQualityCheckResult",
     "DataScope",
+    "DataSeries",
     "DataType",
     "DataTypeEntity",
     "DataTypeSummary",
@@ -1817,16 +1876,21 @@ __all__ = [
     "DecoratedComplianceRunSummary",
     "DeleteAccountsResponse",
     "DeleteCustodianAccountsResponse",
+    "DeleteDataQualityRule",
     "DeleteInstrumentPropertiesResponse",
     "DeleteInstrumentResponse",
     "DeleteInstrumentsResponse",
     "DeleteModes",
     "DeleteRelationRequest",
+    "DeleteRelationalDataPointRequest",
     "DeleteRelationshipRequest",
     "DeletedEntityResponse",
     "DependencySourceFilter",
     "DepositCloseEvent",
     "DepositInterestPaymentEvent",
+    "DepositRollEvent",
+    "DerivationFormulaExplainRequest",
+    "DerivedPropertyComponent",
     "DescribedAddressKey",
     "Dialect",
     "DialectId",
@@ -1839,6 +1903,7 @@ __all__ = [
     "DividendOptionEvent",
     "DividendReinvestmentEvent",
     "DrawdownEvent",
+    "EarlyCloseOutEvent",
     "EarlyRedemptionElection",
     "EarlyRedemptionEvent",
     "EconomicDependency",
@@ -2098,6 +2163,8 @@ __all__ = [
     "LoanPeriod",
     "LoanPrincipalRepaymentEvent",
     "LockPeriodDiaryEntryRequest",
+    "LusidEntityDataset",
+    "LusidEntityResult",
     "LusidInstrument",
     "LusidProblemDetails",
     "LusidTradeTicket",
@@ -2142,6 +2209,8 @@ __all__ = [
     "MovementSettlementSummary",
     "MovementType",
     "MultiCurrencyAmounts",
+    "NavActivityAdjustment",
+    "NavActivityAdjustmentType",
     "NavTypeDefinition",
     "NewInstrument",
     "NextValueInSequenceResponse",
@@ -2255,6 +2324,7 @@ __all__ = [
     "PagedResourceListOfPropertyDefinitionSearchResult",
     "PagedResourceListOfReconciliation",
     "PagedResourceListOfReferenceListResponse",
+    "PagedResourceListOfRelationalDataPointResponse",
     "PagedResourceListOfRelationalDatasetDefinition",
     "PagedResourceListOfRelationshipDefinition",
     "PagedResourceListOfSequenceDefinition",
@@ -2313,6 +2383,7 @@ __all__ = [
     "PortfolioSearchResult",
     "PortfolioSettlementConfiguration",
     "PortfolioTradeTicket",
+    "PortfolioTransaction",
     "PortfolioType",
     "PortfolioWithoutHref",
     "PortfoliosReconciliationRequest",
@@ -2358,6 +2429,7 @@ __all__ = [
     "QueryBucketedCashFlowsRequest",
     "QueryCashFlowsRequest",
     "QueryInstrumentEventsRequest",
+    "QueryRelationalDatasetRequest",
     "QueryTradeTicketsRequest",
     "QueryableKey",
     "Quote",
@@ -2404,8 +2476,14 @@ __all__ = [
     "RelatedEntity",
     "Relation",
     "RelationDefinition",
+    "RelationalDataPointFieldValueResponse",
+    "RelationalDataPointResponse",
+    "RelationalDataSeriesResponse",
     "RelationalDatasetDefinition",
     "RelationalDatasetFieldDefinition",
+    "RelationalDatasetFieldsToAdd",
+    "RelationalDatasetFieldsToRemove",
+    "RelationalDatasetFieldsToUpdate",
     "Relationship",
     "RelationshipDefinition",
     "RelativeDateOffset",
@@ -2458,6 +2536,7 @@ __all__ = [
     "ResourceListOfListComplexMarketDataWithMetaDataResponse",
     "ResourceListOfMapping",
     "ResourceListOfMovedOrderToDifferentBlockResponse",
+    "ResourceListOfNavActivityAdjustment",
     "ResourceListOfOrder",
     "ResourceListOfOrderInstruction",
     "ResourceListOfOutputTransaction",
@@ -2507,11 +2586,16 @@ __all__ = [
     "ReturnZeroPvOptions",
     "ReturnsEntity",
     "ReverseStockSplitEvent",
+    "RevertValuationPointDataRequest",
+    "RollInterestUpdates",
+    "RollPrincipalUpdates",
     "RolloverConstituent",
     "RoundingConfiguration",
     "RoundingConfigurationComponent",
     "RoundingConvention",
     "RulesInterval",
+    "RunCheckRequest",
+    "RunCheckResponse",
     "ScalingMethodology",
     "Schedule",
     "ScheduleType",
@@ -2531,9 +2615,11 @@ __all__ = [
     "SetTransactionConfigurationSourceRequest",
     "SettlementConfigurationCategory",
     "SettlementCycle",
+    "SettlementInLieu",
     "SettlementInstructionQuery",
     "SettlementInstructionRequest",
     "SettlementInstructionWithTransaction",
+    "SettlementProblem",
     "SettlementSchedule",
     "ShareClassAmount",
     "ShareClassBreakdown",
@@ -2626,6 +2712,7 @@ __all__ = [
     "TransactionSettlementInstruction",
     "TransactionSettlementMovement",
     "TransactionSettlementStatus",
+    "TransactionSettlementSummary",
     "TransactionStatus",
     "TransactionTemplate",
     "TransactionTemplateRequest",
@@ -2663,6 +2750,7 @@ __all__ = [
     "UpdateAmortisationRuleSetDetailsRequest",
     "UpdateCalendarRequest",
     "UpdateCheckDefinitionRequest",
+    "UpdateCheckDefinitionRuleSet",
     "UpdateComplianceTemplateRequest",
     "UpdateCustomDataModelRequest",
     "UpdateCustomEntityDefinitionRequest",
@@ -2684,7 +2772,10 @@ __all__ = [
     "UpdateReconciliationRequest",
     "UpdateReferenceDataRequest",
     "UpdateRelationalDatasetDefinitionRequest",
+    "UpdateRelationalDatasetDetails",
+    "UpdateRelationalDatasetFieldSchema",
     "UpdateRelationshipDefinitionRequest",
+    "UpdateSeriesIdentifierField",
     "UpdateStagingRuleSetRequest",
     "UpdateTaxRuleSetRequest",
     "UpdateTimelineRequest",
@@ -2700,6 +2791,7 @@ __all__ = [
     "UpsertCreditSupportAnnexRequest",
     "UpsertCustomEntitiesResponse",
     "UpsertCustomEntityAccessMetadataRequest",
+    "UpsertDataQualityRule",
     "UpsertDialectRequest",
     "UpsertFlowConventionsRequest",
     "UpsertFundBookmarkRequest",
@@ -2731,6 +2823,7 @@ __all__ = [
     "UpsertReferencePortfolioConstituentPropertiesResponse",
     "UpsertReferencePortfolioConstituentsRequest",
     "UpsertReferencePortfolioConstituentsResponse",
+    "UpsertRelationalDataPointRequest",
     "UpsertResultValuesDataRequest",
     "UpsertReturnsResponse",
     "UpsertSingleStructuredDataResponse",
@@ -2764,6 +2857,7 @@ __all__ = [
     "VersionedResourceListOfOutputTransaction",
     "VersionedResourceListOfPortfolioHolding",
     "VersionedResourceListOfTransaction",
+    "VersionedResourceListOfTransactionSettlementInstruction",
     "VersionedResourceListOfTrialBalance",
     "VersionedResourceListWithPostBodiesOfSettlementInstructionWithTransactionToSettlementInstructionQuery",
     "VersionedResourceListWithWarningsOfPortfolioHolding",

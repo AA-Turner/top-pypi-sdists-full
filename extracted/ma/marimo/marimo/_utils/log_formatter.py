@@ -1,9 +1,8 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 # Adapted from tornado.log (Apache 2.0 License)
 from __future__ import annotations
 
 import logging
-import logging.handlers
 import sys
 from typing import Any, cast
 

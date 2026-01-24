@@ -14,12 +14,15 @@
 namespace SkSL {
 
 class Compiler;
-class ModifiersPool;
 struct Module;
 class Type;
 
 using BuiltinTypePtr = const std::unique_ptr<Type> BuiltinTypes::*;
 
+/**
+ * Documentation for modules in SkSL: http://go/modules-in-sksl
+ * https://docs.google.com/document/d/1P8LkkimNr-nPlxMimUsz3K_7qMM7-tZOxDCWZejPcWg/edit?usp=sharing
+ */
 class ModuleLoader {
 private:
     struct Impl;
@@ -37,9 +40,6 @@ public:
     // They are created when the ModuleLoader is instantiated and never change.
     const BuiltinTypes& builtinTypes();
     const Module* rootModule();
-
-    // This ModifiersPool is shared by every built-in module.
-    ModifiersPool& coreModifiers();
 
     // These modules are loaded on demand; once loaded, they are kept for the lifetime of the
     // process.

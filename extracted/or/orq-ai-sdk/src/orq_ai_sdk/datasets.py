@@ -3,6 +3,11 @@
 from .basesdk import BaseSDK
 from orq_ai_sdk import models, utils
 from orq_ai_sdk._hooks import HookContext
+from orq_ai_sdk.models import (
+    createdatasetitemop as models_createdatasetitemop,
+    createdatasetop as models_createdatasetop,
+    updatedatapointop as models_updatedatapointop,
+)
 from orq_ai_sdk.types import BaseModel, OptionalNullable, UNSET
 from orq_ai_sdk.utils import get_security_from_env
 from orq_ai_sdk.utils.unmarshal_json_response import unmarshal_json_response
@@ -20,7 +25,7 @@ class Datasets(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.ListDatasetsResponseBody]:
+    ) -> models.ListDatasetsResponseBody:
         r"""List datasets
 
         Retrieves a paginated list of datasets for the current workspace. Results can be paginated using cursor-based pagination.
@@ -65,6 +70,7 @@ class Datasets(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -81,7 +87,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListDatasets",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -92,9 +98,7 @@ class Datasets(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.ListDatasetsResponseBody], http_res
-            )
+            return unmarshal_json_response(models.ListDatasetsResponseBody, http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = utils.stream_to_text(http_res)
             raise models.APIError("API error occurred", http_res, http_res_text)
@@ -114,7 +118,7 @@ class Datasets(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.ListDatasetsResponseBody]:
+    ) -> models.ListDatasetsResponseBody:
         r"""List datasets
 
         Retrieves a paginated list of datasets for the current workspace. Results can be paginated using cursor-based pagination.
@@ -159,6 +163,7 @@ class Datasets(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -175,7 +180,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListDatasets",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -186,9 +191,7 @@ class Datasets(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.ListDatasetsResponseBody], http_res
-            )
+            return unmarshal_json_response(models.ListDatasetsResponseBody, http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = await utils.stream_to_text_async(http_res)
             raise models.APIError("API error occurred", http_res, http_res_text)
@@ -203,15 +206,15 @@ class Datasets(BaseSDK):
         *,
         request: Optional[
             Union[
-                models.CreateDatasetRequestBody,
-                models.CreateDatasetRequestBodyTypedDict,
+                models_createdatasetop.CreateDatasetRequestBody,
+                models_createdatasetop.CreateDatasetRequestBodyTypedDict,
             ]
         ] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.CreateDatasetResponseBody]:
+    ) -> models.CreateDatasetResponseBody:
         r"""Create a dataset
 
         Creates a new dataset in the specified project.
@@ -257,6 +260,7 @@ class Datasets(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request, False, True, "json", Optional[models.CreateDatasetRequestBody]
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -273,7 +277,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateDataset",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -284,9 +288,7 @@ class Datasets(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.CreateDatasetResponseBody], http_res
-            )
+            return unmarshal_json_response(models.CreateDatasetResponseBody, http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = utils.stream_to_text(http_res)
             raise models.APIError("API error occurred", http_res, http_res_text)
@@ -301,15 +303,15 @@ class Datasets(BaseSDK):
         *,
         request: Optional[
             Union[
-                models.CreateDatasetRequestBody,
-                models.CreateDatasetRequestBodyTypedDict,
+                models_createdatasetop.CreateDatasetRequestBody,
+                models_createdatasetop.CreateDatasetRequestBodyTypedDict,
             ]
         ] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.CreateDatasetResponseBody]:
+    ) -> models.CreateDatasetResponseBody:
         r"""Create a dataset
 
         Creates a new dataset in the specified project.
@@ -355,6 +357,7 @@ class Datasets(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request, False, True, "json", Optional[models.CreateDatasetRequestBody]
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -371,7 +374,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateDataset",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -382,9 +385,7 @@ class Datasets(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.CreateDatasetResponseBody], http_res
-            )
+            return unmarshal_json_response(models.CreateDatasetResponseBody, http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = await utils.stream_to_text_async(http_res)
             raise models.APIError("API error occurred", http_res, http_res_text)
@@ -402,12 +403,12 @@ class Datasets(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.RetrieveDatasetResponseBody]:
+    ) -> models.RetrieveDatasetResponseBody:
         r"""Retrieve a dataset
 
         Retrieves a specific dataset by its unique identifier
 
-        :param dataset_id:
+        :param dataset_id: The unique identifier of the dataset
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -443,6 +444,7 @@ class Datasets(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -459,7 +461,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RetrieveDataset",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -471,9 +473,7 @@ class Datasets(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.RetrieveDatasetResponseBody], http_res
-            )
+            return unmarshal_json_response(models.RetrieveDatasetResponseBody, http_res)
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(models.HonoAPIErrorData, http_res)
             raise models.HonoAPIError(response_data, http_res)
@@ -494,12 +494,12 @@ class Datasets(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.RetrieveDatasetResponseBody]:
+    ) -> models.RetrieveDatasetResponseBody:
         r"""Retrieve a dataset
 
         Retrieves a specific dataset by its unique identifier
 
-        :param dataset_id:
+        :param dataset_id: The unique identifier of the dataset
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -535,6 +535,7 @@ class Datasets(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -551,7 +552,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RetrieveDataset",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -563,9 +564,7 @@ class Datasets(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.RetrieveDatasetResponseBody], http_res
-            )
+            return unmarshal_json_response(models.RetrieveDatasetResponseBody, http_res)
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(models.HonoAPIErrorData, http_res)
             raise models.HonoAPIError(response_data, http_res)
@@ -589,15 +588,19 @@ class Datasets(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.UpdateDatasetResponseBody]:
+    ) -> models.UpdateDatasetResponseBody:
         r"""Update a dataset
 
         Update a dataset
 
-        :param dataset_id:
+        :param dataset_id: The unique identifier of the dataset
         :param display_name: The display name of the dataset
         :param project_id: The unique identifier of the project it belongs to
-        :param path: The path where the entity is stored in the project structure. The first element of the path always represents the project name. Any subsequent path element after the project will be created as a folder in the project if it does not exists.
+        :param path: Entity storage path in the format: `project/folder/subfolder/...`
+
+            The first element identifies the project, followed by nested folders (auto-created as needed).
+
+            With project-based API keys, the first element is treated as a folder name, as the project is predetermined by the API key.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -645,6 +648,7 @@ class Datasets(BaseSDK):
                 "json",
                 Optional[models.UpdateDatasetRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -661,7 +665,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateDataset",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -673,9 +677,7 @@ class Datasets(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.UpdateDatasetResponseBody], http_res
-            )
+            return unmarshal_json_response(models.UpdateDatasetResponseBody, http_res)
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(models.HonoAPIErrorData, http_res)
             raise models.HonoAPIError(response_data, http_res)
@@ -699,15 +701,19 @@ class Datasets(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.UpdateDatasetResponseBody]:
+    ) -> models.UpdateDatasetResponseBody:
         r"""Update a dataset
 
         Update a dataset
 
-        :param dataset_id:
+        :param dataset_id: The unique identifier of the dataset
         :param display_name: The display name of the dataset
         :param project_id: The unique identifier of the project it belongs to
-        :param path: The path where the entity is stored in the project structure. The first element of the path always represents the project name. Any subsequent path element after the project will be created as a folder in the project if it does not exists.
+        :param path: Entity storage path in the format: `project/folder/subfolder/...`
+
+            The first element identifies the project, followed by nested folders (auto-created as needed).
+
+            With project-based API keys, the first element is treated as a folder name, as the project is predetermined by the API key.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -755,6 +761,7 @@ class Datasets(BaseSDK):
                 "json",
                 Optional[models.UpdateDatasetRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -771,7 +778,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateDataset",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -783,9 +790,7 @@ class Datasets(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.UpdateDatasetResponseBody], http_res
-            )
+            return unmarshal_json_response(models.UpdateDatasetResponseBody, http_res)
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(models.HonoAPIErrorData, http_res)
             raise models.HonoAPIError(response_data, http_res)
@@ -811,7 +816,7 @@ class Datasets(BaseSDK):
 
         Permanently deletes a dataset and all its datapoints. This action is irreversible.
 
-        :param dataset_id:
+        :param dataset_id: The unique identifier of the dataset
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -847,6 +852,7 @@ class Datasets(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -863,7 +869,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteDataset",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -897,7 +903,7 @@ class Datasets(BaseSDK):
 
         Permanently deletes a dataset and all its datapoints. This action is irreversible.
 
-        :param dataset_id:
+        :param dataset_id: The unique identifier of the dataset
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -933,6 +939,7 @@ class Datasets(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -949,7 +956,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteDataset",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -981,12 +988,12 @@ class Datasets(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.ListDatasetDatapointsResponseBody]:
+    ) -> models.ListDatasetDatapointsResponseBody:
         r"""List datapoints
 
         Retrieves a paginated list of datapoints from a specific dataset.
 
-        :param dataset_id:
+        :param dataset_id: The unique identifier of the dataset
         :param limit: A limit on the number of objects to be returned. Limit can range between 1 and 50, and the default is 10
         :param starting_after: A cursor for use in pagination. `starting_after` is an object ID that defines your place in the list. For instance, if you make a list request and receive 20 objects, ending with `01JJ1HDHN79XAS7A01WB3HYSDB`, your subsequent call can include `after=01JJ1HDHN79XAS7A01WB3HYSDB` in order to fetch the next page of the list.
         :param ending_before: A cursor for use in pagination. `ending_before` is an object ID that defines your place in the list. For instance, if you make a list request and receive 20 objects, starting with `01JJ1HDHN79XAS7A01WB3HYSDB`, your subsequent call can include `before=01JJ1HDHN79XAS7A01WB3HYSDB` in order to fetch the previous page of the list.
@@ -1028,6 +1035,7 @@ class Datasets(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1044,7 +1052,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListDatasetDatapoints",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -1056,7 +1064,7 @@ class Datasets(BaseSDK):
 
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(
-                Optional[models.ListDatasetDatapointsResponseBody], http_res
+                models.ListDatasetDatapointsResponseBody, http_res
             )
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = utils.stream_to_text(http_res)
@@ -1078,12 +1086,12 @@ class Datasets(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.ListDatasetDatapointsResponseBody]:
+    ) -> models.ListDatasetDatapointsResponseBody:
         r"""List datapoints
 
         Retrieves a paginated list of datapoints from a specific dataset.
 
-        :param dataset_id:
+        :param dataset_id: The unique identifier of the dataset
         :param limit: A limit on the number of objects to be returned. Limit can range between 1 and 50, and the default is 10
         :param starting_after: A cursor for use in pagination. `starting_after` is an object ID that defines your place in the list. For instance, if you make a list request and receive 20 objects, ending with `01JJ1HDHN79XAS7A01WB3HYSDB`, your subsequent call can include `after=01JJ1HDHN79XAS7A01WB3HYSDB` in order to fetch the next page of the list.
         :param ending_before: A cursor for use in pagination. `ending_before` is an object ID that defines your place in the list. For instance, if you make a list request and receive 20 objects, starting with `01JJ1HDHN79XAS7A01WB3HYSDB`, your subsequent call can include `before=01JJ1HDHN79XAS7A01WB3HYSDB` in order to fetch the previous page of the list.
@@ -1125,6 +1133,7 @@ class Datasets(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1141,7 +1150,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListDatasetDatapoints",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -1153,7 +1162,7 @@ class Datasets(BaseSDK):
 
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(
-                Optional[models.ListDatasetDatapointsResponseBody], http_res
+                models.ListDatasetDatapointsResponseBody, http_res
             )
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = await utils.stream_to_text_async(http_res)
@@ -1169,18 +1178,21 @@ class Datasets(BaseSDK):
         *,
         dataset_id: str,
         request_body: Optional[
-            Union[List[models.RequestBody], List[models.RequestBodyTypedDict]]
+            Union[
+                List[models_createdatasetitemop.CreateDatasetItemRequestBody],
+                List[models_createdatasetitemop.CreateDatasetItemRequestBodyTypedDict],
+            ]
         ] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[List[models.ResponseBody]]:
+    ) -> List[models.CreateDatasetItemResponseBody]:
         r"""Create a datapoint
 
         Creates a new datapoint in the specified dataset.
 
-        :param dataset_id:
+        :param dataset_id: The unique identifier of the dataset
         :param request_body:
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
@@ -1203,7 +1215,7 @@ class Datasets(BaseSDK):
         request = models.CreateDatasetItemRequest(
             dataset_id=dataset_id,
             request_body=utils.get_pydantic_model(
-                request_body, Optional[List[models.RequestBody]]
+                request_body, Optional[List[models.CreateDatasetItemRequestBody]]
             ),
         )
 
@@ -1225,8 +1237,9 @@ class Datasets(BaseSDK):
                 False,
                 True,
                 "json",
-                Optional[List[models.RequestBody]],
+                Optional[List[models.CreateDatasetItemRequestBody]],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1243,7 +1256,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateDatasetItem",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -1255,7 +1268,7 @@ class Datasets(BaseSDK):
 
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(
-                Optional[List[models.ResponseBody]], http_res
+                List[models.CreateDatasetItemResponseBody], http_res
             )
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = utils.stream_to_text(http_res)
@@ -1271,18 +1284,21 @@ class Datasets(BaseSDK):
         *,
         dataset_id: str,
         request_body: Optional[
-            Union[List[models.RequestBody], List[models.RequestBodyTypedDict]]
+            Union[
+                List[models_createdatasetitemop.CreateDatasetItemRequestBody],
+                List[models_createdatasetitemop.CreateDatasetItemRequestBodyTypedDict],
+            ]
         ] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[List[models.ResponseBody]]:
+    ) -> List[models.CreateDatasetItemResponseBody]:
         r"""Create a datapoint
 
         Creates a new datapoint in the specified dataset.
 
-        :param dataset_id:
+        :param dataset_id: The unique identifier of the dataset
         :param request_body:
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
@@ -1305,7 +1321,7 @@ class Datasets(BaseSDK):
         request = models.CreateDatasetItemRequest(
             dataset_id=dataset_id,
             request_body=utils.get_pydantic_model(
-                request_body, Optional[List[models.RequestBody]]
+                request_body, Optional[List[models.CreateDatasetItemRequestBody]]
             ),
         )
 
@@ -1327,8 +1343,9 @@ class Datasets(BaseSDK):
                 False,
                 True,
                 "json",
-                Optional[List[models.RequestBody]],
+                Optional[List[models.CreateDatasetItemRequestBody]],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1345,7 +1362,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateDatasetItem",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -1357,7 +1374,7 @@ class Datasets(BaseSDK):
 
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(
-                Optional[List[models.ResponseBody]], http_res
+                List[models.CreateDatasetItemResponseBody], http_res
             )
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = await utils.stream_to_text_async(http_res)
@@ -1377,13 +1394,13 @@ class Datasets(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.RetrieveDatapointResponseBody]:
+    ) -> models.RetrieveDatapointResponseBody:
         r"""Retrieve a datapoint
 
         Retrieves a datapoint object
 
-        :param dataset_id:
-        :param datapoint_id:
+        :param dataset_id: The unique identifier of the dataset
+        :param datapoint_id: The unique identifier of the datapoint
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1420,6 +1437,7 @@ class Datasets(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1436,7 +1454,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RetrieveDatapoint",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -1449,7 +1467,7 @@ class Datasets(BaseSDK):
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(
-                Optional[models.RetrieveDatapointResponseBody], http_res
+                models.RetrieveDatapointResponseBody, http_res
             )
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(models.HonoAPIErrorData, http_res)
@@ -1472,13 +1490,13 @@ class Datasets(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.RetrieveDatapointResponseBody]:
+    ) -> models.RetrieveDatapointResponseBody:
         r"""Retrieve a datapoint
 
         Retrieves a datapoint object
 
-        :param dataset_id:
-        :param datapoint_id:
+        :param dataset_id: The unique identifier of the dataset
+        :param datapoint_id: The unique identifier of the datapoint
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1515,6 +1533,7 @@ class Datasets(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1531,7 +1550,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RetrieveDatapoint",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -1544,7 +1563,7 @@ class Datasets(BaseSDK):
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(
-                Optional[models.RetrieveDatapointResponseBody], http_res
+                models.RetrieveDatapointResponseBody, http_res
             )
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(models.HonoAPIErrorData, http_res)
@@ -1566,8 +1585,8 @@ class Datasets(BaseSDK):
         inputs: Optional[Dict[str, Any]] = None,
         messages: Optional[
             Union[
-                List[models.UpdateDatapointMessages],
-                List[models.UpdateDatapointMessagesTypedDict],
+                List[models_updatedatapointop.UpdateDatapointMessages],
+                List[models_updatedatapointop.UpdateDatapointMessagesTypedDict],
             ]
         ] = None,
         expected_output: Optional[str] = None,
@@ -1575,11 +1594,11 @@ class Datasets(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.UpdateDatapointResponseBody]:
+    ) -> models.UpdateDatapointResponseBody:
         r"""Update a datapoint
 
-        :param dataset_id:
-        :param datapoint_id:
+        :param dataset_id: The unique identifier of the dataset
+        :param datapoint_id: The unique identifier of the datapoint
         :param inputs: The inputs of the dataset. Key value pairs where the key is the input name and the value is the input value. Nested objects are not supported.
         :param messages: A list of messages comprising the conversation so far
         :param expected_output:
@@ -1633,6 +1652,7 @@ class Datasets(BaseSDK):
                 "json",
                 Optional[models.UpdateDatapointRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1649,7 +1669,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateDatapoint",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -1661,9 +1681,7 @@ class Datasets(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.UpdateDatapointResponseBody], http_res
-            )
+            return unmarshal_json_response(models.UpdateDatapointResponseBody, http_res)
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(models.HonoAPIErrorData, http_res)
             raise models.HonoAPIError(response_data, http_res)
@@ -1684,8 +1702,8 @@ class Datasets(BaseSDK):
         inputs: Optional[Dict[str, Any]] = None,
         messages: Optional[
             Union[
-                List[models.UpdateDatapointMessages],
-                List[models.UpdateDatapointMessagesTypedDict],
+                List[models_updatedatapointop.UpdateDatapointMessages],
+                List[models_updatedatapointop.UpdateDatapointMessagesTypedDict],
             ]
         ] = None,
         expected_output: Optional[str] = None,
@@ -1693,11 +1711,11 @@ class Datasets(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.UpdateDatapointResponseBody]:
+    ) -> models.UpdateDatapointResponseBody:
         r"""Update a datapoint
 
-        :param dataset_id:
-        :param datapoint_id:
+        :param dataset_id: The unique identifier of the dataset
+        :param datapoint_id: The unique identifier of the datapoint
         :param inputs: The inputs of the dataset. Key value pairs where the key is the input name and the value is the input value. Nested objects are not supported.
         :param messages: A list of messages comprising the conversation so far
         :param expected_output:
@@ -1751,6 +1769,7 @@ class Datasets(BaseSDK):
                 "json",
                 Optional[models.UpdateDatapointRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1767,7 +1786,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateDatapoint",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -1779,9 +1798,7 @@ class Datasets(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.UpdateDatapointResponseBody], http_res
-            )
+            return unmarshal_json_response(models.UpdateDatapointResponseBody, http_res)
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(models.HonoAPIErrorData, http_res)
             raise models.HonoAPIError(response_data, http_res)
@@ -1808,8 +1825,8 @@ class Datasets(BaseSDK):
 
         Permanently deletes a specific datapoint from a dataset.
 
-        :param dataset_id:
-        :param datapoint_id:
+        :param dataset_id: The unique identifier of the dataset
+        :param datapoint_id: The unique identifier of the datapoint
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1846,6 +1863,7 @@ class Datasets(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1862,7 +1880,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteDatapoint",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -1901,8 +1919,8 @@ class Datasets(BaseSDK):
 
         Permanently deletes a specific datapoint from a dataset.
 
-        :param dataset_id:
-        :param datapoint_id:
+        :param dataset_id: The unique identifier of the dataset
+        :param datapoint_id: The unique identifier of the datapoint
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1939,6 +1957,7 @@ class Datasets(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1955,7 +1974,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteDatapoint",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -1993,7 +2012,7 @@ class Datasets(BaseSDK):
 
         Delete all datapoints from a dataset. This action is irreversible.
 
-        :param dataset_id:
+        :param dataset_id: The unique identifier of the dataset
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -2029,6 +2048,7 @@ class Datasets(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2045,7 +2065,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ClearDataset",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -2079,7 +2099,7 @@ class Datasets(BaseSDK):
 
         Delete all datapoints from a dataset. This action is irreversible.
 
-        :param dataset_id:
+        :param dataset_id: The unique identifier of the dataset
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -2115,6 +2135,7 @@ class Datasets(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2131,7 +2152,7 @@ class Datasets(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ClearDataset",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),

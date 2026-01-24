@@ -3,7 +3,7 @@ Type annotations for discovery service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_discovery/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -87,12 +88,6 @@ from .type_defs import (
     UpdateApplicationRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -103,17 +98,17 @@ __all__ = ("ApplicationDiscoveryServiceClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AuthorizationErrorException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictErrorException: Type[BotocoreClientError]
-    HomeRegionNotSetException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidParameterValueException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    OperationNotPermittedException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServerInternalErrorException: Type[BotocoreClientError]
+    AuthorizationErrorException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictErrorException: type[BotocoreClientError]
+    HomeRegionNotSetException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidParameterValueException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    OperationNotPermittedException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServerInternalErrorException: type[BotocoreClientError]
 
 
 class ApplicationDiscoveryServiceClient(AioBaseClient):
@@ -153,7 +148,7 @@ class ApplicationDiscoveryServiceClient(AioBaseClient):
 
     async def associate_configuration_items_to_application(
         self, **kwargs: Unpack[AssociateConfigurationItemsToApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates one or more configuration items with an application.
 
@@ -191,7 +186,7 @@ class ApplicationDiscoveryServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_discovery/client/#create_application)
         """
 
-    async def create_tags(self, **kwargs: Unpack[CreateTagsRequestTypeDef]) -> Dict[str, Any]:
+    async def create_tags(self, **kwargs: Unpack[CreateTagsRequestTypeDef]) -> dict[str, Any]:
         """
         Creates one or more tags for configuration items.
 
@@ -201,7 +196,7 @@ class ApplicationDiscoveryServiceClient(AioBaseClient):
 
     async def delete_applications(
         self, **kwargs: Unpack[DeleteApplicationsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a list of applications and their associations with configuration items.
 
@@ -209,7 +204,7 @@ class ApplicationDiscoveryServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_discovery/client/#delete_applications)
         """
 
-    async def delete_tags(self, **kwargs: Unpack[DeleteTagsRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_tags(self, **kwargs: Unpack[DeleteTagsRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the association between configuration items and one or more tags.
 
@@ -304,7 +299,7 @@ class ApplicationDiscoveryServiceClient(AioBaseClient):
 
     async def disassociate_configuration_items_from_application(
         self, **kwargs: Unpack[DisassociateConfigurationItemsFromApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates one or more configuration items from an application.
 
@@ -425,7 +420,7 @@ class ApplicationDiscoveryServiceClient(AioBaseClient):
 
     async def update_application(
         self, **kwargs: Unpack[UpdateApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates metadata about an application.
 
@@ -518,7 +513,7 @@ class ApplicationDiscoveryServiceClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

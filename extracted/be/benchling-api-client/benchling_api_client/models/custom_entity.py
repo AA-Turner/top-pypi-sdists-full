@@ -37,6 +37,7 @@ class CustomEntity:
     _registration_origin: Union[Unset, None, RegistrationOrigin] = UNSET
     _registry_id: Union[Unset, None, str] = UNSET
     _schema: Union[Unset, None, SchemaSummary] = UNSET
+    _url: Union[Unset, str] = UNSET
     _web_url: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = attr.ib(init=False, factory=dict)
 
@@ -58,6 +59,7 @@ class CustomEntity:
         fields.append("registration_origin={}".format(repr(self._registration_origin)))
         fields.append("registry_id={}".format(repr(self._registry_id)))
         fields.append("schema={}".format(repr(self._schema)))
+        fields.append("url={}".format(repr(self._url)))
         fields.append("web_url={}".format(repr(self._web_url)))
         fields.append("additional_properties={}".format(repr(self.additional_properties)))
         return "CustomEntity({})".format(", ".join(fields))
@@ -113,6 +115,7 @@ class CustomEntity:
         if not isinstance(self._schema, Unset):
             schema = self._schema.to_dict() if self._schema else None
 
+        url = self._url
         web_url = self._web_url
 
         field_dict: Dict[str, Any] = {}
@@ -150,6 +153,8 @@ class CustomEntity:
             field_dict["registryId"] = registry_id
         if schema is not UNSET:
             field_dict["schema"] = schema
+        if url is not UNSET:
+            field_dict["url"] = url
         if web_url is not UNSET:
             field_dict["webURL"] = web_url
 
@@ -380,6 +385,17 @@ class CustomEntity:
                 raise
             schema = cast(Union[Unset, None, SchemaSummary], UNSET)
 
+        def get_url() -> Union[Unset, str]:
+            url = d.pop("url")
+            return url
+
+        try:
+            url = get_url()
+        except KeyError:
+            if strict:
+                raise
+            url = cast(Union[Unset, str], UNSET)
+
         def get_web_url() -> Union[Unset, str]:
             web_url = d.pop("webURL")
             return web_url
@@ -408,6 +424,7 @@ class CustomEntity:
             registration_origin=registration_origin,
             registry_id=registry_id,
             schema=schema,
+            url=url,
             web_url=web_url,
         )
 
@@ -657,6 +674,21 @@ class CustomEntity:
     @schema.deleter
     def schema(self) -> None:
         self._schema = UNSET
+
+    @property
+    def url(self) -> str:
+        """ The path of the web URL, omitting the tenant domain """
+        if isinstance(self._url, Unset):
+            raise NotPresentError(self, "url")
+        return self._url
+
+    @url.setter
+    def url(self, value: str) -> None:
+        self._url = value
+
+    @url.deleter
+    def url(self) -> None:
+        self._url = UNSET
 
     @property
     def web_url(self) -> str:

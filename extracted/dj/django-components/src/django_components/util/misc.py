@@ -1,11 +1,27 @@
 import re
 import sys
-from dataclasses import asdict, is_dataclass
+from collections import namedtuple
+from dataclasses import fields, is_dataclass
 from hashlib import md5
 from importlib import import_module
+from inspect import getmembers
 from itertools import chain
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Type, TypeVar, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
 from urllib import parse
 
 from django_components.constants import UID_LENGTH
@@ -147,7 +163,8 @@ def to_dict(data: Any) -> dict:
     if hasattr(data, "_asdict"):  # Case: NamedTuple
         return data._asdict()
     if is_dataclass(data):  # Case: dataclass
-        return asdict(data)  # type: ignore[arg-type]
+        # NOTE: This is same as `asdict`, but without recursing into nested dataclasses
+        return {f.name: getattr(data, f.name) for f in fields(data)}
 
     return dict(data)
 
@@ -162,12 +179,35 @@ def format_url(url: str, query: Optional[Dict] = None, fragment: Optional[str] =
     ```
 
     `query` and `fragment` are optional, and not applied if `None`.
+
+    Boolean `True` values in query parameters are rendered as flag parameters without values.
+
+    `False` and `None` values in query parameters are omitted.
+
+    ```py
+    url = format_url(
+        url="https://example.com",
+        query={"foo": "bar", "baz": None, "enabled": True, "debug": False},
+    )
+    # https://example.com?foo=bar&enabled
+    ```
     """
     parts = parse.urlsplit(url)
     fragment_enc = parse.quote(fragment or parts.fragment, safe="")
     base_qs = dict(parse.parse_qsl(parts.query))
-    merged = {**base_qs, **(query or {})}
-    encoded_qs = parse.urlencode(merged, safe="")
+    # Filter out `None` and `False` values
+    filtered_query = {k: v for k, v in (query or {}).items() if v is not None and v is not False}
+    merged = {**base_qs, **filtered_query}
+
+    # Handle boolean True values as flag parameters (no explicit value)
+    query_parts = []
+    for key, value in merged.items():
+        if value is True:
+            query_parts.append(parse.quote_plus(str(key)))
+        else:
+            query_parts.append(f"{parse.quote_plus(str(key))}={parse.quote_plus(str(value))}")
+
+    encoded_qs = "&".join(query_parts)
 
     return parse.urlunsplit(parts._replace(query=encoded_qs, fragment=fragment_enc))
 
@@ -224,3 +264,62 @@ def format_as_ascii_table(
     # Combine all parts into the final table
     table = "\n".join([header_row, separator, *data_rows]) if include_headers else "\n".join(data_rows)
     return table
+
+
+# TODO - Convert to TypeGuard once Python 3.9 is dropped
+def is_generator(obj: Any) -> bool:
+    """Check if an object is a generator with send method."""
+    return hasattr(obj, "send")
+
+
+def convert_class_to_namedtuple(cls: Type[Any]) -> Type[Tuple[Any, ...]]:
+    # Construct fields for a NamedTuple. Unfortunately one can't further subclass the subclass of `NamedTuple`,
+    # so we need to construct a new class with the same fields.
+    # NamedTuple has:
+    # - Required fields, which are defined without values (annotations only)
+    # - Optional fields with defaults
+    # ```py
+    # class Z:
+    #     b: str          # Required, annotated
+    #     a: int = None   # Optional, annotated
+    #     c = 1           # NOT A FIELD! Class var!
+    # ```
+    # Annotations are stored in `X.__annotations__`, while the defaults are regular class attributes
+    # NOTE: We ignore dunder methods
+    # NOTE 2: All fields with default values must come after fields without defaults.
+    field_names = list(cls.__annotations__.keys())
+
+    # Get default values from the original class and set them on the new NamedTuple class
+    field_names_set = set(field_names)
+    defaults = {}
+    class_attrs = {}
+    for name, value in getmembers(cls):
+        if name.startswith("__"):
+            continue
+        # Field default
+        if name in field_names_set:
+            defaults[name] = value
+        else:
+            # Class attribute
+            class_attrs[name] = value
+
+    # Figure out how many tuple fields have defaults. We need to know this
+    # because NamedTuple functional syntax uses the pattern where defaults
+    # are applied from the end.
+    # Final call then looks like this:
+    # `namedtuple("MyClass", ["a", "b", "c", "d"], defaults=[3, 4])`
+    # with defaults c=3 and d=4
+    num_fields_with_defaults = len(defaults)
+    if num_fields_with_defaults:
+        defaults_list = [defaults[name] for name in field_names[-num_fields_with_defaults:]]
+    else:
+        defaults_list = []
+    tuple_cls = namedtuple(cls.__name__, field_names, defaults=defaults_list)  # type: ignore[misc]  # noqa: PYI024
+
+    # `collections.namedtuple` doesn't allow to specify annotations, so we pass them afterwards
+    tuple_cls.__annotations__ = cls.__annotations__
+    # Likewise, `collections.namedtuple` doesn't allow to specify class vars
+    for name, value in class_attrs.items():
+        setattr(tuple_cls, name, value)
+
+    return tuple_cls

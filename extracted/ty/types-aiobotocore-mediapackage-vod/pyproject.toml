@@ -1,0 +1,61 @@
+# Setup script for types-aiobotocore-mediapackage-vod.
+
+# Copyright 2026 Vlad Emelianov
+
+[project]
+name = "types-aiobotocore-mediapackage-vod"
+version = "3.1.1"
+license = "MIT"
+authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
+description = "Type annotations for aiobotocore MediaPackageVod 3.1.1 service generated with mypy-boto3-builder 8.12.0"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Environment :: Console",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Typing :: Stubs Only",
+]
+keywords = [
+    "aiobotocore",
+    "mediapackage-vod",
+    "aiobotocore-stubs",
+    "type-annotations",
+    "mypy",
+    "typeshed",
+    "autocomplete",
+]
+requires-python = ">=3.9"
+
+dependencies = [
+    "typing-extensions; python_version<'3.12'",
+]
+
+
+[project.urls]
+Homepage = "https://github.com/youtype/mypy_boto3_builder"
+Documentation = "https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediapackage_vod/"
+Source = "https://github.com/youtype/mypy_boto3_builder"
+Tracker = "https://github.com/youtype/mypy_boto3_builder/issues"
+
+[build-system]
+requires = ["setuptools>=60"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+platforms = ["any"]
+include-package-data = true
+packages = ["types_aiobotocore_mediapackage_vod"]
+
+[tool.setuptools.package-data]
+"*" = ["*.pyi", "py.typed"]

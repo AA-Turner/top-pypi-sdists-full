@@ -4,21 +4,17 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import typer
 import yaml
 
 from hud.cli.push import push_environment
 from hud.cli.utils.docker import require_docker_running
-from hud.cli.utils.env_check import ensure_built, find_environment_dir
+from hud.cli.utils.env_check import find_environment_dir
 from hud.cli.utils.registry import extract_name_and_tag
+from hud.datasets import load_tasks
 from hud.utils.hud_console import hud_console
-from hud.utils.tasks import load_tasks
-
-if TYPE_CHECKING:
-    from hud.types import Task
-
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +25,11 @@ def _is_remote_url(url: str) -> bool:
     return bool(re.match(r"^(https?:\/\/)?(www\.)?[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(\/\S*)?$", url))
 
 
-def _validate_tasks(tasks: list[Task]) -> bool:
+def _validate_tasks(tasks: list[dict[str, Any]]) -> bool:
     """Validate the tasks file: return True if tasks already reference a remote MCP URL.
 
     A task is considered remote if any "url" field anywhere inside mcp_config
-    is a valid remote URL (e.g., https://mcp.hud.so/v3/mcp).
+    is a valid remote URL (e.g., https://mcp.hud.ai/v3/mcp).
     """
 
     def _has_remote_url(obj: Any) -> bool:
@@ -50,13 +46,15 @@ def _validate_tasks(tasks: list[Task]) -> bool:
         return False
 
     for task in tasks:
-        cfg = task.mcp_config or {}
+        cfg = task.get("mcp_config") or {}
         if not _has_remote_url(cfg):
             return False
     return True
 
 
-def _ensure_pushed(env_dir: Path, lock_data: dict[str, Any]) -> dict[str, Any]:
+def _ensure_pushed(
+    env_dir: Path, lock_data: dict[str, Any], check_docker: bool = True
+) -> dict[str, Any]:
     """Ensure the environment is pushed to a registry; return updated lock data."""
     pushed = bool(lock_data.get("push"))
     if not pushed:
@@ -64,7 +62,8 @@ def _ensure_pushed(env_dir: Path, lock_data: dict[str, Any]) -> dict[str, Any]:
         if not hud_console.confirm("Push to a registry now (runs 'hud push')?", default=True):
             raise typer.Exit(1)
         # Check Docker availability before attempting a push
-        require_docker_running()
+        if check_docker:
+            require_docker_running()
 
         # If Docker or login is not configured, the push function will fail and halt.
         push_environment(str(env_dir), yes=True)
@@ -78,29 +77,41 @@ def _ensure_pushed(env_dir: Path, lock_data: dict[str, Any]) -> dict[str, Any]:
 
 
 def _derive_remote_image(lock_data: dict[str, Any]) -> str:
-    """Derive org/name:tag from lock file for MCP header.
+    """Derive org/name:tag from lock file for remote MCP header.
 
-    Preference order:
-    1) lock_data["push"]["image_with_tag"] if present
-    2) Derive from lock_data["image"] (may be a digest; falls back to latest)
+    Preference order (new lock first, then legacy):
+    1) lock_data["push"]["image_with_tag"] (exact org/name:tag that was pushed)
+    2) lock_data["images"]["local"] (base name with internal version)
+    3) lock_data["image"] (legacy field; may contain tag or digest)
     """
-    push_info = lock_data.get("push", {}) if isinstance(lock_data, dict) else {}
+    if not isinstance(lock_data, dict):  # Defensive
+        raise typer.Exit(1)
 
-    # 1) Exact image_with_tag if present
-    pushed_with_tag = str(push_info.get("image_with_tag", "")).strip()
+    # 1) Prefer the exact image that was pushed (org/name:tag)
+    push_info = lock_data.get("push") or {}
+    pushed_with_tag = str(push_info.get("image_with_tag") or "").strip()
     if pushed_with_tag:
         name, tag = extract_name_and_tag(pushed_with_tag)
         return f"{name}:{tag}"
 
-    # Base name always comes from lock_data.image to preserve org/repo
-    image_ref = str(lock_data.get("image", "")).strip()
-    if not image_ref:
-        raise typer.Exit(1)
-    name, tag = extract_name_and_tag(image_ref)
-    return f"{name}:{tag}"
+    # 2) Fall back to the local tag recorded in the new lock schema
+    images = lock_data.get("images") or {}
+    local_image = str(images.get("local") or "").strip()
+    if local_image:
+        name, tag = extract_name_and_tag(local_image)
+        return f"{name}:{tag}"
+
+    # 3) Legacy top-level image field
+    legacy_image = str(lock_data.get("image") or "").strip()
+    if legacy_image:
+        name, tag = extract_name_and_tag(legacy_image)
+        return f"{name}:{tag}"
+
+    # If none of the above exist, we cannot derive an image
+    raise typer.Exit(1)
 
 
-def _extract_existing_images(tasks: list[Task]) -> set[str]:
+def _extract_existing_images(tasks: list[dict[str, Any]]) -> set[str]:
     """Extract all Mcp-Image references from tasks."""
     images = set()
 
@@ -119,8 +130,9 @@ def _extract_existing_images(tasks: list[Task]) -> set[str]:
                 _extract_from_obj(item)
 
     for task in tasks:
-        if task.mcp_config:
-            _extract_from_obj(task.mcp_config)
+        mcp_config = task.get("mcp_config")
+        if mcp_config:
+            _extract_from_obj(mcp_config)
 
     return images
 
@@ -183,6 +195,63 @@ def _extract_dotenv_api_key_vars(env_dir: Path) -> set[str]:
     return detected
 
 
+def _extract_env_vars_from_docker_args(args: list[str]) -> set[str]:
+    """Extract environment variable names from docker run arguments.
+
+    Parses args like: ["run", "--rm", "-i", "-e", "API_KEY=value", "-e", "TOKEN", "image:tag"]
+    Returns set of env var names (not values).
+    """
+    env_vars: set[str] = set()
+    i = 0
+    while i < len(args):
+        arg = args[i]
+
+        # Check for -e or --env flags
+        if arg in ("-e", "--env"):
+            if i + 1 < len(args):
+                env_spec = args[i + 1]
+                # Could be "KEY=value" or just "KEY"
+                var_name = env_spec.split("=", 1)[0].strip()
+                if var_name:
+                    env_vars.add(var_name)
+                i += 2
+                continue
+        # Check for --env=KEY=value format
+        elif arg.startswith("--env="):
+            env_spec = arg[6:]  # Remove "--env=" prefix
+            var_name = env_spec.split("=", 1)[0].strip()
+            if var_name:
+                env_vars.add(var_name)
+
+        i += 1
+
+    env_vars.discard("HUD_API_KEY")
+    return env_vars
+
+
+def _extract_vars_from_task_configs(raw_tasks: list[dict[str, Any]]) -> set[str]:
+    """Extract environment variable names from docker run commands in task mcp_configs."""
+    all_env_vars: set[str] = set()
+
+    for task in raw_tasks:
+        mcp_config = task.get("mcp_config", {})
+
+        # Iterate through all server configs
+        for server_config in mcp_config.values():
+            if not isinstance(server_config, dict):
+                continue
+
+            command = server_config.get("command", "")
+            args = server_config.get("args", [])
+
+            # Only process docker run commands
+            if command == "docker" and "run" in args:
+                env_vars = _extract_env_vars_from_docker_args(args)
+                all_env_vars.update(env_vars)
+
+    return all_env_vars
+
+
 def convert_tasks_to_remote(tasks_file: str) -> str:
     """Convert a local tasks file to remote MCP tasks and return new filename.
 
@@ -190,16 +259,17 @@ def convert_tasks_to_remote(tasks_file: str) -> str:
     1) Find env dir; ensure built (hud.lock.yaml), otherwise build
     2) Ensure pushed to registry, otherwise push
     3) Check for outdated images in existing task configurations
-    4) Create remote_[tasks].json with mcp_config pointing to mcp.hud.so and Mcp-Image
+    4) Create remote_[tasks].json with mcp_config pointing to mcp.hud.ai and Mcp-Image
     5) Return the new tasks file path
     """
     tasks_path = Path(tasks_file).resolve()
 
-    # Load validated tasks for decision-making (may resolve env vars)
-    tasks: list[Task] = load_tasks(str(tasks_path))  # type: ignore[assignment]
-
-    # Load raw tasks to preserve placeholders when writing back to disk
+    # Load raw tasks - we work with dicts directly to preserve placeholders
+    # when writing back to disk (e.g., ${HUD_API_KEY})
     raw_tasks: list[dict[str, Any]] = load_tasks(str(tasks_path), raw=True)  # type: ignore[assignment]
+
+    # Use the same raw tasks for validation (they have mcp_config structure)
+    tasks = raw_tasks
 
     # Ensure HUD_API_KEY is available: prefer process env, else load from env_dir/.env
     from hud.settings import settings
@@ -215,21 +285,33 @@ def convert_tasks_to_remote(tasks_file: str) -> str:
     # Extract existing images from tasks
     existing_images = _extract_existing_images(tasks)
 
-    # Load tasks (supports .json and .jsonl)
-    if already_remote and not existing_images:
-        # Tasks are remote but have no image references - just return as-is
-        return str(tasks_path)
-
     # Locate environment
     env_dir = find_environment_dir(tasks_path)
     if not env_dir:
+        if already_remote:
+            return str(tasks_path)
         hud_console.error("Could not locate an environment directory (Dockerfile + pyproject.toml)")
         hud_console.hint("Ensure you're in or near your environment folder before running 'hud rl'")
         raise typer.Exit(1)
 
-    # Ensure built and pushed
-    lock_data = ensure_built(env_dir, interactive=True)
-    lock_data = _ensure_pushed(env_dir, lock_data)
+    # For convert command, we don't need Docker running - just check for lock file
+    # This avoids showing Docker-related messages during conversion
+    lock_path = env_dir / "hud.lock.yaml"
+    if not lock_path.exists():
+        hud_console.error("No hud.lock.yaml found. The environment needs to be built first.")
+        hud_console.info("Run 'hud build' in the environment directory to build it.")
+        raise typer.Exit(1)
+
+    # Load lock data directly
+    try:
+        with open(lock_path) as f:
+            lock_data: dict[str, Any] = yaml.safe_load(f) or {}
+    except Exception as e:
+        hud_console.error(f"Failed to read hud.lock.yaml: {e}")
+        raise typer.Exit(1) from e
+
+    # Check if pushed - don't check Docker for convert command
+    lock_data = _ensure_pushed(env_dir, lock_data, check_docker=False)
 
     # Derive remote image name org/name:tag
     remote_image = _derive_remote_image(lock_data)
@@ -300,20 +382,35 @@ def convert_tasks_to_remote(tasks_file: str) -> str:
         hud_console.success(f"Updated {tasks_path.name} with latest image: {remote_image}")
         return str(tasks_path)
 
-    # Extract additional API key headers from lock and suggest from .env
+    # Extract environment variables from multiple sources:
+    # 1. Lock file (authoritative for required env vars)
     provided_keys = _extract_api_key_vars(lock_data)
+
+    # 2. Task configs (docker run -e flags)
+    task_env_vars = _extract_vars_from_task_configs(raw_tasks)
+
+    # 3. .env file (detect API-like vars)
     dotenv_keys = _extract_dotenv_api_key_vars(env_dir)
 
-    # If .env contains API-like vars not in lock, offer to include them
-    missing = sorted(dotenv_keys - provided_keys)
+    # Combine: lock file vars + task config vars, then check for missing from .env
+    all_detected = provided_keys | task_env_vars
+
+    # If .env contains API-like vars not yet included, offer to add them
+    missing = sorted(dotenv_keys - all_detected)
     if missing:
         names_preview = ", ".join(missing)
         prompt = (
             f"Detected env vars in .env that look like API keys: {names_preview}.\n"
             "Include them as remote headers (values will be ${VAR} placeholders)?"
         )
-        if hud_console.confirm(prompt, default=True):
-            provided_keys.update(missing)
+        if not hud_console.confirm(prompt, default=True):
+            # User cancelled - exit without creating the file
+            hud_console.info("Conversion cancelled by user")
+            raise typer.Exit(0)
+        all_detected.update(missing)
+
+    # Final set of env vars to convert to headers
+    provided_keys = all_detected
 
     extra_api_key_headers: dict[str, str] = {}
     for var_name in provided_keys:
@@ -347,10 +444,10 @@ def convert_tasks_to_remote(tasks_file: str) -> str:
     tasks_payload: list[dict[str, Any]] = []
     for t in tasks:
         item: dict[str, Any] = {
-            "prompt": t.prompt,
+            "prompt": t.get("prompt"),
             "mcp_config": {
                 "hud": {
-                    "url": "https://mcp.hud.so/v3/mcp",
+                    "url": settings.hud_mcp_url,
                     "headers": {
                         "Authorization": "Bearer ${HUD_API_KEY}",
                         "Mcp-Image": remote_image,
@@ -363,16 +460,16 @@ def convert_tasks_to_remote(tasks_file: str) -> str:
         item["mcp_config"]["hud"]["headers"].update(extra_api_key_headers)
 
         # Optional fields, omit Nones
-        if t.setup_tool is not None:
-            item["setup_tool"] = _simplify_tool_call(t.setup_tool)
-        if t.evaluate_tool is not None:
-            item["evaluate_tool"] = _simplify_tool_call(t.evaluate_tool)
-        if t.agent_tools is not None:
-            item["agent_tools"] = t.agent_tools
-        if t.system_prompt is not None:
-            item["system_prompt"] = t.system_prompt
-        if t.metadata:
-            item["metadata"] = t.metadata
+        if t.get("setup_tool") is not None:
+            item["setup_tool"] = _simplify_tool_call(t["setup_tool"])
+        if t.get("evaluate_tool") is not None:
+            item["evaluate_tool"] = _simplify_tool_call(t["evaluate_tool"])
+        if t.get("agent_config") is not None:
+            item["agent_config"] = t["agent_config"]
+        if t.get("metadata"):
+            item["metadata"] = t["metadata"]
+        if t.get("id") is not None:
+            item["id"] = t["id"]
 
         tasks_payload.append(item)
 
@@ -383,6 +480,5 @@ def convert_tasks_to_remote(tasks_file: str) -> str:
         f.write("\n")
 
     hud_console.success(f"Created remote tasks file: {remote_path.name}")
-    hud_console.hint("Proceeding with RL training on the remote environment")
 
     return str(remote_path)

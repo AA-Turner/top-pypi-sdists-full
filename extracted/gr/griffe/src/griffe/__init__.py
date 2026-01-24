@@ -127,10 +127,12 @@ Griffe provides a few helpers to extract expressions from regular AST nodes.
 
 - [`griffe.get_annotation`][]: Get a type annotation as expression.
 - [`griffe.get_base_class`][]: Get a base class as expression.
+- [`griffe.get_class_keyword`][]: Get a class keyword as expression.
 - [`griffe.get_condition`][]: Get a condition as expression.
 - [`griffe.get_expression`][]: Get an expression from an AST node.
 - [`griffe.safe_get_annotation`][]: Get a type annotation as expression, safely (returns `None` on error).
 - [`griffe.safe_get_base_class`][]: Get a base class as expression, safely (returns `None` on error).
+- [`griffe.safe_get_class_keyword`][]: Get a class keyword as expression, safely (returns `None` on error).
 - [`griffe.safe_get_condition`][]: Get a condition as expression, safely (returns `None` on error).
 - [`griffe.safe_get_expression`][]: Get an expression from an AST node, safely (returns `None` on error).
 
@@ -206,6 +208,13 @@ from griffe._internal.diff import (
     ReturnChangedTypeBreakage,
     find_breaking_changes,
 )
+from griffe._internal.docstrings.auto import (
+    AutoOptions,
+    DocstringDetectionMethod,
+    PerStyleOptions,
+    infer_docstring_style,
+    parse_auto,
+)
 from griffe._internal.docstrings.google import GoogleOptions, parse_google
 from griffe._internal.docstrings.models import (
     DocstringAdmonition,
@@ -245,12 +254,9 @@ from griffe._internal.docstrings.models import (
 )
 from griffe._internal.docstrings.numpy import NumpyOptions, parse_numpy
 from griffe._internal.docstrings.parsers import (
-    DocstringDetectionMethod,
     DocstringOptions,
     DocstringStyle,
-    infer_docstring_style,
     parse,
-    parse_auto,
     parsers,
 )
 from griffe._internal.docstrings.sphinx import SphinxOptions, parse_sphinx
@@ -317,10 +323,12 @@ from griffe._internal.expressions import (
     ExprYieldFrom,
     get_annotation,
     get_base_class,
+    get_class_keyword,
     get_condition,
     get_expression,
     safe_get_annotation,
     safe_get_base_class,
+    safe_get_class_keyword,
     safe_get_condition,
     safe_get_expression,
 )
@@ -332,6 +340,7 @@ from griffe._internal.extensions.base import (
     load_extensions,
 )
 from griffe._internal.extensions.dataclasses import DataclassesExtension
+from griffe._internal.extensions.unpack_typeddict import UnpackTypedDictExtension
 from griffe._internal.finder import ModuleFinder, NamePartsAndPathType, NamePartsType, NamespacePackage, Package
 from griffe._internal.git import GitInfo, KnownGitService
 from griffe._internal.importer import dynamic_import, sys_path
@@ -409,6 +418,7 @@ __all__ = [
     "Attribute",
     "AttributeChangedTypeBreakage",
     "AttributeChangedValueBreakage",
+    "AutoOptions",
     "Breakage",
     "BreakageKind",
     "BuiltinModuleError",
@@ -539,6 +549,7 @@ __all__ = [
     "Parameters",
     "ParametersType",
     "Parser",
+    "PerStyleOptions",
     "ReturnChangedTypeBreakage",
     "RootNodeError",
     "SerializationMixin",
@@ -552,6 +563,7 @@ __all__ = [
     "TypeParameters",
     "UnhandledEditableModuleError",
     "UnimportableModuleError",
+    "UnpackTypedDictExtension",
     "Visitor",
     "assert_git_repo",
     "ast_children",
@@ -574,6 +586,7 @@ __all__ = [
     "get__all__",
     "get_annotation",
     "get_base_class",
+    "get_class_keyword",
     "get_condition",
     "get_docstring",
     "get_expression",
@@ -610,6 +623,7 @@ __all__ = [
     "safe_get__all__",
     "safe_get_annotation",
     "safe_get_base_class",
+    "safe_get_class_keyword",
     "safe_get_condition",
     "safe_get_expression",
     "safe_get_value",

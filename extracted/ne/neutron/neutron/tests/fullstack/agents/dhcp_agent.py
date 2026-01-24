@@ -21,7 +21,7 @@ from oslo_config import cfg
 from oslo_utils import uuidutils
 
 from neutron.agent.linux import dhcp as linux_dhcp
-from neutron.cmd.eventlet.agents import dhcp as dhcp_agent
+from neutron.cmd.agents import dhcp as dhcp_agent
 from neutron.common import config
 
 
@@ -33,7 +33,7 @@ OPTS = [
 
 def _get_namespace_name(id_, suffix=None):
     suffix = suffix or cfg.CONF.test_namespace_suffix
-    return "{}{}{}".format(linux_dhcp.NS_PREFIX, id_, suffix)
+    return f"{linux_dhcp.NS_PREFIX}{id_}{suffix}"
 
 
 def NetModel_init(self, d):

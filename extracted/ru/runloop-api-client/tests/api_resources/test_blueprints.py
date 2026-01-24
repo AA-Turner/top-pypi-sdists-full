@@ -35,6 +35,11 @@ class TestBlueprints:
             name="name",
             base_blueprint_id="base_blueprint_id",
             base_blueprint_name="base_blueprint_name",
+            build_args={"foo": "string"},
+            build_context={
+                "object_id": "object_id",
+                "type": "object",
+            },
             code_mounts=[
                 {
                     "repo_name": "repo_name",
@@ -57,6 +62,7 @@ class TestBlueprints:
                 "custom_gb_memory": 0,
                 "keep_alive_time_seconds": 0,
                 "launch_commands": ["string"],
+                "network_policy_id": "network_policy_id",
                 "required_services": ["string"],
                 "resource_size_request": "X_SMALL",
                 "user_parameters": {
@@ -65,6 +71,8 @@ class TestBlueprints:
                 },
             },
             metadata={"foo": "string"},
+            network_policy_id="network_policy_id",
+            secrets={"foo": "string"},
             services=[
                 {
                     "image": "image",
@@ -105,6 +113,28 @@ class TestBlueprints:
             assert_matches_type(BlueprintView, blueprint, path=["response"])
 
         assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_create_rejects_large_file_mount(self, client: Runloop) -> None:
+        # 98,250 bytes + 1 byte (pre-encoded limit to stay within ~131,000 b64'd)
+        too_large_content = "a" * (98_250 + 1)
+        with pytest.raises(ValueError, match=r"over the limit"):
+            client.blueprints.create(
+                name="name",
+                file_mounts={"/tmp/large.txt": too_large_content},
+            )
+
+    @parametrize
+    def test_create_rejects_total_file_mount_size(self, client: Runloop) -> None:
+        # Eighty files at per-file max (98,250) equals current total limit; add 1 byte to exceed
+        per_file_max = 98_250
+        file_mounts = {f"/tmp/{i}.txt": "a" * per_file_max for i in range(80)}
+        file_mounts["/tmp/extra.txt"] = "x"
+        with pytest.raises(ValueError, match=r"total file_mounts size .* over the limit"):
+            client.blueprints.create(
+                name="name",
+                file_mounts=file_mounts,
+            )
 
     @parametrize
     def test_method_retrieve(self, client: Runloop) -> None:
@@ -155,6 +185,7 @@ class TestBlueprints:
             limit=0,
             name="name",
             starting_after="starting_after",
+            status="status",
         )
         assert_matches_type(SyncBlueprintsCursorIDPage[BlueprintView], blueprint, path=["response"])
 
@@ -217,6 +248,76 @@ class TestBlueprints:
             )
 
     @parametrize
+    def test_method_create_from_inspection(self, client: Runloop) -> None:
+        blueprint = client.blueprints.create_from_inspection(
+            inspection_source={"inspection_id": "inspection_id"},
+            name="name",
+        )
+        assert_matches_type(BlueprintView, blueprint, path=["response"])
+
+    @parametrize
+    def test_method_create_from_inspection_with_all_params(self, client: Runloop) -> None:
+        blueprint = client.blueprints.create_from_inspection(
+            inspection_source={
+                "inspection_id": "inspection_id",
+                "github_auth_token": "github_auth_token",
+            },
+            name="name",
+            file_mounts={"foo": "string"},
+            launch_parameters={
+                "after_idle": {
+                    "idle_time_seconds": 0,
+                    "on_idle": "shutdown",
+                },
+                "architecture": "x86_64",
+                "available_ports": [0],
+                "custom_cpu_cores": 0,
+                "custom_disk_size": 0,
+                "custom_gb_memory": 0,
+                "keep_alive_time_seconds": 0,
+                "launch_commands": ["string"],
+                "network_policy_id": "network_policy_id",
+                "required_services": ["string"],
+                "resource_size_request": "X_SMALL",
+                "user_parameters": {
+                    "uid": 0,
+                    "username": "username",
+                },
+            },
+            metadata={"foo": "string"},
+            network_policy_id="network_policy_id",
+            secrets={"foo": "string"},
+            system_setup_commands=["string"],
+        )
+        assert_matches_type(BlueprintView, blueprint, path=["response"])
+
+    @parametrize
+    def test_raw_response_create_from_inspection(self, client: Runloop) -> None:
+        response = client.blueprints.with_raw_response.create_from_inspection(
+            inspection_source={"inspection_id": "inspection_id"},
+            name="name",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        blueprint = response.parse()
+        assert_matches_type(BlueprintView, blueprint, path=["response"])
+
+    @parametrize
+    def test_streaming_response_create_from_inspection(self, client: Runloop) -> None:
+        with client.blueprints.with_streaming_response.create_from_inspection(
+            inspection_source={"inspection_id": "inspection_id"},
+            name="name",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            blueprint = response.parse()
+            assert_matches_type(BlueprintView, blueprint, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
     def test_method_list_public(self, client: Runloop) -> None:
         blueprint = client.blueprints.list_public()
         assert_matches_type(SyncBlueprintsCursorIDPage[BlueprintView], blueprint, path=["response"])
@@ -227,6 +328,7 @@ class TestBlueprints:
             limit=0,
             name="name",
             starting_after="starting_after",
+            status="status",
         )
         assert_matches_type(SyncBlueprintsCursorIDPage[BlueprintView], blueprint, path=["response"])
 
@@ -301,6 +403,11 @@ class TestBlueprints:
             name="name",
             base_blueprint_id="base_blueprint_id",
             base_blueprint_name="base_blueprint_name",
+            build_args={"foo": "string"},
+            build_context={
+                "object_id": "object_id",
+                "type": "object",
+            },
             code_mounts=[
                 {
                     "repo_name": "repo_name",
@@ -323,6 +430,7 @@ class TestBlueprints:
                 "custom_gb_memory": 0,
                 "keep_alive_time_seconds": 0,
                 "launch_commands": ["string"],
+                "network_policy_id": "network_policy_id",
                 "required_services": ["string"],
                 "resource_size_request": "X_SMALL",
                 "user_parameters": {
@@ -331,6 +439,8 @@ class TestBlueprints:
                 },
             },
             metadata={"foo": "string"},
+            network_policy_id="network_policy_id",
+            secrets={"foo": "string"},
             services=[
                 {
                     "image": "image",
@@ -391,6 +501,11 @@ class TestAsyncBlueprints:
             name="name",
             base_blueprint_id="base_blueprint_id",
             base_blueprint_name="base_blueprint_name",
+            build_args={"foo": "string"},
+            build_context={
+                "object_id": "object_id",
+                "type": "object",
+            },
             code_mounts=[
                 {
                     "repo_name": "repo_name",
@@ -413,6 +528,7 @@ class TestAsyncBlueprints:
                 "custom_gb_memory": 0,
                 "keep_alive_time_seconds": 0,
                 "launch_commands": ["string"],
+                "network_policy_id": "network_policy_id",
                 "required_services": ["string"],
                 "resource_size_request": "X_SMALL",
                 "user_parameters": {
@@ -421,6 +537,8 @@ class TestAsyncBlueprints:
                 },
             },
             metadata={"foo": "string"},
+            network_policy_id="network_policy_id",
+            secrets={"foo": "string"},
             services=[
                 {
                     "image": "image",
@@ -461,6 +579,28 @@ class TestAsyncBlueprints:
             assert_matches_type(BlueprintView, blueprint, path=["response"])
 
         assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_create_rejects_large_file_mount(self, async_client: AsyncRunloop) -> None:
+        # 98,250 bytes + 1 byte (pre-encoded limit to stay within ~131,000 b64'd)
+        too_large_content = "a" * (98_250 + 1)
+        with pytest.raises(ValueError, match=r"over the limit"):
+            await async_client.blueprints.create(
+                name="name",
+                file_mounts={"/tmp/large.txt": too_large_content},
+            )
+
+    @parametrize
+    async def test_create_rejects_total_file_mount_size(self, async_client: AsyncRunloop) -> None:
+        # Eighty files at per-file max (98,250) equals current total limit; add 1 byte to exceed
+        per_file_max = 98_250
+        file_mounts = {f"/tmp/{i}.txt": "a" * per_file_max for i in range(80)}
+        file_mounts["/tmp/extra.txt"] = "x"
+        with pytest.raises(ValueError, match=r"total file_mounts size .* over the limit"):
+            await async_client.blueprints.create(
+                name="name",
+                file_mounts=file_mounts,
+            )
 
     @parametrize
     async def test_method_retrieve(self, async_client: AsyncRunloop) -> None:
@@ -511,6 +651,7 @@ class TestAsyncBlueprints:
             limit=0,
             name="name",
             starting_after="starting_after",
+            status="status",
         )
         assert_matches_type(AsyncBlueprintsCursorIDPage[BlueprintView], blueprint, path=["response"])
 
@@ -573,6 +714,76 @@ class TestAsyncBlueprints:
             )
 
     @parametrize
+    async def test_method_create_from_inspection(self, async_client: AsyncRunloop) -> None:
+        blueprint = await async_client.blueprints.create_from_inspection(
+            inspection_source={"inspection_id": "inspection_id"},
+            name="name",
+        )
+        assert_matches_type(BlueprintView, blueprint, path=["response"])
+
+    @parametrize
+    async def test_method_create_from_inspection_with_all_params(self, async_client: AsyncRunloop) -> None:
+        blueprint = await async_client.blueprints.create_from_inspection(
+            inspection_source={
+                "inspection_id": "inspection_id",
+                "github_auth_token": "github_auth_token",
+            },
+            name="name",
+            file_mounts={"foo": "string"},
+            launch_parameters={
+                "after_idle": {
+                    "idle_time_seconds": 0,
+                    "on_idle": "shutdown",
+                },
+                "architecture": "x86_64",
+                "available_ports": [0],
+                "custom_cpu_cores": 0,
+                "custom_disk_size": 0,
+                "custom_gb_memory": 0,
+                "keep_alive_time_seconds": 0,
+                "launch_commands": ["string"],
+                "network_policy_id": "network_policy_id",
+                "required_services": ["string"],
+                "resource_size_request": "X_SMALL",
+                "user_parameters": {
+                    "uid": 0,
+                    "username": "username",
+                },
+            },
+            metadata={"foo": "string"},
+            network_policy_id="network_policy_id",
+            secrets={"foo": "string"},
+            system_setup_commands=["string"],
+        )
+        assert_matches_type(BlueprintView, blueprint, path=["response"])
+
+    @parametrize
+    async def test_raw_response_create_from_inspection(self, async_client: AsyncRunloop) -> None:
+        response = await async_client.blueprints.with_raw_response.create_from_inspection(
+            inspection_source={"inspection_id": "inspection_id"},
+            name="name",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        blueprint = await response.parse()
+        assert_matches_type(BlueprintView, blueprint, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_create_from_inspection(self, async_client: AsyncRunloop) -> None:
+        async with async_client.blueprints.with_streaming_response.create_from_inspection(
+            inspection_source={"inspection_id": "inspection_id"},
+            name="name",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            blueprint = await response.parse()
+            assert_matches_type(BlueprintView, blueprint, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
     async def test_method_list_public(self, async_client: AsyncRunloop) -> None:
         blueprint = await async_client.blueprints.list_public()
         assert_matches_type(AsyncBlueprintsCursorIDPage[BlueprintView], blueprint, path=["response"])
@@ -583,6 +794,7 @@ class TestAsyncBlueprints:
             limit=0,
             name="name",
             starting_after="starting_after",
+            status="status",
         )
         assert_matches_type(AsyncBlueprintsCursorIDPage[BlueprintView], blueprint, path=["response"])
 
@@ -657,6 +869,11 @@ class TestAsyncBlueprints:
             name="name",
             base_blueprint_id="base_blueprint_id",
             base_blueprint_name="base_blueprint_name",
+            build_args={"foo": "string"},
+            build_context={
+                "object_id": "object_id",
+                "type": "object",
+            },
             code_mounts=[
                 {
                     "repo_name": "repo_name",
@@ -679,6 +896,7 @@ class TestAsyncBlueprints:
                 "custom_gb_memory": 0,
                 "keep_alive_time_seconds": 0,
                 "launch_commands": ["string"],
+                "network_policy_id": "network_policy_id",
                 "required_services": ["string"],
                 "resource_size_request": "X_SMALL",
                 "user_parameters": {
@@ -687,6 +905,8 @@ class TestAsyncBlueprints:
                 },
             },
             metadata={"foo": "string"},
+            network_policy_id="network_policy_id",
+            secrets={"foo": "string"},
             services=[
                 {
                     "image": "image",

@@ -4,7 +4,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
-from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 from wbcore import serializers as wb_serializers
 
@@ -157,7 +157,9 @@ def click_element_by_path(driver: WebDriver, xpath: str, wait_sec=WAIT_TIME_SEC)
         xpath (str): The xpath leading to the element.
     """
     try:
-        WebDriverWait(driver, wait_sec).until(EC.presence_of_element_located((By.XPATH, xpath))).click()
+        WebDriverWait(driver, wait_sec).until(
+            expected_conditions.presence_of_element_located((By.XPATH, xpath))
+        ).click()
     except TimeoutException:
         return []
 

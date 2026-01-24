@@ -44,6 +44,7 @@ class CloudDeployment(object):
         'file_storage': 'FileStorage',
         'aws_config': 'AWSConfig',
         'gcp_config': 'GCPConfig',
+        'azure_config': 'AzureConfig',
         'kubernetes_config': 'KubernetesConfig'
     }
 
@@ -59,10 +60,11 @@ class CloudDeployment(object):
         'file_storage': 'file_storage',
         'aws_config': 'aws_config',
         'gcp_config': 'gcp_config',
+        'azure_config': 'azure_config',
         'kubernetes_config': 'kubernetes_config'
     }
 
-    def __init__(self, cloud_resource_id=None, cloud_deployment_id=None, name=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, kubernetes_config=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cloud_resource_id=None, cloud_deployment_id=None, name=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, azure_config=None, kubernetes_config=None, local_vars_configuration=None):  # noqa: E501
         """CloudDeployment - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -79,6 +81,7 @@ class CloudDeployment(object):
         self._file_storage = None
         self._aws_config = None
         self._gcp_config = None
+        self._azure_config = None
         self._kubernetes_config = None
         self.discriminator = None
 
@@ -99,6 +102,7 @@ class CloudDeployment(object):
         self.file_storage = file_storage
         self.aws_config = aws_config
         self.gcp_config = gcp_config
+        self.azure_config = azure_config
         self.kubernetes_config = kubernetes_config
 
     @property
@@ -355,6 +359,29 @@ class CloudDeployment(object):
         """
 
         self._gcp_config = gcp_config
+
+    @property
+    def azure_config(self):
+        """Gets the azure_config of this CloudDeployment.  # noqa: E501
+
+        Azure provider-specific configurations.  # noqa: E501
+
+        :return: The azure_config of this CloudDeployment.  # noqa: E501
+        :rtype: AzureConfig
+        """
+        return self._azure_config
+
+    @azure_config.setter
+    def azure_config(self, azure_config):
+        """Sets the azure_config of this CloudDeployment.
+
+        Azure provider-specific configurations.  # noqa: E501
+
+        :param azure_config: The azure_config of this CloudDeployment.  # noqa: E501
+        :type: AzureConfig
+        """
+
+        self._azure_config = azure_config
 
     @property
     def kubernetes_config(self):

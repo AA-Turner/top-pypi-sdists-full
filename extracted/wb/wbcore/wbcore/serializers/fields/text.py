@@ -54,7 +54,7 @@ class CodeField(CharField):
         try:
             compile(data, "", "exec")
         except Exception as e:
-            raise ValidationError(_("Compiling script failed with the exception: {}".format(e)))
+            raise ValidationError(_("Compiling script failed with the exception: {}".format(e))) from e
         return super().to_internal_value(data)
 
 

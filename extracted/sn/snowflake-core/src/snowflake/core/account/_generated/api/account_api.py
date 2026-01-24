@@ -324,7 +324,7 @@ class AccountApi:
         # process the body parameter
         _body_params = None
 
-        if _params["account"]:
+        if _params["account"] is not None:
             _body_params = _params["account"]
 
         # set the HTTP header `Accept`

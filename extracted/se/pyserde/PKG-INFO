@@ -1,50 +1,73 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pyserde
-Version: 0.25.1
+Version: 0.28.0
 Summary: Yet another serialization library on top of dataclasses
-License: MIT
-Author: yukinarit
-Author-email: yukinarit84@gmail.com
-Requires-Python: >=3.9.0,<4.0.0
+Project-URL: Repository, https://github.com/yukinarit/pyserde
+Project-URL: Homepage, https://github.com/yukinarit/pyserde
+Author-email: yukinarit <yukinarit84@gmail.com>
+License: MIT License
+        
+        Copyright (c) 2021 yukinarit
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Provides-Extra: all
-Provides-Extra: jaxtyping
-Provides-Extra: msgpack
-Provides-Extra: numpy
-Provides-Extra: orjson
-Provides-Extra: sqlalchemy
-Provides-Extra: toml
-Provides-Extra: yaml
-Requires-Dist: beartype (>=0.18.4)
+Requires-Python: <4.0,>=3.10
+Requires-Dist: beartype>=0.18.4
 Requires-Dist: casefy
-Requires-Dist: jaxtyping (<0.3.0) ; extra == "jaxtyping" or extra == "all"
 Requires-Dist: jinja2
-Requires-Dist: msgpack ; extra == "msgpack" or extra == "all"
-Requires-Dist: numpy (>1.21.0,<3.0.0) ; python_version ~= "3.9.0" and (extra == "numpy" or extra == "all")
-Requires-Dist: numpy (>1.22.0,<3.0.0) ; python_version ~= "3.10" and (extra == "numpy" or extra == "all")
-Requires-Dist: numpy (>1.22.0,<3.0.0) ; python_version ~= "3.11" and (extra == "numpy" or extra == "all")
-Requires-Dist: numpy (>1.22.0,<3.0.0) ; python_version ~= "3.12" and (extra == "numpy" or extra == "all")
-Requires-Dist: numpy (>1.22.0,<3.0.0) ; python_version ~= "3.13" and (extra == "numpy" or extra == "all")
-Requires-Dist: orjson ; extra == "orjson" or extra == "all"
-Requires-Dist: plum-dispatch (>=2.3)
-Requires-Dist: pyyaml ; extra == "yaml" or extra == "all"
-Requires-Dist: sqlalchemy (>2) ; extra == "sqlalchemy" or extra == "all"
-Requires-Dist: tomli ; extra == "toml" or extra == "all"
-Requires-Dist: tomli-w ; extra == "toml" or extra == "all"
-Requires-Dist: typing_extensions (>=4.1.0,<4.13.0)
-Requires-Dist: typing_inspect (>=0.4.0)
-Project-URL: Homepage, https://github.com/yukinarit/pyserde
-Project-URL: Repository, https://github.com/yukinarit/pyserde
+Requires-Dist: plum-dispatch>=2.3
+Requires-Dist: typing-extensions<4.16.0,>=4.1.0
+Requires-Dist: typing-inspect>=0.4.0
+Provides-Extra: all
+Requires-Dist: jaxtyping<0.3.0; extra == 'all'
+Requires-Dist: msgpack; extra == 'all'
+Requires-Dist: numpy<3.0.0,>1.22.0; extra == 'all'
+Requires-Dist: orjson; extra == 'all'
+Requires-Dist: pyyaml; extra == 'all'
+Requires-Dist: sqlalchemy>2; extra == 'all'
+Requires-Dist: tomli-w; extra == 'all'
+Requires-Dist: tomli; (python_version < '3.11') and extra == 'all'
+Provides-Extra: jaxtyping
+Requires-Dist: jaxtyping<0.3.0; extra == 'jaxtyping'
+Provides-Extra: msgpack
+Requires-Dist: msgpack; extra == 'msgpack'
+Provides-Extra: numpy
+Requires-Dist: numpy<3.0.0,>1.22.0; extra == 'numpy'
+Provides-Extra: orjson
+Requires-Dist: orjson; extra == 'orjson'
+Provides-Extra: sqlalchemy
+Requires-Dist: sqlalchemy>2; extra == 'sqlalchemy'
+Provides-Extra: toml
+Requires-Dist: tomli-w; extra == 'toml'
+Requires-Dist: tomli; (python_version < '3.11') and extra == 'toml'
+Provides-Extra: yaml
+Requires-Dist: pyyaml; extra == 'yaml'
 Description-Content-Type: text/markdown
 
 <h1 align="center"><code>pyserde</code></h1>
@@ -114,8 +137,10 @@ Happy coding with pyserde! 🚀
 - Supported types
     - Primitives (`int`, `float`, `str`, `bool`)
     - Containers
-        - `list`, `set`, `tuple`, `dict`
-        - [`frozenset`](https://docs.python.org/3/library/stdtypes.html#frozenset), [`defaultdict`](https://docs.python.org/3/library/collections.html#collections.defaultdict)
+        - `list`, `collections.abc.Sequence`, `collections.abc.MutableSequence`, `tuple`
+        - `set`, `collections.abc.Set`, `collections.abc.MutableSet`
+        - `dict`, `collections.abc.Mapping`, `collections.abc.MutableMapping`
+        - [`frozenset`](https://docs.python.org/3/library/stdtypes.html#frozenset), [`defaultdict`](https://docs.python.org/3/library/collections.html#collections.defaultdict), [`deque`](https://docs.python.org/3/library/collections.html#collections.deque), [`Counter`](https://docs.python.org/3/library/collections.html#collections.Counter)
     - [`typing.Optional`](https://docs.python.org/3/library/typing.html#typing.Optional)
     - [`typing.Union`](https://docs.python.org/3/library/typing.html#typing.Union)
     - User defined class with [`@dataclass`](https://docs.python.org/3/library/dataclasses.html)
@@ -172,4 +197,3 @@ Made with [contrib.rocks](https://contrib.rocks).
 ## LICENSE
 
 This project is licensed under the [MIT license](https://github.com/yukinarit/pyserde/blob/main/LICENSE).
-

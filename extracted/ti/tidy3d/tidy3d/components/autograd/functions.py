@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+from typing import Any
 
 import autograd.numpy as anp
 import numpy as np
@@ -98,6 +99,7 @@ def interpn(
     xi: tuple[NDArray[np.float64], ...],
     *,
     method: InterpolationType = "linear",
+    **kwargs: Any,
 ) -> NDArray[np.float64]:
     """Interpolate over a rectilinear grid in arbitrary dimensions.
 
@@ -137,7 +139,14 @@ def interpn(
     else:
         raise ValueError(f"Unsupported interpolation method: {method}")
 
-    itrp = RegularGridInterpolator(points, values, method=method)
+    # Avoid SciPy coercing autograd ArrayBox values during _check_values.
+    dummy_values = np.zeros(np.shape(values), dtype=float)
+    if kwargs.get("fill_value") == "extrapolate":
+        itrp = RegularGridInterpolator(
+            points, dummy_values, method=method, fill_value=None, bounds_error=False
+        )
+    else:
+        itrp = RegularGridInterpolator(points, dummy_values, method=method)
 
     # Prepare the grid for interpolation
     # This step reshapes the grid, checks for NaNs and out-of-bounds values
@@ -251,6 +260,25 @@ def add_at(x: NDArray, indices_x: tuple, y: NDArray) -> NDArray:
     """
     return _add_at(x, indices_x, y)
 
+
+@primitive
+def _straight_through_clip(x, a_min, a_max):
+    """Passthrough clip can be used to preserve gradients at the endpoints of the clip range where
+    there is a discontinuity in the derivative. This is useful when values are at the endpoints but may
+    have a gradient away from the boundary or in cases where numerical precision causes a function that is
+    typically bounded by the clip bounds to produce a value just outside the bounds. In the forward pass,
+    this runs the standard clip."""
+    return anp.clip(x, a_min=a_min, a_max=a_max)
+
+
+def _straight_through_clip_vjp(ans, x, a_min, a_max):
+    """Preserve original gradient information in the backward pass up until a tolerance beyond the clip bounds."""
+    tolerance = 1e-5
+    mask = (x >= a_min - tolerance) & (x <= a_max + tolerance)
+    return lambda g: g * mask
+
+
+defvjp(_straight_through_clip, _straight_through_clip_vjp)
 
 __all__ = [
     "add_at",

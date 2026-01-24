@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from locust.clients import HttpSession
-from locust.exception import CatchResponseError, LocustError, StopUser
+from locust.exception import CatchResponseError, StopTest, StopUser
 from locust.user.task import (
     LOCUST_STATE_RUNNING,
     LOCUST_STATE_STOPPING,
@@ -18,9 +18,8 @@ import sys
 import time
 import traceback
 from collections.abc import Callable
-from typing import final
+from typing import TYPE_CHECKING, final
 
-import pytest
 from gevent import GreenletExit, greenlet
 from gevent.pool import Group
 from geventhttpclient.useragent import ConnectionError
@@ -31,6 +30,9 @@ if sys.version_info >= (3, 12):
     from typing import override
 else:
     from typing_extensions import override
+
+if TYPE_CHECKING:
+    import pytest
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +164,7 @@ class User(metaclass=UserMeta):
                 raise
 
             self._taskset_instance.run()
-        except (GreenletExit, StopUser):
+        except (GreenletExit, StopUser, StopTest):
             # run the on_stop method, if it has one
             self.on_stop()
 
@@ -268,7 +270,7 @@ class HttpUser(User):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.host is None:
-            raise LocustError(
+            raise StopTest(
                 "You must specify the base host. Either in the host attribute in the User class, or on the command line using the --host option."
             )
 

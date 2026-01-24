@@ -1,7 +1,7 @@
 r'''
 # `github_branch_protection_v3`
 
-Refer to the Terraform Registry for docs: [`github_branch_protection_v3`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3).
+Refer to the Terraform Registry for docs: [`github_branch_protection_v3`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BranchProtectionV3(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.branchProtectionV3.BranchProtectionV3",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3 github_branch_protection_v3}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3 github_branch_protection_v3}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class BranchProtectionV3(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3 github_branch_protection_v3} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3 github_branch_protection_v3} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param branch: The Git branch to protect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#branch BranchProtectionV3#branch}
-        :param repository: The GitHub repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#repository BranchProtectionV3#repository}
-        :param enforce_admins: Setting this to 'true' enforces status checks for repository administrators. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#enforce_admins BranchProtectionV3#enforce_admins}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#id BranchProtectionV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param require_conversation_resolution: Setting this to 'true' requires all conversations on code must be resolved before a pull request can be merged. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#require_conversation_resolution BranchProtectionV3#require_conversation_resolution}
-        :param required_pull_request_reviews: required_pull_request_reviews block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#required_pull_request_reviews BranchProtectionV3#required_pull_request_reviews}
-        :param required_status_checks: required_status_checks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#required_status_checks BranchProtectionV3#required_status_checks}
-        :param require_signed_commits: Setting this to 'true' requires all commits to be signed with GPG. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#require_signed_commits BranchProtectionV3#require_signed_commits}
-        :param restrictions: restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#restrictions BranchProtectionV3#restrictions}
+        :param branch: The Git branch to protect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#branch BranchProtectionV3#branch}
+        :param repository: The GitHub repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#repository BranchProtectionV3#repository}
+        :param enforce_admins: Setting this to 'true' enforces status checks for repository administrators. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#enforce_admins BranchProtectionV3#enforce_admins}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#id BranchProtectionV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param require_conversation_resolution: Setting this to 'true' requires all conversations on code must be resolved before a pull request can be merged. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#require_conversation_resolution BranchProtectionV3#require_conversation_resolution}
+        :param required_pull_request_reviews: required_pull_request_reviews block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#required_pull_request_reviews BranchProtectionV3#required_pull_request_reviews}
+        :param required_status_checks: required_status_checks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#required_status_checks BranchProtectionV3#required_status_checks}
+        :param require_signed_commits: Setting this to 'true' requires all commits to be signed with GPG. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#require_signed_commits BranchProtectionV3#require_signed_commits}
+        :param restrictions: restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#restrictions BranchProtectionV3#restrictions}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class BranchProtectionV3(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BranchProtectionV3 to import.
-        :param import_from_id: The id of the existing BranchProtectionV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BranchProtectionV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BranchProtectionV3 to import is found.
         '''
         if __debug__:
@@ -153,15 +153,15 @@ class BranchProtectionV3(
         require_last_push_approval: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bypass_pull_request_allowances: bypass_pull_request_allowances block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#bypass_pull_request_allowances BranchProtectionV3#bypass_pull_request_allowances}
-        :param dismissal_apps: The list of apps slugs with dismissal access. Always use slug of the app, not its name. Each app already has to have access to the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#dismissal_apps BranchProtectionV3#dismissal_apps}
-        :param dismissal_teams: The list of team slugs with dismissal access. Always use slug of the team, not its name. Each team already has to have access to the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#dismissal_teams BranchProtectionV3#dismissal_teams}
-        :param dismissal_users: The list of user logins with dismissal access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#dismissal_users BranchProtectionV3#dismissal_users}
-        :param dismiss_stale_reviews: Dismiss approved reviews automatically when a new commit is pushed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#dismiss_stale_reviews BranchProtectionV3#dismiss_stale_reviews}
-        :param include_admins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#include_admins BranchProtectionV3#include_admins}.
-        :param require_code_owner_reviews: Require an approved review in pull requests including files with a designated code owner. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#require_code_owner_reviews BranchProtectionV3#require_code_owner_reviews}
-        :param required_approving_review_count: Require 'x' number of approvals to satisfy branch protection requirements. If this is specified it must be a number between 0-6. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#required_approving_review_count BranchProtectionV3#required_approving_review_count}
-        :param require_last_push_approval: Require that the most recent push must be approved by someone other than the last pusher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#require_last_push_approval BranchProtectionV3#require_last_push_approval}
+        :param bypass_pull_request_allowances: bypass_pull_request_allowances block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#bypass_pull_request_allowances BranchProtectionV3#bypass_pull_request_allowances}
+        :param dismissal_apps: The list of apps slugs with dismissal access. Always use slug of the app, not its name. Each app already has to have access to the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#dismissal_apps BranchProtectionV3#dismissal_apps}
+        :param dismissal_teams: The list of team slugs with dismissal access. Always use slug of the team, not its name. Each team already has to have access to the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#dismissal_teams BranchProtectionV3#dismissal_teams}
+        :param dismissal_users: The list of user logins with dismissal access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#dismissal_users BranchProtectionV3#dismissal_users}
+        :param dismiss_stale_reviews: Dismiss approved reviews automatically when a new commit is pushed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#dismiss_stale_reviews BranchProtectionV3#dismiss_stale_reviews}
+        :param include_admins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#include_admins BranchProtectionV3#include_admins}.
+        :param require_code_owner_reviews: Require an approved review in pull requests including files with a designated code owner. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#require_code_owner_reviews BranchProtectionV3#require_code_owner_reviews}
+        :param required_approving_review_count: Require 'x' number of approvals to satisfy branch protection requirements. If this is specified it must be a number between 0-6. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#required_approving_review_count BranchProtectionV3#required_approving_review_count}
+        :param require_last_push_approval: Require that the most recent push must be approved by someone other than the last pusher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#require_last_push_approval BranchProtectionV3#require_last_push_approval}
         '''
         value = BranchProtectionV3RequiredPullRequestReviews(
             bypass_pull_request_allowances=bypass_pull_request_allowances,
@@ -187,10 +187,10 @@ class BranchProtectionV3(
         strict: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param checks: The list of status checks to require in order to merge into this branch. No status checks are required by default. Checks should be strings containing the 'context' and 'app_id' like so 'context:app_id' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#checks BranchProtectionV3#checks}
-        :param contexts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#contexts BranchProtectionV3#contexts}.
-        :param include_admins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#include_admins BranchProtectionV3#include_admins}.
-        :param strict: Require branches to be up to date before merging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#strict BranchProtectionV3#strict}
+        :param checks: The list of status checks to require in order to merge into this branch. No status checks are required by default. Checks should be strings containing the 'context' and 'app_id' like so 'context:app_id' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#checks BranchProtectionV3#checks}
+        :param contexts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#contexts BranchProtectionV3#contexts}.
+        :param include_admins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#include_admins BranchProtectionV3#include_admins}.
+        :param strict: Require branches to be up to date before merging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#strict BranchProtectionV3#strict}
         '''
         value = BranchProtectionV3RequiredStatusChecks(
             checks=checks,
@@ -210,9 +210,9 @@ class BranchProtectionV3(
         users: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param apps: The list of app slugs with push access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#apps BranchProtectionV3#apps}
-        :param teams: The list of team slugs with push access. Always use slug of the team, not its name. Each team already has to have access to the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#teams BranchProtectionV3#teams}
-        :param users: The list of user logins with push access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#users BranchProtectionV3#users}
+        :param apps: The list of app slugs with push access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#apps BranchProtectionV3#apps}
+        :param teams: The list of team slugs with push access. Always use slug of the team, not its name. Each team already has to have access to the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#teams BranchProtectionV3#teams}
+        :param users: The list of user logins with push access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#users BranchProtectionV3#users}
         '''
         value = BranchProtectionV3Restrictions(apps=apps, teams=teams, users=users)
 
@@ -477,15 +477,15 @@ class BranchProtectionV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param branch: The Git branch to protect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#branch BranchProtectionV3#branch}
-        :param repository: The GitHub repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#repository BranchProtectionV3#repository}
-        :param enforce_admins: Setting this to 'true' enforces status checks for repository administrators. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#enforce_admins BranchProtectionV3#enforce_admins}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#id BranchProtectionV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param require_conversation_resolution: Setting this to 'true' requires all conversations on code must be resolved before a pull request can be merged. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#require_conversation_resolution BranchProtectionV3#require_conversation_resolution}
-        :param required_pull_request_reviews: required_pull_request_reviews block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#required_pull_request_reviews BranchProtectionV3#required_pull_request_reviews}
-        :param required_status_checks: required_status_checks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#required_status_checks BranchProtectionV3#required_status_checks}
-        :param require_signed_commits: Setting this to 'true' requires all commits to be signed with GPG. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#require_signed_commits BranchProtectionV3#require_signed_commits}
-        :param restrictions: restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#restrictions BranchProtectionV3#restrictions}
+        :param branch: The Git branch to protect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#branch BranchProtectionV3#branch}
+        :param repository: The GitHub repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#repository BranchProtectionV3#repository}
+        :param enforce_admins: Setting this to 'true' enforces status checks for repository administrators. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#enforce_admins BranchProtectionV3#enforce_admins}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#id BranchProtectionV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param require_conversation_resolution: Setting this to 'true' requires all conversations on code must be resolved before a pull request can be merged. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#require_conversation_resolution BranchProtectionV3#require_conversation_resolution}
+        :param required_pull_request_reviews: required_pull_request_reviews block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#required_pull_request_reviews BranchProtectionV3#required_pull_request_reviews}
+        :param required_status_checks: required_status_checks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#required_status_checks BranchProtectionV3#required_status_checks}
+        :param require_signed_commits: Setting this to 'true' requires all commits to be signed with GPG. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#require_signed_commits BranchProtectionV3#require_signed_commits}
+        :param restrictions: restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#restrictions BranchProtectionV3#restrictions}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -614,7 +614,7 @@ class BranchProtectionV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def branch(self) -> builtins.str:
         '''The Git branch to protect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#branch BranchProtectionV3#branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#branch BranchProtectionV3#branch}
         '''
         result = self._values.get("branch")
         assert result is not None, "Required property 'branch' is missing"
@@ -624,7 +624,7 @@ class BranchProtectionV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository(self) -> builtins.str:
         '''The GitHub repository name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#repository BranchProtectionV3#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#repository BranchProtectionV3#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -636,14 +636,14 @@ class BranchProtectionV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Setting this to 'true' enforces status checks for repository administrators.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#enforce_admins BranchProtectionV3#enforce_admins}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#enforce_admins BranchProtectionV3#enforce_admins}
         '''
         result = self._values.get("enforce_admins")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#id BranchProtectionV3#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#id BranchProtectionV3#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -657,7 +657,7 @@ class BranchProtectionV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Setting this to 'true' requires all conversations on code must be resolved before a pull request can be merged.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#require_conversation_resolution BranchProtectionV3#require_conversation_resolution}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#require_conversation_resolution BranchProtectionV3#require_conversation_resolution}
         '''
         result = self._values.get("require_conversation_resolution")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -668,7 +668,7 @@ class BranchProtectionV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["BranchProtectionV3RequiredPullRequestReviews"]:
         '''required_pull_request_reviews block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#required_pull_request_reviews BranchProtectionV3#required_pull_request_reviews}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#required_pull_request_reviews BranchProtectionV3#required_pull_request_reviews}
         '''
         result = self._values.get("required_pull_request_reviews")
         return typing.cast(typing.Optional["BranchProtectionV3RequiredPullRequestReviews"], result)
@@ -679,7 +679,7 @@ class BranchProtectionV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["BranchProtectionV3RequiredStatusChecks"]:
         '''required_status_checks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#required_status_checks BranchProtectionV3#required_status_checks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#required_status_checks BranchProtectionV3#required_status_checks}
         '''
         result = self._values.get("required_status_checks")
         return typing.cast(typing.Optional["BranchProtectionV3RequiredStatusChecks"], result)
@@ -690,7 +690,7 @@ class BranchProtectionV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Setting this to 'true' requires all commits to be signed with GPG.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#require_signed_commits BranchProtectionV3#require_signed_commits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#require_signed_commits BranchProtectionV3#require_signed_commits}
         '''
         result = self._values.get("require_signed_commits")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -699,7 +699,7 @@ class BranchProtectionV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def restrictions(self) -> typing.Optional["BranchProtectionV3Restrictions"]:
         '''restrictions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#restrictions BranchProtectionV3#restrictions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#restrictions BranchProtectionV3#restrictions}
         '''
         result = self._values.get("restrictions")
         return typing.cast(typing.Optional["BranchProtectionV3Restrictions"], result)
@@ -746,15 +746,15 @@ class BranchProtectionV3RequiredPullRequestReviews:
         require_last_push_approval: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param bypass_pull_request_allowances: bypass_pull_request_allowances block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#bypass_pull_request_allowances BranchProtectionV3#bypass_pull_request_allowances}
-        :param dismissal_apps: The list of apps slugs with dismissal access. Always use slug of the app, not its name. Each app already has to have access to the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#dismissal_apps BranchProtectionV3#dismissal_apps}
-        :param dismissal_teams: The list of team slugs with dismissal access. Always use slug of the team, not its name. Each team already has to have access to the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#dismissal_teams BranchProtectionV3#dismissal_teams}
-        :param dismissal_users: The list of user logins with dismissal access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#dismissal_users BranchProtectionV3#dismissal_users}
-        :param dismiss_stale_reviews: Dismiss approved reviews automatically when a new commit is pushed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#dismiss_stale_reviews BranchProtectionV3#dismiss_stale_reviews}
-        :param include_admins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#include_admins BranchProtectionV3#include_admins}.
-        :param require_code_owner_reviews: Require an approved review in pull requests including files with a designated code owner. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#require_code_owner_reviews BranchProtectionV3#require_code_owner_reviews}
-        :param required_approving_review_count: Require 'x' number of approvals to satisfy branch protection requirements. If this is specified it must be a number between 0-6. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#required_approving_review_count BranchProtectionV3#required_approving_review_count}
-        :param require_last_push_approval: Require that the most recent push must be approved by someone other than the last pusher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#require_last_push_approval BranchProtectionV3#require_last_push_approval}
+        :param bypass_pull_request_allowances: bypass_pull_request_allowances block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#bypass_pull_request_allowances BranchProtectionV3#bypass_pull_request_allowances}
+        :param dismissal_apps: The list of apps slugs with dismissal access. Always use slug of the app, not its name. Each app already has to have access to the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#dismissal_apps BranchProtectionV3#dismissal_apps}
+        :param dismissal_teams: The list of team slugs with dismissal access. Always use slug of the team, not its name. Each team already has to have access to the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#dismissal_teams BranchProtectionV3#dismissal_teams}
+        :param dismissal_users: The list of user logins with dismissal access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#dismissal_users BranchProtectionV3#dismissal_users}
+        :param dismiss_stale_reviews: Dismiss approved reviews automatically when a new commit is pushed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#dismiss_stale_reviews BranchProtectionV3#dismiss_stale_reviews}
+        :param include_admins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#include_admins BranchProtectionV3#include_admins}.
+        :param require_code_owner_reviews: Require an approved review in pull requests including files with a designated code owner. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#require_code_owner_reviews BranchProtectionV3#require_code_owner_reviews}
+        :param required_approving_review_count: Require 'x' number of approvals to satisfy branch protection requirements. If this is specified it must be a number between 0-6. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#required_approving_review_count BranchProtectionV3#required_approving_review_count}
+        :param require_last_push_approval: Require that the most recent push must be approved by someone other than the last pusher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#require_last_push_approval BranchProtectionV3#require_last_push_approval}
         '''
         if isinstance(bypass_pull_request_allowances, dict):
             bypass_pull_request_allowances = BranchProtectionV3RequiredPullRequestReviewsBypassPullRequestAllowances(**bypass_pull_request_allowances)
@@ -795,7 +795,7 @@ class BranchProtectionV3RequiredPullRequestReviews:
     ) -> typing.Optional["BranchProtectionV3RequiredPullRequestReviewsBypassPullRequestAllowances"]:
         '''bypass_pull_request_allowances block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#bypass_pull_request_allowances BranchProtectionV3#bypass_pull_request_allowances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#bypass_pull_request_allowances BranchProtectionV3#bypass_pull_request_allowances}
         '''
         result = self._values.get("bypass_pull_request_allowances")
         return typing.cast(typing.Optional["BranchProtectionV3RequiredPullRequestReviewsBypassPullRequestAllowances"], result)
@@ -806,7 +806,7 @@ class BranchProtectionV3RequiredPullRequestReviews:
 
         Always use slug of the app, not its name. Each app already has to have access to the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#dismissal_apps BranchProtectionV3#dismissal_apps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#dismissal_apps BranchProtectionV3#dismissal_apps}
         '''
         result = self._values.get("dismissal_apps")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -817,7 +817,7 @@ class BranchProtectionV3RequiredPullRequestReviews:
 
         Always use slug of the team, not its name. Each team already has to have access to the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#dismissal_teams BranchProtectionV3#dismissal_teams}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#dismissal_teams BranchProtectionV3#dismissal_teams}
         '''
         result = self._values.get("dismissal_teams")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -826,7 +826,7 @@ class BranchProtectionV3RequiredPullRequestReviews:
     def dismissal_users(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of user logins with dismissal access.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#dismissal_users BranchProtectionV3#dismissal_users}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#dismissal_users BranchProtectionV3#dismissal_users}
         '''
         result = self._values.get("dismissal_users")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -837,7 +837,7 @@ class BranchProtectionV3RequiredPullRequestReviews:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Dismiss approved reviews automatically when a new commit is pushed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#dismiss_stale_reviews BranchProtectionV3#dismiss_stale_reviews}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#dismiss_stale_reviews BranchProtectionV3#dismiss_stale_reviews}
         '''
         result = self._values.get("dismiss_stale_reviews")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -846,7 +846,7 @@ class BranchProtectionV3RequiredPullRequestReviews:
     def include_admins(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#include_admins BranchProtectionV3#include_admins}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#include_admins BranchProtectionV3#include_admins}.'''
         result = self._values.get("include_admins")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -856,7 +856,7 @@ class BranchProtectionV3RequiredPullRequestReviews:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Require an approved review in pull requests including files with a designated code owner.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#require_code_owner_reviews BranchProtectionV3#require_code_owner_reviews}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#require_code_owner_reviews BranchProtectionV3#require_code_owner_reviews}
         '''
         result = self._values.get("require_code_owner_reviews")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -867,7 +867,7 @@ class BranchProtectionV3RequiredPullRequestReviews:
 
         If this is specified it must be a number between 0-6.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#required_approving_review_count BranchProtectionV3#required_approving_review_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#required_approving_review_count BranchProtectionV3#required_approving_review_count}
         '''
         result = self._values.get("required_approving_review_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -878,7 +878,7 @@ class BranchProtectionV3RequiredPullRequestReviews:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Require that the most recent push must be approved by someone other than the last pusher.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#require_last_push_approval BranchProtectionV3#require_last_push_approval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#require_last_push_approval BranchProtectionV3#require_last_push_approval}
         '''
         result = self._values.get("require_last_push_approval")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -909,9 +909,9 @@ class BranchProtectionV3RequiredPullRequestReviewsBypassPullRequestAllowances:
         users: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param apps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#apps BranchProtectionV3#apps}.
-        :param teams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#teams BranchProtectionV3#teams}.
-        :param users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#users BranchProtectionV3#users}.
+        :param apps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#apps BranchProtectionV3#apps}.
+        :param teams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#teams BranchProtectionV3#teams}.
+        :param users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#users BranchProtectionV3#users}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e5ecea5383d2630fd5b9e710a7feaadd0260b85669543880d523e7e7e42ee47e)
@@ -928,19 +928,19 @@ class BranchProtectionV3RequiredPullRequestReviewsBypassPullRequestAllowances:
 
     @builtins.property
     def apps(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#apps BranchProtectionV3#apps}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#apps BranchProtectionV3#apps}.'''
         result = self._values.get("apps")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def teams(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#teams BranchProtectionV3#teams}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#teams BranchProtectionV3#teams}.'''
         result = self._values.get("teams")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def users(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#users BranchProtectionV3#users}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#users BranchProtectionV3#users}.'''
         result = self._values.get("users")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1086,9 +1086,9 @@ class BranchProtectionV3RequiredPullRequestReviewsOutputReference(
         users: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param apps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#apps BranchProtectionV3#apps}.
-        :param teams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#teams BranchProtectionV3#teams}.
-        :param users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#users BranchProtectionV3#users}.
+        :param apps: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#apps BranchProtectionV3#apps}.
+        :param teams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#teams BranchProtectionV3#teams}.
+        :param users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#users BranchProtectionV3#users}.
         '''
         value = BranchProtectionV3RequiredPullRequestReviewsBypassPullRequestAllowances(
             apps=apps, teams=teams, users=users
@@ -1348,10 +1348,10 @@ class BranchProtectionV3RequiredStatusChecks:
         strict: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param checks: The list of status checks to require in order to merge into this branch. No status checks are required by default. Checks should be strings containing the 'context' and 'app_id' like so 'context:app_id' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#checks BranchProtectionV3#checks}
-        :param contexts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#contexts BranchProtectionV3#contexts}.
-        :param include_admins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#include_admins BranchProtectionV3#include_admins}.
-        :param strict: Require branches to be up to date before merging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#strict BranchProtectionV3#strict}
+        :param checks: The list of status checks to require in order to merge into this branch. No status checks are required by default. Checks should be strings containing the 'context' and 'app_id' like so 'context:app_id' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#checks BranchProtectionV3#checks}
+        :param contexts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#contexts BranchProtectionV3#contexts}.
+        :param include_admins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#include_admins BranchProtectionV3#include_admins}.
+        :param strict: Require branches to be up to date before merging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#strict BranchProtectionV3#strict}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b386f85149f964155cc721dadbd98ff804ad76f7bd116a4643069014140eee72)
@@ -1375,14 +1375,14 @@ class BranchProtectionV3RequiredStatusChecks:
 
         No status checks are required by default. Checks should be strings containing the 'context' and 'app_id' like so 'context:app_id'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#checks BranchProtectionV3#checks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#checks BranchProtectionV3#checks}
         '''
         result = self._values.get("checks")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def contexts(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#contexts BranchProtectionV3#contexts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#contexts BranchProtectionV3#contexts}.'''
         result = self._values.get("contexts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1390,7 +1390,7 @@ class BranchProtectionV3RequiredStatusChecks:
     def include_admins(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#include_admins BranchProtectionV3#include_admins}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#include_admins BranchProtectionV3#include_admins}.'''
         result = self._values.get("include_admins")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1400,7 +1400,7 @@ class BranchProtectionV3RequiredStatusChecks:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Require branches to be up to date before merging.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#strict BranchProtectionV3#strict}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#strict BranchProtectionV3#strict}
         '''
         result = self._values.get("strict")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1563,9 +1563,9 @@ class BranchProtectionV3Restrictions:
         users: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param apps: The list of app slugs with push access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#apps BranchProtectionV3#apps}
-        :param teams: The list of team slugs with push access. Always use slug of the team, not its name. Each team already has to have access to the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#teams BranchProtectionV3#teams}
-        :param users: The list of user logins with push access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#users BranchProtectionV3#users}
+        :param apps: The list of app slugs with push access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#apps BranchProtectionV3#apps}
+        :param teams: The list of team slugs with push access. Always use slug of the team, not its name. Each team already has to have access to the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#teams BranchProtectionV3#teams}
+        :param users: The list of user logins with push access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#users BranchProtectionV3#users}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c153460c5b324584f9b44993078b841eb9e4c11cca4ad43890e9717617e8bad)
@@ -1584,7 +1584,7 @@ class BranchProtectionV3Restrictions:
     def apps(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of app slugs with push access.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#apps BranchProtectionV3#apps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#apps BranchProtectionV3#apps}
         '''
         result = self._values.get("apps")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1595,7 +1595,7 @@ class BranchProtectionV3Restrictions:
 
         Always use slug of the team, not its name. Each team already has to have access to the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#teams BranchProtectionV3#teams}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#teams BranchProtectionV3#teams}
         '''
         result = self._values.get("teams")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1604,7 +1604,7 @@ class BranchProtectionV3Restrictions:
     def users(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of user logins with push access.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch_protection_v3#users BranchProtectionV3#users}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch_protection_v3#users BranchProtectionV3#users}
         '''
         result = self._values.get("users")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

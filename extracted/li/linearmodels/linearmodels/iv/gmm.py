@@ -6,8 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy
-from numpy import asarray, unique
+from numpy import asarray, ndarray, unique
 from numpy.linalg import inv
 
 from linearmodels.iv.covariance import (
@@ -79,7 +78,7 @@ class HomoskedasticWeightMatrix:
         return w
 
     @property
-    def config(self) -> dict[str, str | bool | numpy.ndarray | int | None]:
+    def config(self) -> dict[str, str | bool | ndarray | int | None]:
         """
         Weight estimator configuration
 
@@ -249,7 +248,7 @@ class KernelWeightMatrix(HomoskedasticWeightMatrix):
         return s
 
     @property
-    def config(self) -> dict[str, str | bool | numpy.ndarray | int | None]:
+    def config(self) -> dict[str, str | bool | ndarray | int | None]:
         """
         Weight estimator configuration
 
@@ -340,7 +339,7 @@ class OneWayClusteredWeightMatrix(HomoskedasticWeightMatrix):
         return s
 
     @property
-    def config(self) -> dict[str, str | bool | numpy.ndarray | int | None]:
+    def config(self) -> dict[str, str | bool | ndarray | int | None]:
         """
         Weight estimator configuration
 
@@ -380,7 +379,7 @@ class IVGMMCovariance(HomoskedasticCovariance):
         * "robust", "heteroskedastic" - Allows for heteroskedasticity by not
           autocorrelation
         * "kernel" - Allows for heteroskedasticity and autocorrelation
-        * "cluster" - Allows for one-way cluster dependence
+        * "clustered" - Allows for one-way cluster dependence
 
     debiased : bool
         Flag indicating whether to debias the covariance estimator
@@ -482,9 +481,7 @@ class IVGMMCovariance(HomoskedasticCovariance):
         return (c + c.T) / 2
 
     @property
-    def config(self) -> dict[str, str | bool | numpy.ndarray | int | None]:
-        conf: dict[str, str | bool | numpy.ndarray | int | None] = {
-            "debiased": self.debiased
-        }
+    def config(self) -> dict[str, str | bool | ndarray | int | None]:
+        conf: dict[str, str | bool | ndarray | int | None] = {"debiased": self.debiased}
         conf.update(self._cov_config)
         return conf

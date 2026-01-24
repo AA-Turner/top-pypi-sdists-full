@@ -21,19 +21,19 @@ this private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype.claw._package.clawpkgenum import BeartypeClawCoverage
-from beartype.claw._package.clawpkghook import hook_packages
+from beartype.claw._package.clawpkgmain import hook_packages
 from beartype.roar import BeartypeClawHookUnpackagedException
-from beartype.typing import Iterable
 from beartype._cave._cavefast import CallableFrameType
 from beartype._conf.confmain import BeartypeConf
 from beartype._conf.confcommon import BEARTYPE_CONF_DEFAULT
-from beartype._data.api.standard.datamodpy import SCRIPT_MODULE_NAME
+from beartype._data.api.standard.datapy import SCRIPT_MODULE_NAME
 from beartype._util.func.utilfuncfile import get_func_filename_or_none
 from beartype._util.func.utilfuncframe import (
     get_frame,
     get_frame_module_name_or_none,
     get_frame_package_name_or_none,
 )
+from collections.abc import Iterable
 from pathlib import PurePath
 
 # ....................{ HOOKERS                            }....................

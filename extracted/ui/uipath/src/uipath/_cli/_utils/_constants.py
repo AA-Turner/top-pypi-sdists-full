@@ -1,8 +1,7 @@
 BINDINGS_VERSION = "2.2"
 
-# Agent.json constants
-AGENT_VERSION = "1.0.0"
-AGENT_STORAGE_VERSION = "1.0.0"
+# studio_metadata.json constants
+SCHEMA_VERSION = 1
 AGENT_INITIAL_CODE_VERSION = "1.0.0"
 AGENT_TARGET_RUNTIME = "python"
 
@@ -44,8 +43,6 @@ DATABASE_EXTENSIONS = {".db", ".sqlite", ".sqlite3"}
 PYTHON_BINARY_EXTENSIONS = {".pickle", ".pkl"}
 
 SPECIAL_EXTENSIONS = {""}  # Extensionless binary files
-
-UIPATH_PROJECT_ID = "UIPATH_PROJECT_ID"
 
 # Pre-compute the union for optimal performance
 BINARY_EXTENSIONS = (

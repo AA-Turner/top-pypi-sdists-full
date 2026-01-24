@@ -4,7 +4,11 @@ import pytest
 
 import salt.netapi
 from salt.exceptions import EauthAuthenticationError, SaltInvocationError
-from tests.support.helpers import SaveRequestsPostHandler, Webserver
+from tests.support.helpers import (
+    SaveRequestsPostHandler,
+    Webserver,
+    system_python_version,
+)
 from tests.support.mock import patch
 
 pytestmark = [
@@ -17,6 +21,16 @@ pytestmark = [
         # and it imports `ssl` and checks if the `match_hostname` function is defined, which
         # has been deprecated since Python 3.7, so, the logic goes into trying to import
         # backports.ssl-match-hostname which is not installed on the system.
+    ),
+    pytest.mark.skipif(
+        system_python_version() < (3, 10),
+        reason="System python too old for these tests",
+    ),
+    pytest.mark.skipif(
+        """grains["osfinger"].startswith("VMware Photon OS-5") and __import__("subprocess").run(["rpm", "-q", "openssh-server"], capture_output=True, text=True).stdout.strip() in ["openssh-server-9.3p2-18.ph5.x86_64", "openssh-server-9.3p2-18.ph5.aarch64"]""",
+        reason="Photon OS OpenSSH 9.3p2-18 has a bug that breaks salt-ssh",
+        # This version causes "vdollar_percent_expand: NULL replacement for token n" errors
+        # when using the User config option that salt-ssh depends on.
     ),
     pytest.mark.timeout_unless_on_windows(120),
 ]

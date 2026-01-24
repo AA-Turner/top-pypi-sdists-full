@@ -12,16 +12,16 @@ cache = dict()
 
 
 
-def play_particle_system(name, use_cache=True, auto_play=True, auto_destroy=True, unscaled=False, **kwargs):
+def play_particle_system(name, use_cache=True, auto_play=True, auto_destroy=True, unscaled=False, ignore_paused=False, **kwargs):
     # print('try loading particle system:', name)
     if name in cache:
         animation_texture = cache[name]
     else:
-        animation_texture = load_texture(f'{name}_*_baked_fps*_bounds*.png')
+        animation_texture = load_texture(f'{name}_seed*_baked_fps*_bounds*.png')
         cache[name] = animation_texture
 
     if animation_texture:   # if the particle system has been baked
-        vat_instance = vertex_animation(animation_texture, auto_play=auto_play, unscaled=unscaled)
+        vat_instance = vertex_animation(animation_texture, auto_play=auto_play, auto_destroy=auto_destroy, unscaled=unscaled, ignore_paused=ignore_paused)
         if not auto_play:
             vat_instance.enabled = False
 
@@ -35,6 +35,7 @@ def play_particle_system(name, use_cache=True, auto_play=True, auto_destroy=True
         print_warning('missing particle system:', whole_file_name)
         return
 
+    # print('loaded particle system:', particle_files[0])
     with particle_files[0].open('r') as f:
         text = f.read()
 
@@ -46,13 +47,99 @@ def play_particle_system(name, use_cache=True, auto_play=True, auto_destroy=True
     for subsystem in particle_container.subsystems:
         for seq in subsystem.anims:
             seq.unscaled = unscaled
+            seq.ignore_paused = ignore_paused
 
     if auto_play:
         particle_container.play()
     if auto_destroy:
-        destroy(particle_container, delay=particle_container.total_duration, unscaled=unscaled)
+        destroy(particle_container, delay=particle_container.total_duration, unscaled=unscaled, ignore_paused=ignore_paused)
 
     return particle_container
+
+
+def bake_to_vertex_animation_texture(entity, name, seed, fps=30):   # bakes all children and animations to a texture
+    from PIL import Image
+
+    animations = []
+    for c in entity.get_descendants():
+        animations.extend(c.animations)
+
+    frames = []
+    bake_parent = Entity()
+    original_parent = entity.parent
+    entity.parent = bake_parent
+
+    duration_per_frame = 1 / fps
+    total_duration = max(seq.func_call_time[-1] for seq in animations)
+    num_frames = int(total_duration / duration_per_frame)
+    # print('------------------total_duration:', total_duration, 'num animations:', len(animations), 'num_frames:', num_frames)
+    if num_frames <= 0:
+        raise Exception('can\'t bake particle system with 0 frames')
+    print('num_frames:', num_frames)
+
+
+    for i in range(num_frames):
+        bake_parent.model = None
+        if not bake_parent.children:
+            raise Exception('no particles to bake')
+
+        bake_parent.combine(auto_destroy=False)
+
+        for seq in animations:
+            seq.t += duration_per_frame
+            seq.started = True
+            seq.update()
+            seq.started = False
+
+        frames.append(deepcopy(bake_parent.model))
+        Entity(model=Mesh(vertices=bake_parent.model.vertices), wireframe=True, color=color.green) # debug render
+
+    entity.parent = original_parent
+
+    if not frames:
+        raise Exception('Particle system has 0 frames')
+
+    # num_vertices = max(len(e.vertices) for e in frames)
+    num_vertices = len(frames[0].vertices)
+    if num_vertices <= 0:
+        raise Exception('can\'t bake particle system with 0 vertices.')
+
+    min_x, max_x, min_y, max_y, min_z, max_z = 0, 0, 0, 0, 0, 0
+    for frame in frames:
+        min_x = min(min_x, floor(min(v.x for v in frame.vertices)))
+        min_y = min(min_y, floor(min(v.y for v in frame.vertices)))
+        min_z = min(min_z, floor(min(v.z for v in frame.vertices)))
+        max_x = max(max_x, ceil(max(v.x for v in frame.vertices)))
+        max_y = max(max_y, ceil(max(v.y for v in frame.vertices)))
+        max_z = max(max_z, ceil(max(v.z for v in frame.vertices)))
+
+    # print('verts:', num_vertices)
+    texture_width = num_vertices * 2    # one pixel per vertex. one color per vertex.
+    texture_height = len(frames)
+
+    if texture_width > 4096 or texture_height > 4096:
+        raise Exception(f'Particle system animation won\'t fit in a 4096x4096 texture: num_frames:{len(frames.vertices)}, vertices:{num_vertices}')
+
+    print(texture_width, texture_height)
+    texture = Texture(Image.new(mode="RGB", size=(texture_width, texture_height)))
+
+    for y, frame in enumerate(frames):
+        for x, v in enumerate(frame.vertices):
+            # v = v - frames[0][x] # get offset from first frame
+            texture.set_pixel(x, y, color.rgb(
+                inverselerp(min_x, max_x, v.x),
+                inverselerp(min_y, max_y, v.y),
+                inverselerp(min_z, max_z, v.z))
+            )
+        for x, c in enumerate(frame.colors):
+            texture.set_pixel(x+num_vertices, y, c)
+
+    # Mesh(vertices=frames[0]).save(f'{self.name}_{self.seed}_baked_{min_x}_{max_x}_{min_y}_{max_y}_{min_z}_{max_z}.ursinamesh', folder)
+    destroy(bake_parent)
+
+    folder = application.asset_folder / 'particle_systems_baked'
+    folder.mkdir(parents=True, exist_ok=True)
+    texture.save(folder / f'{name}_seed{seed}_baked_fps{fps}_bounds{min_x}_{max_x}_{min_y}_{max_y}_{min_z}_{max_z}.png')
 
 
 class ParticleSystemContainer(Entity):
@@ -69,44 +156,6 @@ class ParticleSystemContainer(Entity):
     def play(self):
         for e in self.subsystems:
             e.play()
-
-
-    def bake_to_vertex_animation_texture(entity, name, seed, fps=30):   # bakes all children and animations to a texture
-        animations = []
-        for c in entity.get_decendants():
-            animations.extend(c.anims)
-
-        frames = []
-        bake_parent = Entity()
-        original_parent = entity.parent
-        entity.parent = bake_parent
-
-        duration_per_frame = 1 / fps
-        total_duration = max(seq.func_call_time[-1] for seq in entity.animations)
-        num_frames = int(total_duration / duration_per_frame)
-        if num_frames <= 0:
-            raise Exception('can\'t bake particle system with 0 frames')
-        print('num_frames:', num_frames)
-
-
-        for i in range(num_frames):
-            bake_parent.model = None
-            if not bake_parent.children:
-                raise Exception('no particles to bake')
-
-            bake_parent.combine(auto_destroy=False)
-
-            for seq in animations:
-                seq.t += duration_per_frame
-                seq.started = True
-                seq.update()
-                seq.started = False
-
-            frames.append(deepcopy(bake_parent.model))
-            Entity(model=Mesh(vertices=bake_parent.model.vertices), wireframe=True, color=color.green) # debug render
-
-        entity.parent = original_parent
-
 
 
     def bake(self, name, seed, fps=30):     # bake to vertex animation texture
@@ -194,7 +243,7 @@ class ParticleSystemContainer(Entity):
         texture.save(folder / f'{name}_seed{seed}_baked_fps{fps}_bounds{min_x}_{max_x}_{min_y}_{max_y}_{min_z}_{max_z}.png')
 
 
-def vertex_animation(animation_texture, auto_play=True, unscaled=False):
+def vertex_animation(animation_texture, auto_play=True, auto_destroy=True, unscaled=False, ignore_paused=False):
     from ursina.shaders.vertex_animation_shader import vertex_animation_shader
     instance = Entity(model=Mesh(vertices=[Vec3.zero for i in range(animation_texture.width)]), shader=vertex_animation_shader)
 
@@ -212,10 +261,10 @@ def vertex_animation(animation_texture, auto_play=True, unscaled=False):
     loop = False
 
     if auto_play:
-        instance.animate_shader_input('frame_index', animation_texture.size[1]-1, duration=animation_duration, loop=loop, curve=curve.linear, resolution=120, unscaled=unscaled)
+        instance.animate_shader_input('frame_index', animation_texture.size[1]-1, duration=animation_duration, loop=loop, curve=curve.linear, resolution=120, unscaled=unscaled, ignore_paused=ignore_paused)
 
-    if not loop:
-        destroy(instance, delay=animation_duration, unscaled=unscaled)
+    if auto_destroy:
+        destroy(instance, delay=animation_duration, unscaled=unscaled, ignore_paused=ignore_paused)
     return instance
 
 def _sample_random(seq, i):
@@ -366,6 +415,7 @@ class ParticleSystem(Entity):
 
 
     def generate_particle_animations(self, position, start_direction, move_direction, delay=0, i=0):
+        original_state = random.getstate()
         if self.seed is None:
             random.seed(None)
         else:
@@ -439,6 +489,8 @@ class ParticleSystem(Entity):
                 Func(destroy, e),
                 auto_destroy=True, name='destroy_particle_sequence')
                 )
+
+        random.setstate(original_state)
 
         # if self.loop_every > 0:
         #     destroy(self, delay=delay + self.total_duration + .1)
@@ -553,6 +605,9 @@ class ParticleSystemUI(Entity):
     def input(self, key):
         if key == 'tab':
             self.render_particle_system_list()
+        if key == 'space':
+            self.play_button.on_click()
+
 
 
     def on_enable(self):
@@ -579,7 +634,8 @@ class ParticleSystemUI(Entity):
             def _try_bake(target_fps=target_fps):
                 animation_texture = load_texture(f'{self.asset_file.stem}_seed*_baked_fps*_bounds*.png')
                 if not animation_texture:
-                    self.particle_system_container.bake(self.asset_file.stem, self.seed_slider.value, target_fps)
+                    # self.particle_system_container.bake(self.asset_file.stem, self.seed_slider.value, target_fps)
+                    bake_to_vertex_animation_texture(self.particle_system_container, self.asset_file.stem, self.seed_slider.value, target_fps)
                     return
                 if animation_texture.path.exists():
                     print('replace?', animation_texture.path)

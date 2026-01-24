@@ -6,6 +6,7 @@ import modal._object
 import modal._partial_function
 import modal.app
 import modal.client
+import modal.cloud_bucket_mount
 import modal.functions
 import modal.gpu
 import modal.object
@@ -14,7 +15,7 @@ import modal.retries
 import modal.secret
 import modal.volume
 import modal_proto.api_pb2
-import os
+import pathlib
 import typing
 import typing_extensions
 
@@ -24,9 +25,9 @@ def _use_annotation_parameters(user_cls: type) -> bool: ...
 def _get_class_constructor_signature(user_cls: type) -> inspect.Signature: ...
 
 class _ServiceOptions:
-    """_ServiceOptions(secrets: Collection[modal.secret._Secret] = (), validated_volumes: Sequence[tuple[str, modal.volume._Volume]] = (), resources: Optional[modal_proto.api_pb2.Resources] = None, retry_policy: Optional[modal_proto.api_pb2.FunctionRetryPolicy] = None, max_containers: Optional[int] = None, buffer_containers: Optional[int] = None, scaledown_window: Optional[int] = None, timeout_secs: Optional[int] = None, max_concurrent_inputs: Optional[int] = None, target_concurrent_inputs: Optional[int] = None, batch_max_size: Optional[int] = None, batch_wait_ms: Optional[int] = None, scheduler_placement: Optional[modal_proto.api_pb2.SchedulerPlacement] = None, cloud: Optional[str] = None)"""
+    """_ServiceOptions(secrets: collections.abc.Collection[modal.secret._Secret] = (), validated_volumes: Sequence[tuple[str, modal.volume._Volume]] = (), resources: Optional[modal_proto.api_pb2.Resources] = None, retry_policy: Optional[modal_proto.api_pb2.FunctionRetryPolicy] = None, max_containers: Optional[int] = None, buffer_containers: Optional[int] = None, scaledown_window: Optional[int] = None, timeout_secs: Optional[int] = None, max_concurrent_inputs: Optional[int] = None, target_concurrent_inputs: Optional[int] = None, batch_max_size: Optional[int] = None, batch_wait_ms: Optional[int] = None, scheduler_placement: Optional[modal_proto.api_pb2.SchedulerPlacement] = None, cloud: Optional[str] = None, cloud_bucket_mounts: Sequence[tuple[str, modal.cloud_bucket_mount._CloudBucketMount]] = ())"""
 
-    secrets: typing.Collection[modal.secret._Secret]
+    secrets: collections.abc.Collection[modal.secret._Secret]
     validated_volumes: typing.Sequence[tuple[str, modal.volume._Volume]]
     resources: typing.Optional[modal_proto.api_pb2.Resources]
     retry_policy: typing.Optional[modal_proto.api_pb2.FunctionRetryPolicy]
@@ -40,6 +41,7 @@ class _ServiceOptions:
     batch_wait_ms: typing.Optional[int]
     scheduler_placement: typing.Optional[modal_proto.api_pb2.SchedulerPlacement]
     cloud: typing.Optional[str]
+    cloud_bucket_mounts: typing.Sequence[tuple[str, modal.cloud_bucket_mount._CloudBucketMount]]
 
     def merge_options(self, new_options: _ServiceOptions) -> _ServiceOptions:
         """Implement protobuf-like MergeFrom semantics for this dataclass.
@@ -50,7 +52,7 @@ class _ServiceOptions:
 
     def __init__(
         self,
-        secrets: typing.Collection[modal.secret._Secret] = (),
+        secrets: collections.abc.Collection[modal.secret._Secret] = (),
         validated_volumes: typing.Sequence[tuple[str, modal.volume._Volume]] = (),
         resources: typing.Optional[modal_proto.api_pb2.Resources] = None,
         retry_policy: typing.Optional[modal_proto.api_pb2.FunctionRetryPolicy] = None,
@@ -64,6 +66,7 @@ class _ServiceOptions:
         batch_wait_ms: typing.Optional[int] = None,
         scheduler_placement: typing.Optional[modal_proto.api_pb2.SchedulerPlacement] = None,
         cloud: typing.Optional[str] = None,
+        cloud_bucket_mounts: typing.Sequence[tuple[str, modal.cloud_bucket_mount._CloudBucketMount]] = (),
     ) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
@@ -176,8 +179,6 @@ class _Obj:
     async def _aenter(self): ...
     def __getattr__(self, k): ...
 
-SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
-
 class Obj:
     """An instance of a `Cls`, i.e. `Cls("foo", 42)` returns an `Obj`.
 
@@ -200,7 +201,7 @@ class Obj:
     def _get_parameter_values(self) -> dict[str, typing.Any]: ...
     def _new_user_cls_instance(self): ...
 
-    class __update_autoscaler_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __update_autoscaler_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
@@ -271,9 +272,9 @@ class Obj:
             """
             ...
 
-    update_autoscaler: __update_autoscaler_spec[typing_extensions.Self]
+    update_autoscaler: __update_autoscaler_spec
 
-    class __keep_warm_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __keep_warm_spec(typing_extensions.Protocol):
         def __call__(self, /, warm_pool_size: int) -> None:
             """mdmd:hidden
             Set the warm pool size for the class containers
@@ -312,7 +313,7 @@ class Obj:
             """
             ...
 
-    keep_warm: __keep_warm_spec[typing_extensions.Self]
+    keep_warm: __keep_warm_spec
 
     def _cached_user_cls_instance(self):
         """Get or construct the local object
@@ -377,6 +378,7 @@ class _Cls(modal._object._Object):
         *,
         namespace: typing.Any = None,
         environment_name: typing.Optional[str] = None,
+        client: typing.Optional[modal.client._Client] = None,
     ) -> _Cls:
         """Reference a Cls from a deployed App by its name.
 
@@ -396,8 +398,12 @@ class _Cls(modal._object._Object):
         cpu: typing.Union[float, tuple[float, float], None] = None,
         memory: typing.Union[int, tuple[int, int], None] = None,
         gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
-        secrets: collections.abc.Collection[modal.secret._Secret] = (),
-        volumes: dict[typing.Union[str, os.PathLike], modal.volume._Volume] = {},
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
+        volumes: dict[
+            typing.Union[str, pathlib.PurePosixPath],
+            typing.Union[modal.volume._Volume, modal.cloud_bucket_mount._CloudBucketMount],
+        ] = {},
         retries: typing.Union[int, modal.retries.Retries, None] = None,
         max_containers: typing.Optional[int] = None,
         buffer_containers: typing.Optional[int] = None,
@@ -464,30 +470,6 @@ class _Cls(modal._object._Object):
         """
         ...
 
-    @staticmethod
-    async def lookup(
-        app_name: str,
-        name: str,
-        namespace=None,
-        client: typing.Optional[modal.client._Client] = None,
-        environment_name: typing.Optional[str] = None,
-    ) -> _Cls:
-        """mdmd:hidden
-        Lookup a Cls from a deployed App by its name.
-
-        DEPRECATED: This method is deprecated in favor of `modal.Cls.from_name`.
-
-        In contrast to `modal.Cls.from_name`, this is an eager method
-        that will hydrate the local object with metadata from Modal servers.
-
-        ```python notest
-        Model = modal.Cls.from_name("other-app", "Model")
-        model = Model()
-        model.inference(...)
-        ```
-        """
-        ...
-
     def __call__(self, *args, **kwargs) -> _Obj:
         """This acts as the class constructor."""
         ...
@@ -525,7 +507,7 @@ class Cls(modal.object.Object):
     def _get_class_service_function(self) -> modal.functions.Function: ...
     def _get_method_names(self) -> collections.abc.Collection[str]: ...
 
-    class ___experimental_get_flash_urls_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___experimental_get_flash_urls_spec(typing_extensions.Protocol):
         def __call__(self, /) -> typing.Optional[list[str]]:
             """URL of the flash service for the class."""
             ...
@@ -534,7 +516,7 @@ class Cls(modal.object.Object):
             """URL of the flash service for the class."""
             ...
 
-    _experimental_get_flash_urls: ___experimental_get_flash_urls_spec[typing_extensions.Self]
+    _experimental_get_flash_urls: ___experimental_get_flash_urls_spec
 
     def _hydrate_metadata(self, metadata: google.protobuf.message.Message): ...
     @staticmethod
@@ -555,6 +537,7 @@ class Cls(modal.object.Object):
         *,
         namespace: typing.Any = None,
         environment_name: typing.Optional[str] = None,
+        client: typing.Optional[modal.client.Client] = None,
     ) -> Cls:
         """Reference a Cls from a deployed App by its name.
 
@@ -574,8 +557,12 @@ class Cls(modal.object.Object):
         cpu: typing.Union[float, tuple[float, float], None] = None,
         memory: typing.Union[int, tuple[int, int], None] = None,
         gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
-        secrets: collections.abc.Collection[modal.secret.Secret] = (),
-        volumes: dict[typing.Union[str, os.PathLike], modal.volume.Volume] = {},
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+        volumes: dict[
+            typing.Union[str, pathlib.PurePosixPath],
+            typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
+        ] = {},
         retries: typing.Union[int, modal.retries.Retries, None] = None,
         max_containers: typing.Optional[int] = None,
         buffer_containers: typing.Optional[int] = None,
@@ -641,59 +628,6 @@ class Cls(modal.object.Object):
         ```
         """
         ...
-
-    class __lookup_spec(typing_extensions.Protocol):
-        def __call__(
-            self,
-            /,
-            app_name: str,
-            name: str,
-            namespace=None,
-            client: typing.Optional[modal.client.Client] = None,
-            environment_name: typing.Optional[str] = None,
-        ) -> Cls:
-            """mdmd:hidden
-            Lookup a Cls from a deployed App by its name.
-
-            DEPRECATED: This method is deprecated in favor of `modal.Cls.from_name`.
-
-            In contrast to `modal.Cls.from_name`, this is an eager method
-            that will hydrate the local object with metadata from Modal servers.
-
-            ```python notest
-            Model = modal.Cls.from_name("other-app", "Model")
-            model = Model()
-            model.inference(...)
-            ```
-            """
-            ...
-
-        async def aio(
-            self,
-            /,
-            app_name: str,
-            name: str,
-            namespace=None,
-            client: typing.Optional[modal.client.Client] = None,
-            environment_name: typing.Optional[str] = None,
-        ) -> Cls:
-            """mdmd:hidden
-            Lookup a Cls from a deployed App by its name.
-
-            DEPRECATED: This method is deprecated in favor of `modal.Cls.from_name`.
-
-            In contrast to `modal.Cls.from_name`, this is an eager method
-            that will hydrate the local object with metadata from Modal servers.
-
-            ```python notest
-            Model = modal.Cls.from_name("other-app", "Model")
-            model = Model()
-            model.inference(...)
-            ```
-            """
-            ...
-
-    lookup: __lookup_spec
 
     def __call__(self, *args, **kwargs) -> Obj:
         """This acts as the class constructor."""

@@ -42,6 +42,12 @@ else:
             pass
 
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
+
 @lru_cache(maxsize=16384)
 def _get_lock(_: int, __: str) -> Lock:
     return Lock()
@@ -76,6 +82,8 @@ class CacheMixin(MIXIN_BASE):
     ) -> CachedResponse:
         """Wrapper around :py:meth:`.SessionClient._request` that adds caching"""
         # Attempt to fetch cached response
+        headers = self._prepare_headers(kwargs.get('headers', None))
+        kwargs['headers'] = headers
         key = self.cache.create_key(method, str_or_url, **kwargs)
         actions = self.cache.create_cache_actions(
             key, str_or_url, expire_after=expire_after, refresh=refresh, **kwargs
@@ -178,9 +186,9 @@ class CacheMixin(MIXIN_BASE):
             >>>         # Will return a new response, not a cached one
             >>>         await session.get('http://httpbin.org/ip')
         """
-        self.cache.disabled = True
+        token = self.cache._disabled.set(True)
         yield
-        self.cache.disabled = False
+        self.cache._disabled.reset(token)
 
     async def delete_expired_responses(self):
         """Remove all expired responses from the cache"""
@@ -245,5 +253,5 @@ with warnings.catch_warnings():
                 options. If not provided, an in-memory cache will be used.
         """
 
-        async def __aenter__(self) -> CachedSession:
+        async def __aenter__(self) -> Self:
             return self

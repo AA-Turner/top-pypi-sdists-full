@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, Kr8s Developers (See LICENSE for list)
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, Kr8s Developers (See LICENSE for list)
 # SPDX-License-Identifier: BSD 3-Clause License
 
 # Configuration file for the Sphinx documentation builder.
@@ -25,6 +25,7 @@ extensions = [
     "myst_parser",
     "sphinx.ext.autodoc",
     "autoapi.extension",
+    "sphinx_llm.txt",
 ]
 suppress_warnings = ["autoapi"]
 

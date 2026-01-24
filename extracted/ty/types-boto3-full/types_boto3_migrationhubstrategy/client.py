@@ -3,7 +3,7 @@ Type annotations for migrationhubstrategy service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_migrationhubstrategy/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -73,12 +74,6 @@ from .type_defs import (
     UpdateServerConfigRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -89,16 +84,16 @@ __all__ = ("MigrationHubStrategyRecommendationsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DependencyException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceLinkedRoleLockClientException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DependencyException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceLinkedRoleLockClientException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class MigrationHubStrategyRecommendationsClient(BaseClient):
@@ -285,7 +280,7 @@ class MigrationHubStrategyRecommendationsClient(BaseClient):
 
     def put_portfolio_preferences(
         self, **kwargs: Unpack[PutPortfolioPreferencesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Saves the specified migration and modernization preferences.
 
@@ -323,7 +318,7 @@ class MigrationHubStrategyRecommendationsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_migrationhubstrategy/client/#start_recommendation_report_generation)
         """
 
-    def stop_assessment(self, **kwargs: Unpack[StopAssessmentRequestTypeDef]) -> Dict[str, Any]:
+    def stop_assessment(self, **kwargs: Unpack[StopAssessmentRequestTypeDef]) -> dict[str, Any]:
         """
         Stops the assessment of an on-premises environment.
 
@@ -333,7 +328,7 @@ class MigrationHubStrategyRecommendationsClient(BaseClient):
 
     def update_application_component_config(
         self, **kwargs: Unpack[UpdateApplicationComponentConfigRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the configuration of an application component.
 
@@ -343,7 +338,7 @@ class MigrationHubStrategyRecommendationsClient(BaseClient):
 
     def update_server_config(
         self, **kwargs: Unpack[UpdateServerConfigRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the configuration of the specified server.
 

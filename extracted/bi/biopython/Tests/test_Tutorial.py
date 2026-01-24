@@ -228,7 +228,6 @@ for rst in files:
             continue
 
         def funct(n, d, f):
-            global tutorial_base
             method = lambda x: None  # noqa: E731
             if f:
                 p = os.path.join(tutorial_base, f)
@@ -253,7 +252,7 @@ class TutorialTestCase(unittest.TestCase):
     # Single method to be invoked by run_tests.py
     def test_doctests(self):
         """Run tutorial doctests."""
-        runner = doctest.DocTestRunner()
+        runner = doctest.DocTestRunner(optionflags=doctest.ELLIPSIS)
         failures = []
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", BiopythonDeprecationWarning)
@@ -271,7 +270,6 @@ class TutorialTestCase(unittest.TestCase):
             )
 
     def tearDown(self):
-        global original_path
         os.chdir(original_path)
         # files currently don't get created during test with python3.5 and pypy
         # remove files created from chapter_phylo.tex
@@ -304,7 +302,7 @@ if __name__ == "__main__":
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", BiopythonDeprecationWarning)
         warnings.simplefilter("ignore", BiopythonExperimentalWarning)
-        tests = doctest.testmod()
+        tests = doctest.testmod(optionflags=doctest.ELLIPSIS)
     if tests.failed:
         raise RuntimeError("%i/%i tests failed" % tests)
     print("Tests done")

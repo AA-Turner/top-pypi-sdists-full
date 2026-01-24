@@ -39,13 +39,6 @@ static bool s_logger_init = false;
 PyObject *aws_py_init_logging(PyObject *self, PyObject *args) {
     (void)self;
 
-    if (s_logger_init) {
-        aws_logger_set(NULL);
-        aws_logger_clean_up(&s_logger);
-    }
-
-    s_logger_init = true;
-
     /* NOTE: We are NOT using aws_py_get_allocator() for logging.
      * This avoid deadlock during aws_mem_tracer_dump() */
     struct aws_allocator *allocator = aws_default_allocator();
@@ -77,8 +70,39 @@ PyObject *aws_py_init_logging(PyObject *self, PyObject *args) {
         log_options.filename = file_path;
     }
 
-    aws_logger_init_standard(&s_logger, allocator, &log_options);
-    aws_logger_set(&s_logger);
+    /* It is not safe to clean up a running logger */
+    if (s_logger_init) {
+        aws_raise_error(AWS_ERROR_INVALID_STATE);
+        return PyErr_AwsLastError();
+    }
+
+    if (aws_logger_init_standard(&s_logger, allocator, &log_options) == AWS_OP_SUCCESS) {
+        aws_logger_set(&s_logger);
+        s_logger_init = true;
+    } else {
+        return PyErr_AwsLastError();
+    }
+
+    Py_RETURN_NONE;
+}
+
+PyObject *aws_py_set_log_level(PyObject *self, PyObject *args) {
+    (void)self;
+
+    if (!s_logger_init) {
+        aws_raise_error(AWS_ERROR_INVALID_STATE);
+        return PyErr_AwsLastError();
+    }
+
+    int log_level = 0;
+    if (!PyArg_ParseTuple(args, "b", &log_level)) {
+        PyErr_SetNone(PyExc_ValueError);
+        return NULL;
+    }
+
+    if (aws_logger_set_log_level(&s_logger, log_level) != AWS_OP_SUCCESS) {
+        return PyErr_AwsLastError();
+    }
 
     Py_RETURN_NONE;
 }
@@ -758,6 +782,7 @@ static PyMethodDef s_module_methods[] = {
     AWS_PY_METHOD_DEF(tls_connection_options_set_alpn_list, METH_VARARGS),
     AWS_PY_METHOD_DEF(tls_connection_options_set_server_name, METH_VARARGS),
     AWS_PY_METHOD_DEF(init_logging, METH_VARARGS),
+    AWS_PY_METHOD_DEF(set_log_level, METH_VARARGS),
     AWS_PY_METHOD_DEF(input_stream_new, METH_VARARGS),
     AWS_PY_METHOD_DEF(pkcs11_lib_new, METH_VARARGS),
 
@@ -819,10 +844,24 @@ static PyMethodDef s_module_methods[] = {
     AWS_PY_METHOD_DEF(ed25519_export_public_key, METH_VARARGS),
     AWS_PY_METHOD_DEF(ed25519_export_private_key, METH_VARARGS),
 
+    /* EC crypto primitives */
+    AWS_PY_METHOD_DEF(ec_new_generate, METH_VARARGS),
+    AWS_PY_METHOD_DEF(ec_key_from_der_data, METH_VARARGS),
+    AWS_PY_METHOD_DEF(ec_export_key, METH_VARARGS),
+    AWS_PY_METHOD_DEF(ec_sign, METH_VARARGS),
+    AWS_PY_METHOD_DEF(ec_verify, METH_VARARGS),
+    AWS_PY_METHOD_DEF(ec_encode_signature, METH_VARARGS),
+    AWS_PY_METHOD_DEF(ec_decode_signature, METH_VARARGS),
+    AWS_PY_METHOD_DEF(ec_decode_signature_to_padded_pair, METH_VARARGS),
+    AWS_PY_METHOD_DEF(ec_get_public_coords, METH_VARARGS),
+
     /* Checksum primitives */
     AWS_PY_METHOD_DEF(checksums_crc32, METH_VARARGS),
     AWS_PY_METHOD_DEF(checksums_crc32c, METH_VARARGS),
     AWS_PY_METHOD_DEF(checksums_crc64nvme, METH_VARARGS),
+    AWS_PY_METHOD_DEF(checksums_crc32_combine, METH_VARARGS),
+    AWS_PY_METHOD_DEF(checksums_crc32c_combine, METH_VARARGS),
+    AWS_PY_METHOD_DEF(checksums_crc64nvme_combine, METH_VARARGS),
 
     /* HTTP */
     AWS_PY_METHOD_DEF(http_connection_close, METH_VARARGS),

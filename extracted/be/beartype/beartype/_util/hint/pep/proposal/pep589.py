@@ -12,6 +12,7 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype._util.cls.utilclstest import is_type_subclass
+from beartype._util.py.utilpyversion import IS_PYTHON_AT_LEAST_3_14
 
 # ....................{ TESTERS                            }....................
 def is_hint_pep589(hint: object) -> bool:
@@ -28,7 +29,7 @@ def is_hint_pep589(hint: object) -> bool:
        :func:`beartype._util.hint.pep.utilpepget.get_hint_pep_sign_or_none`
        getter, which internally calls this unmemoized tester.
     #. Compare the object returned by that getter against the
-       :attr:`beartype._util.data.hint.pep.sign.datapepsigns.HintSignTypedDict`
+       :attr:`beartype._util.data.hint.pep.sign.datahintsigns.HintSignTypedDict`
        sign.
 
     Motivation
@@ -64,17 +65,37 @@ def is_hint_pep589(hint: object) -> bool:
 
     # Return true only...
     #
-    # Note that this detection scheme is technically susceptible to false
-    # positives in unlikely edge cases. Specifically, this test queries for
-    # dunder attributes and thus erroneously returns true for user-defined
-    # "dict" subclasses *NOT* subclassing the "typing.TypedDict" superclass but
-    # nonetheless declaring the same dunder attributes declared by that
-    # superclass. Since the likelihood of any user-defined "dict" subclass
-    # accidentally defining these attributes is vanishingly small *AND* since
-    # "typing.TypedDict" usage is sorta discouraged in the typing community,
-    # this error is unlikely to meaningfully arise in real-world use cases.
-    # Ergo, it is preferable to implement this test portably, safely, and
-    # efficiently rather than accommodate this error.
+    # Note that:
+    # * This detection scheme is technically susceptible to false positives in
+    #   unlikely edge cases. Specifically, this test queries for dunder
+    #   attributes and thus erroneously returns true for user-defined "dict"
+    #   subclasses *NOT* subclassing the "typing.TypedDict" superclass but
+    #   nonetheless declaring the same dunder attributes declared by that
+    #   superclass. Since the likelihood of any user-defined "dict" subclass
+    #   accidentally defining these attributes is vanishingly small *AND* since
+    #   "typing.TypedDict" usage is sorta discouraged in the typing community,
+    #   this error is unlikely to meaningfully arise in real-world use cases.
+    #   Ergo, it is preferable to implement this test portably, safely, and
+    #   efficiently rather than accommodate this error.
+    # * This detection scheme would ideally trivially reduce to this one-liner:
+    #       from typing import is_typeddict
+    #       return is_typeddict(hint)
+    #
+    #   Deferring to that official tester suffices for typed dictionaries
+    #   defined with the official "typing.TypedDict" but *NOT* third-party
+    #   "typing_extensions.TypedDict" superclass. Even that constraint could be
+    #   circumvented by noting that the is_typeddict() tester itself trivially
+    #   reduces to a similar one-liner:
+    #       return isinstance(tp, _TypedDictMeta)
+    #
+    #   An alternate working solution covering both the "typing.TypedDict" and
+    #   "typing_extensions.TypedDict" superclasses would then resemble:
+    #       _TYPED_DICT_BASES = (
+    #            typing._TypedDictMeta, typing_extensions._TypedDictMeta,)
+    #       return isinstance(tp, _TYPED_DICT_BASES)
+    #
+    #   Of course, that solution would *STILL* violate privacy encapsulation
+    #   across not one but two distinct APIs, inviting future breakage.
     #
     # In short, the current approach is strongly preferable.
     return (
@@ -108,11 +129,24 @@ def is_hint_pep589(hint: object) -> bool:
     )
 
 # ....................{ PRIVATE ~ globals                  }....................
+# The is_hint_pep589() tester defined above uniquely identifies "TypedDict"
+# subclasses as types declaring *ALL* of:
 _TYPED_DICT_UNIQUE_ATTR_NAMES = frozenset((
-    '__annotations__',
-    '__total__',
-    '__required_keys__',
+    (
+        # If the active Python interpreter targets Python >= 3.14, this PEP
+        # 649-compliant dunder attribute. CPython now dynamically creates the
+        # "__annotations__" dunder dictionary on first access. Ergo, the
+        # "__annotations__" dunder dictionary is no longer guaranteed to exist
+        # as an item of the "__dict__" dunder dictionary of "TypedDict" types.
+        '__annotate_func__'
+        if IS_PYTHON_AT_LEAST_3_14 else
+        # Else, the active Python interpreter targets Python <= 3.13. In this
+        # case, this PEP 484-compliant dunder attribute.
+        '__annotations__'
+    ),
     '__optional_keys__',
+    '__required_keys__',
+    '__total__',
 ))
 '''
 Frozen set of the names of all class attributes universally unique to *all*

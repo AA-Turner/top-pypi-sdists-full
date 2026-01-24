@@ -3,28 +3,32 @@ use crate::common::ObservedIterator;
 use crate::common::PreHashObject;
 use crate::common::TimeToLivePair;
 
-#[pyo3::pyclass(module = "cachebox._core", frozen)]
+#[cfg_attr(Py_3_9, pyo3::pyclass(module = "cachebox._core", frozen))]
+#[cfg_attr(
+    not(Py_3_9),
+    pyo3::pyclass(module = "cachebox._core", frozen, immutable_type)
+)]
 pub struct VTTLCache {
-    raw: crate::mutex::Mutex<crate::policies::vttl::VTTLPolicy>,
+    raw: crate::common::Mutex<crate::policies::vttl::VTTLPolicy>,
 }
 
 #[allow(non_camel_case_types)]
 #[pyo3::pyclass(module = "cachebox._core")]
 pub struct vttlcache_items {
     pub ptr: ObservedIterator,
-    pub iter: crate::mutex::Mutex<crate::policies::vttl::VTTLIterator>,
+    pub iter: crate::common::Mutex<crate::policies::vttl::VTTLIterator>,
     pub now: std::time::SystemTime,
 }
 
 #[pyo3::pymethods]
 impl VTTLCache {
     #[new]
-    #[pyo3(signature=(maxsize, *, capacity=0))]
-    fn __new__(maxsize: usize, capacity: usize) -> pyo3::PyResult<Self> {
-        let raw = crate::policies::vttl::VTTLPolicy::new(maxsize, capacity)?;
+    #[pyo3(signature=(maxsize, *, capacity=0, maxmemory=0))]
+    fn __new__(maxsize: usize, capacity: usize, maxmemory: usize) -> pyo3::PyResult<Self> {
+        let raw = crate::policies::vttl::VTTLPolicy::new(maxsize, capacity, maxmemory)?;
 
         let self_ = Self {
-            raw: crate::mutex::Mutex::new(raw),
+            raw: crate::common::Mutex::new(raw),
         };
         Ok(self_)
     }
@@ -35,6 +39,14 @@ impl VTTLCache {
 
     fn maxsize(&self) -> usize {
         self.raw.lock().maxsize()
+    }
+
+    fn maxmemory(&self) -> usize {
+        self.raw.lock().maxmemory()
+    }
+
+    fn memory(&self) -> usize {
+        self.raw.lock().memory()
     }
 
     fn capacity(&self) -> usize {
@@ -48,7 +60,8 @@ impl VTTLCache {
     fn __sizeof__(&self) -> usize {
         let lock = self.raw.lock();
 
-        lock.capacity() * (size_of::<PreHashObject>() + size_of::<pyo3::ffi::PyObject>())
+        lock.capacity()
+            * (size_of::<PreHashObject>() + size_of::<pyo3::ffi::PyObject>() + size_of::<usize>())
     }
 
     fn __contains__(
@@ -85,9 +98,9 @@ impl VTTLCache {
         let mut lock = self.raw.lock();
 
         match lock.entry_with_slot(py, &key)? {
-            Entry::Occupied(entry) => Ok(Some(entry.update(value, ttl)?)),
+            Entry::Occupied(entry) => Ok(Some(entry.update(py, value, ttl)?)),
             Entry::Absent(entry) => {
-                entry.insert(key, value, ttl)?;
+                entry.insert(py, key, value, ttl)?;
                 Ok(None)
             }
         }
@@ -211,7 +224,7 @@ impl VTTLCache {
                 Ok(val.as_ref().value.clone_ref(py))
             },
             Entry::Absent(entry) => {
-                entry.insert(key, default.clone_ref(py), ttl)?;
+                entry.insert(py, key, default.clone_ref(py), ttl)?;
                 Ok(default)
             }
         }
@@ -224,7 +237,7 @@ impl VTTLCache {
 
         let result = vttlcache_items {
             ptr: ObservedIterator::new(slf.as_ptr(), state),
-            iter: crate::mutex::Mutex::new(iter),
+            iter: crate::common::Mutex::new(iter),
             now: std::time::SystemTime::now(),
         };
 
@@ -286,13 +299,15 @@ impl VTTLCache {
 
             let maxsize = pyo3::ffi::PyLong_FromSize_t(lock.maxsize());
             let capacity = pyo3::ffi::PyLong_FromSize_t(lock.capacity());
+            let maxmemory = pyo3::ffi::PyLong_FromSize_t(lock.maxmemory());
 
             tuple!(
                 py,
-                3,
+                4,
                 0 => maxsize,
                 1 => list,
                 2 => capacity,
+                3 => maxmemory,
             )?
         };
 

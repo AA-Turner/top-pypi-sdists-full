@@ -480,7 +480,7 @@ class CortexSearchServiceApi:
         # process the body parameter
         _body_params = None
 
-        if _params["create_cortex_search_service_request"]:
+        if _params["create_cortex_search_service_request"] is not None:
             _body_params = _params["create_cortex_search_service_request"]
 
         # set the HTTP header `Accept`
@@ -1416,7 +1416,7 @@ class CortexSearchServiceApi:
         # process the body parameter
         _body_params = None
 
-        if _params["query_request"]:
+        if _params["query_request"] is not None:
             _body_params = _params["query_request"]
 
         # set the HTTP header `Accept`
@@ -2054,7 +2054,7 @@ class CortexSearchServiceApi:
         # process the body parameter
         _body_params = None
 
-        if _params["send_feedback_request"]:
+        if _params["send_feedback_request"] is not None:
             _body_params = _params["send_feedback_request"]
 
         # set the HTTP header `Accept`
@@ -2347,7 +2347,7 @@ class CortexSearchServiceApi:
         # process the body parameter
         _body_params = None
 
-        if _params["suggest_query_request"]:
+        if _params["suggest_query_request"] is not None:
             _body_params = _params["suggest_query_request"]
 
         # set the HTTP header `Accept`

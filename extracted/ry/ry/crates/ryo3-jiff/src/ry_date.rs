@@ -1,6 +1,4 @@
-use crate::constants::DATETIME_PARSER;
 use crate::difference::{DateDifferenceArg, RyDateDifference};
-use crate::errors::{map_py_overflow_err, map_py_value_err};
 use crate::ry_datetime::RyDateTime;
 use crate::ry_iso_week_date::RyISOWeekDate;
 use crate::ry_signed_duration::RySignedDuration;
@@ -13,10 +11,13 @@ use crate::spanish::Spanish;
 use crate::{JiffEra, JiffEraYear, JiffRoundMode, JiffUnit, JiffWeekday};
 use jiff::Zoned;
 use jiff::civil::{Date, Weekday};
-use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::{PyDict, PyTuple};
+use pyo3::{BoundObject, prelude::*};
 use pyo3::{IntoPyObject, IntoPyObjectExt};
+use ryo3_core::PyAsciiString;
+use ryo3_core::map_py_overflow_err;
+use ryo3_core::map_py_value_err;
 use ryo3_macro_rules::{any_repr, py_type_err, py_value_error};
 use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -25,7 +26,7 @@ use std::ops::Sub;
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-#[pyclass(name = "Date", frozen)]
+#[pyclass(name = "Date", frozen, immutable_type, from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RyDate(pub(crate) Date);
 
@@ -38,41 +39,32 @@ impl RyDate {
             .map_err(|e| py_value_error!("{e} (year={year}, month={month}, day={day})",))
     }
 
-    #[expect(non_snake_case)]
     #[classattr]
+    #[expect(non_snake_case)]
     fn MIN() -> Self {
         Self(Date::MIN)
     }
 
-    #[expect(non_snake_case)]
     #[classattr]
+    #[expect(non_snake_case)]
     fn MAX() -> Self {
         Self(Date::MAX)
     }
 
-    #[expect(non_snake_case)]
     #[classattr]
+    #[expect(non_snake_case)]
     fn ZERO() -> Self {
         Self(Date::ZERO)
     }
 
     #[staticmethod]
     fn today() -> Self {
-        let z = jiff::civil::Date::from(Zoned::now());
-        Self::from(z)
+        Self::now()
     }
 
     #[staticmethod]
-    fn from_str(input: &str) -> PyResult<Self> {
-        DATETIME_PARSER
-            .parse_date(input)
-            .map(Self::from)
-            .map_err(map_py_value_err)
-    }
-
-    #[staticmethod]
-    fn parse(input: &str) -> PyResult<Self> {
-        Self::from_str(input)
+    fn now() -> Self {
+        Self::from(Zoned::now().date())
     }
 
     #[pyo3(signature = (hour, minute, second, nanosecond=0))]
@@ -125,20 +117,17 @@ impl RyDate {
         }
     }
 
-    fn isoformat(&self) -> String {
-        self.0.to_string()
-    }
-
-    fn string(&self) -> String {
+    #[pyo3(name = "to_string")]
+    fn py_to_string(&self) -> PyAsciiString {
         self.__str__()
     }
 
-    fn __str__(&self) -> String {
-        self.0.to_string()
+    fn __str__(&self) -> PyAsciiString {
+        self.0.to_string().into()
     }
 
-    fn __repr__(&self) -> String {
-        format!("{self}")
+    fn __repr__(&self) -> PyAsciiString {
+        format!("{self}").into()
     }
 
     fn __getnewargs__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
@@ -157,7 +146,7 @@ impl RyDate {
         py: Python<'py>,
         other: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        if let Ok(ob) = other.cast::<Self>() {
+        if let Ok(ob) = other.cast_exact::<Self>() {
             let span = self.0.sub(ob.get().0);
             let obj = RySpan::from(span).into_pyobject(py).map(Bound::into_any)?;
             Ok(obj)
@@ -238,8 +227,8 @@ impl RyDate {
     }
 
     #[staticmethod]
-    fn from_pydate(d: Date) -> Self {
-        Self(d)
+    fn from_pydate(date: Date) -> Self {
+        Self(date)
     }
 
     #[expect(clippy::wrong_self_convention)]
@@ -288,11 +277,7 @@ impl RyDate {
     }
 
     fn series(&self, period: &RySpan) -> PyResult<RyDateSeries> {
-        if period.0.is_zero() {
-            Err(py_value_error!("period cannot be zero"))
-        } else {
-            Ok(RyDateSeries::from(self.0.series(period.0)))
-        }
+        (self, period).try_into()
     }
 
     fn day_of_year(&self) -> i16 {
@@ -314,6 +299,7 @@ impl RyDate {
     fn duration_since(&self, other: &Self) -> RySignedDuration {
         RySignedDuration::from(self.0.duration_since(other.0))
     }
+
     fn duration_until(&self, other: &Self) -> RySignedDuration {
         RySignedDuration::from(self.0.duration_until(other.0))
     }
@@ -353,12 +339,18 @@ impl RyDate {
     // ========================================================================
     // STRPTIME/STRFTIME
     // ========================================================================
-    fn __format__(&self, fmt: &str) -> String {
-        self.0.strftime(fmt).to_string()
+    fn __format__(&self, fmt: &str) -> PyResult<String> {
+        if fmt.is_empty() {
+            Ok(self.0.to_string())
+        } else {
+            self.strftime(fmt)
+        }
     }
 
-    fn strftime(&self, fmt: &str) -> String {
-        self.0.strftime(fmt).to_string()
+    #[pyo3(signature = (fmt))]
+    fn strftime(&self, fmt: &str) -> PyResult<String> {
+        let bdt: jiff::fmt::strtime::BrokenDownTime = self.0.into();
+        bdt.to_string(fmt).map_err(map_py_value_err)
     }
 
     #[staticmethod]
@@ -383,17 +375,25 @@ impl RyDate {
     }
 
     #[pyo3(
-       signature = (d, *, smallest=None, largest = None, mode = None, increment = None),
+        signature = (
+            other,
+            *,
+            smallest=JiffUnit::DAY,
+            largest=None,
+            mode=JiffRoundMode::TRUNC,
+            increment = 1
+        ),
+        text_signature = "(self, other, *, smallest=\"day\", largest=None, mode=\"trunc\", increment=1)"
     )]
     fn since(
         &self,
-        d: DateDifferenceArg,
-        smallest: Option<JiffUnit>,
+        other: DateDifferenceArg,
+        smallest: JiffUnit,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
-        increment: Option<i64>,
+        mode: JiffRoundMode,
+        increment: i64,
     ) -> PyResult<RySpan> {
-        let dt_diff = d.build(smallest, largest, mode, increment);
+        let dt_diff = other.build(smallest, largest, mode, increment);
         self.0
             .since(dt_diff)
             .map(RySpan::from)
@@ -401,17 +401,25 @@ impl RyDate {
     }
 
     #[pyo3(
-       signature = (d, *, smallest=None, largest = None, mode = None, increment = None),
+        signature = (
+            other,
+            *,
+            smallest=JiffUnit::DAY,
+            largest=None,
+            mode=JiffRoundMode::TRUNC,
+            increment = 1
+        ),
+        text_signature = "(self, other, *, smallest=\"day\", largest=None, mode=\"trunc\", increment=1)"
     )]
     fn until(
         &self,
-        d: DateDifferenceArg,
-        smallest: Option<JiffUnit>,
+        other: DateDifferenceArg,
+        smallest: JiffUnit,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
-        increment: Option<i64>,
+        mode: JiffRoundMode,
+        increment: i64,
     ) -> PyResult<RySpan> {
-        let dt_diff = d.build(smallest, largest, mode, increment);
+        let dt_diff = other.build(smallest, largest, mode, increment);
         self.0
             .until(dt_diff)
             .map(RySpan::from)
@@ -452,39 +460,26 @@ impl RyDate {
     }
 
     fn iso_week_date(&self) -> RyISOWeekDate {
-        self.0.iso_week_date().into()
+        self.into()
     }
 
     #[staticmethod]
-    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, Self>> {
         let py = value.py();
-        if let Ok(pystr) = value.cast::<pyo3::types::PyString>() {
-            let s = pystr.extract::<&str>()?;
-            Self::from_str(s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
+        if let Ok(val) = value.cast_exact::<Self>() {
+            Ok(val.as_borrowed().into_bound())
+        } else if let Ok(pystr) = value.cast::<pyo3::types::PyString>() {
+            let s = pystr.to_cow()?;
+            Self::from_str(&s).map(|dt| dt.into_pyobject(py))?
         } else if let Ok(pybytes) = value.cast::<pyo3::types::PyBytes>() {
             let s = String::from_utf8_lossy(pybytes.as_bytes());
-            Self::from_str(&s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
-        } else if value.is_exact_instance_of::<Self>() {
-            value.into_bound_py_any(py)
-        // } else if let Ok(v) = value.cast::<PyInt>() {
-        //     let i = v.extract::<i64>()?;
-        //     let ts = if (-20_000_000_000..=20_000_000_000).contains(&i) {
-        //         jiff::Timestamp::from_second(i)
-        //     } else {
-        //         jiff::Timestamp::from_millisecond(i)
-        //     }
-        //     .map_err(map_py_value_err)?;
-        //     let zdt = ts.to_zoned(TimeZone::UTC);
-        //     let date = zdt.date();
-        //     Self::from(date).into_bound_py_any(py)
-        } else if let Ok(d) = value.extract::<RyDateTime>() {
-            let dt = d.date();
-            dt.into_bound_py_any(py)
-        } else if let Ok(d) = value.extract::<RyZoned>() {
-            let dt = d.date();
-            dt.into_bound_py_any(py)
+            Self::from_str(&s).map(|dt| dt.into_pyobject(py))?
+        } else if let Ok(d) = value.cast_exact::<RyDateTime>() {
+            Self::from(d.get()).into_pyobject(py)
+        } else if let Ok(d) = value.cast_exact::<RyZoned>() {
+            Self::from(d.get()).into_pyobject(py)
         } else if let Ok(d) = value.extract::<Date>() {
-            Self::from_pydate(d).into_bound_py_any(py)
+            Self::from(d).into_pyobject(py)
         } else {
             let valtype = any_repr!(value);
             py_type_err!("Date conversion error: {valtype}",)
@@ -497,7 +492,7 @@ impl RyDate {
     fn _pydantic_validate<'py>(
         value: &Bound<'py, PyAny>,
         _handler: &Bound<'py, PyAny>,
-    ) -> PyResult<Bound<'py, PyAny>> {
+    ) -> PyResult<Bound<'py, Self>> {
         Self::from_any(value).map_err(map_py_value_err)
     }
 
@@ -511,6 +506,27 @@ impl RyDate {
         use ryo3_pydantic::GetPydanticCoreSchemaCls;
         Self::get_pydantic_core_schema(cls, source, handler)
     }
+
+    // ========================================================================
+    // STANDARD METHODS
+    // ========================================================================
+    // <STD-METHODS>
+    #[staticmethod]
+    fn from_str(s: &str) -> PyResult<Self> {
+        use ryo3_core::PyFromStr;
+        Self::py_from_str(s)
+    }
+
+    #[staticmethod]
+    fn parse(s: &Bound<'_, PyAny>) -> PyResult<Self> {
+        use ryo3_core::PyParse;
+        Self::py_parse(s)
+    }
+
+    fn isoformat(&self) -> PyAsciiString {
+        <Self as crate::isoformat::PyIsoFormat>::isoformat(self)
+    }
+    // </STD-METHODS>
 }
 
 impl Display for RyDate {
@@ -522,11 +538,5 @@ impl Display for RyDate {
             self.month(),
             self.day()
         )
-    }
-}
-
-impl From<Date> for RyDate {
-    fn from(value: Date) -> Self {
-        Self(value)
     }
 }

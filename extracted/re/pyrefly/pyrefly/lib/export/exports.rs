@@ -11,10 +11,12 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use dupe::Dupe;
+use pyrefly_graph::calculation::Calculation;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
+use pyrefly_types::callable::Deprecation;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
@@ -24,15 +26,15 @@ use starlark_map::small_set::SmallSet;
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
 use crate::export::definitions::DunderAllEntry;
+use crate::export::definitions::DunderAllKind;
 use crate::export::special::SpecialExport;
-use crate::graph::calculation::Calculation;
 use crate::module::module_info::ModuleInfo;
-use crate::state::loader::FindError;
+use crate::state::loader::FindingOrError;
 
 /// Find the exports of a given module.
 pub trait LookupExport {
     /// Get the exports of a given module, or an error if the module is not available.
-    fn get(&self, module: ModuleName) -> Result<Exports, FindError>;
+    fn get(&self, module: ModuleName) -> FindingOrError<Exports>;
 }
 
 #[derive(Debug, Clone)]
@@ -40,16 +42,16 @@ pub struct Export {
     pub location: TextRange,
     pub symbol_kind: Option<SymbolKind>,
     pub docstring_range: Option<TextRange>,
-    pub is_deprecated: bool,
+    pub deprecation: Option<Deprecation>,
     pub special_export: Option<SpecialExport>,
 }
 
 /// Where is this export defined?
 #[derive(Debug, Clone)]
 pub enum ExportLocation {
-    // This export is defined in this module.
+    /// This export is defined in this module.
     ThisModule(Export),
-    // Export from another module ModuleName. If it's aliased, the old name (before the alias) is provided.
+    /// Export from another module ModuleName. If it's aliased, the old name (before the alias) is provided.
     OtherModule(ModuleName, Option<Name>),
 }
 
@@ -68,12 +70,15 @@ struct ExportsInner {
     /// Names that are available via `from <this_module> import <name>` along with their locations
     exports: Calculation<Arc<SmallMap<Name, ExportLocation>>>,
     /// If this module has a docstring, the range is stored here. Docstrings for exports themselves are stored in exports.
+    /// While putting the module docstring range on exports is a bit weird (it doesn't actually have much to do with exports),
+    /// we can't put it on the Module as that doesn't have the AST, and we can't get it from the AST as we often throw that away,
+    /// so here makes sense.
     docstring_range: Option<TextRange>,
 }
 
 impl Display for Exports {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for x in self.0.definitions.dunder_all.iter() {
+        for x in self.0.definitions.dunder_all.entries.iter() {
             match x {
                 DunderAllEntry::Name(_, x) => writeln!(f, "export {x}")?,
                 DunderAllEntry::Module(_, x) => writeln!(f, "from {x} import *")?,
@@ -119,14 +124,14 @@ impl Exports {
     pub fn wildcard(&self, lookup: &dyn LookupExport) -> Arc<SmallSet<Name>> {
         let f = || {
             let mut result = SmallSet::new();
-            for x in &self.0.definitions.dunder_all {
+            for x in &self.0.definitions.dunder_all.entries {
                 match x {
                     DunderAllEntry::Name(_, x) => {
                         result.insert(x.clone());
                     }
                     DunderAllEntry::Module(_, x) => {
                         // They did `__all__.extend(foo.__all__)`, but didn't import `foo`.
-                        if let Ok(import) = lookup.get(*x) {
+                        if let Some(import) = lookup.get(*x).finding() {
                             let wildcard = import.wildcard(lookup);
                             for y in wildcard.iter_hashed() {
                                 result.insert_hashed(y.cloned());
@@ -156,20 +161,68 @@ impl Exports {
             .contains(name)
     }
 
+    /// Returns entries in `__all__` that don't exist in the module's definitions.
+    /// Only validates explicitly user-defined `__all__` entries, not synthesized ones.
+    /// Returns a vector of (range, name) tuples for invalid entries.
+    pub fn invalid_dunder_all_entries(
+        &self,
+        lookup: &dyn LookupExport,
+        module_info: &ModuleInfo,
+    ) -> Vec<(TextRange, Name)> {
+        // Only validate if __all__ was explicitly defined by the user
+        if self.0.definitions.dunder_all.kind == DunderAllKind::Inferred {
+            return Vec::new();
+        }
+        let mut invalid = Vec::new();
+        for entry in &self.0.definitions.dunder_all.entries {
+            if let DunderAllEntry::Name(range, name) = entry {
+                // Check if name exists in definitions
+                if self.0.definitions.definitions.contains_key(name) {
+                    continue;
+                }
+                // Check if name is available through a wildcard import
+                let mut found_in_import = false;
+                for (module, _) in self.0.definitions.import_all.iter() {
+                    if let Some(exports) = lookup.get(*module).finding()
+                        && exports.wildcard(lookup).contains(name)
+                    {
+                        found_in_import = true;
+                        break;
+                    }
+                }
+                if found_in_import {
+                    continue;
+                }
+                // In __init__.py, __all__ can list submodule names
+                if module_info.path().is_init() {
+                    let submodule = module_info.name().append(name);
+                    if lookup.get(submodule).finding().is_some() {
+                        continue;
+                    }
+                }
+                invalid.push((*range, name.clone()));
+            }
+        }
+        invalid
+    }
+
     pub fn exports(&self, lookup: &dyn LookupExport) -> Arc<SmallMap<Name, ExportLocation>> {
         let f = || {
             let mut result: SmallMap<Name, ExportLocation> = SmallMap::new();
             for (name, definition) in self.0.definitions.definitions.iter_hashed() {
-                let is_deprecated = self.0.definitions.deprecated.contains_hashed(name);
+                let deprecation = self.0.definitions.deprecated.get_hashed(name).cloned();
                 let special_export = self.0.definitions.special_exports.get_hashed(name).copied();
                 let export = match &definition.style {
-                    DefinitionStyle::Local(symbol_kind) => ExportLocation::ThisModule(Export {
-                        location: definition.range,
-                        symbol_kind: Some(*symbol_kind),
-                        docstring_range: definition.docstring_range,
-                        is_deprecated,
-                        special_export,
-                    }),
+                    DefinitionStyle::Annotated(symbol_kind, ..)
+                    | DefinitionStyle::Unannotated(symbol_kind) => {
+                        ExportLocation::ThisModule(Export {
+                            location: definition.range,
+                            symbol_kind: Some(*symbol_kind),
+                            docstring_range: definition.docstring_range,
+                            deprecation,
+                            special_export,
+                        })
+                    }
                     // The final location is this module in several edge cases that can occur analyzing invalid code:
                     // - An invalid import
                     // - A variable defined only by a `del` statement but never initialized
@@ -180,14 +233,14 @@ impl Exports {
                         location: definition.range,
                         symbol_kind: None,
                         docstring_range: definition.docstring_range,
-                        is_deprecated,
+                        deprecation,
                         special_export,
                     }),
                     DefinitionStyle::ImplicitGlobal => ExportLocation::ThisModule(Export {
                         location: definition.range,
                         symbol_kind: Some(SymbolKind::Constant),
                         docstring_range: None,
-                        is_deprecated,
+                        deprecation,
                         special_export,
                     }),
                     DefinitionStyle::ImportAs(from, name) => {
@@ -202,7 +255,7 @@ impl Exports {
                 result.insert_hashed(name.cloned(), export);
             }
             for m in self.0.definitions.import_all.keys() {
-                if let Ok(exports) = lookup.get(*m) {
+                if let Some(exports) = lookup.get(*m).finding() {
                     for name in exports.wildcard(lookup).iter_hashed() {
                         result.insert_hashed(name.cloned(), ExportLocation::OtherModule(*m, None));
                     }
@@ -222,22 +275,24 @@ mod tests {
     use pyrefly_python::ast::Ast;
     use pyrefly_python::module_path::ModulePath;
     use pyrefly_python::module_path::ModuleStyle;
+    use ruff_python_ast::PySourceType;
     use starlark_map::small_map::SmallMap;
     use starlark_map::smallmap;
 
     use super::*;
+    use crate::state::loader::FindError;
 
     impl LookupExport for SmallMap<ModuleName, Exports> {
-        fn get(&self, module: ModuleName) -> Result<Exports, FindError> {
+        fn get(&self, module: ModuleName) -> FindingOrError<Exports> {
             match self.get(&module) {
-                Some(x) => Ok(x.dupe()),
-                None => Err(FindError::not_found(anyhow!("Error"), module)),
+                Some(x) => FindingOrError::new_finding(x.dupe()),
+                None => FindingOrError::Error(FindError::not_found(anyhow!("Error"), module)),
             }
         }
     }
 
     fn mk_exports(contents: &str, style: ModuleStyle) -> Exports {
-        let ast = Ast::parse(contents).0;
+        let ast = Ast::parse(contents, PySourceType::Python).0;
         let path = ModulePath::filesystem(PathBuf::from(if style == ModuleStyle::Interface {
             "foo.pyi"
         } else {

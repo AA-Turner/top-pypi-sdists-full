@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -12,7 +11,12 @@ from evergreen import Task, Version
 from requests.exceptions import HTTPError
 
 from db_contrib_tool.config import DownloadTarget, SetupReproEnvConfig
-from db_contrib_tool.services.evergreen_service import EvergreenService
+from db_contrib_tool.services.evergreen_service import (
+    EvergreenService,
+    NON_VERSION_PROJECTS,
+    MONGO_PROJECT_PREFIX,
+    ANY_VERSION_PROJECT_RE,
+)
 from db_contrib_tool.services.git_service import GitService
 from db_contrib_tool.services.platform_service import PlatformService
 from db_contrib_tool.setup_repro_env.request_models import (
@@ -23,9 +27,7 @@ from db_contrib_tool.setup_repro_env.request_models import (
 )
 
 LOGGER = structlog.get_logger(__name__)
-NON_VERSION_PROJECTS = {"mongodb-mongo-master", "mongodb-mongo-master-nightly"}
-PROJECT_PREFIX = "mongodb-mongo-"
-VERSION_PROJECT_RE = re.compile(r"mongodb-mongo-v(\d+\.\d+)")
+
 # In Evergreen, we upload artifacts to mciuploads S3 bucket that moves files to deep archive after a year
 # which makes artifacts unreachable via URLs provided by Evergreen
 EVERGREEN_LOOKBACK_LIMIT_DAYS = 365
@@ -126,7 +128,7 @@ class ArtifactDiscoveryService:
             )
 
         elif request.request_type == RequestType.GIT_BRANCH:
-            mongo_project = f"{PROJECT_PREFIX}{request.identifier}"
+            mongo_project = f"{MONGO_PROJECT_PREFIX}{request.identifier}"
             try:
                 artifact_urls = self.scan_for_artifact_urls(
                     mongo_project, requested_variant, target, ignore_failed_push, starting_commit
@@ -150,7 +152,7 @@ class ArtifactDiscoveryService:
                     raise
 
         elif request.request_type == RequestType.MONGO_RELEASE_VERSION:
-            mongo_project = f"{PROJECT_PREFIX}v{request.identifier}"
+            mongo_project = f"{MONGO_PROJECT_PREFIX}v{request.identifier}"
             try:
                 artifact_urls = self.scan_for_artifact_urls(
                     mongo_project, requested_variant, target, ignore_failed_push
@@ -382,9 +384,9 @@ class ArtifactDiscoveryService:
         :return: Version of given project identifier.
         """
         if project_identifier in NON_VERSION_PROJECTS:
-            return project_identifier.replace(PROJECT_PREFIX, "")
+            return project_identifier.replace(MONGO_PROJECT_PREFIX, "")
 
-        version_match = VERSION_PROJECT_RE.match(project_identifier)
+        version_match = ANY_VERSION_PROJECT_RE.match(project_identifier)
         if version_match is not None:
             return version_match.group(1)
 
@@ -409,7 +411,7 @@ class ArtifactDiscoveryService:
         LOGGER.debug("Search evergreen projects for commit", commit_hash=commit)
         urls = None
         version_id = None
-        evergreen_projects = self.evg_service.get_mongo_projects()
+        evergreen_projects = self.evg_service.get_mongo_projects_prioritized()
         for project in evergreen_projects:
             possible_version_id = f"{project}_{commit}".replace("-", "_")
             LOGGER.debug(

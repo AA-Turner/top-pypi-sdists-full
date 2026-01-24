@@ -27,6 +27,7 @@ from myPyllant.enums import (
     AmbisenseRoomOperationMode,
     VentilationOperationModeVRC700,
     ZoneOperatingType,
+    EnergyManagerState,
 )
 from myPyllant.utils import datetime_parse, prepare_field_value_for_dict
 
@@ -67,12 +68,7 @@ class MyPyllantDataClass:
 
         for k, v in data.items():
             if v is not None and k in datetime_fields and timezone is not None:
-                if v.endswith("Z"):
-                    # Some dates are returned as "2024-01-01T00:00:00Z" without timezone information
-                    data[k] = datetime_parse(v, timezone)
-                else:
-                    # ... and some are ISO formatted with timezone information
-                    data[k] = datetime.datetime.fromisoformat(v)
+                data[k] = datetime_parse(v, timezone)
 
         if extra_fields:
             data["extra_fields"] = {f: data[f] for f in extra_fields}
@@ -551,7 +547,9 @@ class DomesticHotWater(MyPyllantDataClass):
     system_id: str
     index: int
     control_identifier: ControlIdentifier
-    current_special_function: DHWCurrentSpecialFunction | DHWCurrentSpecialFunctionVRC700
+    current_special_function: (
+        DHWCurrentSpecialFunction | DHWCurrentSpecialFunctionVRC700
+    )
     max_setpoint: float
     min_setpoint: float
     operation_mode_dhw: DHWOperationMode | DHWOperationModeVRC700
@@ -596,7 +594,9 @@ class Ventilation(MyPyllantDataClass):
     control_identifier: ControlIdentifier
     maximum_day_fan_stage: int
     maximum_night_fan_stage: int
-    operation_mode_ventilation: VentilationOperationMode | VentilationOperationModeVRC700
+    operation_mode_ventilation: (
+        VentilationOperationMode | VentilationOperationModeVRC700
+    )
     time_program_ventilation: dict
 
     @classmethod
@@ -721,7 +721,15 @@ class Device(MyPyllantDataClass):
 
     @property
     def current_power(self) -> int | None:
-        return self.mpc.get("current_power") if self.mpc else None
+        if (
+            self.mpc
+            and "current_power" in self.mpc
+            and self.mpc["current_power"] is not None
+        ):
+            return self.mpc["current_power"]
+        if self.rts_statistics and "current_power_consumption" in self.rts_statistics:
+            return self.rts_statistics["current_power_consumption"]
+        return None
 
     @classmethod
     def from_api(cls, **data):
@@ -1136,6 +1144,27 @@ class System(MyPyllantDataClass):
         except KeyError:
             logger.debug(
                 "Could not get bottom CH cylinder temperature from system control state"
+            )
+            return None
+
+    @property
+    def system_flow_temperature(self) -> float | None:
+        try:
+            return self.state["system"]["system_flow_temperature"]
+        except KeyError:
+            logger.debug(
+                "Could not get system flow temperature from system control state"
+            )
+            return None
+
+    @property
+    def energy_manager_state(self) -> EnergyManagerState | None:
+        try:
+            return EnergyManagerState(self.state["system"]["energy_manager_state"])
+        except (KeyError, ValueError) as e:
+            logger.debug(
+                "Could not get energy manager state from system control state",
+                exc_info=e,
             )
             return None
 

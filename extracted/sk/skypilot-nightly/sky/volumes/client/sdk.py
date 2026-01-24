@@ -1,15 +1,19 @@
-"""SDK functions for managed jobs."""
+"""SDK functions for volumes."""
 import json
 import typing
-from typing import Any, Dict, List
+from typing import List
 
+from sky import exceptions
 from sky import sky_logging
 from sky.adaptors import common as adaptors_common
+from sky.schemas.api import responses
 from sky.server import common as server_common
+from sky.server import versions
 from sky.server.requests import payloads
 from sky.usage import usage_lib
 from sky.utils import annotations
 from sky.utils import context
+from sky.utils import ux_utils
 from sky.volumes import volume as volume_lib
 
 if typing.TYPE_CHECKING:
@@ -70,10 +74,10 @@ def apply(volume: volume_lib.Volume) -> server_common.RequestId[None]:
         size=volume.size,
         config=volume.config,
         labels=volume.labels,
+        use_existing=volume.use_existing,
     )
-    response = requests.post(f'{server_common.get_server_url()}/volumes/apply',
-                             json=json.loads(body.model_dump_json()),
-                             cookies=server_common.get_api_cookie_jar())
+    response = server_common.make_authenticated_request(
+        'POST', '/volumes/apply', json=json.loads(body.model_dump_json()))
     return server_common.get_request_id(response)
 
 
@@ -81,14 +85,61 @@ def apply(volume: volume_lib.Volume) -> server_common.RequestId[None]:
 @usage_lib.entrypoint
 @server_common.check_server_healthy_or_start
 @annotations.client_api
-def ls() -> server_common.RequestId[List[Dict[str, Any]]]:
+@versions.minimal_api_version(20)
+def validate(volume: volume_lib.Volume) -> None:
+    """Validates the volume.
+
+    All validation is done on the server side.
+
+    Args:
+        volume: The volume to validate.
+
+    Raises:
+        ValueError: If the volume is invalid.
+    """
+    body = payloads.VolumeValidateBody(
+        name=volume.name,
+        volume_type=volume.type,
+        infra=volume.infra,
+        size=volume.size,
+        config=volume.config,
+        labels=volume.labels,
+        use_existing=volume.use_existing,
+    )
+    response = server_common.make_authenticated_request(
+        'POST', '/volumes/validate', json=json.loads(body.model_dump_json()))
+    if response.status_code == 400:
+        with ux_utils.print_exception_no_traceback():
+            raise exceptions.deserialize_exception(
+                response.json().get('detail'))
+
+
+@context.contextual
+@usage_lib.entrypoint
+@server_common.check_server_healthy_or_start
+@annotations.client_api
+def ls(
+    refresh: bool = False
+) -> server_common.RequestId[List[responses.VolumeRecord]]:
     """Lists all volumes.
+
+    Args:
+        refresh: If True, refresh volume state from cloud APIs before returning.
+            This makes the call slower but returns the most up-to-date data.
+            If False (default), return cached data from the database which is
+            updated periodically by the background daemon.
 
     Returns:
         The request ID of the list request.
     """
-    response = requests.get(f'{server_common.get_server_url()}/volumes',
-                            cookies=server_common.get_api_cookie_jar())
+    params = {}
+    if refresh:
+        params['refresh'] = 'true'
+    response = server_common.make_authenticated_request(
+        'GET',
+        '/volumes',
+        params=params,
+    )
     return server_common.get_request_id(response)
 
 
@@ -96,17 +147,19 @@ def ls() -> server_common.RequestId[List[Dict[str, Any]]]:
 @usage_lib.entrypoint
 @server_common.check_server_healthy_or_start
 @annotations.client_api
-def delete(names: List[str]) -> server_common.RequestId[None]:
+def delete(names: List[str],
+           purge: bool = False) -> server_common.RequestId[None]:
     """Deletes volumes.
 
     Args:
         names: List of volume names to delete.
+        purge: If True, delete the volume from the database even if the
+          deletion API fails.
 
     Returns:
         The request ID of the delete request.
     """
-    body = payloads.VolumeDeleteBody(names=names)
-    response = requests.post(f'{server_common.get_server_url()}/volumes/delete',
-                             json=json.loads(body.model_dump_json()),
-                             cookies=server_common.get_api_cookie_jar())
+    body = payloads.VolumeDeleteBody(names=names, purge=purge)
+    response = server_common.make_authenticated_request(
+        'POST', '/volumes/delete', json=json.loads(body.model_dump_json()))
     return server_common.get_request_id(response)

@@ -295,9 +295,7 @@ def app_factory(ctx):
             return jsonify({"error": "Something went wrong - PATCH"}), 500
         if user:
             data = request.get_json()
-            if not config.merge_body:
-                assert len(data) == 1
-            else:
+            if config.merge_body:
                 assert "name" in data
                 user["name"] = data["name"]
             return jsonify(user)
@@ -513,6 +511,7 @@ def engine_factory(app_factory, app_runner, stop_event):
         )
         if max_steps is not None:
             config.projects.override.phases.stateful.max_steps = max_steps
+        config.projects.override.phases.stateful.inference.algorithms = []
         config.projects.override.generation.update(
             modes=generation_modes or [GenerationMode.POSITIVE],
             unique_inputs=unique_inputs,

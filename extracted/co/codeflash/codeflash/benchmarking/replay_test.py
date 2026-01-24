@@ -6,9 +6,8 @@ import textwrap
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import isort
-
 from codeflash.cli_cmds.console import logger
+from codeflash.code_utils.formatter import sort_imports
 from codeflash.discovery.functions_to_optimize import inspect_top_level_functions_or_methods
 from codeflash.verification.verification_utils import get_test_file_path
 
@@ -30,19 +29,24 @@ def get_next_arg_and_return(
     cur = db.cursor()
     limit = num_to_get
 
+    normalized_file_path = Path(file_path).as_posix()
+
     if class_name is not None:
         cursor = cur.execute(
             "SELECT * FROM benchmark_function_timings WHERE benchmark_function_name = ? AND function_name = ? AND file_path = ? AND class_name = ? LIMIT ?",
-            (benchmark_function_name, function_name, file_path, class_name, limit),
+            (benchmark_function_name, function_name, normalized_file_path, class_name, limit),
         )
     else:
         cursor = cur.execute(
             "SELECT * FROM benchmark_function_timings WHERE benchmark_function_name = ? AND function_name = ? AND file_path = ? AND class_name = '' LIMIT ?",
-            (benchmark_function_name, function_name, file_path, limit),
+            (benchmark_function_name, function_name, normalized_file_path, limit),
         )
 
-    while (val := cursor.fetchone()) is not None:
-        yield val[9], val[10]  # pickled_args, pickled_kwargs
+    try:
+        while (val := cursor.fetchone()) is not None:
+            yield val[9], val[10]  # pickled_args, pickled_kwargs
+    finally:
+        db.close()
 
 
 def get_function_alias(module: str, function_name: str) -> str:
@@ -60,10 +64,7 @@ def get_unique_test_name(module: str, function_name: str, benchmark_name: str, c
 
 
 def create_trace_replay_test_code(
-    trace_file: str,
-    functions_data: list[dict[str, Any]],
-    test_framework: str = "pytest",
-    max_run_count=256,  # noqa: ANN001
+    trace_file: str, functions_data: list[dict[str, Any]], max_run_count: int = 256
 ) -> str:
     """Create a replay test for functions based on trace data.
 
@@ -71,7 +72,6 @@ def create_trace_replay_test_code(
     ----
         trace_file: Path to the SQLite database file
         functions_data: List of dictionaries with function info extracted from DB
-        test_framework: 'pytest' or 'unittest'
         max_run_count: Maximum number of runs to include in the test
 
     Returns:
@@ -79,11 +79,8 @@ def create_trace_replay_test_code(
         A string containing the test code
 
     """
-    assert test_framework in ["pytest", "unittest"]
-
     # Create Imports
-    imports = f"""from codeflash.picklepatch.pickle_patcher import PicklePatcher as pickle
-{"import unittest" if test_framework == "unittest" else ""}
+    imports = """from codeflash.picklepatch.pickle_patcher import PicklePatcher as pickle
 from codeflash.benchmarking.replay_test import get_next_arg_and_return
 """
 
@@ -154,19 +151,13 @@ trace_file_path = r"{trace_file}"
     )
 
     # Create main body
-
-    if test_framework == "unittest":
-        self = "self"
-        test_template = "\nclass TestTracedFunctions(unittest.TestCase):\n"
-    else:
-        test_template = ""
-        self = ""
+    test_template = ""
 
     for func in functions_data:
         module_name = func.get("module_name")
         function_name = func.get("function_name")
         class_name = func.get("class_name")
-        file_path = func.get("file_path")
+        file_path = Path(func.get("file_path")).as_posix()
         benchmark_function_name = func.get("benchmark_function_name")
         function_properties = func.get("function_properties")
         if not class_name:
@@ -219,30 +210,26 @@ trace_file_path = r"{trace_file}"
                     filter_variables=filter_variables,
                 )
 
-        formatted_test_body = textwrap.indent(test_body, "        " if test_framework == "unittest" else "    ")
+        formatted_test_body = textwrap.indent(test_body, "    ")
 
-        test_template += "    " if test_framework == "unittest" else ""
         unique_test_name = get_unique_test_name(module_name, function_name, benchmark_function_name, class_name)
-        test_template += f"def test_{unique_test_name}({self}):\n{formatted_test_body}\n"
+        test_template += f"def test_{unique_test_name}():\n{formatted_test_body}\n"
 
     return imports + "\n" + metadata + "\n" + test_template
 
 
-def generate_replay_test(
-    trace_file_path: Path, output_dir: Path, test_framework: str = "pytest", max_run_count: int = 100
-) -> int:
+def generate_replay_test(trace_file_path: Path, output_dir: Path, max_run_count: int = 100) -> int:
     """Generate multiple replay tests from the traced function calls, grouped by benchmark.
 
     Args:
     ----
         trace_file_path: Path to the SQLite database file
         output_dir: Directory to write the generated tests (if None, only returns the code)
-        test_framework: 'pytest' or 'unittest'
         max_run_count: Maximum number of runs to include per function
 
     Returns:
     -------
-        Dictionary mapping benchmark names to generated test code
+        The number of replay tests generated
 
     """
     count = 0
@@ -289,12 +276,9 @@ def generate_replay_test(
                 continue
             # Generate the test code for this benchmark
             test_code = create_trace_replay_test_code(
-                trace_file=trace_file_path.as_posix(),
-                functions_data=functions_data,
-                test_framework=test_framework,
-                max_run_count=max_run_count,
+                trace_file=trace_file_path.as_posix(), functions_data=functions_data, max_run_count=max_run_count
             )
-            test_code = isort.code(test_code)
+            test_code = sort_imports(code=test_code)
             output_file = get_test_file_path(
                 test_dir=Path(output_dir), function_name=benchmark_module_path, test_type="replay"
             )

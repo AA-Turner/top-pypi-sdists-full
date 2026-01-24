@@ -11,7 +11,7 @@ class IoTransferEventArgs(object):
 	id_generator = itertools.count(100)
 
 	# noinspection PyTypeChecker
-	def __init__(self, reading: bool, opc_sync: bool, total_size: int or None, context: str):
+	def __init__(self, reading: bool, opc_sync: bool, total_size: int | None, context: str):
 		"""Initializes new instance of IoTransferEventArgs
 		:param reading: True: reading operation, False: writing operation
 		:param opc_sync: defines if the command is OPC-synchronised
@@ -37,7 +37,7 @@ class IoTransferEventArgs(object):
 		"""Visa Resource Name of the instrument that generated the data."""
 		self.binary: bool = None
 		"""True: Binary data, False: string data"""
-		self.data: str or bytes = None
+		self.data: str | bytes = None
 		"""If the feature of transferring data over R/W event is switched ON, this field contains the whole data."""
 
 	@classmethod

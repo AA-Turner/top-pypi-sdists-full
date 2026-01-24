@@ -5,10 +5,10 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="cvdupdate",
-    version="1.1.3",
+    version="1.2.0",
     author="The ClamAV Team",
     author_email="clamav-bugs@external.cisco.com",
-    copyright="Copyright (C) 2022 Cisco Systems, Inc. and/or its affiliates. All rights reserved.",
+    copyright="Copyright (C) 2025 Cisco Systems, Inc. and/or its affiliates. All rights reserved.",
     description="ClamAV Private Database Mirror Updater Tool",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -22,12 +22,11 @@ setuptools.setup(
     },
     install_requires=[
         "click>=7.0",
-        "coloredlogs>=10.0",
+        "colorlog>=6.7",
         "colorama",
         "requests",
         "dnspython>=2.1.0",
         "rangehttpserver",
-        "setuptools",
         "packaging",
     ],
     classifiers=[

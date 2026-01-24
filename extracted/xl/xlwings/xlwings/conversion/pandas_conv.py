@@ -17,9 +17,10 @@ if pd:
             parse_dates = [parse_dates]
         for col in parse_dates:
             if isinstance(col, str):
-                df.loc[:, col] = df.loc[:, col].apply(xlserial_to_datetime)
+                df[col] = df[col].apply(xlserial_to_datetime)
             else:
-                df.iloc[:, col] = df.iloc[:, col].apply(xlserial_to_datetime)
+                col_name = df.columns[col]
+                df[col_name] = df.iloc[:, col].apply(xlserial_to_datetime)
         return df
 
     def write_value(cls, value, options):

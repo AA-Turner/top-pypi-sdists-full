@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: macholib
-Version: 1.16.3
+Version: 1.16.4
 Summary: Mach-O header analysis and editing
 Home-page: http://github.com/ronaldoussoren/macholib
 Download-URL: http://pypi.python.org/pypi/macholib
@@ -26,6 +26,9 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Build Tools
@@ -59,6 +62,16 @@ Project links
 
 Release history
 ===============
+
+macholib 1.16.4
+---------------
+
+* Update classifiers for Python 3.13 and 3.14
+
+macholib 1.16.3
+---------------
+
+* Update classifiers for Python 3.12
 
 macholib 1.16.2
 ---------------

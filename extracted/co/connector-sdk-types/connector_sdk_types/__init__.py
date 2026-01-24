@@ -4,4 +4,5 @@
 
 # Re-export all generated types for easy import
 from .generated import *  # noqa: F403, F401
+from .oai import *  # noqa: F403, F401
 from .serializers import *  # noqa: F403, F401

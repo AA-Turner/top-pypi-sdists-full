@@ -6,7 +6,7 @@ import pytest
 
 from ddtrace._trace.product import apm_tracing_rc
 from ddtrace.internal.remoteconfig import Payload
-from ddtrace.settings._config import Config
+from ddtrace.internal.settings._config import Config
 from tests.utils import remote_config_build_payload as build_payload
 
 
@@ -606,7 +606,7 @@ assert span3.get_tag("env_set_tag_name") == "helloworld"
 def test_config_public_properties_and_methods():
     # Regression test to prevent unexpected changes to public attributes in Config
     # By default most attributes should be private and set via Environment Variables
-    from ddtrace.settings._config import Config
+    from ddtrace.internal.settings._config import Config
 
     public_attrs = set()
     c = Config()
@@ -647,7 +647,7 @@ def test_remoteconfig_debug_logging():
         }
 
         for _ in range(3):
-            # Attempt to set the same RC Configurations multiple times. This mimicks the behavior
+            # Attempt to set the same RC Configurations multiple times. This mimics the behavior
             # of the agent where all the current RC configurations are returned periodically.
             call_apm_tracing_rc(
                 _base_rc_config(rc_configs),
@@ -656,7 +656,12 @@ def test_remoteconfig_debug_logging():
     # Ensure APM Tracing Remote Config debug logs are generated
     expected_logs = [
         # Tracer configurations are only updated once (calls with duplicate values should be ignored)
-        mock.call("Updated tracer sampling rules via remote_config: %s", '[{"sample_rate": 0.3}]'),
+        mock.call(
+            "Updated tracer sampler (id: %s, rules: %s) sampling rules via remote_config: %s.",
+            mock.ANY,
+            mock.ANY,
+            '[{"sample_rate": 0.3}]',
+        ),
         mock.call("Updated tracer tags via remote_config: %s", {"team": "onboarding"}),
         mock.call("Tracing disabled via remote_config. Config: %s Value: %s", "_tracing_enabled", False),
         mock.call(
@@ -677,6 +682,6 @@ def test_remoteconfig_debug_logging():
             rc_configs,
         ),
     ]
-    assert sorted(mock_log.debug.call_args_list) == sorted(
-        expected_logs
-    ), f"expected: {expected_logs} got: {mock_log.debug.call_args_list}"
+    assert sorted(mock_log.debug.call_args_list) == sorted(expected_logs), (
+        f"expected: {expected_logs} got: {mock_log.debug.call_args_list}"
+    )

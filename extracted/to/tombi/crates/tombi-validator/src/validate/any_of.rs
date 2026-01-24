@@ -6,8 +6,9 @@ use tombi_future::{BoxFuture, Boxable};
 use tombi_schema_store::{CurrentSchema, ValueSchema};
 
 use super::Validate;
-use crate::validate::type_mismatch;
+use crate::validate::not_schema::validate_not;
 use crate::validate::{all_of::validate_all_of, one_of::validate_one_of};
+use crate::validate::{handle_deprecated, handle_type_mismatch};
 
 pub fn validate_any_of<'a: 'b, 'b, T>(
     value: &'a T,
@@ -15,9 +16,9 @@ pub fn validate_any_of<'a: 'b, 'b, T>(
     any_of_schema: &'a tombi_schema_store::AnyOfSchema,
     current_schema: &'a CurrentSchema<'a>,
     schema_context: &'a tombi_schema_store::SchemaContext<'a>,
-
+    comment_directives: Option<&'a [tombi_ast::TombiValueCommentDirective]>,
     common_rules: Option<&'a CommonLintRules>,
-) -> BoxFuture<'b, Result<(), Vec<tombi_diagnostic::Diagnostic>>>
+) -> BoxFuture<'b, Result<(), crate::Error>>
 where
     T: Validate + ValueImpl + Sync + Send + Debug,
 {
@@ -25,8 +26,21 @@ where
     tracing::trace!("any_of_schema = {:?}", any_of_schema);
 
     async move {
+        if let Some(not_schema) = any_of_schema.not.as_ref() {
+            validate_not(
+                value,
+                accessors,
+                not_schema,
+                current_schema,
+                schema_context,
+                comment_directives,
+                common_rules,
+            )
+            .await?;
+        }
+
         let mut schemas = any_of_schema.schemas.write().await;
-        let mut total_diagnostics = Vec::new();
+        let mut total_error = crate::Error::new();
 
         for referable_schema in schemas.iter_mut() {
             let current_schema = if let Ok(Some(current_schema)) = referable_schema
@@ -43,7 +57,7 @@ where
                 continue;
             };
 
-            let diagnostics = match (value.value_type(), current_schema.value_schema.as_ref()) {
+            let error = match (value.value_type(), current_schema.value_schema.as_ref()) {
                 (tombi_document_tree::ValueType::Boolean, ValueSchema::Boolean(_))
                 | (
                     tombi_document_tree::ValueType::Integer,
@@ -65,9 +79,22 @@ where
                         .await
                     {
                         Ok(()) => {
-                            return Ok(());
+                            let mut diagnostics = Vec::with_capacity(1);
+                            handle_deprecated(
+                                &mut diagnostics,
+                                any_of_schema.deprecated,
+                                accessors,
+                                value,
+                                comment_directives,
+                                common_rules,
+                            );
+                            return if diagnostics.is_empty() {
+                                Ok(())
+                            } else {
+                                Err(diagnostics.into())
+                            };
                         }
-                        Err(diagnostics) => diagnostics,
+                        Err(error) => error,
                     }
                 }
                 (_, ValueSchema::Null) => {
@@ -82,14 +109,29 @@ where
                 | (_, ValueSchema::LocalDate(_))
                 | (_, ValueSchema::LocalTime(_))
                 | (_, ValueSchema::Table(_))
-                | (_, ValueSchema::Array(_)) => match type_mismatch(
+                | (_, ValueSchema::Array(_)) => match handle_type_mismatch(
                     current_schema.value_schema.value_type().await,
                     value.value_type(),
                     value.range(),
                     common_rules,
                 ) {
-                    Ok(()) => continue,
-                    Err(diagnostics) => diagnostics,
+                    Ok(()) => {
+                        let mut diagnostics = Vec::with_capacity(1);
+                        handle_deprecated(
+                            &mut diagnostics,
+                            any_of_schema.deprecated,
+                            accessors,
+                            value,
+                            comment_directives,
+                            common_rules,
+                        );
+                        return if diagnostics.is_empty() {
+                            Ok(())
+                        } else {
+                            Err(diagnostics.into())
+                        };
+                    }
+                    Err(error) => error,
                 },
                 (_, ValueSchema::OneOf(one_of_schema)) => {
                     match validate_one_of(
@@ -98,14 +140,28 @@ where
                         one_of_schema,
                         &current_schema,
                         schema_context,
+                        comment_directives,
                         common_rules,
                     )
                     .await
                     {
                         Ok(()) => {
-                            return Ok(());
+                            let mut diagnostics = Vec::with_capacity(1);
+                            handle_deprecated(
+                                &mut diagnostics,
+                                any_of_schema.deprecated,
+                                accessors,
+                                value,
+                                comment_directives,
+                                common_rules,
+                            );
+                            return if diagnostics.is_empty() {
+                                Ok(())
+                            } else {
+                                Err(diagnostics.into())
+                            };
                         }
-                        Err(diagnostics) => diagnostics,
+                        Err(error) => error,
                     }
                 }
                 (_, ValueSchema::AnyOf(any_of_schema)) => {
@@ -115,14 +171,28 @@ where
                         any_of_schema,
                         &current_schema,
                         schema_context,
+                        comment_directives,
                         common_rules,
                     )
                     .await
                     {
                         Ok(()) => {
-                            return Ok(());
+                            let mut diagnostics = Vec::with_capacity(1);
+                            handle_deprecated(
+                                &mut diagnostics,
+                                any_of_schema.deprecated,
+                                accessors,
+                                value,
+                                comment_directives,
+                                common_rules,
+                            );
+                            return if diagnostics.is_empty() {
+                                Ok(())
+                            } else {
+                                Err(diagnostics.into())
+                            };
                         }
-                        Err(diagnostics) => diagnostics,
+                        Err(error) => error,
                     }
                 }
                 (_, ValueSchema::AllOf(all_of_schema)) => {
@@ -132,33 +202,40 @@ where
                         all_of_schema,
                         &current_schema,
                         schema_context,
+                        comment_directives,
                         common_rules,
                     )
                     .await
                     {
                         Ok(()) => {
-                            return Ok(());
+                            let mut diagnostics = Vec::with_capacity(1);
+                            handle_deprecated(
+                                &mut diagnostics,
+                                any_of_schema.deprecated,
+                                accessors,
+                                value,
+                                comment_directives,
+                                common_rules,
+                            );
+                            return if diagnostics.is_empty() {
+                                Ok(())
+                            } else {
+                                Err(diagnostics.into())
+                            };
                         }
-                        Err(diagnostics) => diagnostics,
+                        Err(error) => error,
                     }
                 }
             };
 
-            if diagnostics.is_empty() {
-                return Ok(());
-            } else if diagnostics
-                .iter()
-                .filter(|diagnostic| diagnostic.level() == tombi_diagnostic::Level::ERROR)
-                .count()
-                == 0
-            {
-                return Err(diagnostics);
-            }
-
-            total_diagnostics.extend(diagnostics);
+            total_error.combine(error);
         }
 
-        Err(total_diagnostics)
+        if total_error.diagnostics.is_empty() {
+            Ok(())
+        } else {
+            Err(total_error)
+        }
     }
     .boxed()
 }

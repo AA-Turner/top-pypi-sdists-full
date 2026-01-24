@@ -1,6 +1,9 @@
+import base64
 import unittest
-from unittest.mock import Mock
+from typing import TYPE_CHECKING, cast
+from unittest.mock import Mock, patch
 
+from social_core.backends.base import BaseAuth
 from social_core.utils import (
     build_absolute_uri,
     partial_pipeline_data,
@@ -11,6 +14,9 @@ from social_core.utils import (
 )
 
 from .models import TestPartial
+
+if TYPE_CHECKING:
+    from social_core.storage import UserProtocol
 
 
 class SanitizeRedirectTest(unittest.TestCase):
@@ -63,20 +69,20 @@ class UserIsAuthenticatedTest(unittest.TestCase):
         self.assertEqual(user_is_authenticated(None), False)
 
     def test_user_is_not_none(self) -> None:
-        self.assertEqual(user_is_authenticated(object()), True)
+        self.assertEqual(user_is_authenticated(cast("UserProtocol", object())), True)
 
     def test_user_has_is_authenticated(self) -> None:
         class User:
             is_authenticated = True
 
-        self.assertEqual(user_is_authenticated(User()), True)
+        self.assertEqual(user_is_authenticated(cast("UserProtocol", User())), True)
 
     def test_user_has_is_authenticated_callable(self) -> None:
         class User:
             def is_authenticated(self) -> bool:
                 return True
 
-        self.assertEqual(user_is_authenticated(User()), True)
+        self.assertEqual(user_is_authenticated(cast("UserProtocol", User())), True)
 
 
 class UserIsActiveTest(unittest.TestCase):
@@ -84,20 +90,20 @@ class UserIsActiveTest(unittest.TestCase):
         self.assertEqual(user_is_active(None), False)
 
     def test_user_is_not_none(self) -> None:
-        self.assertEqual(user_is_active(object()), True)
+        self.assertEqual(user_is_active(cast("UserProtocol", object())), True)
 
     def test_user_has_is_active(self) -> None:
         class User:
             is_active = True
 
-        self.assertEqual(user_is_active(User()), True)
+        self.assertEqual(user_is_active(cast("UserProtocol", User())), True)
 
     def test_user_has_is_active_callable(self) -> None:
         class User:
             def is_active(self) -> bool:
                 return True
 
-        self.assertEqual(user_is_active(User()), True)
+        self.assertEqual(user_is_active(cast("UserProtocol", User())), True)
 
 
 class SlugifyTest(unittest.TestCase):
@@ -108,11 +114,7 @@ class SlugifyTest(unittest.TestCase):
 
 
 class BuildAbsoluteURITest(unittest.TestCase):
-    def setUp(self) -> None:
-        self.host = "http://foobar.com"
-
-    def tearDown(self) -> None:
-        self.host = None
+    host = "http://foobar.com"
 
     def test_path_none(self) -> None:
         self.assertEqual(build_absolute_uri(self.host), self.host)
@@ -149,7 +151,7 @@ class PartialPipelineData(unittest.TestCase):
         backend.strategy.request_data.return_value = {backend.ID_KEY: email}
         key, val = ("foo", "bar")
         partial = partial_pipeline_data(backend, None, *(), **{key: val})
-        self.assertTrue(key in partial.kwargs)
+        self.assertIn(key, partial.kwargs)
         self.assertEqual(partial.kwargs[key], val)
         self.assertEqual(backend.strategy.clean_partial_pipeline.call_count, 0)
 
@@ -165,7 +167,7 @@ class PartialPipelineData(unittest.TestCase):
         backend = self._backend()
         key, val = ("foo", "bar")
         partial = partial_pipeline_data(backend, None, *(), **{key: val})
-        self.assertTrue(key in partial.kwargs)
+        self.assertIn(key, partial.kwargs)
         self.assertEqual(partial.kwargs[key], val)
         self.assertEqual(backend.strategy.clean_partial_pipeline.call_count, 0)
 
@@ -173,14 +175,28 @@ class PartialPipelineData(unittest.TestCase):
         user = object()
         backend = self._backend(session_kwargs={"user": None})
         partial = partial_pipeline_data(backend, user)
-        self.assertTrue("user" in partial.kwargs)
+        self.assertIn("user", partial.kwargs)
         self.assertEqual(partial.kwargs["user"], user)
+        self.assertEqual(backend.strategy.clean_partial_pipeline.call_count, 0)
+
+    def test_configurable_id_key(self) -> None:
+        """Test that ID_KEY can be configured via settings"""
+        email = "foo@example.com"
+        backend = self._backend({"uid": email})
+        # Configure a different ID_KEY via id_key() method
+        backend.id_key.return_value = "custom_id"
+        backend.strategy.request_data.return_value = {"custom_id": email}
+        key, val = ("foo", "bar")
+        partial = partial_pipeline_data(backend, None, *(), **{key: val})
+        self.assertIn(key, partial.kwargs)
+        self.assertEqual(partial.kwargs[key], val)
         self.assertEqual(backend.strategy.clean_partial_pipeline.call_count, 0)
 
     def _backend(self, session_kwargs=None):
         backend = Mock()
         backend.ID_KEY = "email"
         backend.name = "mock-backend"
+        backend.id_key.return_value = "email"
 
         strategy = Mock()
         strategy.request = None
@@ -192,3 +208,60 @@ class PartialPipelineData(unittest.TestCase):
 
         backend.strategy = strategy
         return backend
+
+
+class GetKeyAndSecretBasicAuthTest(unittest.TestCase):
+    def test_basic_auth_returns_bytes(self) -> None:
+        """Test that method returns bytes with base64 encoding"""
+        test_setting = {"KEY": "test_key", "SECRET": "test_secret"}
+        backend = BaseAuth(strategy=Mock())
+        with patch("social_core.backends.base.BaseAuth.setting", new=test_setting.get):
+            result = backend.get_key_and_secret_basic_auth()
+            expected = b"Basic " + base64.b64encode(b"test_key:test_secret")
+            self.assertEqual(result, expected)
+            self.assertIsInstance(result, bytes)
+
+
+class IdKeyConfigurabilityTest(unittest.TestCase):
+    """Test that ID_KEY is configurable via settings"""
+
+    def test_id_key_uses_class_attribute_by_default(self) -> None:
+        """Test that id_key() returns class attribute when no setting is provided"""
+        strategy = Mock()
+        strategy.setting = Mock(return_value=None)
+        backend = BaseAuth(strategy=strategy)
+        backend.ID_KEY = "default_id"
+
+        result = backend.id_key()
+
+        self.assertEqual(result, "default_id")
+        strategy.setting.assert_called_once_with(
+            "ID_KEY", default=None, backend=backend
+        )
+
+    def test_id_key_uses_setting_when_provided(self) -> None:
+        """Test that id_key() returns setting value when provided"""
+        strategy = Mock()
+        strategy.setting = Mock(return_value="custom_id")
+        backend = BaseAuth(strategy=strategy)
+        backend.ID_KEY = "default_id"
+
+        result = backend.id_key()
+
+        self.assertEqual(result, "custom_id")
+        strategy.setting.assert_called_once_with(
+            "ID_KEY", default=None, backend=backend
+        )
+
+    def test_get_user_id_uses_configurable_id_key(self) -> None:
+        """Test that get_user_id() uses the configurable id_key()"""
+        strategy = Mock()
+        strategy.setting = Mock(return_value="custom_user_id")
+        backend = BaseAuth(strategy=strategy)
+        backend.ID_KEY = "default_id"
+
+        response = {"custom_user_id": "12345", "default_id": "67890"}
+        result = backend.get_user_id({}, response)
+
+        self.assertEqual(result, "12345")
+        strategy.setting.assert_called_with("ID_KEY", default=None, backend=backend)

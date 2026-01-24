@@ -52,11 +52,11 @@ install: ## Install full dependencies with uv sync (backward compatible - modern
 format: ## Format and lint all code
 	@echo "Formatting and linting all code..."
 	@echo "(ruff format) Formatting ragas..."
-	$(Q)uv run --active ruff format src tests docs --config pyproject.toml
+	$(Q)uv run --active ruff format src tests docs --exclude src/ragas/_version.py --config pyproject.toml
 	@echo "(ruff) Auto-fixing ragas (includes import sorting and unused imports)..."
-	$(Q)uv run --active ruff check src tests docs --fix-only --config pyproject.toml
+	$(Q)uv run --active ruff check src tests docs --exclude src/ragas/_version.py --fix-only --config pyproject.toml
 	@echo "(ruff) Final linting check for ragas..."
-	$(Q)uv run --active ruff check src tests docs --config pyproject.toml
+	$(Q)uv run --active ruff check src tests docs --exclude src/ragas/_version.py --config pyproject.toml
 
 type: ## Type check all code
 	@echo "Type checking all code..."
@@ -93,8 +93,8 @@ benchmarks-test: ## Run benchmarks for ragas unit tests
 run-ci: ## Run complete CI pipeline (mirrors GitHub CI exactly)
 	@echo "Running complete CI pipeline..."
 	@echo "Format check..."
-	$(Q)uv run --active ruff format --check src tests docs --config pyproject.toml
-	$(Q)uv run --active ruff check src tests docs --config pyproject.toml
+	$(Q)uv run --active ruff format --check src tests docs --exclude src/ragas/_version.py --config pyproject.toml
+	$(Q)uv run --active ruff check src tests docs --exclude src/ragas/_version.py --config pyproject.toml
 	@echo "Type check..."
 	$(Q)$(MAKE) type
 	@echo "Unit tests..."
@@ -104,8 +104,8 @@ run-ci: ## Run complete CI pipeline (mirrors GitHub CI exactly)
 run-ci-format-check: ## Run format check in dry-run mode (like GitHub CI)
 	@echo "Running format check (dry-run, like GitHub CI)..."
 	@echo "Checking ragas formatting..."
-	$(Q)uv run --active ruff format --check src tests docs --config pyproject.toml
-	$(Q)uv run --active ruff check src docs tests --config pyproject.toml
+	$(Q)uv run --active ruff format --check src tests docs --exclude src/ragas/_version.py --config pyproject.toml
+	$(Q)uv run --active ruff check src docs tests --exclude src/ragas/_version.py --config pyproject.toml
 
 run-ci-type: ## Run type checking (matches GitHub CI)
 	@echo "Running type checking (matches GitHub CI)..."
@@ -118,8 +118,8 @@ run-ci-tests: ## Run all tests with CI options
 run-ci-fast: ## Fast CI check for quick local validation (2-3 minutes)
 	@echo "Running fast CI check for quick feedback..."
 	@echo "Format check..."
-	$(Q)uv run --active ruff format --check src tests docs --config pyproject.toml
-	$(Q)uv run --active ruff check src docs tests --config pyproject.toml
+	$(Q)uv run --active ruff format --check src tests docs --exclude src/ragas/_version.py --config pyproject.toml
+	$(Q)uv run --active ruff check src docs tests --exclude src/ragas/_version.py --config pyproject.toml
 	@echo "Core unit tests (no nbmake for speed)..."
 	$(Q)uv run --active pytest tests/unit --dist loadfile -n auto -x
 	@echo "Fast CI check completed!"
@@ -161,7 +161,42 @@ build-docs: ## Build all documentation
 	@echo "Converting ipynb notebooks to md files..."
 	$(Q)MKDOCS_CI=true uv run python $(GIT_ROOT)/docs/ipynb_to_md.py
 	@echo "Building ragas documentation..."
-	$(Q)uv run --group docs mkdocs build
+	$(Q)MKDOCS_CI=false uv run --group docs mkdocs build
+
+
+check-pdf-deps: ## Check if WeasyPrint is properly installed with all dependencies
+	@echo "Checking if WeasyPrint is properly installed..."
+	@uv run --group docs-pdf python -c "import weasyprint; weasyprint.HTML(string='<h1>Test</h1>').write_pdf(target=None)" 2>/dev/null && \
+		echo "WeasyPrint is installed and all dependencies are available" || \
+		(echo ""; \
+		echo "WeasyPrint is not installed or has missing system dependencies"; \
+		echo ""; \
+		echo "Setup Instructions: https://doc.courtbouillon.org/weasyprint/stable/first_steps.html"; \
+		echo "Troubleshooting: https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#troubleshooting"; \
+		echo ""; \
+		exit 1)
+
+
+check-mermaid-deps: ## Check Mermaid CLI is available and can render a diagram
+	@command -v node >/dev/null || (echo "Node.js is required for Mermaid PDF rendering"; exit 1)
+	@command -v mmdc >/dev/null || (echo "Missing 'mmdc' (Mermaid CLI). Mermaid diagrams in PDF depend on Mermaid CLI."; exit 1)
+	@tmp_dir="$$(mktemp -d)"; \
+	printf "graph TD\n  A-->B\n" > "$$tmp_dir/diag.mmd"; \
+	mmdc -i "$$tmp_dir/diag.mmd" -o "$$tmp_dir/diag.svg" >/dev/null 2>&1 || \
+		(echo "Mermaid CLI found, but rendering failed (mmdc couldn't produce SVG)."; rm -rf "$$tmp_dir"; exit 1); \
+	test -s "$$tmp_dir/diag.svg" || \
+		(echo "Mermaid CLI ran but produced an empty SVG."; rm -rf "$$tmp_dir"; exit 1); \
+	rm -rf "$$tmp_dir"; \
+	echo "Mermaid CLI is installed and can render diagrams"
+
+	
+build-docs-pdf: check-pdf-deps check-mermaid-deps ## Build documentation with PDF export (requires WeasyPrint)
+	@echo "Building documentation with PDF export..."
+	$(Q)MKDOCS_CI=false ENABLE_PDF_EXPORT=1 uv run --group docs --group docs-pdf mkdocs build -f mkdocs-pdf.yml
+	@echo "PDF generated at: site/pdf/document.pdf"
+
+
 
 serve-docs: ## Build and serve documentation locally
-	$(Q)uv run --group docs mkdocs serve --dirtyreload
+	$(Q)MKDOCS_CI=false uv run --group docs mkdocs serve --dirtyreload
+

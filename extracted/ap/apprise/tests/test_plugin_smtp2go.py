@@ -119,6 +119,7 @@ apprise_url_tests = (
         "?+X-Customer-Campaign-ID=Apprise".format("a" * 32, "b" * 8, "c" * 8),
         {
             "instance": NotifySMTP2Go,
+            "force_debug": True,
         },
     ),
     # bcc and cc
@@ -194,7 +195,7 @@ apprise_url_tests = (
         ),
         {
             "instance": NotifySMTP2Go,
-            # throw a bizzare code forcing us to fail to look it up
+            # throw a bizarre code forcing us to fail to look it up
             "response": False,
             "requests_response_code": 999,
         },
@@ -206,7 +207,7 @@ apprise_url_tests = (
         {
             "instance": NotifySMTP2Go,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
         },
     ),

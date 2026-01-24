@@ -16,16 +16,18 @@ __all__ = ["NewPlanTieredPackagePrice", "TieredPackageConfig", "TieredPackageCon
 
 
 class TieredPackageConfigTier(BaseModel):
+    """Configuration for a single tier with business logic"""
+
     per_unit: str
     """Price per package"""
 
     tier_lower_bound: str
-    """Tier lower bound"""
 
 
 class TieredPackageConfig(BaseModel):
+    """Configuration for tiered_package pricing"""
+
     package_size: str
-    """Package size"""
 
     tiers: List[TieredPackageConfigTier]
     """Apply tiered pricing after rounding up the quantity to the package size.

@@ -3,7 +3,7 @@ Type annotations for healthlake service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,8 +20,9 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
-from typing import Any
+from typing import Any, overload
 
 from aiobotocore.client import AioBaseClient
 from botocore.client import ClientMeta
@@ -54,28 +55,28 @@ from .type_defs import (
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
 )
+from .waiter import (
+    FHIRDatastoreActiveWaiter,
+    FHIRDatastoreDeletedWaiter,
+    FHIRExportJobCompletedWaiter,
+    FHIRImportJobCompletedWaiter,
+)
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
-    from typing import Self, Unpack
+    from typing import Literal, Self, Unpack
 else:
-    from typing_extensions import Self, Unpack
+    from typing_extensions import Literal, Self, Unpack
 
 __all__ = ("HealthLakeClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class HealthLakeClient(AioBaseClient):
     """
@@ -116,7 +117,7 @@ class HealthLakeClient(AioBaseClient):
         self, **kwargs: Unpack[CreateFHIRDatastoreRequestTypeDef]
     ) -> CreateFHIRDatastoreResponseTypeDef:
         """
-        Creates a data store that can ingest and export FHIR formatted data.
+        Create a FHIR-enabled data store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/create_fhir_datastore.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#create_fhir_datastore)
@@ -126,7 +127,7 @@ class HealthLakeClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteFHIRDatastoreRequestTypeDef]
     ) -> DeleteFHIRDatastoreResponseTypeDef:
         """
-        Deletes a data store.
+        Delete a FHIR-enabled data store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/delete_fhir_datastore.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#delete_fhir_datastore)
@@ -136,9 +137,7 @@ class HealthLakeClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeFHIRDatastoreRequestTypeDef]
     ) -> DescribeFHIRDatastoreResponseTypeDef:
         """
-        Gets the properties associated with the FHIR data store, including the data
-        store ID, data store ARN, data store name, data store status, when the data
-        store was created, data store type version, and the data store's endpoint.
+        Get properties for a FHIR-enabled data store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/describe_fhir_datastore.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#describe_fhir_datastore)
@@ -148,8 +147,7 @@ class HealthLakeClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeFHIRExportJobRequestTypeDef]
     ) -> DescribeFHIRExportJobResponseTypeDef:
         """
-        Displays the properties of a FHIR export job, including the ID, ARN, name, and
-        the status of the job.
+        Get FHIR export job properties.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/describe_fhir_export_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#describe_fhir_export_job)
@@ -159,8 +157,7 @@ class HealthLakeClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeFHIRImportJobRequestTypeDef]
     ) -> DescribeFHIRImportJobResponseTypeDef:
         """
-        Displays the properties of a FHIR import job, including the ID, ARN, name, and
-        the status of the job.
+        Get the import job properties to learn more about the job or job progress.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/describe_fhir_import_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#describe_fhir_import_job)
@@ -170,8 +167,8 @@ class HealthLakeClient(AioBaseClient):
         self, **kwargs: Unpack[ListFHIRDatastoresRequestTypeDef]
     ) -> ListFHIRDatastoresResponseTypeDef:
         """
-        Lists all FHIR data stores that are in the user's account, regardless of data
-        store status.
+        List all FHIR-enabled data stores in a user's account, regardless of data store
+        status.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/list_fhir_datastores.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#list_fhir_datastores)
@@ -191,7 +188,7 @@ class HealthLakeClient(AioBaseClient):
         self, **kwargs: Unpack[ListFHIRImportJobsRequestTypeDef]
     ) -> ListFHIRImportJobsResponseTypeDef:
         """
-        Lists all FHIR import jobs associated with an account and their statuses.
+        List all FHIR import jobs associated with an account and their statuses.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/list_fhir_import_jobs.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#list_fhir_import_jobs)
@@ -211,7 +208,7 @@ class HealthLakeClient(AioBaseClient):
         self, **kwargs: Unpack[StartFHIRExportJobRequestTypeDef]
     ) -> StartFHIRExportJobResponseTypeDef:
         """
-        Begins a FHIR export job.
+        Start a FHIR export job.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/start_fhir_export_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#start_fhir_export_job)
@@ -221,26 +218,70 @@ class HealthLakeClient(AioBaseClient):
         self, **kwargs: Unpack[StartFHIRImportJobRequestTypeDef]
     ) -> StartFHIRImportJobResponseTypeDef:
         """
-        Begins a FHIR Import job.
+        Start importing bulk FHIR data into an ACTIVE data store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/start_fhir_import_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#start_fhir_import_job)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
-        Adds a user specified key and value tag to a data store.
+        Add a user-specifed key and value tag to a data store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/tag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
-        Removes tags from a data store.
+        Remove a user-specifed key and value tag from a data store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/untag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#untag_resource)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["fhir_datastore_active"]
+    ) -> FHIRDatastoreActiveWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["fhir_datastore_deleted"]
+    ) -> FHIRDatastoreDeletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["fhir_export_job_completed"]
+    ) -> FHIRExportJobCompletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["fhir_import_job_completed"]
+    ) -> FHIRImportJobCompletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#get_waiter)
         """
 
     async def __aenter__(self) -> Self:
@@ -251,7 +292,7 @@ class HealthLakeClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

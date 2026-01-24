@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import logging
 import types
 from typing import List, Optional
 
@@ -31,12 +32,14 @@ from seeq.spy.workbooks._workbook import Workbook, WorkbookList, DatasourceMapLi
 def push(workbooks, *, path: Optional[str] = None, owner: Optional[str] = None,
          label: Optional[str] = None, datasource: Optional[str] = None, datasource_map_folder: Optional[str] = None,
          use_full_path: bool = False, access_control: Optional[str] = None, override_max_interp: bool = False,
-         include_inventory: Optional[bool] = None, include_annotations: bool = True, refresh: bool = True,
-         lookup_df: pd.DataFrame = None, specific_worksheet_ids: Optional[List[str]] = None,
-         create_dummy_items_in_workbook: Optional[str] = None, assume_dependencies_exist: bool = False,
-         reconcile_inventory_by: str = 'id', global_inventory: Optional[str] = None, item_map: Optional[ItemMap] = None,
-         errors: Optional[str] = None, quiet: Optional[bool] = None, status: Optional[Status] = None,
-         session: Optional[Session] = None, scope_globals_to_workbook: Optional[bool] = None) -> pd.DataFrame:
+         include_inventory: Optional[bool] = None, include_annotations: bool = True,
+         dry_run: bool = False, refresh: bool = True, lookup_df: pd.DataFrame = None,
+         specific_worksheet_ids: Optional[List[str]] = None, create_dummy_items_in_workbook: Optional[str] = None,
+         assume_dependencies_exist: bool = False, reconcile_inventory_by: str = 'id',
+         global_inventory: Optional[str] = None, item_map: Optional[ItemMap] = None,
+         verbose: bool = False, errors: Optional[str] = None, quiet: Optional[bool] = None,
+         status: Optional[Status] = None, session: Optional[Session] = None,
+         scope_globals_to_workbook: Optional[bool] = None) -> pd.DataFrame:
     """
     Pushes workbooks into Seeq using a list of Workbook object definitions.
 
@@ -49,8 +52,10 @@ def push(workbooks, *, path: Optional[str] = None, owner: Optional[str] = None,
         A '>>'-delimited folder path to create to contain the workbooks. Note
         that a further subfolder hierarchy will be created to preserve the
         relative paths that the folders were in when they were searched for
-        and pulled. If you specify None, then the workbook will stay where
-        it is (if it has already been pushed once).
+        and pulled.
+
+        If you specify None, then the workbook will stay where it is (if it
+        has already been pushed once).
 
         If you specify spy.workbooks.MY_FOLDER, it will be moved to the user's
         home folder.
@@ -143,7 +148,12 @@ def push(workbooks, *, path: Optional[str] = None, owner: Optional[str] = None,
         If omitted, SPy will push inventory in any non-template scenarios.
 
     include_annotations : bool, default True
-        If True, downloads the HTML for Journal and Organizer Topic content.
+        If True, pushes the HTML for Journal and Organizer Topic content.
+
+    dry_run : bool, default False
+        If True, then no actual push will be performed. Instead, the function
+        will simulate the push. Verbose logs will be printed as the operation
+        proceeds.
 
     refresh : bool, default True
         If True, then the Workbook objects that were supplied as input will
@@ -207,6 +217,11 @@ def push(workbooks, *, path: Optional[str] = None, owner: Optional[str] = None,
         push. You can effectively tell SPy not to push/update an item just by
         adding a map where the original ID is the same as the new ID.
 
+    verbose : bool
+        If True, outputs verbose logs to a "spy_verbose_log.txt" file.
+        Note that when status is provided, the verbose setting of the Status
+        object that is passed in takes precedence.
+
     errors : {'raise', 'catalog'}, default 'raise'
         If 'raise', any errors encountered will cause an exception. If
         'catalog', errors will be added to a 'Result' column in the status.df
@@ -264,34 +279,43 @@ def push(workbooks, *, path: Optional[str] = None, owner: Optional[str] = None,
                             spy.workbooks.push call
         =================== ===================================================
     """
-    input_args = _common.validate_argument_types([
-        (workbooks, 'workbooks', (Workbook, list)),
-        (path, 'path', str),
-        (owner, 'owner', str),
-        (label, 'label', str),
-        (datasource, 'datasource', str),
-        (datasource_map_folder, 'datasource_map_folder', str),
-        (use_full_path, 'use_full_path', bool),
-        (access_control, 'access_control', str),
-        (override_max_interp, 'override_max_interp', bool),
-        (include_inventory, 'include_inventory', bool),
-        (include_annotations, 'include_annotations', bool),
-        (refresh, 'refresh', bool),
-        (lookup_df, 'lookup_df', pd.DataFrame),
-        (specific_worksheet_ids, 'specific_worksheet_ids', list),
-        (create_dummy_items_in_workbook, 'create_dummy_items_in_workbook', str),
-        (assume_dependencies_exist, 'assume_dependencies_exist', bool),
-        (reconcile_inventory_by, 'reconcile_inventory_by', str),
-        (global_inventory, 'global_inventory', str),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session),
-        (scope_globals_to_workbook, 'scope_globals_to_workbook', bool),
-        (item_map, 'item_map', (dict, ItemMap))
-    ])
+    function_name = 'spy.workbooks.push'
+    input_args = Status.function_prologue(
+        session, status, function_name, [
+            (workbooks, 'workbooks', (Workbook, list)),
+            (path, 'path', str),
+            (owner, 'owner', str),
+            (label, 'label', str),
+            (datasource, 'datasource', str),
+            (datasource_map_folder, 'datasource_map_folder', str),
+            (use_full_path, 'use_full_path', bool),
+            (access_control, 'access_control', str),
+            (override_max_interp, 'override_max_interp', bool),
+            (include_inventory, 'include_inventory', bool),
+            (include_annotations, 'include_annotations', bool),
+            (dry_run, 'dry_run', bool),
+            (refresh, 'refresh', bool),
+            (lookup_df, 'lookup_df', pd.DataFrame),
+            (specific_worksheet_ids, 'specific_worksheet_ids', list),
+            (create_dummy_items_in_workbook, 'create_dummy_items_in_workbook', str),
+            (assume_dependencies_exist, 'assume_dependencies_exist', bool),
+            (reconcile_inventory_by, 'reconcile_inventory_by', str),
+            (global_inventory, 'global_inventory', str),
+            (verbose, 'verbose', bool),
+            (errors, 'errors', str),
+            (quiet, 'quiet', bool),
+            (status, 'status', Status),
+            (session, 'session', Session),
+            (scope_globals_to_workbook, 'scope_globals_to_workbook', bool),
+            (item_map, 'item_map', (dict, ItemMap))
+        ])
 
-    _login.validate_login(session, status)
+    if (dry_run or verbose) and not status.verbose:
+        status.set_verbose(True)
+
+    if dry_run:
+        # Doesn't make sense to refresh when we're not actually pushing
+        refresh = False
 
     if path == _folder.ORIGINAL_FOLDER and not use_full_path:
         raise SPyValueError('You must specify use_full_path=True when path=spy.workbooks.ORIGINAL_FOLDER')
@@ -352,11 +376,28 @@ def push(workbooks, *, path: Optional[str] = None, owner: Optional[str] = None,
         workbooks = [workbooks]
 
     # Make sure the datasource exists
-    datasource_output = _metadata.create_datasource(session, datasource)
+    datasource_output = _metadata.create_datasource(session, datasource, status=status, dry_run=dry_run)
 
     workbook_context: Optional[WorkbookContext] = None
     if create_dummy_items_in_workbook is not None:
-        workbook_context = WorkbookContext.from_args(session, status, create_dummy_items_in_workbook, None, datasource)
+        workbook_context = WorkbookContext.from_args(session, status, create_dummy_items_in_workbook,
+                                                     None, datasource, dry_run=dry_run)
+
+    context = WorkbookPushContext(
+        access_control=access_control,
+        datasource=datasource,
+        dummy_items_workbook_context=workbook_context,
+        include_annotations=include_annotations,
+        override_max_interp=override_max_interp,
+        owner=owner,
+        reconcile_inventory_by=reconcile_inventory_by,
+        global_inventory=global_inventory,
+        session=session,
+        specific_worksheet_ids=specific_worksheet_ids,
+        pushed_inventory={},
+        status=status,
+        dry_run=dry_run
+    )
 
     # Sort such that Analyses are pushed before Topics, since the latter usually depends on the former
     remaining_workbooks = list()
@@ -376,24 +417,10 @@ def push(workbooks, *, path: Optional[str] = None, owner: Optional[str] = None,
 
     datasource_map_overrides: DatasourceMapList = DatasourceMapList()
     if datasource_map_folder:
-        datasource_map_overrides = Workbook.load_datasource_maps(datasource_map_folder, overrides=True)
+        datasource_map_overrides = Workbook.load_datasource_maps(datasource_map_folder, overrides=True, status=status)
+        context.add_server_scoped_item_level_map_files(datasource_map_overrides)
 
-    folder_id = _create_folder_path_if_necessary(session, path, status)
-
-    context = WorkbookPushContext(
-        access_control=access_control,
-        datasource=datasource,
-        dummy_items_workbook_context=workbook_context,
-        include_annotations=include_annotations,
-        override_max_interp=override_max_interp,
-        owner=owner,
-        reconcile_inventory_by=reconcile_inventory_by,
-        global_inventory=global_inventory,
-        session=session,
-        specific_worksheet_ids=specific_worksheet_ids,
-        pushed_inventory={},
-        status=status
-    )
+    folder_id = _create_folder_path_if_necessary(context, path)
 
     at_least_one_thing_pushed = False
     while len(remaining_workbooks) > 0:
@@ -408,8 +435,8 @@ def push(workbooks, *, path: Optional[str] = None, owner: Optional[str] = None,
                 raise SPyValueError('Cannot specify a label when pushing a Template workbook')
 
             try:
+                status.log(f'Pushing {workbook}')
                 status.reset_timer()
-
                 status.current_df_index = index
                 status.put('Count', 0)
                 status.put('Time', datetime.timedelta(0))
@@ -422,32 +449,42 @@ def push(workbooks, *, path: Optional[str] = None, owner: Optional[str] = None,
                         # Workbooks can be marked as 'Isolate By User' so they're not stepping on each other when
                         # they do spy.workbook.push(). All of the Example Exports are marked with "Isolate By User"
                         # equal to True.
+                        status.log('Isolating pushed items by user due to workbook setting "Isolate By User"')
                         isolate_by_user = True
 
                     if workbook.provenance == Item.CONSTRUCTOR:
                         # If a Workbook is constructed (and not persisted -- i.e., not pulled/loaded) then the best
                         # policy is to isolate such workbooks so that their Data IDs can't collide in the event that
                         # two users happen to name their workbooks the same.
+                        status.log('Isolating pushed items by user due to workbook provenance being CONSTRUCTOR')
                         isolate_by_user = True
 
                     if isolate_by_user:
                         label = owner_identity.username if owner_identity is not None else session.user.username
 
-                workbook.datasource_maps.extend(datasource_map_overrides.copy(), overwrite=True)
+                context.datasource_maps = workbook.datasource_maps.copy()
+                context.datasource_maps.extend(datasource_map_overrides.copy(), overwrite=True)
 
                 try:
                     if include_inventory is None:
                         include_inventory_for_this_workbook = not isinstance(workbook, ItemTemplate)
+                        if include_inventory_for_this_workbook:
+                            status.log('"include_inventory" is None; including inventory for this workbook because it '
+                                       'is not a Template')
+                        else:
+                            status.log('"include_inventory" is None; not including inventory for this workbook because '
+                                       'it is a Template')
                     else:
+                        status.log(f'"include_inventory" is {include_inventory}')
                         include_inventory_for_this_workbook = include_inventory
 
                     if not include_inventory_for_this_workbook and datasource_map_folder is not None:
                         status.warn('Ignoring datasource_map_folder argument because inventory is not being pushed. '
                                     'Add include_inventory=True to push inventory and use the datasource map folder.')
 
-                    workbook_folder_id = workbook.push_containing_folders(session, item_map, datasource_output,
+                    workbook_folder_id = workbook.push_containing_folders(context, item_map, datasource_output,
                                                                           use_full_path, folder_id, owner, label,
-                                                                          access_control, status)
+                                                                          access_control)
 
                     # Grab the success message now because already_pushed will always be true after the push
                     success_message = 'Success'
@@ -472,17 +509,18 @@ def push(workbooks, *, path: Optional[str] = None, owner: Optional[str] = None,
                     if len(workbook.push_errors) > 0:
                         success_message += f', but with errors:\n{workbook.push_errors_str}'
                         status.put('Result', success_message)
+                        status.log(f'{workbook}: {success_message}', level=logging.ERROR)
                         if status.errors == 'raise':
                             raise SPyRuntimeError(workbook.push_errors_str)
                     else:
                         status.put('Result', success_message)
+                        status.log(f'{workbook}: {success_message}')
 
                 except SPyDependencyNotFound as e:
                     status.put('Count', 0)
                     status.put('Time', datetime.timedelta(0))
                     status.put('Errors', 0)
                     status.put('Result', f'Need dependency: {str(e)}')
-
                     dependencies_not_found.append(str(e))
 
             except ApiException as e:
@@ -495,13 +533,13 @@ def push(workbooks, *, path: Optional[str] = None, owner: Optional[str] = None,
 
             if status.errors == 'raise':
                 raise SPyRuntimeError('Could not find the following dependencies:\n%s\n'
-                                      'Therefore, could not import the following workbooks:\n%s\n' %
+                                      'Therefore, could not push the following workbooks:\n%s\n' %
                                       ('\n'.join(dependencies_not_found),
                                        '\n'.join([str(workbook) for _, workbook in remaining_workbooks])))
 
             break
 
-    Annotation.push_fixups(session, status, item_map)
+    Annotation.push_fixups(context, item_map)
 
     new_workbooks = None
     if refresh and at_least_one_thing_pushed:
@@ -536,11 +574,14 @@ def push(workbooks, *, path: Optional[str] = None, owner: Optional[str] = None,
     max_errors = status.df['Errors'].max()
     if max_errors > 0:
         status.update('Errors encountered, look at Result column in returned DataFrame', Status.FAILURE)
+        if status.log_file is not None:
+            status.log(f'Open a terminal and execute the following command to see the errors:\n'
+                       f'{status.get_grep_errors_command()}')
     else:
         status.update('Push successful', Status.SUCCESS)
 
     output_df_properties = types.SimpleNamespace(
-        func='spy.workbooks.push',
+        func=function_name,
         kwargs=input_args,
         input=workbooks,
         output=new_workbooks,
@@ -551,32 +592,47 @@ def push(workbooks, *, path: Optional[str] = None, owner: Optional[str] = None,
 
     output_df = status.df.copy()
 
+    status.log(
+        f'Workbook URLs:\n' +
+        '\n'.join([f'"{row.get("Name")}": {row.get("URL")}' for row in output_df.to_dict(orient='records')])
+    )
+
     _common.put_properties_on_df(output_df, output_df_properties)
 
     return output_df
 
 
-def _create_folder_path_if_necessary(session: Session, path, status: Status):
+def _create_folder_path_if_necessary(context: WorkbookPushContext, path):
+    session = context.session
+    status = context.status
+
     if path == _folder.ORIGINAL_FOLDER:
+        status.log('"path" argument is spy.workbooks.ORIGINAL_FOLDER; recreating original folder path')
         return _folder.ORIGINAL_FOLDER
 
     if _common.is_guid(path):
+        status.log(f'"path" argument is a folder ID; using folder ID {path} directly')
         return path
 
     folders_api = FoldersApi(session.client)
 
     if path is None:
+        status.log('"path" argument is None; the workbook will stay where it is (if it has already been pushed once)')
         return None
 
     path = path.strip()
 
     if not path:
+        status.log('"path" argument is empty; the workbook will stay where it is (if it has already been pushed once)')
         return None
 
     if path == _folder.MY_FOLDER:
+        status.log('"path" argument is spy.workbooks.MY_FOLDER; using user\'s home folder')
         return folders_api.get_folder(folder_id='mine').id
 
     workbook_path = _common.path_string_to_list(path)
+
+    status.log(f'Creating folder path "{path}" if it does not already exist')
 
     parent_id = None
     folder_id = None
@@ -604,8 +660,10 @@ def _create_folder_path_if_necessary(session: Session, path, status: Status):
             'is_exact': True,
             'limit': session.options.search_page_size,
         }
+
         if parent_id:
             kwargs['folder_id'] = parent_id
+
         folders = safely(lambda: folders_api.get_folders(**kwargs),
                          action_description=f'get Folders using filter "{folder_filter}" and name "{content_name}" '
                                             f'within {parent_id}',
@@ -618,6 +676,8 @@ def _create_folder_path_if_necessary(session: Session, path, status: Status):
                     if (parent_id is not None and content.ancestors is not None and len(content.ancestors) >= 1
                             and content.ancestors[-1].id != parent_id):
                         continue
+
+                    status.log(f'Found existing Folder "{content.name}" ({content.id}) under parent ID {parent_id}')
                     existing_content_id = content.id
                     break
 
@@ -627,11 +687,17 @@ def _create_folder_path_if_necessary(session: Session, path, status: Status):
             folder_input.description = 'Created by Seeq Data Lab'
             folder_input.owner_id = session.user.id
             folder_input.parent_folder_id = parent_id
-            folder_output = safely(lambda: folders_api.create_folder(body=folder_input),
-                                   action_description=f'create Folder {folder_input.name}',
-                                   status=status)  # type: FolderOutputV1
-            if folder_output is not None:
-                existing_content_id = folder_output.id
+
+            if not context.dry_run:
+                folder_output = safely(lambda: folders_api.create_folder(body=folder_input),
+                                       action_description=f'create Folder {folder_input.name}',
+                                       status=status)  # type: FolderOutputV1
+                if folder_output is not None:
+                    existing_content_id = folder_output.id
+                    status.log(f'Created Folder "{folder_output.name}" under parent ID {parent_id}')
+            else:
+                status.log(f'[Dry Run] Would create Folder "{folder_input.name}" under parent ID {parent_id}')
+                return None
 
         parent_id = existing_content_id
         folder_id = existing_content_id

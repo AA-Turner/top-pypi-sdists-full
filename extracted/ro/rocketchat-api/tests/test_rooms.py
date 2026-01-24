@@ -2,19 +2,23 @@ import uuid
 
 import pytest
 
-from rocketchat_API.APIExceptions.RocketExceptions import RocketMissingParamException
+from rocketchat_API.APIExceptions.RocketExceptions import (
+    RocketMissingParamException,
+    RocketApiException,
+)
 
 
-def test_rooms_upload(logged_rocket):
-    rooms_upload = logged_rocket.rooms_upload(
+def test_rooms_media(logged_rocket):
+    rooms_media = logged_rocket.rooms_media(
         "GENERAL", file="tests/assets/avatar.png", description="hey there"
-    ).json()
-    assert rooms_upload.get("success")
+    )
+    assert str(rooms_media.get("file").get("url")).endswith("avatar.png")
 
 
 def test_rooms_get(logged_rocket):
-    rooms_get = logged_rocket.rooms_get().json()
-    assert rooms_get.get("success")
+    rooms_get = logged_rocket.rooms_get()
+    assert "update" in rooms_get
+    assert "remove" in rooms_get
 
 
 def test_rooms_clean_history(logged_rocket):
@@ -22,36 +26,27 @@ def test_rooms_clean_history(logged_rocket):
         room_id="GENERAL",
         latest="2016-09-30T13:42:25.304Z",
         oldest="2016-05-30T13:42:25.304Z",
-    ).json()
-    assert rooms_clean_history.get("success")
+    )
+    assert rooms_clean_history.get("_id") == "GENERAL"
+    assert "count" in rooms_clean_history
 
 
 def test_rooms_favorite(logged_rocket):
-    rooms_favorite = logged_rocket.rooms_favorite(
-        room_id="GENERAL", favorite=True
-    ).json()
-    assert rooms_favorite.get("success")
+    logged_rocket.rooms_favorite(room_id="GENERAL", favorite=True)
+    logged_rocket.rooms_favorite(room_name="general", favorite=True)
 
-    rooms_favorite = logged_rocket.rooms_favorite(
-        room_name="general", favorite=True
-    ).json()
-    assert rooms_favorite.get("success")
-
-    rooms_favorite = logged_rocket.rooms_favorite(
-        room_id="unexisting_channel", favorite=True
-    ).json()
-    assert not rooms_favorite.get("success")
+    with pytest.raises(RocketApiException) as exc_info:
+        logged_rocket.rooms_favorite(room_id="unexisting_channel", favorite=True)
+    assert "error-room-not-found" in str(exc_info.value)
 
     with pytest.raises(RocketMissingParamException):
         logged_rocket.rooms_favorite()
 
 
 def test_rooms_info(logged_rocket):
-    rooms_infoby_name = logged_rocket.rooms_info(room_name="general").json()
-    assert rooms_infoby_name.get("success")
+    rooms_infoby_name = logged_rocket.rooms_info(room_name="general")
     assert rooms_infoby_name.get("room").get("_id") == "GENERAL"
-    rooms_info_by_id = logged_rocket.rooms_info(room_id="GENERAL").json()
-    assert rooms_info_by_id.get("success")
+    rooms_info_by_id = logged_rocket.rooms_info(room_id="GENERAL")
     assert rooms_info_by_id.get("room").get("_id") == "GENERAL"
     with pytest.raises(RocketMissingParamException):
         logged_rocket.rooms_info()
@@ -62,61 +57,39 @@ def test_rooms_create_discussion(logged_rocket):
     rooms_create_discussion = logged_rocket.rooms_create_discussion(
         prid="GENERAL",
         t_name=discussion_name,
-    ).json()
-    assert rooms_create_discussion.get("success")
+    )
     assert "discussion" in rooms_create_discussion
     assert rooms_create_discussion.get("discussion").get("fname") == discussion_name
 
 
 def test_rooms_admin_rooms(logged_rocket):
-    rooms_simple = logged_rocket.rooms_admin_rooms().json()
-    assert rooms_simple.get("success")
+    iterated_rooms = list(logged_rocket.rooms_admin_rooms())
+    assert len(iterated_rooms) > 0, "Should have at least one room"
 
-    # Using a room type filter does not seem to work
-    offset = actual_count = 0
-    res = {}
-    while res.get("total") is None or res.get("total") > offset:
-        res = logged_rocket.rooms_admin_rooms(
-            **{
-                "types": [
-                    "c",
-                ],
-                "offset": offset,
-            }
-        ).json()
-        assert res.get("success")
-        offset += res.get("count")
-        actual_count += len(list(filter(lambda x: "c" in x["t"], res.get("rooms"))))
-    assert res.get("total") == actual_count
+    for room in iterated_rooms:
+        assert "_id" in room
+        assert "t" in room
 
-    rooms_with_filter = logged_rocket.rooms_admin_rooms(**{"filter": "general"}).json()
-    assert rooms_with_filter.get("success")
-    assert rooms_with_filter.get("rooms")[0].get("_id") == "GENERAL"
+    # Test with custom count parameter
+    iterated_rooms_custom = list(logged_rocket.rooms_admin_rooms(count=1))
+    assert len(iterated_rooms_custom) > 0
+
+    rooms_with_filter = list(logged_rocket.rooms_admin_rooms(filter="general"))
+    assert len(rooms_with_filter) == 1
 
 
 def test_rooms_leave(logged_rocket, secondary_user):
-    rooms_leave = logged_rocket.rooms_leave("GENERAL").json()
-    assert not rooms_leave.get("success")
-    assert rooms_leave.get("errorType") == "error-you-are-last-owner"
+    with pytest.raises(RocketApiException) as exc_info:
+        logged_rocket.rooms_leave("GENERAL")
+    assert exc_info.value.error_type == "error-you-are-last-owner"
 
     name = str(uuid.uuid1())
-    channels_create = logged_rocket.channels_create(name).json()
-    assert (
-        logged_rocket.channels_invite(
-            room_id=channels_create.get("channel").get("_id"), user_id=secondary_user
-        )
-        .json()
-        .get("success")
+    channels_create = logged_rocket.channels_create(name)
+    logged_rocket.channels_invite(
+        room_id=channels_create.get("channel").get("_id"), user_id=secondary_user
     )
 
-    assert (
-        logged_rocket.channels_add_owner(
-            channels_create.get("channel").get("_id"), user_id=secondary_user
-        )
-        .json()
-        .get("success")
+    logged_rocket.channels_add_owner(
+        channels_create.get("channel").get("_id"), user_id=secondary_user
     )
-    rooms_leave = logged_rocket.rooms_leave(
-        channels_create.get("channel").get("_id")
-    ).json()
-    assert rooms_leave.get("success")
+    logged_rocket.rooms_leave(channels_create.get("channel").get("_id"))

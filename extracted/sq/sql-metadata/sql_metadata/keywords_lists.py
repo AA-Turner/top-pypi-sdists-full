@@ -33,6 +33,7 @@ TABLE_ADJUSTMENT_KEYWORDS = {
     "INTO",
     "UPDATE",
     "TABLE",
+    "IFNOTEXISTS",
 }
 
 # next statement beginning after with statement
@@ -65,6 +66,7 @@ COLUMNS_SECTIONS = {
     "INTO": "insert",
     "SET": "update",
     "GROUPBY": "group_by",
+    "INNERJOIN": "inner_join",
 }
 
 
@@ -107,6 +109,7 @@ SUPPORTED_QUERY_TYPES = {
     "DELETE": QueryType.DELETE,
     "WITH": QueryType.SELECT,
     "CREATETABLE": QueryType.CREATE,
+    "CREATETEMPORARY": QueryType.CREATE,
     "ALTERTABLE": QueryType.ALTER,
     "DROPTABLE": QueryType.DROP,
     "CREATEFUNCTION": QueryType.CREATE,

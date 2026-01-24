@@ -4,8 +4,8 @@ from rocketchat_API.APISections.assets import RocketChatAssets
 from rocketchat_API.APISections.banners import RocketChatBanners
 from rocketchat_API.APISections.channels import RocketChatChannels
 from rocketchat_API.APISections.chat import RocketChatChat
+from rocketchat_API.APISections.dm import RocketChatDM
 from rocketchat_API.APISections.groups import RocketChatGroups
-from rocketchat_API.APISections.im import RocketChatIM
 from rocketchat_API.APISections.integrations import RocketChatIntegrations
 from rocketchat_API.APISections.invites import RocketChatInvites
 from rocketchat_API.APISections.licenses import RocketChatLicenses
@@ -19,29 +19,27 @@ from rocketchat_API.APISections.statistics import RocketChatStatistics
 from rocketchat_API.APISections.subscriptions import RocketChatSubscriptions
 from rocketchat_API.APISections.teams import RocketChatTeams
 from rocketchat_API.APISections.users import RocketChatUsers
-from rocketchat_API.APISections.video_conferences import RocketChatVideConferences
 
 
 class RocketChat(
-    RocketChatUsers,
-    RocketChatChat,
-    RocketChatChannels,
-    RocketChatGroups,
-    RocketChatIM,
-    RocketChatIntegrations,
-    RocketChatStatistics,
-    RocketChatMiscellaneous,
-    RocketChatSettings,
-    RocketChatRooms,
-    RocketChatSubscriptions,
     RocketChatAssets,
-    RocketChatPermissions,
-    RocketChatInvites,
-    RocketChatVideConferences,
-    RocketChatLivechat,
-    RocketChatTeams,
-    RocketChatRoles,
     RocketChatBanners,
+    RocketChatChannels,
+    RocketChatChat,
+    RocketChatDM,
+    RocketChatGroups,
+    RocketChatIntegrations,
+    RocketChatInvites,
     RocketChatLicenses,
+    RocketChatLivechat,
+    RocketChatMiscellaneous,
+    RocketChatPermissions,
+    RocketChatRoles,
+    RocketChatRooms,
+    RocketChatSettings,
+    RocketChatStatistics,
+    RocketChatSubscriptions,
+    RocketChatTeams,
+    RocketChatUsers,
 ):
     pass

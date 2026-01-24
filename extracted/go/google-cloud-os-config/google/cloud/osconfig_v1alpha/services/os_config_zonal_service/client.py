@@ -168,6 +168,34 @@ class OsConfigZonalServiceClient(metaclass=OsConfigZonalServiceClientMeta):
     _DEFAULT_ENDPOINT_TEMPLATE = "osconfig.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
 
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
+
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
         """Creates an instance of this client using the provided credentials
@@ -491,12 +519,8 @@ class OsConfigZonalServiceClient(metaclass=OsConfigZonalServiceClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = OsConfigZonalServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -504,7 +528,7 @@ class OsConfigZonalServiceClient(metaclass=OsConfigZonalServiceClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -536,20 +560,14 @@ class OsConfigZonalServiceClient(metaclass=OsConfigZonalServiceClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = OsConfigZonalServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -958,12 +976,12 @@ class OsConfigZonalServiceClient(metaclass=OsConfigZonalServiceClientMeta):
                 Required. The logical name of the OS policy assignment
                 in the project with the following restrictions:
 
-                -  Must contain only lowercase letters, numbers, and
-                   hyphens.
-                -  Must start with a letter.
-                -  Must be between 1-63 characters.
-                -  Must end with a number or a letter.
-                -  Must be unique within the project.
+                - Must contain only lowercase letters, numbers, and
+                  hyphens.
+                - Must start with a letter.
+                - Must be between 1-63 characters.
+                - Must end with a number or a letter.
+                - Must be unique within the project.
 
                 This corresponds to the ``os_policy_assignment_id`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -991,7 +1009,7 @@ class OsConfigZonalServiceClient(metaclass=OsConfigZonalServiceClientMeta):
                    packages, or executing a script.
 
                    For more information, see [OS policy and OS policy
-                   assignment](\ https://cloud.google.com/compute/docs/os-configuration-management/working-with-os-policies).
+                   assignment](https://cloud.google.com/compute/docs/os-configuration-management/working-with-os-policies).
 
         """
         # Create or coerce a protobuf request object.
@@ -1159,7 +1177,7 @@ class OsConfigZonalServiceClient(metaclass=OsConfigZonalServiceClientMeta):
                    packages, or executing a script.
 
                    For more information, see [OS policy and OS policy
-                   assignment](\ https://cloud.google.com/compute/docs/os-configuration-management/working-with-os-policies).
+                   assignment](https://cloud.google.com/compute/docs/os-configuration-management/working-with-os-policies).
 
         """
         # Create or coerce a protobuf request object.
@@ -1301,7 +1319,7 @@ class OsConfigZonalServiceClient(metaclass=OsConfigZonalServiceClientMeta):
                    packages, or executing a script.
 
                    For more information, see [OS policy and OS policy
-                   assignment](\ https://cloud.google.com/compute/docs/os-configuration-management/working-with-os-policies).
+                   assignment](https://cloud.google.com/compute/docs/os-configuration-management/working-with-os-policies).
 
         """
         # Create or coerce a protobuf request object.
@@ -1847,7 +1865,7 @@ class OsConfigZonalServiceClient(metaclass=OsConfigZonalServiceClientMeta):
                    state of an individual OS policy.
 
                    For more information, see [View
-                   compliance](\ https://cloud.google.com/compute/docs/os-configuration-management/view-compliance).
+                   compliance](https://cloud.google.com/compute/docs/os-configuration-management/view-compliance).
 
         """
         warnings.warn(
@@ -2420,7 +2438,7 @@ class OsConfigZonalServiceClient(metaclass=OsConfigZonalServiceClientMeta):
 
                    For more information, see [Information provided by OS
                    inventory
-                   management](\ https://cloud.google.com/compute/docs/instances/os-inventory-management#data-collected).
+                   management](https://cloud.google.com/compute/docs/instances/os-inventory-management#data-collected).
 
         """
         # Create or coerce a protobuf request object.
@@ -2676,7 +2694,7 @@ class OsConfigZonalServiceClient(metaclass=OsConfigZonalServiceClientMeta):
                    given point in time.
 
                    For more information, see [Vulnerability
-                   reports](\ https://cloud.google.com/compute/docs/instances/os-inventory-management#vulnerability-reports).
+                   reports](https://cloud.google.com/compute/docs/instances/os-inventory-management#vulnerability-reports).
 
         """
         # Create or coerce a protobuf request object.

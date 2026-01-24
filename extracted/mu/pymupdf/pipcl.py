@@ -2,28 +2,43 @@
 Python packaging operations, including PEP-517 support, for use by a `setup.py`
 script.
 
-The intention is to take care of as many packaging details as possible so that
-setup.py contains only project-specific information, while also giving as much
-flexibility as possible.
+Overview:
 
-For example we provide a function `build_extension()` that can be used to build
-a SWIG extension, but we also give access to the located compiler/linker so
-that a `setup.py` script can take over the details itself.
+    The intention is to take care of as many packaging details as possible so
+    that setup.py contains only project-specific information, while also giving
+    as much flexibility as possible.
 
-Run doctests with: `python -m doctest pipcl.py`
+    For example we provide a function `build_extension()` that can be used
+    to build a SWIG extension, but we also give access to the located
+    compiler/linker so that a `setup.py` script can take over the details
+    itself.
 
-For Graal we require that PIPCL_GRAAL_PYTHON is set to non-graal Python (we
-build for non-graal except with Graal Python's include paths and library
-directory).
+Doctests:
+    Doctest strings are provided in some comments.
+
+    Test in the usual way with:
+        python -m doctest pipcl.py
+
+    Test specific functions/classes with:
+        python pipcl.py --doctest run_if ...
+
+        If no functions or classes are specified, this tests everything.
+
+Graal:
+    For Graal we require that PIPCL_GRAAL_PYTHON is set to non-graal Python (we
+    build for non-graal except with Graal Python's include paths and library
+    directory).
 '''
 
 import base64
 import codecs
+import difflib
 import glob
 import hashlib
 import inspect
 import io
 import os
+import pickle
 import platform
 import re
 import shlex
@@ -54,6 +69,9 @@ class Package:
     with a legacy (pre-PEP-517) pip, as implemented
     by legacy distutils/setuptools and described in:
     https://pip.pypa.io/en/stable/reference/build-system/setup-py/
+
+    The file pyproject.toml must exist; this is checked if/when fn_build() is
+    called.
 
     Here is a `doctest` example of using pipcl to create a SWIG extension
     module. Requires `swig`.
@@ -321,63 +339,86 @@ class Package:
             wheel_compresslevel = None,
             ):
         '''
-        The initial args before `root` define the package
-        metadata and closely follow the definitions in:
+        The initial args before `entry_points` define the
+        package metadata and closely follow the definitions in:
         https://packaging.python.org/specifications/core-metadata/
 
         Args:
 
             name:
+                Used for metadata `Name`.
                 A string, the name of the Python package.
             version:
+                Used for metadata `Version`.
                 A string, the version of the Python package. Also see PEP-440
                 `Version Identification and Dependency Specification`.
             platform:
+                Used for metadata `Platform`.
                 A string or list of strings.
             supported_platform:
+                Used for metadata `Supported-Platform`.
                 A string or list of strings.
             summary:
+                Used for metadata `Summary`.
                 A string, short description of the package.
             description:
+                Used for metadata `Description`.
                 A string. If contains newlines, a detailed description of the
                 package. Otherwise the path of a file containing the detailed
                 description of the package.
             description_content_type:
+                Used for metadata `Description-Content-Type`.
                 A string describing markup of `description` arg. For example
                 `text/markdown; variant=GFM`.
             keywords:
+                Used for metadata `Keywords`.
                 A string containing comma-separated keywords.
             home_page:
+                Used for metadata `Home-page`.
                 URL of home page.
             download_url:
+                Used for metadata `Download-URL`.
                 Where this version can be downloaded from.
             author:
+                Used for metadata `Author`.
                 Author.
             author_email:
+                Used for metadata `Author-email`.
                 Author email.
             maintainer:
+                Used for metadata `Maintainer`.
                 Maintainer.
             maintainer_email:
+                Used for metadata `Maintainer-email`.
                 Maintainer email.
             license:
+                Used for metadata `License`.
                 A string containing the license text. Written into metadata
                 file `COPYING`. Is also written into metadata itself if not
                 multi-line.
             classifier:
+                Used for metadata `Classifier`.
                 A string or list of strings. Also see:
 
                 * https://pypi.org/pypi?%3Aaction=list_classifiers
                 * https://pypi.org/classifiers/
 
             requires_dist:
-                A string or list of strings. None items are ignored. Also see PEP-508.
+                Used for metadata `Requires-Dist`.
+                A string or list of strings, Python packages required
+                at runtime. None items are ignored.
             requires_python:
+                Used for metadata `Requires-Python`.
                 A string or list of strings.
             requires_external:
+                Used for metadata `Requires-External`.
                 A string or list of strings.
             project_url:
-                A string or list of strings, each of the form: `{name}, {url}`.
+                Used for metadata `Project-URL`.
+                A string or list of strings, each of the form: `{name},
+                {url}`.
             provides_extra:
+                Used for metadata `Provides-Extra`.
                 A string or list of strings.
 
             entry_points:
@@ -415,8 +456,11 @@ class Package:
                 added.
 
                 `to_` identifies what the file should be called within a wheel
-                or when installing. If `to_` ends with `/`, the leaf of `from_`
-                is appended to it (and `from_` must not be a `bytes`).
+                or when installing. If `to_` is empty or `/` we set it to the
+                leaf of `from_` (`from_` must not be a `bytes`) - i.e. we place
+                the file in the root directory of the wheel; otherwise if
+                `to_` ends with `/` the leaf of `from_` is appended to it (and
+                `from_` must not be a `bytes`).
 
                 Initial `$dist-info/` in `_to` is replaced by
                 `{name}-{version}.dist-info/`; this is useful for license files
@@ -439,6 +483,11 @@ class Package:
                 default being `sysconfig.get_path('platlib')` e.g.
                 `myvenv/lib/python3.9/site-packages/`.
 
+                When calling this function, we assert that the file
+                pyproject.toml exists in the current directory. (We do this
+                here rather than in pipcl.Package's constructor, as otherwise
+                importing setup.py from non-package-related code could fail.)
+
             fn_clean:
                 A function taking a single arg `all_` that cleans generated
                 files. `all_` is true iff `--all` is in argv.
@@ -457,8 +506,7 @@ class Package:
                 It can be convenient to use `pipcl.git_items()`.
 
                 The specification for sdists requires that the list contains
-                `pyproject.toml`; we enforce this with a diagnostic rather than
-                raising an exception, to allow legacy command-line usage.
+                `pyproject.toml`; we enforce this with a Python assert.
 
             tag_python:
                 First element of wheel tag defined in PEP-425. If None we use
@@ -528,6 +576,12 @@ class Package:
         assert_str_or_multi( requires_external)
         assert_str_or_multi( project_url)
         assert_str_or_multi( provides_extra)
+        
+        assert re.match('^([A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9])\\Z', name, re.IGNORECASE), (
+                f'Invalid package name'
+                f' (https://packaging.python.org/en/latest/specifications/name-normalization/)'
+                f': {name!r}'
+                )
 
         # https://packaging.python.org/en/latest/specifications/core-metadata/.
         assert re.match('([A-Z0-9]|[A-Z0-9][A-Z0-9._-]*[A-Z0-9])$', name, re.IGNORECASE), \
@@ -602,7 +656,10 @@ class Package:
                 f' metadata_directory={metadata_directory!r}'
                 )
 
-        if sys.implementation.name == 'graalpy':
+        if os.environ.get('CIBUILDWHEEL') == '1':
+            # Don't special-case graal builds when running under cibuildwheel.
+            pass
+        elif sys.implementation.name == 'graalpy':
             # We build for Graal by building a native Python wheel with Graal
             # Python's include paths and library directory. We then rename the
             # wheel to contain graal's tag etc.
@@ -740,6 +797,7 @@ class Package:
 
         Returns leafname of generated archive within `sdist_directory`.
         '''
+        assert self.fn_sdist, f'fn_sdist() not provided.'
         log2(
                 f' sdist_directory={sdist_directory!r}'
                 f' formats={formats!r}'
@@ -748,13 +806,12 @@ class Package:
         if formats and formats != 'gztar':
             raise Exception( f'Unsupported: formats={formats}')
         items = list()
-        if self.fn_sdist:
-            if inspect.signature(self.fn_sdist).parameters:
-                items = self.fn_sdist(config_settings)
-            else:
-                items = self.fn_sdist()
+        if inspect.signature(self.fn_sdist).parameters:
+            items = self.fn_sdist(config_settings)
+        else:
+            items = self.fn_sdist()
 
-        prefix = f'{_normalise(self.name)}-{self.version}'
+        prefix = f'{_normalise2(self.name)}-{self.version}'
         os.makedirs(sdist_directory, exist_ok=True)
         tarpath = f'{sdist_directory}/{prefix}.tar.gz'
         log2(f'Creating sdist: {tarpath}')
@@ -796,12 +853,11 @@ class Package:
                         assert 0, f'Path is inside sdist_directory={sdist_directory}: {from_!r}'
                     assert os.path.exists(from_), f'Path does not exist: {from_!r}'
                     assert os.path.isfile(from_), f'Path is not a file: {from_!r}'
-                    if to_rel == 'pyproject.toml':
-                        found_pyproject_toml = True
                     add(from_, to_rel)
+                if to_rel == 'pyproject.toml':
+                    found_pyproject_toml = True
 
-            if not found_pyproject_toml:
-                log0(f'Warning: no pyproject.toml specified.')
+            assert found_pyproject_toml, f'Cannot create sdist because file not specified: pyproject.toml'
 
             # Always add a PKG-INFO file.
             add_string(self._metainfo(), 'PKG-INFO')
@@ -826,9 +882,11 @@ class Package:
         Get two-digit python version, e.g. 'cp3.8' for python-3.8.6.
         '''
         if self.tag_python_:
-            return self.tag_python_
+            ret = self.tag_python_
         else:
-            return 'cp' + ''.join(platform.python_version().split('.')[:2])
+            ret = 'cp' + ''.join(platform.python_version().split('.')[:2])
+        assert '-' not in ret
+        return ret
 
     def tag_abi(self):
         '''
@@ -871,23 +929,16 @@ class Package:
             ret = ret.replace('-', '_').replace('.', '_').lower()
             log0(f'From sysconfig.get_platform(): {ret=}.')
 
-            # We need to patch things on MacOS.
-            #
-            # E.g. `foo-1.2.3-cp311-none-macosx_13_x86_64.whl`
-            # causes `pip` to fail with: `not a supported wheel on this
-            # platform`. We seem to need to add `_0` to the OS version.
-            #
-            m = re.match( '^(macosx_[0-9]+)(_[^0-9].+)$', ret)
-            if m:
-                ret2 = f'{m.group(1)}_0{m.group(2)}'
-                log0(f'After macos patch, changing from {ret!r} to {ret2!r}.')
-                ret = ret2
+            ret = _macos_fixup_platform_tag(ret)
 
         log0( f'tag_platform(): returning {ret=}.')
+        assert '-' not in ret
         return ret
 
     def wheel_name(self):
-        return f'{_normalise(self.name)}-{self.version}-{self.tag_python()}-{self.tag_abi()}-{self.tag_platform()}.whl'
+        ret = f'{_normalise2(self.name)}-{self.version}-{self.tag_python()}-{self.tag_abi()}-{self.tag_platform()}.whl'
+        assert ret.count('-') == 4, f'Expected 4 dash characters in {ret=}.'
+        return ret
 
     def wheel_name_match(self, wheel):
         '''
@@ -916,7 +967,7 @@ class Package:
                 log2(f'py_limited_api; {tag_python=} compatible with {self.tag_python()=}.')
                 py_limited_api_compatible = True
             
-        log2(f'{_normalise(self.name) == name=}')
+        log2(f'{_normalise2(self.name) == name=}')
         log2(f'{self.version == version=}')
         log2(f'{self.tag_python() == tag_python=} {self.tag_python()=} {tag_python=}')
         log2(f'{py_limited_api_compatible=}')
@@ -925,7 +976,7 @@ class Package:
         log2(f'{self.tag_platform()=}')
         log2(f'{tag_platform.split(".")=}')
         ret = (1
-                and _normalise(self.name) == name
+                and _normalise2(self.name) == name
                 and self.version == version
                 and (self.tag_python() == tag_python or py_limited_api_compatible)
                 and self.tag_abi() == tag_abi
@@ -947,6 +998,9 @@ class Package:
 
     def _call_fn_build( self, config_settings=None):
         assert self.fn_build
+        assert os.path.isfile('pyproject.toml'), (
+                'Cannot create package because file does not exist: pyproject.toml'
+                )
         log2(f'calling self.fn_build={self.fn_build}')
         if inspect.signature(self.fn_build).parameters:
             ret = self.fn_build(config_settings)
@@ -954,6 +1008,28 @@ class Package:
             ret = self.fn_build()
         assert isinstance( ret, (list, tuple)), \
                 f'Expected list/tuple from {self.fn_build} but got: {ret!r}'
+
+        # Check that any extensions that we have built, have same
+        # py_limited_api value. If package is marked with py_limited_api=True
+        # then non-py_limited_api extensions seem to fail at runtime on
+        # Windows.
+        #
+        # (We could possibly allow package py_limited_api=False and extensions
+        # py_limited_api=True, but haven't tested this, and it seems simpler to
+        # be strict.)
+        for item in ret:
+            from_, (to_abs, to_rel) = self._fromto(item)
+            from_abs = os.path.abspath(from_)
+            is_py_limited_api = _extensions_to_py_limited_api.get(from_abs)
+            if is_py_limited_api is not None:
+                assert bool(self.py_limited_api) == bool(is_py_limited_api), (
+                        f'Extension was built with'
+                        f' py_limited_api={is_py_limited_api} but pipcl.Package'
+                        f' name={self.name!r} has'
+                        f' py_limited_api={self.py_limited_api}:'
+                        f' {from_abs!r}'
+                        )
+        
         return ret
 
 
@@ -1052,7 +1128,7 @@ class Package:
         it writes to a slightly different directory.
         '''
         if root is None:
-            root = f'{self.name}-{self.version}.dist-info'
+            root = f'{normalise2(self.name)}-{self.version}.dist-info'
         self._write_info(f'{root}/METADATA')
         if self.license:
             with open( f'{root}/COPYING', 'w') as f:
@@ -1340,7 +1416,7 @@ class Package:
             )
 
     def _dist_info_dir( self):
-        return f'{_normalise(self.name)}-{self.version}.dist-info'
+        return f'{_normalise2(self.name)}-{self.version}.dist-info'
 
     def _metainfo(self):
         '''
@@ -1446,8 +1522,12 @@ class Package:
         `p` is a tuple `(from_, to_)` where `from_` is str/bytes and `to_` is
         str. If `from_` is a bytes it is contents of file to add, otherwise the
         path of an existing file; non-absolute paths are assumed to be relative
-        to `self.root`. If `to_` is empty or ends with `/`, we append the leaf
-        of `from_` (which must be a str).
+        to `self.root`.
+
+        If `to_` is empty or `/` we set it to the leaf of `from_` (which must
+        be a str) - i.e. we place the file in the root directory of the wheel;
+        otherwise if `to_` ends with `/` we append the leaf of `from_` (which
+        must be a str).
 
         If `to_` starts with `$dist-info/`, we replace this with
         `self._dist_info_dir()`.
@@ -1467,14 +1547,16 @@ class Package:
         from_, to_ = p
         assert isinstance(from_, (str, bytes))
         assert isinstance(to_, str)
-        if to_.endswith('/') or to_=='':
+        if to_ == '/' or to_ == '':
+            to_ = os.path.basename(from_)
+        elif to_.endswith('/'):
             to_ += os.path.basename(from_)
         prefix = '$dist-info/'
         if to_.startswith( prefix):
             to_ = f'{self._dist_info_dir()}/{to_[ len(prefix):]}'
         prefix = '$data/'
         if to_.startswith( prefix):
-            to_ = f'{self.name}-{self.version}.data/{to_[ len(prefix):]}'
+            to_ = f'{_normalise2(self.name)}-{self.version}.data/{to_[ len(prefix):]}'
         if isinstance(from_, str):
             from_, _ = self._path_relative_to_root( from_, assert_within_root=False)
         to_ = self._path_relative_to_root(to_)
@@ -1482,11 +1564,13 @@ class Package:
         log2(f'returning {from_=} {to_=}')
         return from_, to_
 
+_extensions_to_py_limited_api = dict()
 
 def build_extension(
         name,
         path_i,
         outdir,
+        *,
         builddir=None,
         includes=None,
         defines=None,
@@ -1498,6 +1582,7 @@ def build_extension(
         linker_extra='',
         swig=None,
         cpp=True,
+        source_extra=None,
         prerequisites_swig=None,
         prerequisites_compile=None,
         prerequisites_link=None,
@@ -1539,7 +1624,7 @@ def build_extension(
             A string, or a sequence of library names. Each item is prefixed
             with `-l` on non-Windows.
         optimise:
-            Whether to use compiler optimisations.
+            Whether to use compiler optimisations and define NDEBUG.
         debug:
             Whether to build with debug symbols.
         compiler_extra:
@@ -1550,6 +1635,8 @@ def build_extension(
             Swig command; if false we use 'swig'.
         cpp:
             If true we tell SWIG to generate C++ code instead of C.
+        source_extra:
+            Extra source files to build into the shared library,
         prerequisites_swig:
         prerequisites_compile:
         prerequisites_link:
@@ -1584,9 +1671,14 @@ def build_extension(
             `compile_extra` (also `/I` on windows) and use them with swig so
             that it can see the same header files as C/C++. This is useful
             when using enviromment variables such as `CC` and `CXX` to set
-            `compile_extra.
+            `compile_extra`.
         py_limited_api:
             If true we build for current Python's limited API / stable ABI.
+
+            Note that we will assert false if this extension is added to a
+            pipcl.Package that has a different <py_limited_api>, because
+            on Windows importing a non-py_limited_api extension inside a
+            py_limited=True package fails.
 
     Returns the leafname of the generated library file within `outdir`, e.g.
     `_{name}.so` on Unix or `_{name}.cp311-win_amd64.pyd` on Windows.
@@ -1599,6 +1691,12 @@ def build_extension(
         builddir = outdir
     if not swig:
         swig = 'swig'
+        
+    if source_extra is None:
+        source_extra = list()
+    if isinstance(source_extra, str):
+        source_extra = [source_extra]
+    
     includes_text = _flags( includes, '-I')
     defines_text = _flags( defines, '-D')
     libpaths_text = _flags( libpaths, '/LIBPATH:', '"') if windows() else _flags( libpaths, '-L')
@@ -1608,11 +1706,11 @@ def build_extension(
     os.makedirs( outdir, exist_ok=True)
 
     # Run SWIG.
-
+    #
     if infer_swig_includes:
         # Extract include flags from `compiler_extra`.
         swig_includes_extra = ''
-        compiler_extra_items = compiler_extra.split()
+        compiler_extra_items = shlex.split(compiler_extra)
         i = 0
         while i < len(compiler_extra_items):
             item = compiler_extra_items[i]
@@ -1647,75 +1745,130 @@ def build_extension(
             prerequisites_swig2,
             )
 
-    so_suffix = _so_suffix(use_so_versioning = not py_limited_api)
+    if pyodide():
+        so_suffix = '.so'
+        log0(f'pyodide: PEP-3149 suffix untested, so omitting. {_so_suffix()=}.')
+    else:
+        so_suffix = _so_suffix(use_so_versioning = not py_limited_api)
     path_so_leaf = f'_{name}{so_suffix}'
     path_so = f'{outdir}/{path_so_leaf}'
 
     py_limited_api2 = current_py_limited_api() if py_limited_api else None
 
-    if windows():
-        path_obj = f'{path_so}.obj'
+    compiler_command, pythonflags = base_compiler(cpp=cpp)
+    linker_command, _ = base_linker(cpp=cpp)
+    # setuptools on Linux seems to use slightly different compile flags:
+    #
+    # -fwrapv -O3 -Wall -O2 -g0 -DPY_CALL_TRAMPOLINE
+    #
 
+    general_flags = ''
+    if windows():
         permissive = '/permissive-'
         EHsc = '/EHsc'
         T = '/Tp' if cpp else '/Tc'
         optimise2 = '/DNDEBUG /O2' if optimise else '/D_DEBUG'
-        debug2 = ''
-        if debug:
-            debug2 = '/Zi'  # Generate .pdb.
-            # debug2 = '/Z7'    # Embed debug info in .obj files.
-        
+        debug2 = '/Zi' if debug else ''
         py_limited_api3 = f'/DPy_LIMITED_API={py_limited_api2}' if py_limited_api2 else ''
 
-        # As of 2023-08-23, it looks like VS tools create slightly
-        # .dll's each time, even with identical inputs.
+    else:
+        if debug:
+            general_flags += '/Zi' if windows() else ' -g'
+        if optimise:
+            general_flags += ' /DNDEBUG /O2' if windows() else ' -O2 -DNDEBUG'
+
+        py_limited_api3 = f'-DPy_LIMITED_API={py_limited_api2}' if py_limited_api2 else ''
+
+    if windows():
+        pass
+    elif darwin():
+        # MacOS's linker does not like `-z origin`.
+        rpath_flag = "-Wl,-rpath,@loader_path/"
+        # Avoid `Undefined symbols for ... "_PyArg_UnpackTuple" ...'.
+        general_flags += ' -undefined dynamic_lookup'
+    elif pyodide():
+        # Setting `-Wl,-rpath,'$ORIGIN',-z,origin` gives:
+        #   emcc: warning: ignoring unsupported linker flag: `-rpath` [-Wlinkflags]
+        #   wasm-ld: error: unknown -z value: origin
         #
-        # Some info about this is at:
-        # https://nikhilism.com/post/2020/windows-deterministic-builds/.
-        # E.g. an undocumented linker flag `/Brepro`.
-        #
+        rpath_flag = "-Wl,-rpath,'$ORIGIN'"
+    else:
+        rpath_flag = "-Wl,-rpath,'$ORIGIN',-z,origin"
+    
+    # Fun fact - on Linux, if the -L and -l options are before '{path_cpp}'
+    # they seem to be ignored...
+    #
+    path_os = list()
 
-        command, pythonflags = base_compiler(cpp=cpp)
-        command = f'''
-                {command}
-                    # General:
-                    /c                          # Compiles without linking.
-                    {EHsc}                      # Enable "Standard C++ exception handling".
+    for path_source in [path_cpp] + source_extra:
+        path_o = f'{path_source}.obj' if windows() else f'{path_source}.o'
+        path_os.append(f' {path_o}')
 
-                    #/MD                         # Creates a multithreaded DLL using MSVCRT.lib.
-                    {'/MDd' if debug else '/MD'}
+        prerequisites_path = f'{path_o}.d'
 
-                    # Input/output files:
-                    {T}{path_cpp}               # /Tp specifies C++ source file.
-                    /Fo{path_obj}               # Output file. codespell:ignore
+        if windows():
+            compiler_command2 = f'''
+                    {compiler_command}
+                        # General:
+                        /c                          # Compiles without linking.
+                        {EHsc}                      # Enable "Standard C++ exception handling".
 
-                    # Include paths:
-                    {includes_text}
-                    {pythonflags.includes}      # Include path for Python headers.
+                        #/MD                         # Creates a multithreaded DLL using MSVCRT.lib.
+                        {'/MDd' if debug else '/MD'}
 
-                    # Code generation:
-                    {optimise2}
-                    {debug2}
-                    {permissive}                # Set standard-conformance mode.
+                        # Input/output files:
+                        {T}{path_source}            # /Tp specifies C++ source file.
+                        /Fo{path_o}                 # Output file. codespell:ignore
 
-                    # Diagnostics:
-                    #/FC                         # Display full path of source code files passed to cl.exe in diagnostic text.
-                    /W3                         # Sets which warning level to output. /W3 is IDE default.
-                    /diagnostics:caret          # Controls the format of diagnostic messages.
-                    /nologo                     #
+                        # Include paths:
+                        {includes_text}
+                        {pythonflags.includes}      # Include path for Python headers.
 
-                    {defines_text}
-                    {compiler_extra}
+                        # Code generation:
+                        {optimise2}
+                        {debug2}
+                        {permissive}                # Set standard-conformance mode.
 
-                    {py_limited_api3}
-                '''
-        run_if( command, path_obj, path_cpp, prerequisites_compile)
+                        # Diagnostics:
+                        #/FC                         # Display full path of source code files passed to cl.exe in diagnostic text.
+                        /W3                         # Sets which warning level to output. /W3 is IDE default.
+                        /diagnostics:caret          # Controls the format of diagnostic messages.
+                        /nologo                     #
 
-        command, pythonflags = base_linker(cpp=cpp)
+                        {defines_text}
+                        {compiler_extra}
+
+                        {py_limited_api3}
+                    '''
+
+        else:
+            compiler_command2 = f'''
+                    {compiler_command}
+                        -fPIC
+                        {general_flags.strip()}
+                        {pythonflags.includes}
+                        {includes_text}
+                        {defines_text}
+                        -MD -MF {prerequisites_path}
+                        -c {path_source}
+                        -o {path_o}
+                        {compiler_extra}
+                        {py_limited_api3}
+                    '''
+        run_if(
+                compiler_command2,
+                path_o,
+                path_source,
+                [path_source] + _get_prerequisites(prerequisites_path),
+                )
+
+    # Link
+    prerequisites_path = f'{path_so}.d'
+    if windows():
         debug2 = '/DEBUG' if debug else ''
         base, _ = os.path.splitext(path_so_leaf)
-        command = f'''
-                {command}
+        command2 = f'''
+                {linker_command}
                     /DLL                    # Builds a DLL.
                     /EXPORT:PyInit__{name}  # Exports a function.
                     /IMPLIB:{base}.lib      # Overrides the default import library name.
@@ -1725,139 +1878,67 @@ def build_extension(
                     {debug2}
                     /nologo
                     {libs_text}
-                    {path_obj}
+                    {' '.join(path_os)}
                     {linker_extra}
                 '''
-        run_if( command, path_so, path_obj, prerequisites_link)
-
+    elif pyodide():
+        command2 = f'''
+                {linker_command}
+                    -MD -MF {prerequisites_path}
+                    -o {path_so}
+                    {' '.join(path_os)}
+                    {libpaths_text}
+                    {libs_text}
+                    {linker_extra}
+                    {pythonflags.ldflags}
+                    {rpath_flag}
+                '''
     else:
+        command2 = f'''
+                {linker_command}
+                    -shared
+                    {general_flags.strip()}
+                    -MD -MF {prerequisites_path}
+                    -o {path_so}
+                    {' '.join(path_os)}
+                    {libpaths_text}
+                    {libs_text}
+                    {linker_extra}
+                    {pythonflags.ldflags}
+                    {rpath_flag}
+                    {py_limited_api3}
+                '''
+    link_was_run = run_if(
+            command2,
+            path_so,
+            path_cpp,
+            *path_os,
+            *_get_prerequisites(f'{path_so}.d'),
+            )
 
-        # Not Windows.
-        #
-        command, pythonflags = base_compiler(cpp=cpp)
-
-        # setuptools on Linux seems to use slightly different compile flags:
-        #
-        # -fwrapv -O3 -Wall -O2 -g0 -DPY_CALL_TRAMPOLINE
-        #
-
-        general_flags = ''
-        if debug:
-            general_flags += ' -g'
-        if optimise:
-            general_flags += ' -O2 -DNDEBUG'
-
-        py_limited_api3 = f'-DPy_LIMITED_API={py_limited_api2}' if py_limited_api2 else ''
-
-        if darwin():
-            # MacOS's linker does not like `-z origin`.
-            rpath_flag = "-Wl,-rpath,@loader_path/"
-
-            # Avoid `Undefined symbols for ... "_PyArg_UnpackTuple" ...'.
-            general_flags += ' -undefined dynamic_lookup'
-        elif pyodide():
-            # Setting `-Wl,-rpath,'$ORIGIN',-z,origin` gives:
-            #   emcc: warning: ignoring unsupported linker flag: `-rpath` [-Wlinkflags]
-            #   wasm-ld: error: unknown -z value: origin
-            #
-            log0(f'pyodide: PEP-3149 suffix untested, so omitting. {_so_suffix()=}.')
-            path_so_leaf = f'_{name}.so'
-            path_so = f'{outdir}/{path_so_leaf}'
-
-            rpath_flag = ''
-        else:
-            rpath_flag = "-Wl,-rpath,'$ORIGIN',-z,origin"
-        path_so = f'{outdir}/{path_so_leaf}'
-        # Fun fact - on Linux, if the -L and -l options are before '{path_cpp}'
-        # they seem to be ignored...
-        #
-        prerequisites = list()
-
-        if pyodide():
-            # Looks like pyodide's `cc` can't compile and link in one invocation.
-            prerequisites_compile_path = f'{path_cpp}.o.d'
-            prerequisites += _get_prerequisites( prerequisites_compile_path)
-            command = f'''
-                    {command}
-                        -fPIC
-                        {general_flags.strip()}
-                        {pythonflags.includes}
-                        {includes_text}
-                        {defines_text}
-                        -MD -MF {prerequisites_compile_path}
-                        -c {path_cpp}
-                        -o {path_cpp}.o
-                        {compiler_extra}
-                        {py_limited_api3}
-                    '''
-            prerequisites_link_path = f'{path_cpp}.o.d'
-            prerequisites += _get_prerequisites( prerequisites_link_path)
-            ld, _ = base_linker(cpp=cpp)
-            command += f'''
-                    && {ld}
-                        {path_cpp}.o
-                        -o {path_so}
-                        -MD -MF {prerequisites_link_path}
-                        {rpath_flag}
-                        {libpaths_text}
-                        {libs_text}
-                        {linker_extra}
-                        {pythonflags.ldflags}
-                    '''
-        else:
-            # We use compiler to compile and link in one command.
-            prerequisites_path = f'{path_so}.d'
-            prerequisites = _get_prerequisites(prerequisites_path)
-
-            command = f'''
-                    {command}
-                        -fPIC
-                        -shared
-                        {general_flags.strip()}
-                        {pythonflags.includes}
-                        {includes_text}
-                        {defines_text}
-                        {path_cpp}
-                        -MD -MF {prerequisites_path}
-                        -o {path_so}
-                        {compiler_extra}
-                        {libpaths_text}
-                        {linker_extra}
-                        {pythonflags.ldflags}
-                        {libs_text}
-                        {rpath_flag}
-                        {py_limited_api3}
-                    '''
-        command_was_run = run_if(
-                command,
-                path_so,
-                path_cpp,
-                prerequisites_compile,
-                prerequisites_link,
-                prerequisites,
-                )
-
-        if command_was_run and darwin():
-            # We need to patch up references to shared libraries in `libs`.
-            sublibraries = list()
-            for lib in () if libs is None else libs:
-                for libpath in libpaths:
-                    found = list()
-                    for suffix in '.so', '.dylib':
-                        path = f'{libpath}/lib{os.path.basename(lib)}{suffix}'
-                        if os.path.exists( path):
-                            found.append( path)
-                    if found:
-                        assert len(found) == 1, f'More than one file matches lib={lib!r}: {found}'
-                        sublibraries.append( found[0])
-                        break
-                else:
-                    log2(f'Warning: can not find path of lib={lib!r} in libpaths={libpaths}')
-            macos_patch( path_so, *sublibraries)
+    if link_was_run and darwin():
+        # We need to patch up references to shared libraries in `libs`.
+        sublibraries = list()
+        for lib in () if libs is None else libs:
+            for libpath in libpaths:
+                found = list()
+                for suffix in '.so', '.dylib':
+                    path = f'{libpath}/lib{os.path.basename(lib)}{suffix}'
+                    if os.path.exists( path):
+                        found.append( path)
+                if found:
+                    assert len(found) == 1, f'More than one file matches lib={lib!r}: {found}'
+                    sublibraries.append( found[0])
+                    break
+            else:
+                log2(f'Warning: can not find path of lib={lib!r} in libpaths={libpaths}')
+        macos_patch( path_so, *sublibraries)
 
         #run(f'ls -l {path_so}', check=0)
         #run(f'file {path_so}', check=0)
 
+    _extensions_to_py_limited_api[os.path.abspath(path_so)] = py_limited_api
+    
     return path_so_leaf
 
 
@@ -1983,7 +2064,7 @@ def git_info( directory):
             )
     if not e:
         branch = out.strip()
-    log(f'git_info(): directory={directory!r} returning branch={branch!r} sha={sha!r} comment={comment!r}')
+    log1(f'git_info(): directory={directory!r} returning branch={branch!r} sha={sha!r} comment={comment!r}')
     return sha, comment, diff, branch
 
 
@@ -2027,88 +2108,96 @@ def git_items( directory, submodules=False):
 
 
 def git_get(
-        remote,
         local,
         *,
+        remote=None,
         branch=None,
+        tag=None,
+        text=None,
         depth=1,
         env_extra=None,
-        tag=None,
         update=True,
         submodules=True,
-        default_remote=None,
         ):
     '''
-    Ensures that <local> is a git checkout (at either <tag>, or <branch> HEAD)
-    of a remote repository.
-    
-    Exactly one of <branch> and <tag> must be specified, or <remote> must start
-    with 'git:' and match the syntax described below.
+    Creates/updates local checkout <local> of remote repository and returns
+    absolute path of <local>.
+
+    If <text> is set but does not start with 'git:', it is assumed to be an up
+    to date local checkout, and we return absolute path of <text> without doing
+    any git operations.
     
     Args:
+        local:
+            Local directory. Created and/or updated using `git clone` and `git
+            fetch` etc.
         remote:
             Remote git repostitory, for example
-            'https://github.com/ArtifexSoftware/mupdf.git'.
+            'https://github.com/ArtifexSoftware/mupdf.git'. Can be overridden
+            by <text>.
+        branch:
+            Branch to use; can be overridden by <text>.
+        tag:
+            Tag to use; can be overridden by <text>.
+        text:
+            If None or empty:
+                Ignored.
             
-            If starts with 'git:', the remaining text should be a command-line
-            style string containing some or all of these args:
-                --branch <branch>
-                --tag <tag>
-                <remote>
-            These overrides <branch>, <tag> and <default_remote>.
+            If starts with 'git:':
+                The remaining text should be a command-line
+                style string containing some or all of these args:
+                    --branch <branch>
+                    --tag <tag>
+                    <remote>
+                These overrides <branch>, <tag> and <remote>.
+            Otherwise:
+                <text> is assumed to be a local directory, and we simply return
+                it as an absolute path without doing any git operations.
             
             For example these all clone/update/branch master of https://foo.bar/qwerty.git to local
             checkout 'foo-local':
             
-                git_get('https://foo.bar/qwerty.git', 'foo-local', branch='master')
-                git_get('git:--branch master https://foo.bar/qwerty.git', 'foo-local')
-                git_get('git:--branch master', 'foo-local', default_remote='https://foo.bar/qwerty.git')
-                git_get('git:', 'foo-local', branch='master', default_remote='https://foo.bar/qwerty.git')
-            
-        local:
-            Local directory. If <local>/.git exists, we attempt to run `git
-            update` in it.
-        branch:
-            Branch to use. Is used as default if remote starts with 'git:'.
+                git_get('foo-local', remote='https://foo.bar/qwerty.git', branch='master')
+                git_get('foo-local', text='git:--branch master https://foo.bar/qwerty.git')
+                git_get('foo-local', text='git:--branch master', remote='https://foo.bar/qwerty.git')
+                git_get('foo-local', text='git:', branch='master', remote='https://foo.bar/qwerty.git')
         depth:
             Depth of local checkout when cloning and fetching, or None.
         env_extra:
             Dict of extra name=value environment variables to use whenever we
             run git.
-        tag:
-            Tag to use. Is used as default if remote starts with 'git:'.
         update:
             If false we do not update existing repository. Might be useful if
             testing without network access.
         submodules:
             If true, we clone with `--recursive --shallow-submodules` and run
             `git submodule update --init --recursive` before returning.
-        default_remote:
-            The remote URL if <remote> starts with 'git:' but does not specify
-            the remote URL.
     '''
-    log0(f'{remote=} {local=} {branch=} {tag=}')
-    if remote.startswith('git:'):
-        remote0 = remote
-        args = iter(shlex.split(remote0[len('git:'):]))
-        remote = default_remote
-        while 1:
-            try:
-                arg = next(args)
-            except StopIteration:
-                break
-            if arg == '--branch':
-                branch = next(args)
-                tag = None
-            elif arg == '--tag':
-                tag == next(args)
-                branch = None
-            else:
-                remote = arg
-        assert remote, f'{default_remote=} and no remote specified in remote={remote0!r}.'
-        assert branch or tag, f'{branch=} {tag=} and no branch/tag specified in remote={remote0!r}.'
+    log0(f'{remote=} {local=} {branch=} {tag=} {text=}')
+    
+    if text:
+        if text.startswith('git:'):
+            args = iter(shlex.split(text[len('git:'):]))
+            while 1:
+                try:
+                    arg = next(args)
+                except StopIteration:
+                    break
+                if arg == '--branch':
+                    branch = next(args)
+                    tag = None
+                elif arg == '--tag':
+                    tag = next(args)
+                    branch = None
+                else:
+                    remote = arg
+            assert remote, f'<remote> unset and no remote specified in {text=}.'
+            assert branch or tag, f'<branch> and <tag> unset and no branch/tag specified in {text=}.'
+        else:
+            log0(f'Using local directory {text!r}.')
+            return os.path.abspath(text)
         
-    assert (branch and not tag) or (not branch and tag), f'Must specify exactly one of <branch> and <tag>.'
+    assert (branch and not tag) or (not branch and tag), f'Must specify exactly one of <branch> and <tag>; {branch=} {tag=}.'
     
     depth_arg = f' --depth {depth}' if depth else ''
     
@@ -2116,7 +2205,7 @@ def git_get(
         # This seems to pull in the entire repository.
         log0(f'do_update(): attempting to update {local=}.')
         # Remove any local changes.
-        run(f'cd {local} && git checkout .', env_extra=env_extra)
+        run(f'cd {local} && git reset --hard', env_extra=env_extra)
         if tag:
             # `-u` avoids `fatal: Refusing to fetch into current branch`.
             # Using '+' and `revs/tags/` prefix seems to avoid errors like:
@@ -2164,6 +2253,7 @@ def git_get(
 
     # Show sha of checkout.
     run( f'cd {local} && git show --pretty=oneline|head -n 1', check=False)
+    return os.path.abspath(local)
     
 
 def run(
@@ -2177,6 +2267,8 @@ def run(
         timeout=None,
         caller=1,
         prefix=None,
+        encoding=None,  # System default.
+        errors='backslashreplace',
         ):
     '''
     Runs a command using `subprocess.run()`.
@@ -2232,11 +2324,12 @@ def run(
     lines = _command_lines( command)
     if verbose:
         text = f'Running:'
-        if env_extra:
-            for k in sorted(env_extra.keys()):
-                text += f' {k}={shlex.quote(env_extra[k])}'
-        nl = '\n'
+        nl = '\n    '
         text += f' {nl.join(lines)}'
+        if env_extra:
+            text += f'\nwith:\n'
+            for k in sorted(env_extra.keys()):
+                text += f'    {k}={shlex.quote(env_extra[k])}\n'
         log1(text, caller=caller+1)
     sep = ' ' if windows() else ' \\\n'
     command2 = sep.join( lines)
@@ -2248,29 +2341,30 @@ def run(
                 shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
-                encoding='utf8',
+                encoding=encoding,
+                errors=errors,
                 env=env,
                 )
         if capture:
             capture_text = ''
-        decoder = codecs.getincrementaldecoder('utf8')('replace')
+        decoder = codecs.getincrementaldecoder(child.stdout.encoding)(errors)
         line_start = True
+        
         while 1:
             raw = os.read( child.stdout.fileno(), 10000)
             text = decoder.decode(raw, final=not raw)
-            if text:
-                if capture:
-                    capture_text += text
-                lines = text.split('\n')
-                for i, line in enumerate(lines):
-                    if line_start:
-                        sys.stdout.write(prefix)
-                        line_start = False
-                    sys.stdout.write(line)
-                    if i < len(lines) - 1:
-                        sys.stdout.write('\n')
-                        line_start = True
-                sys.stdout.flush()
+            if capture:
+                capture_text += text
+            lines = text.split('\n')
+            for i, line in enumerate(lines):
+                if line_start:
+                    sys.stdout.write(prefix)
+                    line_start = False
+                sys.stdout.write(line)
+                if i < len(lines) - 1:
+                    sys.stdout.write('\n')
+                    line_start = True
+            sys.stdout.flush()
             if not raw:
                 break
         if not line_start:
@@ -2289,7 +2383,8 @@ def run(
                 stdout=subprocess.PIPE if capture else None,
                 stderr=subprocess.STDOUT if capture else None,
                 check=check,
-                encoding='utf8',
+                encoding=encoding,
+                errors=errors,
                 env=env,
                 timeout=timeout,
                 )
@@ -2321,6 +2416,8 @@ def openbsd():
 def show_system():
     '''
     Show useful information about the system plus argv and environ.
+    
+    Omits os.environ if $PIPCL_SHOW_ENV is '0'.
     '''
     def log(text):
         log0(text, caller=3)
@@ -2340,16 +2437,30 @@ def show_system():
     log(f'{sys.version_info=}')
     log(f'{list(sys.version_info)=}')
     
+    log(f'{sysconfig.get_config_var("Py_GIL_DISABLED")=}')
+    try:
+        log(f'{sys._is_gil_enabled()=}')
+    except AttributeError:
+        log(f'sys._is_gil_enabled() => AttributeError')
+    
     log(f'CPU bits: {cpu_bits()}')
     
     log(f'sys.argv ({len(sys.argv)}):')
     for i, arg in enumerate(sys.argv):
         log(f'    {i}: {arg!r}')
     
-    log(f'os.environ ({len(os.environ)}):')
-    for k in sorted( os.environ.keys()):
-        v = os.environ[ k]
-        log( f'    {k}: {v!r}')
+    PIPCL_SHOW_ENV = os.environ.get('PIPCL_SHOW_ENV')
+    if PIPCL_SHOW_ENV == '0':
+        log(f'[Not showing os.environ because {PIPCL_SHOW_ENV=}.]')
+    else:
+        log(f'os.environ ({len(os.environ)}):')
+        for k in sorted( os.environ.keys()):
+            v = os.environ[ k]
+            if 'BEGIN OPENSSH PRIVATE KEY' in v:
+                # Don't show private keys.
+                log(f'    {k} ****')
+            else:
+                log( f'    {k}: {v!r}')
 
 
 class PythonFlags:
@@ -2452,10 +2563,11 @@ class PythonFlags:
                     log2(f'### Have removed `-lcrypt` from ldflags: {self.ldflags!r} -> {ldflags2!r}')
                     self.ldflags = ldflags2
 
-        log1(f'{self.includes=}')
-        log1(f'    {includes_=}')
-        log1(f'{self.ldflags=}')
-        log1(f'    {ldflags_=}')
+        if 0:
+            log1(f'{self.includes=}')
+            log1(f'    {includes_=}')
+            log1(f'{self.ldflags=}')
+            log1(f'    {ldflags_=}')
 
 
 def macos_add_cross_flags(command):
@@ -2518,6 +2630,40 @@ def macos_patch( library, *sublibraries):
     subprocess.run( f'otool -L {library}', shell=1, check=1)
 
 
+def _macos_fixup_platform_tag(tag):
+    '''
+    Patch up platform tag on MacOS.
+
+    E.g. `foo-1.2.3-cp311-none-macosx_13_x86_64.whl` causes `pip` to fail with:
+    `not a supported wheel on this platform`. We seem to need to add `_0` to
+    the OS version. (This is documented at
+    https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/#macos).
+
+    And with graal we need to replace trailing `universal2` with x86_64
+    or arm64. On non-graal this causes problems because non-universal
+    platform tags seem more restricted than platform tags from
+    sysconfig.get_platform(). For example:
+    
+        pip install ...-macosx_10_13_arm64.whl
+            ERROR: ...-macosx_10_13_arm64.whl is not a supported wheel on this platform.
+        pip install ...-macosx_10_13_universal2.whl
+            Ok.
+    '''
+    m = re.match( '^macosx_([0-9_]+)_([^0-9].+)$', tag)
+    if not m:
+        return tag
+    a = m.group(1)
+    if '_' not in a:
+        a += '_0'
+    b = m.group(2)
+    if sys.implementation.name == 'graalpy' and b == 'universal2':
+        # Replace 'universal2' with x86_64 or arm64.
+        b = platform.machine()
+    ret = f'macosx_{a}_{b}'
+    #log0(f'Changing from {tag=} to {ret=}.')
+    return ret
+    
+
 # Internal helpers.
 #
 
@@ -2555,21 +2701,23 @@ def _cpu_name():
     return f'x{32 if sys.maxsize == 2**31 - 1 else 64}'
 
 
-def run_if( command, out, *prerequisites):
+def run_if( command, out, *prerequisites, caller=1):
     '''
     Runs a command only if the output file is not up to date.
 
     Args:
         command:
-            The command to run. We write this into a file <out>.cmd so that we
-            know to run a command if the command itself has changed.
+            The command to run. We write this and a hash of argv[0] into a file
+            <out>.cmd so that we know to run a command if the command itself
+            has changed.
         out:
             Path of the output file.
 
         prerequisites:
             List of prerequisite paths or true/false/None items. If an item
             is None it is ignored, otherwise if an item is not a string we
-            immediately return it cast to a bool.
+            immediately return it cast to a bool. We recurse into directories,
+            effectively using the newest file in the directory.
 
     Returns:
         True if we ran the command, otherwise None.
@@ -2585,21 +2733,26 @@ def run_if( command, out, *prerequisites):
         ...     os.remove( out)
         >>> if os.path.exists( f'{out}.cmd'):
         ...     os.remove( f'{out}.cmd')
-        >>> run_if( f'touch {out}', out)
+        >>> run_if( f'touch {out}', out, caller=0)
         pipcl.py:run_if(): Running command because: File does not exist: 'run_if_test_out'
         pipcl.py:run_if(): Running: touch run_if_test_out
         True
 
     If we repeat, the output file will be up to date so the command is not run:
 
-        >>> run_if( f'touch {out}', out)
+        >>> run_if( f'touch {out}', out, caller=0)
         pipcl.py:run_if(): Not running command because up to date: 'run_if_test_out'
 
     If we change the command, the command is run:
 
-        >>> run_if( f'touch  {out}', out)
-        pipcl.py:run_if(): Running command because: Command has changed
-        pipcl.py:run_if(): Running: touch  run_if_test_out
+        >>> run_if( f'touch {out};', out, caller=0)
+        pipcl.py:run_if(): Running command because: Command has changed:
+        pipcl.py:run_if():     @@ -1,2 +1,2 @@
+        pipcl.py:run_if():      touch
+        pipcl.py:run_if():     -run_if_test_out
+        pipcl.py:run_if():     +run_if_test_out;
+        pipcl.py:run_if(): 
+        pipcl.py:run_if(): Running: touch run_if_test_out;
         True
 
     If we add a prerequisite that is newer than the output, the command is run:
@@ -2608,39 +2761,122 @@ def run_if( command, out, *prerequisites):
         >>> prerequisite = 'run_if_test_prerequisite'
         >>> run( f'touch {prerequisite}', caller=0)
         pipcl.py:run(): Running: touch run_if_test_prerequisite
-        >>> run_if( f'touch  {out}', out, prerequisite)
-        pipcl.py:run_if(): Running command because: Prerequisite is new: 'run_if_test_prerequisite'
+        >>> run_if( f'touch  {out}', out, prerequisite, caller=0)
+        pipcl.py:run_if(): Running command because: Command has changed:
+        pipcl.py:run_if():     @@ -1,2 +1,2 @@
+        pipcl.py:run_if():      touch
+        pipcl.py:run_if():     -run_if_test_out;
+        pipcl.py:run_if():     +run_if_test_out
+        pipcl.py:run_if(): 
         pipcl.py:run_if(): Running: touch  run_if_test_out
         True
 
     If we repeat, the output will be newer than the prerequisite, so the
     command is not run:
 
-        >>> run_if( f'touch  {out}', out, prerequisite)
+        >>> run_if( f'touch  {out}', out, prerequisite, caller=0)
         pipcl.py:run_if(): Not running command because up to date: 'run_if_test_out'
+    
+    We detect changes to the contents of argv[0]:
+    
+    Create a shell script and run it:
+    
+    >>> _ = subprocess.run('rm run_if_test_argv0.* 1>/dev/null 2>/dev/null || true', shell=1)
+    >>> with open('run_if_test_argv0.sh', 'w') as f:
+    ...     print('#! /bin/sh', file=f)
+    ...     print('echo hello world > run_if_test_argv0.out', file=f)
+    >>> _ = subprocess.run(f'chmod u+x run_if_test_argv0.sh', shell=1)
+    >>> run_if( f'./run_if_test_argv0.sh', f'run_if_test_argv0.out', caller=0)
+    pipcl.py:run_if(): Running command because: File does not exist: 'run_if_test_argv0.out'
+    pipcl.py:run_if(): Running: ./run_if_test_argv0.sh
+    True
+    
+    Running it a second time does nothing:
+    
+    >>> run_if( f'./run_if_test_argv0.sh', f'run_if_test_argv0.out', caller=0)
+    pipcl.py:run_if(): Not running command because up to date: 'run_if_test_argv0.out'
+    
+    Modify the script.
+    
+    >>> with open('run_if_test_argv0.sh', 'a') as f:
+    ...     print('\\necho hello >> run_if_test_argv0.out', file=f)
+    
+    And now it is run because the hash of argv[0] has changed:
+    
+    >>> run_if( f'./run_if_test_argv0.sh', f'run_if_test_argv0.out', caller=0)
+    pipcl.py:run_if(): Running command because: arg0 hash has changed.
+    pipcl.py:run_if(): Running: ./run_if_test_argv0.sh
+    True
     '''
     doit = False
+    
+    # Path of file containing pickle data for command and hash of command's
+    # first arg.
     cmd_path = f'{out}.cmd'
+    
+    def hash_get(path):
+        try:
+            with open(path, 'rb') as f:
+                return hashlib.md5(f.read()).hexdigest()
+        except Exception as e:
+            #log(f'Failed to get hash of {path=}: {e}')
+            return None
+    
+    command_args = shlex.split(command or '')
+    command_arg0_path = fs_find_in_paths(command_args[0])
+    command_arg0_hash = hash_get(command_arg0_path)
+    
+    cmd_args, cmd_arg0_hash = (None, None)
+    if os.path.isfile(cmd_path):
+        with open(cmd_path, 'rb') as f:
+            try:
+                cmd_args, cmd_arg0_hash = pickle.load(f)
+            except Exception as e:
+                #log(f'pickle.load() failed with {cmd_path=}: {e}')
+                pass
 
     if not doit:
+        # Set doit if outfile does not exist.
         out_mtime = _fs_mtime( out)
         if out_mtime == 0:
             doit = f'File does not exist: {out!r}'
 
     if not doit:
-        if os.path.isfile( cmd_path):
-            with open( cmd_path) as f:
-                cmd = f.read()
-        else:
-            cmd = None
-        if command != cmd:
-            if cmd is None:
+        # Set doit if command has changed.
+        if command_args != cmd_args:
+            if cmd_args is None:
                 doit = 'No previous command stored'
             else:
                 doit = f'Command has changed'
                 if 0:
-                    doit += f': {cmd!r} => {command!r}'
+                    doit += f':\n    {cmd!r}\n    {command!r}'
+                if 0:
+                    doit += f'\nbefore:\n'
+                    doit += textwrap.indent(cmd, '    ')
+                    doit += f'\nafter:\n'
+                    doit += textwrap.indent(command, '    ')
+                if 1:
+                    # Show diff based on commands split into pseudo lines by
+                    # shlex.split().
+                    doit += ':\n'
+                    lines = difflib.unified_diff(
+                            cmd_args,
+                            command_args,
+                            lineterm='',
+                            )
+                    # Skip initial lines.
+                    assert next(lines) == '--- '
+                    assert next(lines) == '+++ '
+                    for line in lines:
+                        doit += f'    {line}\n'
 
+    if not doit:
+        # Set doit if argv[0] hash has changed.
+        #print(f'{cmd_arg0_hash=} {command_arg0_hash=}', file=sys.stderr)
+        if command_arg0_hash != cmd_arg0_hash:
+            doit = f'arg0 hash has changed.'
+            #doit = f'arg0 hash has changed from {cmd_arg0_hash=} to {command_arg0_hash=}..'
+    
     if not doit:
         # See whether any prerequisites are newer than target.
         def _make_prerequisites(p):
@@ -2652,9 +2888,9 @@ def run_if( command, out, *prerequisites):
         for p in prerequisites:
             prerequisites_all += _make_prerequisites( p)
         if 0:
-            log2( 'prerequisites_all:')
+            log2( 'prerequisites_all:', caller=caller+1)
             for i in  prerequisites_all:
-                log2( f'    {i!r}')
+                log2( f'    {i!r}', caller=caller+1)
         pre_mtime = 0
         pre_path = None
         for prerequisite in prerequisites_all:
@@ -2670,7 +2906,7 @@ def run_if( command, out, *prerequisites):
                 break
         if not doit:
             if pre_mtime > out_mtime:
-                doit = f'Prerequisite is new: {pre_path!r}'
+                doit = f'Prerequisite is new: {os.path.abspath(pre_path)!r}'
 
     if doit:
         # Remove `cmd_path` before we run the command, so any failure
@@ -2680,21 +2916,51 @@ def run_if( command, out, *prerequisites):
             os.remove( cmd_path)
         except Exception:
             pass
-        log1( f'Running command because: {doit}')
+        log1( f'Running command because: {doit}', caller=caller+1)
 
-        run( command)
+        run( command, caller=caller+1)
 
         # Write the command we ran, into `cmd_path`.
-        with open( cmd_path, 'w') as f:
-            f.write( command)
+        
+        with open(cmd_path, 'wb') as f:
+            pickle.dump((command_args, command_arg0_hash), f)
         return True
     else:
-        log1( f'Not running command because up to date: {out!r}')
+        log1( f'Not running command because up to date: {out!r}', caller=caller+1)
 
     if 0:
         log2( f'out_mtime={time.ctime(out_mtime)} pre_mtime={time.ctime(pre_mtime)}.'
                 f' pre_path={pre_path!r}: returning {ret!r}.'
                 )
+
+
+def fs_find_in_paths( name, paths=None, verbose=False):
+    '''
+    Looks for `name` in paths and returns complete path. `paths` is list/tuple
+    or `os.pathsep`-separated string; if `None` we use `$PATH`. If `name`
+    contains `/`, we return `name` itself if it is a file or None, regardless
+    of <paths>.
+    '''
+    if '/' in name:
+        return name if os.path.isfile( name) else None
+    if paths is None:
+        paths = os.environ.get( 'PATH', '')
+        if verbose:
+            log('From os.environ["PATH"]: {paths=}')
+    if isinstance( paths, str):
+        paths = paths.split( os.pathsep)
+        if verbose:
+            log('After split: {paths=}')
+    for path in paths:
+        p = os.path.join( path, name)
+        if verbose:
+            log('Checking {p=}')
+        if os.path.isfile( p):
+            if verbose:
+                log('Returning because is file: {p!r}')
+            return p
+    if verbose:
+        log('Returning None because not found: {name!r}')
 
 
 def _get_prerequisites(path):
@@ -2761,6 +3027,11 @@ def _normalise(name):
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
+def _normalise2(name):
+    # https://packaging.python.org/en/latest/specifications/binary-distribution-format/
+    return _normalise(name).replace('-', '_')
+
+
 def _assert_version_pep_440(version):
     assert re.match(
                 r'^([1-9][0-9]*!)?(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*((a|b|rc)(0|[1-9][0-9]*))?(\.post(0|[1-9][0-9]*))?(\.dev(0|[1-9][0-9]*))?$',
@@ -2790,6 +3061,9 @@ def log_line_numbers(yes):
     global g_log_line_numbers
     g_log_line_numbers = bool(yes)
 
+def log(text='', caller=1):
+    _log(text, 0, caller+1)
+
 def log0(text='', caller=1):
     _log(text, 0, caller+1)
 
@@ -2801,7 +3075,7 @@ def log2(text='', caller=1):
 
 def _log(text, level, caller):
     '''
-    Logs lines with prefix, if <level> is lower than <g_verbose>.
+    Logs lines with prefix, if <level> is lower or equal to <g_verbose>.
     '''
     if level <= g_verbose:
         fr = inspect.stack(context=0)[caller]
@@ -2813,19 +3087,30 @@ def _log(text, level, caller):
                 print(f'{filename}:{fr.function}(): {line}', file=sys.stdout, flush=1)
 
 
-def relpath(path, start=None):
+def relpath(path, start=None, allow_up=True):
     '''
     A safe alternative to os.path.relpath(), avoiding an exception on Windows
     if the drive needs to change - in this case we use os.path.abspath().
+    
+    Args:
+        path:
+            Path to be processed.
+        start:
+            Start directory or current directory if None.
+        allow_up:
+            If false we return absolute path is <path> is not within <start>.
     '''
     if windows():
         try:
-            return os.path.relpath(path, start)
+            ret = os.path.relpath(path, start)
         except ValueError:
             # os.path.relpath() fails if trying to change drives.
-            return os.path.abspath(path)
+            ret = os.path.abspath(path)
     else:
-        return os.path.relpath(path, start)
+        ret = os.path.relpath(path, start)
+    if not allow_up and ret.startswith('../') or ret.startswith('..\\'):
+        ret = os.path.abspath(path)
+    return ret
 
 
 def _so_suffix(use_so_versioning=True):
@@ -2981,21 +3266,22 @@ class NewFiles:
         for path, id_ in items.items():
             id0 = self.items0.get(path)
             if id0 != id_:
-                #mtime0, hash0 = id0
-                #mtime1, hash1 = id_
-                #log0(f'New/modified file {path=}.')
-                #log0(f'    {mtime0=} {"==" if mtime0==mtime1 else "!="} {mtime1=}.')
-                #log0(f'    {hash0=} {"==" if hash0==hash1 else "!="} {hash1=}.')
                 ret.append(path)
+        return ret
+    def get_n(self, n):
+        '''
+        Returns new files matching <glob_pattern>, asserting that there are
+        exactly <n>.
+        '''
+        ret = self.get()
+        assert len(ret) == n, f'{len(ret)=}: {ret}'
         return ret
     def get_one(self):
         '''
         Returns new match of <glob_pattern>, asserting that there is exactly
         one.
         '''
-        ret = self.get()
-        assert len(ret) == 1, f'{len(ret)=}'
-        return ret[0]
+        return self.get_n(1)[0]
     def _file_id(self, path):
         mtime = os.stat(path).st_mtime
         with open(path, 'rb') as f:
@@ -3025,7 +3311,7 @@ def swig_get(swig, quick, swig_local='pipcl-swig-git'):
     
     Args:
         swig:
-            If starts with 'git:', passed as <remote> arg to git_remote().
+            If starts with 'git:', passed as <text> arg to git_get().
         quick:
             If true, we do not update/build local checkout if the binary is
             already present.
@@ -3033,9 +3319,8 @@ def swig_get(swig, quick, swig_local='pipcl-swig-git'):
             path to use for checkout.
     '''
     if swig and swig.startswith('git:'):
-        assert platform.system() != 'Windows'
-        swig_local = os.path.abspath(swig_local)
-        # Note that {swig_local}/install/bin/swig doesn't work on MacoS because
+        assert platform.system() != 'Windows', f'Cannot build swig on Windows.'
+        # Note that {swig_local}/install/bin/swig doesn't work on MacOS because
         # {swig_local}/INSTALL is a file and the fs is case-insensitive.
         swig_binary = f'{swig_local}/install-dir/bin/swig'
         if quick and os.path.isfile(swig_binary):
@@ -3043,15 +3328,16 @@ def swig_get(swig, quick, swig_local='pipcl-swig-git'):
         else:
             # Clone swig.
             swig_env_extra = None
-            git_get(
-                    swig,
+            swig_local = git_get(
                     swig_local,
-                    default_remote='https://github.com/swig/swig.git',
+                    text=swig,
+                    remote='https://github.com/swig/swig.git',
                     branch='master',
                     )
             if darwin():
                 run(f'brew install automake')
                 run(f'brew install pcre2')
+                run(f'brew install bison')
                 # Default bison doesn't work, and Brew's bison is not added to $PATH.
                 #
                 # > bison is keg-only, which means it was not symlinked into /opt/homebrew,
@@ -3061,10 +3347,10 @@ def swig_get(swig, quick, swig_local='pipcl-swig-git'):
                 # > If you need to have bison first in your PATH, run:
                 # >   echo 'export PATH="/opt/homebrew/opt/bison/bin:$PATH"' >> ~/.zshrc
                 #
-                run(f'brew install bison')
-                PATH = os.environ['PATH']
-                PATH = f'/opt/homebrew/opt/bison/bin:{PATH}'
-                swig_env_extra = dict(PATH=PATH)
+                swig_env_extra = dict()
+                macos_add_brew_path('bison', swig_env_extra)
+                run(f'which bison')
+                run(f'which bison', env_extra=swig_env_extra)
             # Build swig.
             run(f'cd {swig_local} && ./autogen.sh', env_extra=swig_env_extra)
             run(f'cd {swig_local} && ./configure --prefix={swig_local}/install-dir', env_extra=swig_env_extra)
@@ -3074,6 +3360,48 @@ def swig_get(swig, quick, swig_local='pipcl-swig-git'):
         return swig_binary
     else:
         return swig
+
+
+def macos_add_brew_path(package, env=None, gnubin=True):
+    '''
+    Adds path(s) for Brew <package>'s binaries to env['PATH'].
+    
+    We assert-fail if the relevant directory does no exist.
+    
+    Args:
+        package:
+            Name of package. We get <package_root> of installed package by
+            running `brew --prefix <package>`.
+        env:
+            The environment dict to modify. If None we use os.environ. If PATH
+            is not in <env>, we first copy os.environ['PATH'] into <env>.
+        gnubin:
+            If true, we also add path to gnu binaries if it exists,
+            <package_root>/libexe/gnubin.
+    '''
+    if not darwin():
+        return
+    if env is None:
+        env = os.environ
+    if 'PATH' not in env:
+        env['PATH'] = os.environ['PATH']
+    package_root = run(f'brew --prefix {package}', capture=1).strip()
+    log(f'{package=} {package_root=}')
+    def add(path):
+        log(f'{path=}')
+        if os.path.isdir(path):
+            log(f'Prepending to $PATH: {path}')
+            PATH = env['PATH']
+            env['PATH'] = f'{path}:{PATH}'
+            return 1
+        else:
+            log(f'Not a directory: {path=}')
+            return 0
+    n = 0
+    n += add(f'{package_root}/bin')
+    if gnubin:
+        n += add(f'{package_root}/libexec/gnubin')
+    assert n, f'Failed to add to $PATH, {package=} {gnubin=}.'
 
 
 def _show_dict(d):
@@ -3119,12 +3447,76 @@ def sysconfig_python_flags():
     return includes_, ldflags_
 
 
+def venv_in(path=None):
+    '''
+    If path is None, returns true if we are in a venv. Otherwise returns true
+    only if we are in venv <path>.
+    '''
+    if path:
+        return os.path.abspath(sys.prefix) == os.path.abspath(path)
+    else:
+        return sys.prefix != sys.base_prefix
+
+
+def venv_run(args, path, recreate=True, clean=False):
+    '''
+    Runs Python command inside venv and returns termination code.
+    
+    Args:
+        args:
+            List of args or string command.
+        path:
+            Path of venv directory.
+        recreate:
+            If false we do not run `<sys.executable> -m venv <path>` if <path>
+            already exists. This avoids a delay in the common case where <path>
+            is already set up, but fails if <path> exists but does not contain
+            a valid venv.
+        clean:
+            If true we first delete <path>.
+    '''
+    if clean:
+        log(f'Removing any existing venv {path}.')
+        assert path.startswith('venv-')
+        shutil.rmtree(path, ignore_errors=1)
+    if recreate or not os.path.isdir(path):
+        run(f'{sys.executable} -m venv {path}')
+    
+    if isinstance(args, str):
+        args_string = args
+    elif platform.system() == 'Windows':
+        # shlex not reliable on Windows so we use Use crude quoting with "...".
+        args_string = ''
+        for i, arg in enumerate(args):
+            assert '"' not in arg
+            if i:
+                args_string += ' '
+            args_string += f'"{arg}"'
+    else:
+        args_string = shlex.join(args)
+    
+    if platform.system() == 'Windows':
+        command = f'{path}\\Scripts\\activate && python {args_string}'
+    else:
+        command = f'. {path}/bin/activate && python {args_string}'
+    e = run(command, check=0)
+    return e
+
+
 if __name__ == '__main__':
     # Internal-only limited command line support, used if
     # graal_legacy_python_config is true.
     #
     includes, ldflags = sysconfig_python_flags()
-    if sys.argv[1:] == ['--graal-legacy-python-config', '--includes']:
+    if sys.argv[1] == '--doctest':
+        import doctest
+        if sys.argv[2:]:
+            for f in sys.argv[2:]:
+                ff = globals()[f]
+                doctest.run_docstring_examples(ff, globals())
+        else:
+            doctest.testmod(None)
+    elif sys.argv[1:] == ['--graal-legacy-python-config', '--includes']:
         print(includes)
     elif sys.argv[1:] == ['--graal-legacy-python-config', '--ldflags']:
         print(ldflags)

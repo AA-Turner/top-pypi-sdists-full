@@ -18,6 +18,7 @@ from pyatlan.model.search import (
     Query,
     SortItem,
     SpanNear,
+    SpanOr,
     SpanTerm,
     SpanWithin,
     Term,
@@ -206,9 +207,25 @@ class CompoundQuery:
             little_spans.append(
                 SpanTerm(field="__classificationsText.text", value=token)
             )
-        little_spans.append(
-            SpanTerm(field="__classificationsText.text", value="tagAttachmentKey")
-        )
+
+        # Add span_or clause with tag-related terms
+        span_or_clauses = [
+            SpanTerm(field="__classificationsText.text", value="tagAttachmentKey"),
+            SpanTerm(field="__classificationsText.text", value="sourceTagName"),
+            SpanTerm(
+                field="__classificationsText.text", value="sourceTagQualifiedName"
+            ),
+            SpanTerm(field="__classificationsText.text", value="sourceTagGuid"),
+            SpanTerm(
+                field="__classificationsText.text", value="sourceTagConnectorName"
+            ),
+            SpanTerm(field="__classificationsText.text", value="isSourceTagSynced"),
+            SpanTerm(
+                field="__classificationsText.text", value="sourceTagSyncTimestamp"
+            ),
+            SpanTerm(field="__classificationsText.text", value="sourceTagValue"),
+        ]
+        little_spans.append(SpanOr(clauses=span_or_clauses))  # type: ignore
 
         # Contruct big spans
         big_spans.append(SpanTerm(field="__classificationsText.text", value=tag_id))
@@ -299,9 +316,25 @@ class CompoundQuery:
             little_spans.append(
                 SpanTerm(field="__classificationsText.text", value=token)
             )
-        little_spans.append(
-            SpanTerm(field="__classificationsText.text", value="tagAttachmentKey")
-        )
+
+        # Add span_or clause with tag-related terms
+        span_or_clauses = [
+            SpanTerm(field="__classificationsText.text", value="tagAttachmentKey"),
+            SpanTerm(field="__classificationsText.text", value="sourceTagName"),
+            SpanTerm(
+                field="__classificationsText.text", value="sourceTagQualifiedName"
+            ),
+            SpanTerm(field="__classificationsText.text", value="sourceTagGuid"),
+            SpanTerm(
+                field="__classificationsText.text", value="sourceTagConnectorName"
+            ),
+            SpanTerm(field="__classificationsText.text", value="isSourceTagSynced"),
+            SpanTerm(
+                field="__classificationsText.text", value="sourceTagSyncTimestamp"
+            ),
+            SpanTerm(field="__classificationsText.text", value="sourceTagValue"),
+        ]
+        little_spans.append(SpanOr(clauses=span_or_clauses))  # type: ignore
 
         # Contruct big spans
         big_spans.append(SpanTerm(field="__classificationsText.text", value=tag_id))
@@ -477,6 +510,7 @@ class FluentSearch(CompoundQuery):
         _includes_on_results: Optional[List[str]] = None,
         _includes_on_relations: Optional[List[str]] = None,
         _include_relationship_attributes: Optional[bool] = False,
+        _enable_full_restriction: Optional[bool] = False,
     ):
         super().__init__(wheres, where_nots, where_somes, _min_somes)
         self.sorts = sorts
@@ -485,6 +519,7 @@ class FluentSearch(CompoundQuery):
         self._includes_on_results = _includes_on_results
         self._includes_on_relations = _includes_on_relations
         self._include_relationship_attributes = _include_relationship_attributes
+        self._enable_full_restriction = _enable_full_restriction
 
     def _clone(self) -> "FluentSearch":
         """
@@ -581,6 +616,18 @@ class FluentSearch(CompoundQuery):
         clone._include_relationship_attributes = include
         return clone
 
+    def enable_full_restriction(self, enable: bool) -> "FluentSearch":
+        """
+        Add an attribute to enable full authorization restrictions for search results.
+
+        :param include: when `True`, applies full authorization restrictions to show only assets
+        the user has access to. By default, this is `False` and standard access controls apply
+        :returns: the fluent search with this parameter added
+        """
+        clone = self._clone()
+        clone._enable_full_restriction = enable
+        return clone
+
     def _dsl(self) -> DSL:
         """
         Translate the Atlan fluent search into an Atlan search DSL.
@@ -612,6 +659,8 @@ class FluentSearch(CompoundQuery):
             request.include_relationship_attributes = (
                 self._include_relationship_attributes
             )
+        if self._enable_full_restriction:
+            request.enable_full_restriction = self._enable_full_restriction
         return request
 
     def count(self, client: AtlanClient) -> int:

@@ -3,7 +3,7 @@ Type annotations for mpa service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mpa/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import (
@@ -35,12 +36,6 @@ from .literals import (
     SessionStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -139,7 +134,7 @@ class PolicyReferenceTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -361,7 +356,7 @@ class GetResourcePolicyResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -429,25 +424,25 @@ class ListSessionsRequestPaginateTypeDef(TypedDict):
 
 
 class ListPoliciesResponseTypeDef(TypedDict):
-    Policies: List[PolicyTypeDef]
+    Policies: list[PolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPolicyVersionsResponseTypeDef(TypedDict):
-    PolicyVersions: List[PolicyVersionSummaryTypeDef]
+    PolicyVersions: list[PolicyVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListResourcePoliciesResponseTypeDef(TypedDict):
-    ResourcePolicies: List[ListResourcePoliciesResponseResourcePolicyTypeDef]
+    ResourcePolicies: list[ListResourcePoliciesResponseResourcePolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSessionsResponseTypeDef(TypedDict):
-    Sessions: List[ListSessionsResponseSessionTypeDef]
+    Sessions: list[ListSessionsResponseSessionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -463,7 +458,7 @@ class GetSessionResponseTypeDef(TypedDict):
     ExpirationTime: datetime
     CompletionTime: datetime
     Description: str
-    Metadata: Dict[str, str]
+    Metadata: dict[str, str]
     Status: SessionStatusType
     StatusCode: SessionStatusCodeType
     StatusMessage: str
@@ -475,7 +470,7 @@ class GetSessionResponseTypeDef(TypedDict):
     RequesterRegion: str
     RequesterComment: str
     ActionCompletionStrategy: Literal["AUTO_COMPLETION_UPON_APPROVAL"]
-    ApproverResponses: List[GetSessionResponseApproverResponseTypeDef]
+    ApproverResponses: list[GetSessionResponseApproverResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -499,7 +494,7 @@ class PendingUpdateTypeDef(TypedDict):
     Status: NotRequired[ApprovalTeamStatusType]
     StatusCode: NotRequired[ApprovalTeamStatusCodeType]
     StatusMessage: NotRequired[str]
-    Approvers: NotRequired[List[GetApprovalTeamResponseApproverTypeDef]]
+    Approvers: NotRequired[list[GetApprovalTeamResponseApproverTypeDef]]
     UpdateInitiationTime: NotRequired[datetime]
 
 
@@ -548,7 +543,7 @@ class CreateIdentitySourceRequestTypeDef(TypedDict):
 
 
 class ListApprovalTeamsResponseTypeDef(TypedDict):
-    ApprovalTeams: List[ListApprovalTeamsResponseApprovalTeamTypeDef]
+    ApprovalTeams: list[ListApprovalTeamsResponseApprovalTeamTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -557,7 +552,7 @@ class GetApprovalTeamResponseTypeDef(TypedDict):
     CreationTime: datetime
     ApprovalStrategy: ApprovalStrategyResponseTypeDef
     NumberOfApprovers: int
-    Approvers: List[GetApprovalTeamResponseApproverTypeDef]
+    Approvers: list[GetApprovalTeamResponseApproverTypeDef]
     Arn: str
     Description: str
     Name: str
@@ -566,13 +561,13 @@ class GetApprovalTeamResponseTypeDef(TypedDict):
     StatusMessage: str
     UpdateSessionArn: str
     VersionId: str
-    Policies: List[PolicyReferenceTypeDef]
+    Policies: list[PolicyReferenceTypeDef]
     LastUpdateTime: datetime
     PendingUpdate: PendingUpdateTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListIdentitySourcesResponseTypeDef(TypedDict):
-    IdentitySources: List[IdentitySourceForListTypeDef]
+    IdentitySources: list[IdentitySourceForListTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

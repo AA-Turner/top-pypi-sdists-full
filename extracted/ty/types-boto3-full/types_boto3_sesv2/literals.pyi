@@ -3,7 +3,7 @@ Type annotations for sesv2 service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sesv2/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -37,6 +37,7 @@ __all__ = (
     "DkimSigningAttributesOriginType",
     "DkimSigningKeyLengthType",
     "DkimStatusType",
+    "EmailAddressInsightsConfidenceVerdictType",
     "EngagementEventTypeType",
     "EventTypeType",
     "ExportSourceTypeType",
@@ -75,6 +76,7 @@ __all__ = (
     "ServiceName",
     "StatusType",
     "SubscriptionStatusType",
+    "SuppressionConfidenceVerdictThresholdType",
     "SuppressionListImportActionType",
     "SuppressionListReasonType",
     "TlsPolicyType",
@@ -121,9 +123,11 @@ DkimSigningAttributesOriginType = Literal[
     "AWS_SES_AP_SOUTHEAST_1",
     "AWS_SES_AP_SOUTHEAST_2",
     "AWS_SES_AP_SOUTHEAST_3",
+    "AWS_SES_AP_SOUTHEAST_5",
     "AWS_SES_AP_SOUTH_1",
     "AWS_SES_AP_SOUTH_2",
     "AWS_SES_CA_CENTRAL_1",
+    "AWS_SES_CA_WEST_1",
     "AWS_SES_EU_CENTRAL_1",
     "AWS_SES_EU_CENTRAL_2",
     "AWS_SES_EU_NORTH_1",
@@ -143,6 +147,7 @@ DkimSigningAttributesOriginType = Literal[
 ]
 DkimSigningKeyLengthType = Literal["RSA_1024_BIT", "RSA_2048_BIT"]
 DkimStatusType = Literal["FAILED", "NOT_STARTED", "PENDING", "SUCCESS", "TEMPORARY_FAILURE"]
+EmailAddressInsightsConfidenceVerdictType = Literal["HIGH", "LOW", "MEDIUM"]
 EngagementEventTypeType = Literal["CLICK", "OPEN"]
 EventTypeType = Literal[
     "BOUNCE",
@@ -202,6 +207,7 @@ ScalingModeType = Literal["MANAGED", "STANDARD"]
 SendingStatusType = Literal["DISABLED", "ENABLED", "REINSTATED"]
 StatusType = Literal["CREATING", "DELETING", "FAILED", "READY"]
 SubscriptionStatusType = Literal["OPT_IN", "OPT_OUT"]
+SuppressionConfidenceVerdictThresholdType = Literal["HIGH", "MANAGED", "MEDIUM"]
 SuppressionListImportActionType = Literal["DELETE", "PUT"]
 SuppressionListReasonType = Literal["BOUNCE", "COMPLAINT"]
 TlsPolicyType = Literal["OPTIONAL", "REQUIRE"]
@@ -246,7 +252,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -316,6 +321,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -361,7 +367,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -414,7 +419,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -453,8 +457,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -489,6 +491,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -498,6 +501,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -508,6 +512,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -529,8 +536,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -545,15 +550,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -584,6 +590,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -624,6 +631,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -654,7 +662,9 @@ RegionName = Literal[
     "ap-southeast-1",
     "ap-southeast-2",
     "ap-southeast-3",
+    "ap-southeast-5",
     "ca-central-1",
+    "ca-west-1",
     "eu-central-1",
     "eu-central-2",
     "eu-north-1",

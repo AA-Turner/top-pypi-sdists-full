@@ -5,15 +5,16 @@
 
 import orjson
 
+from opteryx.config import RESOURCES_PATH
 from opteryx.exceptions import DatasetNotFoundError
 
 
 def _load_views():
     try:
-        with open("views.json", "rb") as defs:
+        with open(RESOURCES_PATH / "views.json", "rb") as defs:
             return orjson.loads(defs.read())
     except Exception as err:  # nosec
-        # DEBUG:: log (f"[OPTERYX] Unable to open views definition file. {err}")
+        # DEBUG: print(f"[OPTERYX] Unable to open views definition file. {err}")
         return {}
 
 
@@ -33,7 +34,7 @@ def view_as_plan(view_name: str) -> dict:
     from opteryx.utils.sql import remove_comments
 
     if not is_view(view_name):
-        raise DatasetNotFoundError(view_name)
+        raise DatasetNotFoundError(dataset=view_name, connector="VIEW")
 
     operation = view_as_sql(view_name)
 

@@ -1,18 +1,24 @@
 from __future__ import annotations
 
 import concurrent.futures
-import datetime
+import html
+import logging
+import os
 import queue
 import re
+import textwrap
 import threading
+import time
+from datetime import datetime, timedelta, timezone
 from functools import wraps
-from typing import Tuple, Callable, Dict, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 import pandas as pd
-import time
+import pytz
 
 import seeq
-from seeq.spy import _common, _datalab
+from seeq.base import util
+from seeq.spy import _common, _datalab, _version
 from seeq.spy._errors import *
 from seeq.spy._session import Session
 from seeq.spy._usage import Usage
@@ -42,6 +48,8 @@ class Status:
 
     JUPYTER_REFRESH_RATE_IN_SECONDS = 2.0
 
+    VERBOSE_LOG_HTML_MAX_LINES = 30
+
     class Interrupt(BaseException):
         pass
 
@@ -50,11 +58,13 @@ class Status:
     display_ipython_thread: threading.Thread
     display_ipython_now: _common.AutoResetEvent
 
+    _df: pd.DataFrame
+
     def __init__(self, quiet: Optional[bool] = None, errors: Optional[str] = None,
-                 *, session: Session = None, on_update: Optional[Callable[[object], None]] = None):
+                 *, verbose: bool = False, log_filename: Optional[str] = None, session: Session = None,
+                 on_update: Optional[Callable[[object], None]] = None):
         self.quiet = quiet if quiet is not None else False
         self.errors = errors if errors is not None else 'raise'
-        self._df = pd.DataFrame()
         self.timer = _common.timer_start()
         self.message = None
         self.code = None
@@ -69,6 +79,14 @@ class Status:
         self.on_error = None
         self.session = session if session is not None else seeq.spy.session
 
+        self._verbose = False
+        self._log_filename = None
+        self._log_file_handle = None
+        self._log_ipython_queue = _common.DropOldestQueue(maxlen=self.VERBOSE_LOG_HTML_MAX_LINES)
+        self.set_verbose(verbose, log_filename)
+
+        self._df = pd.DataFrame()
+
         # Used for testing only
         self._display_callback = None
 
@@ -80,7 +98,16 @@ class Status:
         return self.quiet, self.df, self.message, self.code, self.warnings, self.inner
 
     def __setstate__(self, state):
-        self.quiet, self.df, self.message, self.code, self.warnings, self.inner = state
+        def get(i, default=None):
+            return state[i] if i < len(state) else default
+
+        # Accessing by index with a default allows us to maintain compatibility with previously-pickled Status objects
+        self.quiet = get(0, False)
+        self.df = get(1, pd.DataFrame())
+        self.message = get(2)
+        self.code = get(3)
+        self.warnings = get(4, list())
+        self.inner = get(5, dict())
 
     @property
     def df(self) -> pd.DataFrame:
@@ -95,6 +122,41 @@ class Status:
     def df(self, value: pd.DataFrame):
         self._df = value.copy()
         _common.clear_properties_on_df(self._df)
+
+    @property
+    def verbose(self) -> bool:
+        return self._verbose
+
+    @property
+    def log_file(self) -> Optional[str]:
+        return self._log_file_handle
+
+    def set_verbose(self, verbose: bool, log_file: Optional[str] = None):
+        self._verbose = verbose
+
+        if log_file is None and self._log_filename is not None:
+            log_file = self._log_filename
+
+        if verbose and log_file is None:
+            log_file = 'spy_verbose_log.txt'
+
+        if self._log_filename != log_file:
+            self._close_log_file()
+            self._log_filename = None
+
+        if log_file is None:
+            return
+
+        if self._log_filename != log_file:
+            log_file_abs_path = util.safe_abspath(log_file, long_filename=False)
+            util.safe_makedirs(os.path.dirname(log_file_abs_path), exist_ok=True)
+            self._log_file_handle = util.safe_open(log_file_abs_path, 'w', encoding='utf-8')
+            self._log_filename = log_file_abs_path
+
+    def _close_log_file(self):
+        if self._log_file_handle is not None:
+            self._log_file_handle.close()
+            self._log_file_handle = None
 
     def create_inner(self, name: str, quiet: bool = None, errors: str = None):
         inner_status = Status(quiet=self.quiet if quiet is None else quiet,
@@ -113,6 +175,7 @@ class Status:
 
     def warn(self, warning):
         if warning not in self.warnings:
+            self.log(warning, level=logging.WARNING)
             self.warnings.append(warning)
 
     def raise_or_put(self, e, column):
@@ -287,6 +350,11 @@ class Status:
         if new_code is not None:
             self.code = new_code
 
+        old_message = self.message
+
+        if old_message != new_message:
+            self.log(new_message, level=logging.ERROR if new_code == Status.FAILURE else logging.INFO)
+
         if self._skip_display():
             self.message = new_message
         else:
@@ -311,6 +379,8 @@ class Status:
         Make sure all pending display messages are flushed to the notebook, otherwise the background thread could
         call clear_output() on subsequent statements within the cell, erasing the output that the user wants to see.
         """
+        self._close_log_file()
+
         if not self._skip_display() and self.message is not None:
             self.display(finish=True)
 
@@ -337,10 +407,15 @@ class Status:
         if not _datalab.is_ipython():
             return
 
+        # noinspection PyUnresolvedReferences
         from IPython.display import display, Javascript
         display(Javascript(f"console.log({repr(message)});"))
 
-    def _display_text(self, new_message, *, warning_summary=False):
+    def _display_text(self, new_message: str, *, warning_summary: bool = False) -> str:
+        if self.verbose:
+            # When in verbose mode, we always log to console instead of trying to update in place
+            return new_message
+
         print_func = print
         try:
             from IPython.display import display, clear_output
@@ -371,12 +446,18 @@ class Status:
         if new_message == self.message:
             return new_message
 
-        text = re.sub(r'</?[^>]+>', '', new_message)
+        text = self._html_to_text(new_message)
 
         if text:
             _print_it(text)
 
         return new_message
+
+    @staticmethod
+    def _html_to_text(html: str) -> str:
+        text = re.sub(r'<br>', '\n', html)
+        text = re.sub(r'</?[^>]+>', '', text)
+        return text
 
     def _display_html(self, new_message):
         display_df = self.df
@@ -408,36 +489,10 @@ class Status:
             html += '<div style="%s">%s</div>' % (
                 style + 'color:black; text-align: left;', Status._massage_cell(new_message))
 
-        if len(display_df) > 0:
-            # Ignore mathjax renderings so $...$ isn't converted to latex
-            html += '<table class="tex2jax_ignore" style="color:black;">'
-            html += '<tr><td style="%s"></td>' % style
-
-            for col in display_df.columns:
-                align = 'left' if display_df.dtypes[col] == object else 'right'
-                html += '<td style="%s text-align: %s;">%s</td>' % (style, align, Status._massage_cell(col))
-
-            html += '</tr>'
-
-            for index, row in display_df.iterrows():
-                html += '<tr style="%s">' % style
-                html += '<td style="vertical-align: top;">%s</td>' % index
-                for cell in row:
-                    if isinstance(cell, datetime.timedelta):
-                        hours, remainder = divmod(cell.seconds, 3600)
-                        minutes, seconds = divmod(remainder, 60)
-                        html += '<td style="vertical-align: top;">{:02}:{:02}:{:02}.{:02}</td>'.format(
-                            int(hours), int(minutes), int(seconds), int((cell.microseconds + 5000) / 10000))
-                    elif isinstance(cell, Usage):
-                        html += f'<td style="text-align: right; vertical-align: top;">{cell}</td>'
-                    else:
-                        align = 'left' if isinstance(cell, str) else 'right'
-                        html += '<td style="text-align: %s; vertical-align: top;">%s</td>' % \
-                                (align, Status._massage_cell(cell, links=True))
-
-                html += '</tr>'
-
-            html += '</table>'
+        if self.verbose:
+            html += self._construct_log_html(style)
+        elif len(display_df) > 0:
+            html += self._construct_df_html(display_df, style)
 
         if not html:
             return html
@@ -457,6 +512,83 @@ class Status:
             return html
         else:
             return html
+
+    def get_grep_errors_command(self):
+        return f'grep -E "^ERROR|] Pushing" "{self._log_filename}"'
+
+    def _construct_log_html(self, style: str) -> str:
+        """
+        Constructs HTML for displaying verbose log messages.
+        Uses monospaced font with horizontal scrolling (no line wrapping).
+        """
+        log_lines = self._log_ipython_queue.snapshot()
+
+        log_html = ''
+        for line in log_lines:
+            # Escape HTML special characters to prevent rendering issues
+            escaped_line = Status._massage_cell(line)
+            log_html += escaped_line + '\n'
+
+        # Build HTML with pre tag for monospaced font and overflow for horizontal scroll
+        tail_command = f'{"tail -f" if self.code == Status.RUNNING else "cat"} "{self._log_filename}"'
+        escaped_tail_command = html.escape(tail_command, quote=True).replace('\\', '&#92;')
+        grep_command = self.get_grep_errors_command()
+        escaped_grep_command = html.escape(grep_command, quote=True).replace('\\', '&#92;')
+        return f"""
+        <div style="{style} overflow-x: auto; max-width: 100%%;">
+            <div>
+                To {"watch" if self.code == Status.RUNNING else "print"} the full log stream,
+                open a terminal and execute
+                <span style="font-family: monospace; padding: 2px 4px; border: 1px solid #d0d7de; border-radius: 4px; font-size: 0.95em;">
+                    {escaped_tail_command}
+                </span>
+            </div>
+            <div>
+                To find errors, open a terminal and execute
+                <span style="font-family: monospace; padding: 2px 4px; border: 1px solid #d0d7de; border-radius: 4px; font-size: 0.95em;">
+                    {escaped_grep_command}
+                </span>
+            </div>
+            <div>
+                Last {self.VERBOSE_LOG_HTML_MAX_LINES} entries in log:
+            </div>
+<pre style="{style} margin: 0; padding: 10px; white-space: pre; overflow-x: auto;">
+{log_html}</pre>
+        </div>
+        """
+
+    @staticmethod
+    def _construct_df_html(display_df: pd.DataFrame, style: str) -> str:
+        # Ignore mathjax renderings so $...$ isn't converted to latex
+        html = '<table class="tex2jax_ignore" style="color:black;">'
+        html += '<tr><td style="%s"></td>' % style
+
+        for col in display_df.columns:
+            align = 'left' if display_df.dtypes[col] == object else 'right'
+            html += '<td style="%s text-align: %s;">%s</td>' % (style, align, Status._massage_cell(col))
+
+        html += '</tr>'
+
+        for index, row in display_df.iterrows():
+            html += '<tr style="%s">' % style
+            html += '<td style="vertical-align: top;">%s</td>' % index
+            for cell in row:
+                if isinstance(cell, timedelta):
+                    hours, remainder = divmod(cell.seconds, 3600)
+                    minutes, seconds = divmod(remainder, 60)
+                    html += '<td style="vertical-align: top;">{:02}:{:02}:{:02}.{:02}</td>'.format(
+                        int(hours), int(minutes), int(seconds), int((cell.microseconds + 5000) / 10000))
+                elif isinstance(cell, Usage):
+                    html += f'<td style="text-align: right; vertical-align: top;">{cell}</td>'
+                else:
+                    align = 'left' if isinstance(cell, str) else 'right'
+                    html += '<td style="text-align: %s; vertical-align: top;">%s</td>' % \
+                            (align, Status._massage_cell(cell, links=True))
+
+            html += '</tr>'
+
+        html += '</table>'
+        return html
 
     @staticmethod
     def _display_ipython_html(payload):
@@ -612,6 +744,86 @@ class Status:
             status.session = session
 
         return status
+
+    def log(self, message: str, *, level: Optional[int] = None):
+        """
+        Logs a message to the status log.
+
+        Parameters
+        ----------
+        message : str
+            The log message.
+        level : int
+            The log level (e.g., logging.INFO, logging.ERROR). Default is logging.INFO.
+        """
+        if self._log_file_handle is None:
+            return
+
+        if self.session is not None:
+            tz = self.session.get_session_timezone()
+            timestamp = datetime.now(pytz.timezone(tz))
+        else:
+            timestamp = datetime.now(timezone.utc)
+        if level is None:
+            level = logging.INFO
+
+        line = self._format_log_line(timestamp, level, message)
+        self._log_file_handle.write(line + '\n')
+        self._log_file_handle.flush()
+        self._log_ipython_queue.put(line)
+        self.update()
+
+        if self.verbose and not _datalab.is_ipython():
+            print(line)
+
+    @staticmethod
+    def log_if(obj: object, message: str, *, level: Optional[int] = None):
+        if isinstance(obj, Status):
+            obj.log(message, level=level)
+        elif hasattr(obj, 'status'):
+            obj = getattr(obj, 'status')
+            if isinstance(obj, Status):
+                obj.log(message, level=level)
+
+    def get_log_string(self):
+        if self._log_filename is None:
+            return ''
+
+        with util.safe_open(self._log_filename, 'r', encoding='utf-8') as f:
+            return f.read()
+
+    @staticmethod
+    def _format_log_line(timestamp: datetime, level: int, message: str) -> str:
+        time_str = timestamp.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+        level_name = logging.getLevelName(level)
+        prefix = f'{level_name:<5} {time_str} '
+        indent_prefix = f'{level_name:<5} {" " * len(time_str)} '
+        indented_message = textwrap.indent(message, indent_prefix)[len(indent_prefix):]
+        return prefix + indented_message
+
+    @staticmethod
+    def validate_login(session: Session, status: Status):
+        _common.validate_argument_types([
+            (session, 'session', Session),
+            (status, 'status', Status)
+        ])
+        if session.client is None:
+            raise SPyRuntimeError('Not logged in. Execute spy.login() before calling this function.')
+
+        _version.validate_seeq_server_version(session, status)
+
+    @staticmethod
+    def function_prologue(session: Session, status: Status,
+                          function_name: str, expected_types: List[Tuple[object, str, tuple | type]],
+                          *, default_log_file: Optional[str] = None) -> Dict[str, object]:
+        verbose_arg = next((arg[0] for arg in expected_types if arg[1] == 'verbose'), None)
+        verbose = verbose_arg if verbose_arg is not None else status.verbose
+        if default_log_file is not None and status.log_file is None:
+            status.set_verbose(verbose, default_log_file)
+        input_args = _common.validate_argument_types(expected_types)
+        Status.validate_login(session, status)
+        status.log(f'{function_name}() called with arguments:\n{input_args}')
+        return input_args
 
 
 # For pickling compatibility, see CRAB-33735. Tested by test_pickle_from_python37_and_spy_182_37()

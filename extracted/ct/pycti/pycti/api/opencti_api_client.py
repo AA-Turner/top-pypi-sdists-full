@@ -1,9 +1,16 @@
 # coding: utf-8
+import atexit
 import base64
 import datetime
 import io
 import json
-from typing import Dict, Tuple, Union
+import os
+import re
+import shutil
+import signal
+import tempfile
+import threading
+from typing import Any, Dict, Optional, Tuple, Union
 
 import magic
 import requests
@@ -52,6 +59,7 @@ from pycti.entities.opencti_observed_data import ObservedData
 from pycti.entities.opencti_opinion import Opinion
 from pycti.entities.opencti_report import Report
 from pycti.entities.opencti_role import Role
+from pycti.entities.opencti_security_coverage import SecurityCoverage
 from pycti.entities.opencti_settings import Settings
 from pycti.entities.opencti_stix import Stix
 from pycti.entities.opencti_stix_core_object import StixCoreObject
@@ -77,10 +85,32 @@ from pycti.utils.opencti_logger import logger
 from pycti.utils.opencti_stix2 import OpenCTIStix2
 from pycti.utils.opencti_stix2_utils import OpenCTIStix2Utils
 
+# Global singleton variables for proxy certificate management
+_PROXY_CERT_BUNDLE = None
+_PROXY_CERT_DIR = None
+_PROXY_CERT_LOCK = threading.Lock()
+_PROXY_SIGNAL_HANDLERS_REGISTERED = False
 
-def build_request_headers(token: str, custom_headers: str, app_logger):
+
+def build_request_headers(token: str, custom_headers: str, app_logger, provider: str):
+    """Build request headers for OpenCTI API requests.
+
+    :param token: the API authentication token
+    :type token: str
+    :param custom_headers: custom headers in format "header01:value;header02:value"
+    :type custom_headers: str
+    :param app_logger: the application logger instance
+    :type app_logger: logging.Logger
+    :param provider: the provider string for User-Agent header
+    :type provider: str
+    :return: dictionary of request headers
+    :rtype: dict
+    """
+    pycti_user_agent = "pycti/" + __version__
+    if provider is not None:
+        pycti_user_agent += " " + provider
     headers_dict = {
-        "User-Agent": "pycti/" + __version__,
+        "User-Agent": pycti_user_agent,
         "Authorization": "Bearer " + token,
     }
     # Build and add custom headers
@@ -98,7 +128,28 @@ def build_request_headers(token: str, custom_headers: str, app_logger):
 
 
 class File:
+    """File object for OpenCTI file uploads.
+
+    Represents a file to be uploaded via the OpenCTI API.
+
+    :param name: the filename
+    :type name: str
+    :param data: the file content (string or bytes)
+    :type data: str or bytes
+    :param mime: the MIME type of the file, defaults to "text/plain"
+    :type mime: str, optional
+    """
+
     def __init__(self, name, data, mime="text/plain"):
+        """Initialize the File instance.
+
+        :param name: the filename
+        :type name: str
+        :param data: the file content
+        :type data: str or bytes
+        :param mime: the MIME type of the file (default: "text/plain")
+        :type mime: str
+        """
         self.name = name
         self.data = data
         self.mime = mime
@@ -115,14 +166,8 @@ class OpenCTIApiClient:
     :type log_level: str, optional
     :param ssl_verify: Requiring the requests to verify the TLS certificate at the server.
     :type ssl_verify: bool, str, optional
-    :param proxies:
-    :type proxies: dict, optional, The proxy configuration, would have `http` and `https` attributes. Defaults to {}
-        ```
-        proxies: {
-            "http": "http://my_proxy:8080"
-            "https": "http://my_proxy:8080"
-        }
-        ```
+    :param proxies: proxy configuration with "http" and "https" keys (e.g., {"http": "http://my_proxy:8080", "https": "http://my_proxy:8080"})
+    :type proxies: dict, optional
     :param json_logging: format the logs as json if set to True
     :type json_logging: bool, optional
     :param bundle_send_to_queue: if bundle will be sent to queue
@@ -133,6 +178,10 @@ class OpenCTIApiClient:
     :type custom_headers: str, optional must in the format header01:value;header02:value
     :param perform_health_check: if client init must check the api access
     :type perform_health_check: bool, optional
+    :param requests_timeout: define the timeout for API requests in seconds
+    :type requests_timeout: int, optional
+    :param provider: define client provider, and is used to specify it in requests user agent header
+    :type provider: string, optional
     """
 
     def __init__(
@@ -145,10 +194,40 @@ class OpenCTIApiClient:
         json_logging: bool = False,
         bundle_send_to_queue: bool = True,
         cert: Union[str, Tuple[str, str], None] = None,
-        custom_headers: str = None,
+        custom_headers: Optional[str] = None,
         perform_health_check: bool = True,
+        requests_timeout: int = 300,
+        provider: Optional[str] = None,
     ):
-        """Constructor method"""
+        """Initialize the OpenCTIApiClient instance.
+
+        :param url: OpenCTI platform URL
+        :type url: str
+        :param token: OpenCTI API authentication token
+        :type token: str
+        :param log_level: logging level (default: "info")
+        :type log_level: str
+        :param ssl_verify: SSL certificate verification setting
+        :type ssl_verify: Union[bool, str]
+        :param proxies: proxy configuration dictionary with "http" and "https" keys
+        :type proxies: Dict[str, str] or None
+        :param json_logging: whether to format logs as JSON (default: False)
+        :type json_logging: bool
+        :param bundle_send_to_queue: whether bundles are sent to queue (default: True)
+        :type bundle_send_to_queue: bool
+        :param cert: client certificate path or tuple of (cert, key) paths
+        :type cert: str, tuple, or None
+        :param custom_headers: custom headers in format "header01:value;header02:value"
+        :type custom_headers: str or None
+        :param perform_health_check: whether to check API access on init (default: True)
+        :type perform_health_check: bool
+        :param requests_timeout: timeout for API requests in seconds (default: 300)
+        :type requests_timeout: int
+        :param provider: client provider for User-Agent header (format: provider/version)
+        :type provider: str or None
+
+        :raises ValueError: If URL or token is missing or invalid
+        """
 
         # Check configuration
         self.bundle_send_to_queue = bundle_send_to_queue
@@ -165,13 +244,24 @@ class OpenCTIApiClient:
         self.app_logger = self.logger_class("api")
         self.admin_logger = self.logger_class("admin")
 
+        # Setup proxy certificates if provided
+        self._setup_proxy_certificates()
+
         # Define API
         self.api_token = token
         self.api_url = url + "/graphql"
+        if provider is not None:
+            provider_pattern_checker = re.compile(r"^[A-Za-z]+\/\d+(?:\.\d+){0,2}$")
+            if not provider_pattern_checker.match(provider):
+                raise ValueError(
+                    "Provider format is incorrect: format has to be {provider}/{provider_version}, e.g. client/4.5, company_name/1.4.6..."
+                )
+        self.provider = provider
         self.request_headers = build_request_headers(
-            token, custom_headers, self.app_logger
+            token, custom_headers, self.app_logger, provider
         )
         self.session = requests.session()
+        self.session_requests_timeout = requests_timeout
         # Define the dependencies
         self.work = OpenCTIApiWork(self)
         self.notification = OpenCTIApiNotification(self)
@@ -184,20 +274,21 @@ class OpenCTIApiClient:
         self.stix2 = OpenCTIStix2(self)
         self.pir = OpenCTIApiPir(self)
         self.internal_file = OpenCTIApiInternalFile(self)
+        self.file = File  # File class for creating upload objects
 
         # Define the entities
         self.vocabulary = Vocabulary(self)
         self.label = Label(self)
         self.marking_definition = MarkingDefinition(self)
-        self.external_reference = ExternalReference(self, File)
+        self.external_reference = ExternalReference(self)
         self.kill_chain_phase = KillChainPhase(self)
         self.opencti_stix_object_or_stix_relationship = StixObjectOrStixRelationship(
             self
         )
         self.stix = Stix(self)
-        self.stix_domain_object = StixDomainObject(self, File)
-        self.stix_core_object = StixCoreObject(self, File)
-        self.stix_cyber_observable = StixCyberObservable(self, File)
+        self.stix_domain_object = StixDomainObject(self)
+        self.stix_core_object = StixCoreObject(self)
+        self.stix_cyber_observable = StixCyberObservable(self)
         self.stix_core_relationship = StixCoreRelationship(self)
         self.stix_sighting_relationship = StixSightingRelationship(self)
         self.stix_nested_ref_relationship = StixNestedRefRelationship(self)
@@ -223,6 +314,7 @@ class OpenCTIApiClient:
         self.narrative = Narrative(self)
         self.language = Language(self)
         self.vulnerability = Vulnerability(self)
+        self.security_coverage = SecurityCoverage(self)
         self.attack_pattern = AttackPattern(self)
         self.course_of_action = CourseOfAction(self)
         self.data_component = DataComponent(self)
@@ -241,45 +333,286 @@ class OpenCTIApiClient:
         self.user = User(self)
         self.settings = Settings(self)
 
+        # Keep track of draft context
+        self.draft_id = ""
+
         # Check if openCTI is available
         if perform_health_check and not self.health_check():
             raise ValueError(
                 "OpenCTI API is not reachable. Waiting for OpenCTI API to start or check your configuration..."
             )
 
+    def _setup_proxy_certificates(self):
+        """Setup HTTPS proxy certificates from environment variable.
+
+        Detects HTTPS_CA_CERTIFICATES environment variable and combines
+        proxy certificates with system certificates for SSL verification.
+        Supports both inline certificate content and file paths.
+
+        Uses a singleton pattern to ensure only one certificate bundle is created
+        across all instances, avoiding resource leaks and conflicts.
+        """
+        global _PROXY_CERT_BUNDLE, _PROXY_CERT_DIR, _PROXY_SIGNAL_HANDLERS_REGISTERED
+
+        https_ca_certificates = os.getenv("HTTPS_CA_CERTIFICATES")
+        if not https_ca_certificates:
+            return
+
+        # Thread-safe check and setup
+        with _PROXY_CERT_LOCK:
+            # If already configured, reuse existing bundle
+            if _PROXY_CERT_BUNDLE is not None:
+                self.ssl_verify = _PROXY_CERT_BUNDLE
+                self.app_logger.debug(
+                    "Reusing existing proxy certificate bundle",
+                    {"cert_bundle": _PROXY_CERT_BUNDLE},
+                )
+                return
+
+            # First initialization - create the certificate bundle
+            try:
+                # Create secure temporary directory
+                cert_dir = tempfile.mkdtemp(prefix="opencti_proxy_certs_")
+
+                # Determine if HTTPS_CA_CERTIFICATES contains inline content or file path
+                cert_content = self._get_certificate_content(https_ca_certificates)
+
+                # Write proxy certificate to temp file
+                proxy_cert_file = os.path.join(cert_dir, "proxy-ca.crt")
+                with open(proxy_cert_file, "w") as f:
+                    f.write(cert_content)
+
+                # Find system certificates
+                system_cert_paths = [
+                    "/etc/ssl/certs/ca-certificates.crt",  # Debian/Ubuntu
+                    "/etc/pki/tls/certs/ca-bundle.crt",  # RHEL/CentOS
+                    "/etc/ssl/cert.pem",  # Alpine/BSD
+                ]
+
+                # Create combined certificate bundle
+                combined_cert_file = os.path.join(cert_dir, "combined-ca-bundle.crt")
+                with open(combined_cert_file, "w") as combined:
+                    # Add system certificates first
+                    for system_path in system_cert_paths:
+                        if os.path.exists(system_path):
+                            with open(system_path, "r") as sys_certs:
+                                combined.write(sys_certs.read())
+                                combined.write("\n")
+                            break
+
+                    # Add proxy certificate
+                    combined.write(cert_content)
+
+                # Update global singleton variables
+                _PROXY_CERT_BUNDLE = combined_cert_file
+                _PROXY_CERT_DIR = cert_dir
+                self.ssl_verify = combined_cert_file
+
+                # Set environment variables for urllib and other libraries
+                os.environ["REQUESTS_CA_BUNDLE"] = combined_cert_file
+                os.environ["SSL_CERT_FILE"] = combined_cert_file
+
+                # Register cleanup handlers only once
+                atexit.register(_cleanup_proxy_certificates)
+
+                # Register signal handlers only once
+                if not _PROXY_SIGNAL_HANDLERS_REGISTERED:
+                    signal.signal(signal.SIGTERM, _signal_handler_proxy_cleanup)
+                    signal.signal(signal.SIGINT, _signal_handler_proxy_cleanup)
+                    _PROXY_SIGNAL_HANDLERS_REGISTERED = True
+
+                self.app_logger.info(
+                    "Proxy certificates configured",
+                    {"cert_bundle": combined_cert_file},
+                )
+
+            except Exception as e:
+                self.app_logger.error(
+                    "Failed to setup proxy certificates", {"error": str(e)}
+                )
+                raise
+
+    def _get_certificate_content(self, https_ca_certificates):
+        """Extract certificate content from environment variable.
+
+        Supports both inline certificate content (PEM format) and file paths.
+
+        :param https_ca_certificates: Content from HTTPS_CA_CERTIFICATES env var
+        :type https_ca_certificates: str
+        :return: Certificate content in PEM format
+        :rtype: str
+        :raises ValueError: If the certificate content is invalid or cannot be read
+        """
+        # Strip whitespace once at the beginning
+        stripped_https_ca_certificates = https_ca_certificates.strip()
+
+        # Check if it's inline certificate content (starts with PEM header)
+        if stripped_https_ca_certificates.startswith("-----BEGIN CERTIFICATE-----"):
+            self.app_logger.debug(
+                "HTTPS_CA_CERTIFICATES contains inline certificate content"
+            )
+            return https_ca_certificates
+
+        # Check if it's a file path
+        if os.path.isfile(stripped_https_ca_certificates):
+            cert_file_path = stripped_https_ca_certificates
+            try:
+                with open(cert_file_path, "r") as f:
+                    cert_content = f.read()
+                    # Validate it's actually a certificate
+                    if "-----BEGIN CERTIFICATE-----" in cert_content:
+                        self.app_logger.debug(
+                            "HTTPS_CA_CERTIFICATES contains valid certificate file path",
+                            {"file_path": cert_file_path},
+                        )
+                        return cert_content
+                    else:
+                        raise ValueError(
+                            f"File at HTTPS_CA_CERTIFICATES path does not contain valid certificate: {cert_file_path}"
+                        )
+            except ValueError:
+                # Re-raise ValueError from certificate validation
+                raise
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to read certificate file at {cert_file_path}: {str(e)}"
+                )
+
+        # Neither inline content nor valid file path
+        raise ValueError(
+            f"HTTPS_CA_CERTIFICATES is not a valid certificate or file path: {https_ca_certificates[:50]}..."
+        )
+
     def set_applicant_id_header(self, applicant_id):
+        """Set the applicant ID header for impersonation.
+
+        :param applicant_id: the ID of the user to impersonate
+        :type applicant_id: str
+        """
         self.request_headers["opencti-applicant-id"] = applicant_id
 
     def set_playbook_id_header(self, playbook_id):
+        """Set the playbook ID header for tracking playbook execution.
+
+        :param playbook_id: the ID of the playbook being executed
+        :type playbook_id: str
+        """
         self.request_headers["opencti-playbook-id"] = playbook_id
 
     def set_event_id(self, event_id):
+        """Set the event ID header for event tracking.
+
+        :param event_id: the ID of the event
+        :type event_id: str
+        """
         self.request_headers["opencti-event-id"] = event_id
 
+    def get_draft_id(self):
+        """Get the current draft ID.
+
+        :return: the current draft ID or empty string if not set
+        :rtype: str
+        """
+        if self.draft_id is None:
+            return ""
+        return self.draft_id
+
     def set_draft_id(self, draft_id):
+        """Set the draft ID header for draft mode operations.
+
+        :param draft_id: the ID of the draft workspace
+        :type draft_id: str
+        """
+        self.draft_id = draft_id
         self.request_headers["opencti-draft-id"] = draft_id
 
     def set_synchronized_upsert_header(self, synchronized):
+        """Set the synchronized upsert header.
+
+        :param synchronized: whether upsert should be synchronized
+        :type synchronized: bool
+        """
         self.request_headers["synchronized-upsert"] = (
             "true" if synchronized is True else "false"
         )
 
     def set_previous_standard_header(self, previous_standard):
+        """Set the previous standard header for update operations.
+
+        :param previous_standard: the previous standard ID
+        :type previous_standard: str
+        """
         self.request_headers["previous-standard"] = previous_standard
 
     def get_request_headers(self, hide_token=True):
+        """Get a copy of current request headers.
+
+        :param hide_token: if True, masks the Authorization token with asterisks
+        :type hide_token: bool
+        :return: copy of request headers
+        :rtype: dict
+        """
         request_headers_copy = self.request_headers.copy()
         if hide_token and "Authorization" in request_headers_copy:
             request_headers_copy["Authorization"] = "*****"
         return request_headers_copy
 
     def set_retry_number(self, retry_number):
+        """Set the retry number header for tracking retries.
+
+        :param retry_number: the current retry attempt number, or None to clear
+        :type retry_number: int or None
+        """
         self.request_headers["opencti-retry-number"] = (
             "" if retry_number is None else str(retry_number)
         )
 
+    def _extract_files(self, obj, path_prefix=""):
+        """Recursively extract File objects from nested dictionaries.
+
+        :param obj: the object to search for File objects
+        :type obj: any
+        :param path_prefix: the current path prefix for nested keys
+        :type path_prefix: str
+        :return: tuple of (cleaned_obj, files_vars) where cleaned_obj has Files replaced with None
+        :rtype: tuple
+        """
+        if isinstance(obj, File):
+            return None, [{"key": path_prefix, "file": obj, "multiple": False}]
+
+        if (
+            isinstance(obj, list)
+            and len(obj) > 0
+            and all(map(lambda x: isinstance(x, File), obj))
+        ):
+            return [None] * len(obj), [
+                {"key": path_prefix, "file": obj, "multiple": True}
+            ]
+
+        if isinstance(obj, dict):
+            cleaned = {}
+            files_vars = []
+            for key, val in obj.items():
+                new_path = f"{path_prefix}.{key}" if path_prefix else key
+                cleaned_val, nested_files = self._extract_files(val, new_path)
+                cleaned[key] = cleaned_val
+                files_vars.extend(nested_files)
+            return cleaned, files_vars
+
+        if isinstance(obj, list):
+            cleaned = []
+            files_vars = []
+            for i, item in enumerate(obj):
+                new_path = f"{path_prefix}.{i}" if path_prefix else str(i)
+                cleaned_item, nested_files = self._extract_files(item, new_path)
+                cleaned.append(cleaned_item)
+                files_vars.extend(nested_files)
+            return cleaned, files_vars
+
+        return obj, []
+
     def query(self, query, variables=None, disable_impersonate=False):
-        """submit a query to the OpenCTI GraphQL API
+        """Submit a query to the OpenCTI GraphQL API.
 
         :param query: GraphQL query string
         :type query: str
@@ -287,29 +620,16 @@ class OpenCTIApiClient:
         :type variables: dict, optional
         :param disable_impersonate: removes impersonate header if set to True, defaults to False
         :type disable_impersonate: bool, optional
-        :return: returns the response json content
-        :rtype: Any
+        :return: returns the response JSON content
+        :rtype: dict
+        :raises ValueError: if the API returns an error or non-200 status code
         """
         variables = variables or {}
-        query_var = {}
-        files_vars = []
         # Implementation of spec https://github.com/jaydenseric/graphql-multipart-request-spec
         # Support for single or multiple upload
         # Batching or mixed upload or not supported
-        var_keys = variables.keys()
-        for key in var_keys:
-            val = variables[key]
-            is_file = type(val) is File
-            is_files = (
-                isinstance(val, list)
-                and len(val) > 0
-                and all(map(lambda x: isinstance(x, File), val))
-            )
-            if is_file or is_files:
-                files_vars.append({"key": key, "file": val, "multiple": is_files})
-                query_var[key] = None if is_file else [None] * len(val)
-            else:
-                query_var[key] = val
+        # Recursively extract File objects from nested dictionaries
+        query_var, files_vars = self._extract_files(variables)
 
         query_headers = self.request_headers.copy()
         if disable_impersonate and "opencti-applicant-id" in query_headers:
@@ -384,7 +704,7 @@ class OpenCTIApiClient:
                 verify=self.ssl_verify,
                 cert=self.cert,
                 proxies=self.proxies,
-                timeout=300,
+                timeout=self.session_requests_timeout,
             )
         # If no
         else:
@@ -395,7 +715,7 @@ class OpenCTIApiClient:
                 verify=self.ssl_verify,
                 cert=self.cert,
                 proxies=self.proxies,
-                timeout=300,
+                timeout=self.session_requests_timeout,
             )
         # Build response
         if r.status_code == 200:
@@ -423,36 +743,50 @@ class OpenCTIApiClient:
             raise ValueError(r.text)
 
     def fetch_opencti_file(self, fetch_uri, binary=False, serialize=False):
-        """get file from the OpenCTI API
+        """Get file from the OpenCTI API.
 
         :param fetch_uri: download URI to use
         :type fetch_uri: str
-        :param binary: [description], defaults to False
+        :param binary: if True, returns raw bytes; if False, returns text, defaults to False
         :type binary: bool, optional
-        :return: returns either the file content as text or bytes based on `binary`
-        :rtype: str or bytes
+        :param serialize: if True, returns base64-encoded content, defaults to False
+        :type serialize: bool, optional
+        :return: returns either the file content as text, bytes, base64-encoded string, or None on failure
+        :rtype: str, bytes, or None
         """
-
-        r = self.session.get(
-            fetch_uri,
-            headers=self.request_headers,
-            verify=self.ssl_verify,
-            cert=self.cert,
-            proxies=self.proxies,
-            timeout=300,
-        )
-        if binary:
+        try:
+            r = self.session.get(
+                fetch_uri,
+                headers=self.request_headers,
+                verify=self.ssl_verify,
+                cert=self.cert,
+                proxies=self.proxies,
+                timeout=self.session_requests_timeout,
+            )
+            # Check if request was successful
+            if not r.ok:
+                self.app_logger.warning(
+                    "Failed to fetch file",
+                    {"uri": fetch_uri, "status_code": r.status_code},
+                )
+                return None
+            if binary:
+                if serialize:
+                    return base64.b64encode(r.content).decode("utf-8")
+                return r.content
             if serialize:
-                return base64.b64encode(r.content).decode("utf-8")
-            return r.content
-        if serialize:
-            return base64.b64encode(r.text).decode("utf-8")
-        return r.text
+                return base64.b64encode(r.text.encode("utf-8")).decode("utf-8")
+            return r.text
+        except Exception as e:
+            self.app_logger.warning(
+                "Error fetching file", {"uri": fetch_uri, "error": str(e)}
+            )
+            return None
 
     def health_check(self):
-        """submit an example request to the OpenCTI API.
+        """Submit an example request to the OpenCTI API.
 
-        :return: returns `True` if the health check has been successful
+        :return: returns True if the health check has been successful
         :rtype: bool
         """
         try:
@@ -474,10 +808,10 @@ class OpenCTIApiClient:
         return False
 
     def get_logs_worker_config(self):
-        """get the logsWorkerConfig
+        """Get the logs worker configuration from the OpenCTI platform.
 
-        return: the logsWorkerConfig
-        rtype: dict
+        :return: the logs worker configuration including Elasticsearch settings
+        :rtype: dict
         """
 
         self.app_logger.info("Getting logs worker config...")
@@ -498,11 +832,11 @@ class OpenCTIApiClient:
         return result["data"]["logsWorkerConfig"]
 
     def not_empty(self, value):
-        """check if a value is empty for str, list and int
+        """Check if a value is empty for str, list and int.
 
         :param value: value to check
         :type value: str or list or int or float or bool or datetime.date
-        :return: returns `True` if the value is one of the supported types and not empty
+        :return: returns True if the value is one of the supported types and not empty
         :rtype: bool
         """
 
@@ -512,10 +846,7 @@ class OpenCTIApiClient:
             if isinstance(value, datetime.date):
                 return True
             if isinstance(value, str):
-                if len(value) > 0:
-                    return True
-                else:
-                    return False
+                return len(value) > 0
             if isinstance(value, dict):
                 return bool(value)
             if isinstance(value, list):
@@ -528,17 +859,18 @@ class OpenCTIApiClient:
                 return True
             if isinstance(value, int):
                 return True
-            else:
-                return False
-        else:
             return False
+        return False
 
     def process_multiple(self, data: dict, with_pagination=False) -> Union[dict, list]:
-        """processes data returned by the OpenCTI API with multiple entities
+        """Process data returned by the OpenCTI API with multiple entities.
 
         :param data: data to process
-        :param with_pagination: whether to use pagination with the API
-        :returns: returns either a dict or list with the processes entities
+        :type data: dict
+        :param with_pagination: whether to use pagination with the API, defaults to False
+        :type with_pagination: bool, optional
+        :return: returns either a dict or list with the processed entities
+        :rtype: dict or list
         """
 
         if with_pagination:
@@ -558,7 +890,7 @@ class OpenCTIApiClient:
                     result.append(self.process_multiple_fields(row))
             return result
 
-        # -- When data is wrapper in edges
+        # -- When data is wrapped in edges
         for edge in (
             data["edges"] if "edges" in data and data["edges"] is not None else []
         ):
@@ -574,10 +906,12 @@ class OpenCTIApiClient:
         return result
 
     def process_multiple_ids(self, data) -> list:
-        """processes data returned by the OpenCTI API with multiple ids
+        """Process data returned by the OpenCTI API with multiple ids.
 
         :param data: data to process
+        :type data: list
         :return: returns a list of ids
+        :rtype: list
         """
 
         result = []
@@ -590,7 +924,7 @@ class OpenCTIApiClient:
         return result
 
     def process_multiple_fields(self, data):
-        """processes data returned by the OpenCTI API with multiple fields
+        """Process data returned by the OpenCTI API with multiple fields.
 
         :param data: data to process
         :type data: dict
@@ -706,12 +1040,13 @@ class OpenCTIApiClient:
                 }
              """
             if data is None:
-                data = open(file_name, "rb")
+                with open(file_name, "rb") as f:
+                    data = f.read()
                 if file_name.endswith(".json"):
                     mime_type = "application/json"
                 else:
                     mime_type = magic.from_file(file_name, mime=True)
-            query_vars = {"file": (File(file_name, data, mime_type))}
+            query_vars = {"file": File(file_name, data, mime_type)}
             # optional file markings
             if file_markings is not None:
                 query_vars["fileMarkings"] = file_markings
@@ -721,10 +1056,14 @@ class OpenCTIApiClient:
             return None
 
     def create_draft(self, **kwargs):
-        """create a draft in OpenCTI API
-        :param `**kwargs`: arguments for file name creating draft (required: `draft_name`)
-        :return: returns the query response for the draft creation
-        :rtype: id
+        """Create a draft in OpenCTI API.
+
+        :param draft_name: the name of the draft to create (required)
+        :type draft_name: str
+        :param entity_id: the entity ID to associate with the draft
+        :type entity_id: str, optional
+        :return: returns the draft workspace ID
+        :rtype: str
         """
 
         draft_name = kwargs.get("draft_name", None)
@@ -749,9 +1088,18 @@ class OpenCTIApiClient:
             return None
 
     def upload_pending_file(self, **kwargs):
-        """upload a file to OpenCTI API
+        """Upload a pending file to OpenCTI API.
 
-        :param `**kwargs`: arguments for file upload (required: `file_name` and `data`)
+        :param file_name: the name of the file to upload (required)
+        :type file_name: str
+        :param data: the file content, defaults to reading from file_name path
+        :type data: str or bytes, optional
+        :param mime_type: the MIME type of the file, defaults to "text/plain"
+        :type mime_type: str, optional
+        :param entity_id: the entity ID to associate with the file
+        :type entity_id: str, optional
+        :param file_markings: list of marking definition IDs to apply
+        :type file_markings: list, optional
         :return: returns the query response for the file upload
         :rtype: dict
         """
@@ -773,7 +1121,8 @@ class OpenCTIApiClient:
                     }
                  """
             if data is None:
-                data = open(file_name, "rb")
+                with open(file_name, "rb") as f:
+                    data = f.read()
                 if file_name.endswith(".json"):
                     mime_type = "application/json"
                 else:
@@ -781,7 +1130,7 @@ class OpenCTIApiClient:
             return self.query(
                 query,
                 {
-                    "file": (File(file_name, data, mime_type)),
+                    "file": File(file_name, data, mime_type),
                     "entityId": entity_id,
                     "file_markings": file_markings,
                 },
@@ -791,9 +1140,14 @@ class OpenCTIApiClient:
             return None
 
     def send_bundle_to_api(self, **kwargs):
-        """Push a bundle to a queue through OpenCTI API
+        """Push a bundle to a queue through OpenCTI API.
 
-        :param `**kwargs`: arguments for bundle push (required: `connectorId` and `bundle`)
+        :param connector_id: the connector ID (required)
+        :type connector_id: str
+        :param bundle: the STIX bundle to push (required)
+        :type bundle: str
+        :param work_id: the work ID to associate with the bundle
+        :type work_id: str, optional
         :return: returns the query response for the bundle push
         :rtype: dict
         """
@@ -822,10 +1176,12 @@ class OpenCTIApiClient:
             return None
 
     def get_stix_content(self, id):
-        """get the STIX content of any entity
+        """Get the STIX content of any entity.
 
-        return: the STIX content in JSON
-        rtype: dict
+        :param id: the ID of the entity
+        :type id: str
+        :return: the STIX content in JSON
+        :rtype: dict
         """
 
         self.app_logger.info("Entity in JSON", {"id": id})
@@ -838,47 +1194,98 @@ class OpenCTIApiClient:
         return json.loads(result["data"]["stix"])
 
     @staticmethod
-    def get_attribute_in_extension(key, object) -> any:
+    def get_attribute_in_extension(key, stix_object) -> Any:
+        """Get an attribute value from OpenCTI STIX extensions.
+
+        Searches for the key in OpenCTI extension definitions, or falls back
+        to the object's top-level attributes.
+
+        :param key: the attribute key to retrieve
+        :type key: str
+        :param stix_object: the STIX object containing extensions
+        :type stix_object: dict
+        :return: the attribute value if found, None otherwise
+        :rtype: Any
+        """
         if (
-            "extensions" in object
+            "extensions" in stix_object
             and "extension-definition--ea279b3e-5c71-4632-ac08-831c66a786ba"
-            in object["extensions"]
+            in stix_object["extensions"]
             and key
-            in object["extensions"][
+            in stix_object["extensions"][
                 "extension-definition--ea279b3e-5c71-4632-ac08-831c66a786ba"
             ]
         ):
-            return object["extensions"][
+            return stix_object["extensions"][
                 "extension-definition--ea279b3e-5c71-4632-ac08-831c66a786ba"
             ][key]
         elif (
-            "extensions" in object
+            "extensions" in stix_object
             and "extension-definition--f93e2c80-4231-4f9a-af8b-95c9bd566a82"
-            in object["extensions"]
+            in stix_object["extensions"]
             and key
-            in object["extensions"][
+            in stix_object["extensions"][
                 "extension-definition--f93e2c80-4231-4f9a-af8b-95c9bd566a82"
             ]
         ):
-            return object["extensions"][
+            return stix_object["extensions"][
                 "extension-definition--f93e2c80-4231-4f9a-af8b-95c9bd566a82"
             ][key]
-        elif key in object and key not in ["type"]:
-            return object[key]
+        elif key in stix_object and key not in ["type"]:
+            return stix_object[key]
         return None
 
     @staticmethod
-    def get_attribute_in_mitre_extension(key, object) -> any:
+    def get_attribute_in_mitre_extension(key, stix_object) -> Any:
+        """Get an attribute value from MITRE ATT&CK STIX extension.
+
+        :param key: the attribute key to retrieve
+        :type key: str
+        :param stix_object: the STIX object containing extensions
+        :type stix_object: dict
+        :return: the attribute value if found, None otherwise
+        :rtype: Any
+        """
         if (
-            "extensions" in object
+            "extensions" in stix_object
             and "extension-definition--322b8f77-262a-4cb8-a915-1e441e00329b"
-            in object["extensions"]
+            in stix_object["extensions"]
             and key
-            in object["extensions"][
+            in stix_object["extensions"][
                 "extension-definition--322b8f77-262a-4cb8-a915-1e441e00329b"
             ]
         ):
-            return object["extensions"][
+            return stix_object["extensions"][
                 "extension-definition--322b8f77-262a-4cb8-a915-1e441e00329b"
             ][key]
         return None
+
+
+# Global cleanup functions for proxy certificates singleton
+def _cleanup_proxy_certificates():
+    """Clean up temporary certificate directory for proxy certificates.
+
+    This function is called on normal program exit via atexit.
+    """
+    global _PROXY_CERT_DIR
+    if _PROXY_CERT_DIR and os.path.exists(_PROXY_CERT_DIR):
+        try:
+            shutil.rmtree(_PROXY_CERT_DIR)
+        except Exception:
+            # Silently fail cleanup - best effort
+            pass
+        finally:
+            _PROXY_CERT_DIR = None
+
+
+def _signal_handler_proxy_cleanup(signum, frame):
+    """Handle termination signals (SIGTERM/SIGINT) for proxy certificate cleanup.
+
+    Performs cleanup and then raises SystemExit to allow
+    normal shutdown procedures to complete.
+
+    :param signum: Signal number
+    :param frame: Current stack frame
+    """
+    _cleanup_proxy_certificates()
+    raise SystemExit(0)

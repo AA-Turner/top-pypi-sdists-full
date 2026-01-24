@@ -5,7 +5,6 @@
 
 # Recipe which runs the Skia infra tests.
 
-PYTHON_VERSION_COMPATIBILITY = "PY3"
 
 DEPS = [
   'infra',
@@ -13,7 +12,6 @@ DEPS = [
   'recipe_engine/file',
   'recipe_engine/path',
   'recipe_engine/properties',
-  'recipe_engine/python',
   'recipe_engine/step',
   'run',
   'vars',
@@ -34,5 +32,5 @@ def GenTests(api):
                      revision='abc123',
                      path_config='kitchen',
                      swarm_out_dir='[SWARM_OUT_DIR]') +
-      api.path.exists(api.path['start_dir'].join('localpath'))
+      api.path.exists(api.path.start_dir.joinpath('localpath'))
   )

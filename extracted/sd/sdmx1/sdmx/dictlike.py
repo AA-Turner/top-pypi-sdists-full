@@ -1,7 +1,9 @@
 import logging
-import typing
+from collections.abc import MutableMapping
 from dataclasses import fields
-from typing import Generic, TypeVar, Union, get_args, get_origin
+from typing import Generic, TypeVar, get_args, get_origin
+
+from sdmx.compare import Comparable
 
 log = logging.getLogger(__name__)
 
@@ -9,7 +11,7 @@ KT = TypeVar("KT")
 VT = TypeVar("VT")
 
 
-class DictLike(dict, typing.MutableMapping[KT, VT]):
+class DictLike(dict, MutableMapping[KT, VT], Comparable):
     """Container with features of :class:`dict`, attribute access, and validation."""
 
     __slots__ = ("__dict__", "_types")
@@ -30,7 +32,7 @@ class DictLike(dict, typing.MutableMapping[KT, VT]):
         result._types = (key_type, value_type)
         return result
 
-    def __getitem__(self, key: Union[KT, int]) -> VT:
+    def __getitem__(self, key: KT | int) -> VT:
         """:meth:`dict.__getitem__` with integer access."""
         try:
             return super().__getitem__(key)
@@ -55,11 +57,11 @@ class DictLike(dict, typing.MutableMapping[KT, VT]):
 
     def update(self, other):
         """Update the DictLike with elements from `other`, validating entries."""
-        try:
-            it = other.items()
-        except AttributeError:
-            it = iter(other)
+        it = other.items() if hasattr(other, "items") else iter(other)
         super().update(map(self._validate_entry, it))
+
+    def update_fast(self, other) -> None:
+        super().update(other.items() if hasattr(other, "items") else iter(other))
 
     # Satisfy dataclass(), which otherwise complains when InternationalStringDescriptor
     # is used
@@ -85,28 +87,6 @@ class DictLike(dict, typing.MutableMapping[KT, VT]):
                 )
 
         return key, value
-
-    def compare(self, other, strict=True):
-        """Return :obj:`True` if `self` is the same as `other`.
-
-        Two DictLike instances are identical if they contain the same set of keys, and
-        corresponding values compare equal.
-
-        Parameters
-        ----------
-        strict : bool, optional
-            Passed to :func:`compare` for the values.
-        """
-        if set(self.keys()) != set(other.keys()):
-            log.debug(f"Not identical: {sorted(self.keys())} / {sorted(other.keys())}")
-            return False
-
-        for key, value in self.items():
-            if not value.compare(other[key], strict):
-                log.debug(f"Not identical: {value} / {other[key]}")
-                return False
-
-        return True
 
 
 # Utility methods for DictLike

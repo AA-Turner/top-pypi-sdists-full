@@ -36,16 +36,13 @@ from ansible_collections.community.crypto.plugins.module_utils._cryptography_dep
     assert_required_cryptography_version,
 )
 
-
 if t.TYPE_CHECKING:
     import datetime  # pragma: no cover
 
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
+
     from ansible_collections.community.crypto.plugins.module_utils._crypto.cryptography_support import (  # pragma: no cover
         CertificatePrivateKeyTypes,
-    )
-    from cryptography.hazmat.primitives.asymmetric.types import (  # pragma: no cover
-        CertificateIssuerPrivateKeyTypes,
     )
 
 
@@ -323,15 +320,19 @@ class CertificateBackend(metaclass=abc.ABCMeta):
             return True
 
         # Check not before
-        if not_before is not None and not self.ignore_timestamps:
-            if get_not_valid_before(self.existing_certificate) != not_before:
-                return True
+        if (
+            not_before is not None
+            and not self.ignore_timestamps
+            and get_not_valid_before(self.existing_certificate) != not_before
+        ):
+            return True
 
         # Check not after
-        if not_after is not None and not self.ignore_timestamps:
-            if get_not_valid_after(self.existing_certificate) != not_after:
-                return True
-        return False
+        return bool(
+            not_after is not None
+            and not self.ignore_timestamps
+            and get_not_valid_after(self.existing_certificate) != not_after
+        )
 
     def dump(self, *, include_certificate: bool) -> dict[str, t.Any]:
         """Serialize the object into a dictionary."""
@@ -414,8 +415,8 @@ def get_certificate_argument_spec() -> ArgumentSpec:
 
 
 __all__ = (
-    "CertificateError",
     "CertificateBackend",
+    "CertificateError",
     "CertificateProvider",
     "get_certificate_argument_spec",
 )

@@ -21,11 +21,13 @@ use pyo3::{
 
 use crate::{
     bytes::{Encoding, ZBytes},
+    cancellation::CancellationToken,
     handlers::{into_handler, HandlerImpl},
     key_expr::KeyExpr,
     macros::{build, downcast_or_new, enum_mapper, option_wrapper, wrapper},
     matching::{MatchingListener, MatchingStatus},
     qos::{CongestionControl, Priority},
+    sample::SourceInfo,
     session::EntityGlobalId,
     time::Timestamp,
     utils::{generic, wait, IntoPyResult, IntoPython, IntoRust, MapInto},
@@ -188,6 +190,11 @@ impl Query {
         wait(py, build)
     }
 
+    #[getter]
+    fn source_info(&self) -> PyResult<Option<SourceInfo>> {
+        Ok(self.get_ref()?.source_info().cloned().map_into())
+    }
+
     fn drop(&mut self) {
         Python::with_gil(|gil| gil.allow_threads(|| drop(self.0.take())));
     }
@@ -286,6 +293,11 @@ impl Queryable {
     }
 
     #[getter]
+    fn id(&self) -> PyResult<EntityGlobalId> {
+        Ok(self.get_ref()?.id().into())
+    }
+
+    #[getter]
     fn key_expr(&self) -> PyResult<KeyExpr> {
         Ok(self.get_ref()?.key_expr().clone().into())
     }
@@ -341,6 +353,11 @@ impl Querier {
     }
 
     #[getter]
+    fn id(&self) -> PyResult<EntityGlobalId> {
+        Ok(self.get_ref()?.id().into())
+    }
+
+    #[getter]
     fn key_expr(&self) -> PyResult<KeyExpr> {
         Ok(self.get_ref()?.key_expr().clone().into())
     }
@@ -351,7 +368,7 @@ impl Querier {
     }
 
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (handler = None, *, parameters = None, payload = None, encoding = None, attachment = None))]
+    #[pyo3(signature = (handler = None, *, parameters = None, payload = None, encoding = None, attachment = None, source_info = None, cancellation_token = None))]
     fn get(
         &self,
         py: Python,
@@ -360,10 +377,20 @@ impl Querier {
         #[pyo3(from_py_with = ZBytes::from_py_opt)] payload: Option<ZBytes>,
         #[pyo3(from_py_with = Encoding::from_py_opt)] encoding: Option<Encoding>,
         #[pyo3(from_py_with = ZBytes::from_py_opt)] attachment: Option<ZBytes>,
+        source_info: Option<SourceInfo>,
+        cancellation_token: Option<CancellationToken>,
     ) -> PyResult<HandlerImpl<Reply>> {
         let this = self.get_ref()?;
-        let (handler, _) = into_handler(py, handler)?;
-        let builder = build!(this.get(), parameters, payload, encoding, attachment);
+        let (handler, _) = into_handler(py, handler, cancellation_token.as_ref())?;
+        let builder = build!(
+            this.get(),
+            parameters,
+            payload,
+            encoding,
+            attachment,
+            source_info,
+            cancellation_token
+        );
         wait(py, builder.with(handler)).map_into()
     }
 
@@ -373,7 +400,7 @@ impl Querier {
         py: Python,
         handler: Option<&Bound<PyAny>>,
     ) -> PyResult<MatchingListener> {
-        let (handler, background) = into_handler(py, handler)?;
+        let (handler, background) = into_handler(py, handler, None)?;
         let mut listener = wait(py, self.get_ref()?.matching_listener().with(handler))?;
         if background {
             listener.set_background(true);

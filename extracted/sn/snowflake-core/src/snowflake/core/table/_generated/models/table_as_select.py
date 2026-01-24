@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 from snowflake.core.table._generated.models.table_column import TableColumn, TableColumnModel
 
@@ -46,9 +46,10 @@ class TableAsSelect(BaseModel):
 
     __properties = ["name", "columns", "cluster_by"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -73,7 +74,7 @@ class TableAsSelect(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of each item in columns (list)
         _items = []
@@ -96,9 +97,9 @@ class TableAsSelect(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return TableAsSelect.parse_obj(obj)
+            return TableAsSelect.model_validate(obj)
 
-        _obj = TableAsSelect.parse_obj(
+        _obj = TableAsSelect.model_validate(
             {
                 "name": obj.get("name"),
                 "columns": [TableColumn.from_dict(_item) for _item in obj.get("columns")]

@@ -1,13 +1,15 @@
 # This file is part of Cantera. See License.txt in the top-level directory or
 # at https://cantera.org/license.txt for license and copyright information.
-from __future__ import annotations
+from __future__ import annotations as _annotations
 
-from ._cantera import *
+import importlib as _importlib
+from tempfile import NamedTemporaryFile as _NamedTemporaryFile
+from os import unlink as _unlink
 import numpy as np
-import csv as _csv
-import importlib.metadata
-import warnings
-
+from ._cantera import (
+    DustyGasTransport, InterfaceKinetics, InterfacePhase, Kinetics, PureFluid,
+    SolutionArrayBase, ThermoPhase, Transport,
+)
 
 _pandas = None
 def _import_pandas():
@@ -16,8 +18,8 @@ def _import_pandas():
     if _pandas is not None:
         return
     try:
-        importlib.metadata.version('pandas')
-    except importlib.metadata.PackageNotFoundError:
+        _importlib.metadata.version('pandas')
+    except _importlib.metadata.PackageNotFoundError:
         raise ImportError('Method requires a working pandas installation.')
     else:
         import pandas as _pandas
@@ -49,9 +51,9 @@ class Solution(Transport, Kinetics, ThermoPhase):
         gas = ct.Solution('diamond.yaml', name='gas')
         diamond = ct.Solution('diamond.yaml', name='diamond')
 
-    The name of the `Solution` object defaults to the *phase* identifier
-    specified in the input file. Upon initialization of a `Solution` object,
-    a custom name can assigned via::
+    The name of the `Solution` object defaults to the value of the ``name`` field in
+    the input file. Upon initialization of a `Solution` object, a custom name can
+    assigned via::
 
         gas.name = 'my_custom_name'
 
@@ -256,7 +258,7 @@ class Quantity:
 
     @property
     def volume(self):
-        """ Get the total volume [m^3] represented by the `Quantity`. """
+        """Get the total volume [m³] represented by the `Quantity`."""
         return self.mass * self.phase.volume_mass
 
     @property
@@ -575,7 +577,7 @@ class SolutionArray(SolutionArrayBase):
         'species', 'n_atoms', 'molecular_weights', 'min_temp', 'max_temp',
         'reference_pressure', 'charges',
         # From Kinetics
-        'n_total_species', 'n_reactions', 'n_phases', 'reaction_phase_index',
+        'n_total_species', 'n_reactions', 'n_phases',
         'kinetics_species_index', 'reaction', 'reactions', 'modify_reaction',
         'multiplier', 'set_multiplier', 'reaction_equations', 'reactant_stoich_coeff',
         'product_stoich_coeff', 'reactant_stoich_coeffs', 'product_stoich_coeffs',
@@ -589,7 +591,8 @@ class SolutionArray(SolutionArrayBase):
 
     _purefluid_scalar = ['Q']
 
-    def __init__(self, phase, shape=(0,), states=None, extra=None, meta={}, init=True):
+    def __init__(self, phase, shape=(0,), states=None, extra=None, meta=None,
+                 init=True):
         self._phase = phase
         if not init:
             return
@@ -674,6 +677,9 @@ class SolutionArray(SolutionArrayBase):
         return out
 
     def __getattr__(self, name):
+        if (not self._has_component(name) and
+            self._has_component(name.replace("_", "-"))):
+            name = name.replace("_", "-")
         if self._has_component(name):
             out = self._get_component(name)
             out.setflags(write=False)
@@ -685,6 +691,9 @@ class SolutionArray(SolutionArrayBase):
                 f"{self.__class__.__name__!r} object has no attribute '{name}'")
 
     def __setattr__(self, name, value):
+        if (not self._has_component(name) and
+            self._has_component(name.replace("_", "-"))):
+            name = name.replace("_", "-")
         if self._has_extra(name):
             if not self.shape:
                 # scalar
@@ -815,14 +824,14 @@ class SolutionArray(SolutionArrayBase):
                     "the thermodynamic state".format(tuple(kwargs))
                 ) from None
             if normalize or attr.endswith("Q"):
-                setattr(self._phase, attr, list(kwargs.values()))
+                setattr(self._phase, attr, [kwargs[a] for a in attr])
             else:
                 if attr.endswith("X"):
                     self._phase.set_unnormalized_mole_fractions(kwargs.pop("X"))
                 elif attr.endswith("Y"):
                     self._phase.set_unnormalized_mass_fractions(kwargs.pop("Y"))
                 attr = attr[:-1]
-                setattr(self._phase, attr, list(kwargs.values()))
+                setattr(self._phase, attr, [kwargs[a] for a in attr])
 
         self._append(self._phase.state, extra_temp)
         self._indices.append(len(self._indices))
@@ -1194,21 +1203,9 @@ class SolutionArray(SolutionArrayBase):
             pass
 
         # fall back to numpy; this works unless CSV file contains escaped entries
-        if np.lib.NumpyVersion(np.__version__) < "1.14.0":
-            # bytestring needs to be converted for columns containing strings
-            data = np.genfromtxt(filename, delimiter=',', deletechars='',
-                                 dtype=None, names=True)
-            data_dict = {}
-            for label in data.dtype.names:
-                if data[label].dtype.type == np.bytes_:
-                    data_dict[label] = data[label].astype('U')
-                else:
-                    data_dict[label] = data[label]
-        else:
-            # the 'encoding' parameter introduced with NumPy 1.14 simplifies import
-            data = np.genfromtxt(filename, delimiter=',', deletechars='',
-                                 dtype=None, names=True, encoding=None)
-            data_dict = {label: data[label] for label in data.dtype.names}
+        data = np.genfromtxt(filename, delimiter=',', deletechars='',
+                                dtype=None, names=True, encoding=None)
+        data_dict = {label: data[label] for label in data.dtype.names}
         self.restore_data(data_dict, normalize)
 
     def to_pandas(self, cols=None, *args, **kwargs):
@@ -1240,10 +1237,7 @@ class SolutionArray(SolutionArrayBase):
         """
         data_dict = {}
         for label in list(df.columns):
-            data_dict[label] = df[label].values
-            if data_dict[label].dtype.type == np.object_:
-                # convert object columns to string
-                data_dict[label] = data_dict[label].astype('U')
+            data_dict[label] = df[label].to_numpy()
         self.restore_data(data_dict, normalize)
 
     def save(self, fname, name=None, sub=None, description=None, *,
@@ -1318,11 +1312,46 @@ class SolutionArray(SolutionArrayBase):
         self.shape = self._api_shape()
         return meta
 
+    def _to_picklable(self):
+        with _NamedTemporaryFile(suffix=".yaml", delete=False) as t_file:
+            # Context manager ensures that temporary file is properly created
+            temp_file = t_file.name
+
+        try:
+            self.save(temp_file, name="solution_array", overwrite=True)
+            with open(temp_file, "r", encoding="utf-8") as t_file:
+                yaml_data = t_file.read()
+        finally:
+            _unlink(temp_file)
+
+        return {
+            "yaml_data": yaml_data,
+            "phase": self._phase,  # Solution object, which is already picklable
+        }
+
+    @classmethod
+    def _from_pickle(cls, state):
+        phase = state.get("phase")  # Recreate Solution object from pickled state
+
+        # Restore SolutionArray
+        arr = cls(phase)
+        with _NamedTemporaryFile(suffix=".yaml", mode="w", encoding="utf-8",
+                                 delete=False) as t_file:
+            t_file.write(state["yaml_data"])
+            temp_file = t_file.name
+
+        try:
+            arr.restore(temp_file, "solution_array")
+        finally:
+            _unlink(temp_file)
+
+        return arr
+
     def __reduce__(self):
-        raise NotImplementedError('SolutionArray object is not picklable')
+        return (self.__class__._from_pickle, (self._to_picklable(),))
 
     def __copy__(self):
-        raise NotImplementedError('SolutionArray object is not copyable')
+        return self.__class__._from_pickle(self._to_picklable())
 
 
 def _state2_prop(name, doc_source):

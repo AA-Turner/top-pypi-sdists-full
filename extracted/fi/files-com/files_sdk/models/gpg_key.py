@@ -10,18 +10,21 @@ from files_sdk.error import (  # noqa: F401
 
 class GpgKey:
     default_attributes = {
-        "id": None,  # int64 - Your GPG key ID.
-        "expires_at": None,  # date-time - Your GPG key expiration date.
-        "name": None,  # string - Your GPG key name.
-        "user_id": None,  # int64 - GPG owner's user id
-        "public_key_md5": None,  # string - MD5 hash of your GPG public key
-        "private_key_md5": None,  # string - MD5 hash of your GPG private key.
-        "generated_public_key": None,  # string - Your GPG public key
-        "generated_private_key": None,  # string - Your GPG private key.
-        "private_key_password_md5": None,  # string - Your GPG private key password. Only required for password protected keys.
-        "public_key": None,  # string - MD5 hash of your GPG public key
-        "private_key": None,  # string - MD5 hash of your GPG private key.
-        "private_key_password": None,  # string - Your GPG private key password. Only required for password protected keys.
+        "id": None,  # int64 - GPG key ID.
+        "workspace_id": None,  # int64 - Workspace ID (0 for default workspace).
+        "expires_at": None,  # date-time - GPG key expiration date.
+        "name": None,  # string - GPG key name.
+        "partner_id": None,  # int64 - Partner ID who owns this GPG Key, if applicable.
+        "partner_name": None,  # string - Name of the Partner who owns this GPG Key, if applicable.
+        "user_id": None,  # int64 - User ID who owns this GPG Key, if applicable.
+        "public_key_md5": None,  # string - MD5 hash of the GPG public key
+        "private_key_md5": None,  # string - MD5 hash of the GPG private key.
+        "generated_public_key": None,  # string - GPG public key
+        "generated_private_key": None,  # string - GPG private key.
+        "private_key_password_md5": None,  # string - GPG private key password. Only required for password protected keys.
+        "public_key": None,  # string - The GPG public key
+        "private_key": None,  # string - The GPG private key
+        "private_key_password": None,  # string - The GPG private key password
         "generate_expires_at": None,  # string - Expiration date of the key. Used for the generation of the key. Will be ignored if `generate_keypair` is false.
         "generate_keypair": None,  # boolean - If true, generate a new GPG key pair. Can not be used with `public_key`/`private_key`
         "generate_full_name": None,  # string - Full name of the key owner. Used for the generation of the key. Will be ignored if `generate_keypair` is false.
@@ -48,10 +51,11 @@ class GpgKey:
         }
 
     # Parameters:
-    #   public_key - string - MD5 hash of your GPG public key
-    #   private_key - string - MD5 hash of your GPG private key.
-    #   private_key_password - string - Your GPG private key password. Only required for password protected keys.
-    #   name - string - Your GPG key name.
+    #   partner_id - int64 - Partner ID who owns this GPG Key, if applicable.
+    #   public_key - string - The GPG public key
+    #   private_key - string - The GPG private key
+    #   private_key_password - string - The GPG private key password
+    #   name - string - GPG key name.
     def update(self, params=None):
         if not isinstance(params, dict):
             params = {}
@@ -64,6 +68,12 @@ class GpgKey:
             raise MissingParameterError("Parameter missing: id")
         if "id" in params and not isinstance(params["id"], int):
             raise InvalidParameterError("Bad parameter: id must be an int")
+        if "partner_id" in params and not isinstance(
+            params["partner_id"], int
+        ):
+            raise InvalidParameterError(
+                "Bad parameter: partner_id must be an int"
+            )
         if "public_key" in params and not isinstance(
             params["public_key"], str
         ):
@@ -129,7 +139,12 @@ class GpgKey:
 #   user_id - int64 - User ID.  Provide a value of `0` to operate the current session's user.
 #   cursor - string - Used for pagination.  When a list request has more records available, cursors are provided in the response headers `X-Files-Cursor-Next` and `X-Files-Cursor-Prev`.  Send one of those cursor value here to resume an existing list from the next available record.  Note: many of our SDKs have iterator methods that will automatically handle cursor-based pagination.
 #   per_page - int64 - Number of records to show per page.  (Max: 10,000, 1,000 or less is recommended).
-#   sort_by - object - If set, sort records by the specified field in either `asc` or `desc` direction. Valid fields are `name` and `expires_at`.
+#   sort_by - object - If set, sort records by the specified field in either `asc` or `desc` direction. Valid fields are `workspace_id`, `name` or `expires_at`.
+#   filter - object - If set, return records where the specified field is equal to the supplied value. Valid fields are `workspace_id`, `partner_id` or `expires_at`. Valid field combinations are `[ workspace_id, expires_at ]`.
+#   filter_gt - object - If set, return records where the specified field is greater than the supplied value. Valid fields are `expires_at`.
+#   filter_gteq - object - If set, return records where the specified field is greater than or equal the supplied value. Valid fields are `expires_at`.
+#   filter_lt - object - If set, return records where the specified field is less than the supplied value. Valid fields are `expires_at`.
+#   filter_lteq - object - If set, return records where the specified field is less than or equal the supplied value. Valid fields are `expires_at`.
 def list(params=None, options=None):
     if not isinstance(params, dict):
         params = {}
@@ -143,6 +158,20 @@ def list(params=None, options=None):
         raise InvalidParameterError("Bad parameter: per_page must be an int")
     if "sort_by" in params and not isinstance(params["sort_by"], dict):
         raise InvalidParameterError("Bad parameter: sort_by must be an dict")
+    if "filter" in params and not isinstance(params["filter"], dict):
+        raise InvalidParameterError("Bad parameter: filter must be an dict")
+    if "filter_gt" in params and not isinstance(params["filter_gt"], dict):
+        raise InvalidParameterError("Bad parameter: filter_gt must be an dict")
+    if "filter_gteq" in params and not isinstance(params["filter_gteq"], dict):
+        raise InvalidParameterError(
+            "Bad parameter: filter_gteq must be an dict"
+        )
+    if "filter_lt" in params and not isinstance(params["filter_lt"], dict):
+        raise InvalidParameterError("Bad parameter: filter_lt must be an dict")
+    if "filter_lteq" in params and not isinstance(params["filter_lteq"], dict):
+        raise InvalidParameterError(
+            "Bad parameter: filter_lteq must be an dict"
+        )
     return ListObj(GpgKey, "GET", "/gpg_keys", params, options)
 
 
@@ -174,10 +203,12 @@ def get(id, params=None, options=None):
 
 # Parameters:
 #   user_id - int64 - User ID.  Provide a value of `0` to operate the current session's user.
-#   public_key - string - MD5 hash of your GPG public key
-#   private_key - string - MD5 hash of your GPG private key.
-#   private_key_password - string - Your GPG private key password. Only required for password protected keys.
-#   name (required) - string - Your GPG key name.
+#   partner_id - int64 - Partner ID who owns this GPG Key, if applicable.
+#   public_key - string - The GPG public key
+#   private_key - string - The GPG private key
+#   private_key_password - string - The GPG private key password
+#   name (required) - string - GPG key name.
+#   workspace_id - int64 - Workspace ID (0 for default workspace).
 #   generate_expires_at - string - Expiration date of the key. Used for the generation of the key. Will be ignored if `generate_keypair` is false.
 #   generate_keypair - boolean - If true, generate a new GPG key pair. Can not be used with `public_key`/`private_key`
 #   generate_full_name - string - Full name of the key owner. Used for the generation of the key. Will be ignored if `generate_keypair` is false.
@@ -189,6 +220,8 @@ def create(params=None, options=None):
         options = {}
     if "user_id" in params and not isinstance(params["user_id"], int):
         raise InvalidParameterError("Bad parameter: user_id must be an int")
+    if "partner_id" in params and not isinstance(params["partner_id"], int):
+        raise InvalidParameterError("Bad parameter: partner_id must be an int")
     if "public_key" in params and not isinstance(params["public_key"], str):
         raise InvalidParameterError("Bad parameter: public_key must be an str")
     if "private_key" in params and not isinstance(params["private_key"], str):
@@ -203,6 +236,12 @@ def create(params=None, options=None):
         )
     if "name" in params and not isinstance(params["name"], str):
         raise InvalidParameterError("Bad parameter: name must be an str")
+    if "workspace_id" in params and not isinstance(
+        params["workspace_id"], int
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: workspace_id must be an int"
+        )
     if "generate_expires_at" in params and not isinstance(
         params["generate_expires_at"], str
     ):
@@ -234,10 +273,11 @@ def create(params=None, options=None):
 
 
 # Parameters:
-#   public_key - string - MD5 hash of your GPG public key
-#   private_key - string - MD5 hash of your GPG private key.
-#   private_key_password - string - Your GPG private key password. Only required for password protected keys.
-#   name - string - Your GPG key name.
+#   partner_id - int64 - Partner ID who owns this GPG Key, if applicable.
+#   public_key - string - The GPG public key
+#   private_key - string - The GPG private key
+#   private_key_password - string - The GPG private key password
+#   name - string - GPG key name.
 def update(id, params=None, options=None):
     if not isinstance(params, dict):
         params = {}
@@ -246,6 +286,8 @@ def update(id, params=None, options=None):
     params["id"] = id
     if "id" in params and not isinstance(params["id"], int):
         raise InvalidParameterError("Bad parameter: id must be an int")
+    if "partner_id" in params and not isinstance(params["partner_id"], int):
+        raise InvalidParameterError("Bad parameter: partner_id must be an int")
     if "public_key" in params and not isinstance(params["public_key"], str):
         raise InvalidParameterError("Bad parameter: public_key must be an str")
     if "private_key" in params and not isinstance(params["private_key"], str):

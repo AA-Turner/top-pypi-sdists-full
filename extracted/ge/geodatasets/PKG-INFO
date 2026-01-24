@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: geodatasets
-Version: 2024.8.0
+Version: 2026.1.0
 Summary: Spatial data examples
 Author-email: Martin Fleischmann <martin@martinfleischmann.net>
 Maintainer: geodatasets contributors
@@ -16,6 +16,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pooch
+Dynamic: license-file
 
 # geodatasets
 

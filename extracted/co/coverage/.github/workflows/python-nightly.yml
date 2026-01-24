@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 name: "Python Nightly Tests"
 
@@ -20,7 +20,8 @@ defaults:
 
 env:
   PIP_DISABLE_PIP_VERSION_CHECK: 1
-  COVERAGE_IGOR_VERBOSE: 1
+  COVERAGE_IGOR_VERBOSE: 2
+  HYPOTHESIS_PROFILE: ci
 
 permissions:
   contents: read
@@ -47,19 +48,17 @@ jobs:
         python-version:
           # When changing this list, be sure to check the [gh] list in
           # tox.ini so that tox will run properly. PYVERSIONS
-          - "3.12"
           - "3.13"
           - "3.13t"
           - "3.14"
           - "3.14t"
           - "3.15"
           - "3.15t"
-
       fail-fast: false
 
     steps:
       - name: "Check out the repo"
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
@@ -92,6 +91,7 @@ jobs:
           python -m sysconfig
           python -c "import sys; print('GIL:', getattr(sys, '_is_gil_enabled', lambda: True)())"
           python -m coverage debug sys
+          python -m coverage debug sqlite
           python -m coverage debug pybehave
           env | sort
 

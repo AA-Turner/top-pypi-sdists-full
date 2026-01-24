@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: openssl_dhparam
 short_description: Generate OpenSSL Diffie-Hellman Parameters
@@ -136,6 +135,7 @@ import typing as t
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.common.text.converters import to_text
+
 from ansible_collections.community.crypto.plugins.module_utils._crypto.math import (
     count_bits,
 )
@@ -150,7 +150,6 @@ from ansible_collections.community.crypto.plugins.module_utils._io import (
 from ansible_collections.community.crypto.plugins.module_utils._version import (
     LooseVersion,
 )
-
 
 MINIMAL_CRYPTOGRAPHY_VERSION = COLLECTION_MINIMUM_CRYPTOGRAPHY_VERSION
 
@@ -390,7 +389,7 @@ def main() -> t.NoReturn:
             # Detection what is possible
             can_use_cryptography = (
                 CRYPTOGRAPHY_FOUND
-                and CRYPTOGRAPHY_VERSION >= LooseVersion(MINIMAL_CRYPTOGRAPHY_VERSION)
+                and LooseVersion(MINIMAL_CRYPTOGRAPHY_VERSION) <= CRYPTOGRAPHY_VERSION
             )
             can_use_openssl = module.get_bin_path("openssl", False) is not None
 

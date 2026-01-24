@@ -12,6 +12,7 @@ from socket import gethostname
 from tempfile import mkdtemp
 
 import pytest
+
 from ansible_collections.community.crypto.plugins.module_utils._openssh.cryptography import (
     HAS_OPENSSH_SUPPORT,
     InvalidCommentError,
@@ -22,7 +23,6 @@ from ansible_collections.community.crypto.plugins.module_utils._openssh.cryptogr
     InvalidPublicKeyFileError,
     OpensshKeypair,
 )
-
 
 if t.TYPE_CHECKING:
     from ansible_collections.community.crypto.plugins.module_utils._openssh.cryptography import (  # pragma: no cover

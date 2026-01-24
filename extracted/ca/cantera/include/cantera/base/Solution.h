@@ -55,6 +55,22 @@ public:
         return shared_ptr<Solution>( new Solution );
     }
 
+    //! Create a new Solution object with cloned ThermoPhase, Kinetics, and Transport
+    //! objects that use the same species definitions, thermodynamic parameters, and
+    //! reactions as this one.
+    //! @param adjacent  For surface phases, an optional list of new adjacent phases
+    //!     to link to the InterfaceKinetics object. Any adjacent phases not provided
+    //!     will have their ThermoPhase model automatically cloned.
+    //! @param withKinetics  Flag indicating whether to clone the Kinetics object
+    //!    associated with this phase. If `false`, the cloned Solution will not include
+    //!    a kinetics manager.
+    //! @param withTransport  Flag indicating whether to clone the Transport object
+    //!    associated with this phase. If `false`, the cloned Solution will not include
+    //!    a transport property manager.
+    //! @since New in %Cantera 3.2.
+    shared_ptr<Solution> clone(const vector<shared_ptr<Solution>>& adjacent={},
+                               bool withKinetics=true, bool withTransport=true) const;
+
     //! Return the name of this Solution object
     string name() const;
 
@@ -69,6 +85,10 @@ public:
 
     //! Set the Transport object directly
     virtual void setTransport(shared_ptr<Transport> transport);
+
+    //! Retrieve transport model name
+    //! @since New in %Cantera 3.2
+    string transportModel();
 
     //! Set the Transport object by name
     //! @param model  name of transport model; if omitted, the default model is used
@@ -100,13 +120,20 @@ public:
     }
 
     //! Get the Solution object for an adjacent phase by name
-    shared_ptr<Solution> adjacent(const string& name) {
-        return m_adjacentByName.at(name);
-    }
+    shared_ptr<Solution> adjacent(const string& name);
 
     //! Get the number of adjacent phases
     size_t nAdjacent() const {
-         return m_adjacent.size();
+        return m_adjacent.size();
+    }
+
+    //! Get the name of an adjacent phase by index
+    string adjacentName(size_t i) const {
+        if (i >= m_adjacent.size()) {
+            throw IndexError("Solution::adjacentName", "m_adjacent",
+                             i, m_adjacent.size());
+        }
+        return m_adjacent.at(i)->name();
     }
 
     AnyMap parameters(bool withInput=false) const;

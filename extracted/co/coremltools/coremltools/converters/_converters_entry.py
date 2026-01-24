@@ -4,6 +4,7 @@
 # found in the LICENSE.txt file or at https://opensource.org/licenses/BSD-3-Clause
 
 import collections
+from datetime import date
 import gc
 import os
 from typing import List, Optional, Text, Union
@@ -37,7 +38,12 @@ from coremltools.converters.mil.mil.passes.defs.quantization import ComputePreci
 from coremltools.converters.mil.mil.passes.defs.quantization import FP16ComputePrecision
 from coremltools.converters.mil.mil.passes.graph_pass import PassOption as _PassOption
 from coremltools.converters.mil.mil.passes.pass_pipeline import PassPipeline
-from coremltools.models import _METADATA_SOURCE, _METADATA_SOURCE_DIALECT, _METADATA_VERSION
+from coremltools.models import (
+    _METADATA_CONVERSION_DATE,
+    _METADATA_SOURCE,
+    _METADATA_SOURCE_DIALECT,
+    _METADATA_VERSION
+)
 from coremltools.models.utils import _MLPACKAGE_EXTENSION
 
 if _HAS_TF_1:
@@ -258,19 +264,24 @@ def convert(
 
           .. sourcecode:: python
 
-             minimum_deployment_target <= coremltools.target.iOS14/
-                                          coremltools.target.macOS11/
-                                          coremltools.target.watchOS7/
-                                          coremltools.target.tvOS14:
+
+            (
+                minimum_deployment_target <= coremltools.target.iOS14
+                or minimum_deployment_target <= coremltools.target.macOS11
+                or minimum_deployment_target <= coremltools.target.watchOS7
+                or minimum_deployment_target <= coremltools.target.tvOS14
+            )
 
         - The converter produces an ML program (``mlprogram``) if:
 
           .. sourcecode:: python
 
-             minimum_deployment_target >= coremltools.target.iOS15/
-                                           coremltools.target.macOS12/
-                                           coremltools.target.watchOS8/
-                                           coremltools.target.tvOS15:
+            (
+                minimum_deployment_target >= coremltools.target.iOS15
+                or minimum_deployment_target >= coremltools.target.macOS12
+                or minimum_deployment_target >= coremltools.target.watchOS8
+                or minimum_deployment_target >= coremltools.target.tvOS15
+            )
 
         - If neither the ``minimum_deployment_target`` nor the ``convert_to``
           parameter is specified, the converter produces an ML program
@@ -281,10 +292,10 @@ def convert(
           .. sourcecode:: python
 
             # Invalid:
-            convert_to="mlprogram", minimum_deployment_target=coremltools.target.iOS14
+            convert_to = "mlprogram", minimum_deployment_target = coremltools.target.iOS14
 
             # Invalid:
-            convert_to="neuralnetwork", minimum_deployment_target=coremltools.target.iOS15
+            convert_to = "neuralnetwork", minimum_deployment_target = coremltools.target.iOS15
 
     convert_to : str (optional)
         Must be one of [``'mlprogram'``, ``'neuralnetwork'``, ``'milinternal'``].
@@ -329,8 +340,7 @@ def convert(
 
           .. sourcecode:: python
 
-              coremltools.transform.FP16ComputePrecision(op_selector=
-                                                         lambda op:True)
+              coremltools.transform.FP16ComputePrecision(op_selector=lambda op: True)
 
           The above transform iterates through all the ops, looking at each op's
           inputs and outputs. If they are of type float 32, ``cast``
@@ -355,8 +365,9 @@ def convert(
 
           .. sourcecode:: python
 
-             coremltools.transform.FP16ComputePrecision(op_selector=
-                                         lambda op: op.op_type != "linear")
+             coremltools.transform.FP16ComputePrecision(
+                 op_selector=lambda op: op.op_type != "linear"
+             )
 
           The above casts all the float32 tensors to be float 16, except
           the input/output tensors to any ``linear`` op. See more examples
@@ -750,14 +761,14 @@ def _validate_outputs_argument(outputs):
                                  'or of types ct.ImageType/ct.TensorType'
         if isinstance(outputs[0], str):
             # if one of the elements is a string, all elements must be strings
-            if not all([isinstance(t, str) for t in outputs]):
+            if not all(isinstance(t, str) for t in outputs):
                 raise ValueError(msg_inconsistent_types)
             return outputs, [TensorType(name=name) for name in outputs]
 
         if isinstance(outputs[0], InputType) and outputs[0].can_be_output():
-            if not all([(isinstance(t, InputType) and t.can_be_output()) for t in outputs]):
+            if not all((isinstance(t, InputType) and t.can_be_output()) for t in outputs):
                 raise ValueError(msg_inconsistent_types)
-            if any([(isinstance(t, TensorType) or isinstance(t, ImageType)) and t.shape is not None for t in outputs]):
+            if any((isinstance(t, TensorType) or isinstance(t, ImageType)) and t.shape is not None for t in outputs):
                 msg = "The 'shape' argument must not be specified for the outputs, since it is " \
                       "automatically inferred from the input shapes and the ops in the model"
                 raise ValueError(msg)
@@ -777,9 +788,9 @@ def _validate_outputs_argument(outputs):
             output_names = [t.name for t in outputs]
             # verify that either all of the entries in output_names is "None" or none of them is "None"
             msg_consistent_names = 'Either none or all the outputs must have the "name" argument specified'
-            if output_names[0] is None and not all([name is None for name in output_names]):
+            if output_names[0] is None and not all(name is None for name in output_names):
                 raise ValueError(msg_consistent_names)
-            if output_names[0] is not None and not all([name is not None for name in output_names]):
+            if output_names[0] is not None and not all(name is not None for name in output_names):
                 raise ValueError(msg_consistent_names)
             if output_names[0] is not None:
                 if len(set(output_names)) != len(output_names):
@@ -789,6 +800,29 @@ def _validate_outputs_argument(outputs):
             else:
                 return output_names, outputs
 
+
+def _validate_enumerated_shape_inputs(inputs, convert_to, minimum_deployment_target) -> None:
+    if convert_to.lower() != "mlprogram":
+        return
+
+    enumerated_shape_inputs = list(
+        filter(lambda input: isinstance(input.shape, EnumeratedShapes), inputs)
+    )
+    if len(enumerated_shape_inputs) <= 1:
+        return
+
+    if minimum_deployment_target < AvailableTarget.iOS18:
+        raise ValueError(
+            f"Expected a single enumerated shape input for deployment targets below iOS 18, "
+            f"but found {len(enumerated_shape_inputs)}. "
+            "Please ensure only one input with EnumeratedShapes type is present."
+        )
+
+    for current_input, next_input in zip(enumerated_shape_inputs, enumerated_shape_inputs[1:]):
+        if len(current_input.shape.shapes) != len(next_input.shape.shapes):
+            raise ValueError(
+                f"Enumerated shape input mismatch. All enumerated shape inputs must have the same number of shapes for deployment targets iOS 18 or above."
+            )
 
 def _validate_conversion_arguments(
     model,
@@ -853,6 +887,20 @@ def _validate_conversion_arguments(
                         "float16 dtype for inputs is only supported for deployment "
                         "target >= iOS16/macOS13/watchOS9/tvOS16"
                     )
+            elif flat_input.dtype == types.int8:
+                if not (
+                    minimum_deployment_target is not None
+                    and minimum_deployment_target >= AvailableTarget.iOS26
+                ):
+                    raise TypeError(
+                        "int8 dtype for inputs is only supported for deployment target >= iOS26"
+                    )
+
+        _validate_enumerated_shape_inputs(
+            flat_inputs,
+            convert_to=exact_target,
+            minimum_deployment_target=minimum_deployment_target,
+        )
 
     if exact_target == "mlprogram":
         err_msg_infinite_bound = (
@@ -882,6 +930,14 @@ def _validate_conversion_arguments(
                     raise TypeError(
                         "float16 dtype for outputs is only supported for deployment "
                         "target >= iOS16/macOS13/watchOS9/tvOS16"
+                    )
+            elif t.dtype == types.int8:
+                if not (
+                    minimum_deployment_target is not None
+                    and minimum_deployment_target >= AvailableTarget.iOS26
+                ):
+                    raise TypeError(
+                        "int8 dtype for outpus is only supported for deployment target >= iOS26"
                     )
 
     if classifier_config is not None:
@@ -914,14 +970,15 @@ def _validate_conversion_arguments(
         if inputs is not None:
             raise_if_duplicated(inputs)
 
-        if inputs is not None and not all([isinstance(_input, InputType) for _input in inputs]):
+        if inputs is not None and not all(isinstance(_input, InputType) for _input in inputs):
             raise ValueError("Input should be a list of TensorType or ImageType")
 
     elif exact_source == "pytorch":
         if _HAS_TORCH_EXPORT_API and isinstance(model, ExportedProgram):
             if model.dialect not in ("ATEN", "EDGE"):
                 raise NotImplementedError(
-                    f"Conversion for models with only ATEN or EDGE dialect is supported/tested. Provided Dialect: {model.dialect}"
+                    f"Conversion for models with only ATEN or EDGE dialect is supported/tested. Provided Dialect: {model.dialect}."
+                    " Run '.run_decompositions({})' on your exported PyTorch Model prior to conversion."
                 )
 
         else:
@@ -1124,8 +1181,10 @@ def _record_build_metadata(mlmodel, exact_source, source_dialect=None):
     if source_dialect is not None:
         mlmodel.user_defined_metadata[_METADATA_SOURCE_DIALECT] = source_dialect
 
-    build_info = _get_metadata_from_mlmodel(mlmodel)
+    current_date = str(date.today())
+    mlmodel.user_defined_metadata[_METADATA_CONVERSION_DATE] = current_date
 
+    build_info = _get_metadata_from_mlmodel(mlmodel)
     mlmodel._set_build_info_mil_attributes(build_info)
 
     return mlmodel

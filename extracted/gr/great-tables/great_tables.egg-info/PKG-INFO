@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: great-tables
-Version: 0.18.0
+Version: 0.20.0
 Summary: Easily generate information-rich, publication-quality tables from Python.
 Author-email: Richard Iannone <rich@posit.co>, Michael Chow <michael.chow@posit.co>
 License: MIT License
@@ -53,7 +53,6 @@ Requires-Dist: faicons>=0.2.2
 Requires-Dist: htmltools>=0.4.1
 Requires-Dist: importlib-metadata
 Requires-Dist: typing_extensions>=3.10.0.0
-Requires-Dist: numpy>=1.22.4
 Requires-Dist: Babel>=2.13.1
 Requires-Dist: importlib-resources
 Provides-Extra: all
@@ -67,6 +66,7 @@ Provides-Extra: dev
 Requires-Dist: great_tables[dev-no-pandas]; extra == "dev"
 Requires-Dist: pandas; extra == "dev"
 Requires-Dist: plotnine; extra == "dev"
+Requires-Dist: numpy>=1.22.4; extra == "dev"
 Provides-Extra: dev-no-pandas
 Requires-Dist: ruff==0.8.0; extra == "dev-no-pandas"
 Requires-Dist: jupyter; extra == "dev-no-pandas"

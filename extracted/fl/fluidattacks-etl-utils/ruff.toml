@@ -1,0 +1,37 @@
+cache-dir = ".ruff_cache"
+line-length = 100
+indent-width = 4
+target-version = "py311"
+
+[lint]
+select = ["ALL"]
+ignore = [
+  "FBT001", # debatable
+  "FBT003",  # conflict with the convention of denying kwargs
+  "RET503", # raises false positives
+  "N818", # semantics on names, the type already has the semantics
+  "TC001",  # import cycles can be hidden
+  "TC002",  # import cycles can be hidden
+  "TC003",  # technical debt!
+  "FLY002", # f-string is not type safe: implicit str conversion can hide codification issues
+  "D203",  # conflict with D211 one must be ignored
+  "D212",  # conflict with D213 one must be ignored
+  "D104",  # missing docs; technical debt!
+  "D103",  # missing docs; technical debt!
+  "D102",  # missing docs; technical debt!
+  "D101",  # missing docs; technical debt!
+  "D100",  # missing docs; technical debt!
+]
+fixable = ["ALL"]
+unfixable = []
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[lint.per-file-ignores]
+"tests/**/*" = ["S101", "D100", "D103", "D104"]
+"fx_tests/**/*" = ["S101", "D100", "D103", "D104"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "lf"

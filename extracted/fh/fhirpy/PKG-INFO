@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhirpy
-Version: 2.1.0
+Version: 2.2.0
 Summary: FHIR client for python
 Keywords: fhir
 Author-email: "beda.software" <fhirpy@beda.software>

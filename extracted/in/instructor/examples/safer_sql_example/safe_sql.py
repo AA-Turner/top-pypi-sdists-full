@@ -58,7 +58,7 @@ class SQL(BaseModel):
 
 def create_query(data: str) -> SQL:
     completion = client.chat.completions.create(
-        model="gpt-3.5-turbo-0613",
+        model="gpt-4o-mini",
         temperature=0,
         functions=[SQL.openai_schema],
         function_call={"name": SQL.openai_schema["name"]},

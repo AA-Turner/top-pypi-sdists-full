@@ -3,7 +3,7 @@ Type annotations for evs service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -25,15 +26,10 @@ from .literals import (
     CheckTypeType,
     EnvironmentStateType,
     HostStateType,
+    VcfVersionType,
     VlanStateType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -61,10 +57,12 @@ __all__ = (
     "EnvironmentTypeDef",
     "GetEnvironmentRequestTypeDef",
     "GetEnvironmentResponseTypeDef",
+    "GetVersionsResponseTypeDef",
     "HostInfoForCreateTypeDef",
     "HostTypeDef",
     "InitialVlanInfoTypeDef",
     "InitialVlansTypeDef",
+    "InstanceTypeEsxVersionsInfoTypeDef",
     "LicenseInfoTypeDef",
     "ListEnvironmentHostsRequestPaginateTypeDef",
     "ListEnvironmentHostsRequestTypeDef",
@@ -87,6 +85,7 @@ __all__ = (
     "TagResourceRequestTypeDef",
     "UntagResourceRequestTypeDef",
     "VcfHostnamesTypeDef",
+    "VcfVersionInfoTypeDef",
     "VlanTypeDef",
 )
 
@@ -99,7 +98,7 @@ class AssociateEipToVlanRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -113,7 +112,7 @@ CheckTypeDef = TypedDict(
 )
 
 class ConnectivityInfoOutputTypeDef(TypedDict):
-    privateRouteServerPeerings: List[str]
+    privateRouteServerPeerings: list[str]
 
 class ConnectivityInfoTypeDef(TypedDict):
     privateRouteServerPeerings: Sequence[str]
@@ -128,7 +127,7 @@ class HostInfoForCreateTypeDef(TypedDict):
 class EnvironmentSummaryTypeDef(TypedDict):
     environmentId: NotRequired[str]
     environmentName: NotRequired[str]
-    vcfVersion: NotRequired[Literal["VCF-5.2.1"]]
+    vcfVersion: NotRequired[VcfVersionType]
     environmentStatus: NotRequired[CheckResultType]
     environmentState: NotRequired[EnvironmentStateType]
     createdAt: NotRequired[datetime]
@@ -174,10 +173,20 @@ class SecretTypeDef(TypedDict):
     secretArn: NotRequired[str]
 
 class ServiceAccessSecurityGroupsOutputTypeDef(TypedDict):
-    securityGroups: NotRequired[List[str]]
+    securityGroups: NotRequired[list[str]]
 
 class GetEnvironmentRequestTypeDef(TypedDict):
     environmentId: str
+
+class InstanceTypeEsxVersionsInfoTypeDef(TypedDict):
+    instanceType: Literal["i4i.metal"]
+    esxVersions: list[str]
+
+class VcfVersionInfoTypeDef(TypedDict):
+    vcfVersion: VcfVersionType
+    status: str
+    defaultEsxVersion: str
+    instanceTypes: list[Literal["i4i.metal"]]
 
 class NetworkInterfaceTypeDef(TypedDict):
     networkInterfaceId: NotRequired[str]
@@ -220,7 +229,7 @@ class UntagResourceRequestTypeDef(TypedDict):
     tagKeys: Sequence[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 ConnectivityInfoUnionTypeDef = Union[ConnectivityInfoTypeDef, ConnectivityInfoOutputTypeDef]
@@ -229,9 +238,10 @@ class CreateEnvironmentHostRequestTypeDef(TypedDict):
     environmentId: str
     host: HostInfoForCreateTypeDef
     clientToken: NotRequired[str]
+    esxVersion: NotRequired[str]
 
 class ListEnvironmentsResponseTypeDef(TypedDict):
-    environmentSummaries: List[EnvironmentSummaryTypeDef]
+    environmentSummaries: list[EnvironmentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -245,7 +255,7 @@ class VlanTypeDef(TypedDict):
     modifiedAt: NotRequired[datetime]
     vlanState: NotRequired[VlanStateType]
     stateDetails: NotRequired[str]
-    eipAssociations: NotRequired[List[EipAssociationTypeDef]]
+    eipAssociations: NotRequired[list[EipAssociationTypeDef]]
     isPublic: NotRequired[bool]
     networkAclId: NotRequired[str]
 
@@ -259,17 +269,22 @@ class EnvironmentTypeDef(TypedDict):
     environmentName: NotRequired[str]
     vpcId: NotRequired[str]
     serviceAccessSubnetId: NotRequired[str]
-    vcfVersion: NotRequired[Literal["VCF-5.2.1"]]
+    vcfVersion: NotRequired[VcfVersionType]
     termsAccepted: NotRequired[bool]
-    licenseInfo: NotRequired[List[LicenseInfoTypeDef]]
+    licenseInfo: NotRequired[list[LicenseInfoTypeDef]]
     siteId: NotRequired[str]
     environmentStatus: NotRequired[CheckResultType]
-    checks: NotRequired[List[CheckTypeDef]]
+    checks: NotRequired[list[CheckTypeDef]]
     connectivityInfo: NotRequired[ConnectivityInfoOutputTypeDef]
     vcfHostnames: NotRequired[VcfHostnamesTypeDef]
     kmsKeyId: NotRequired[str]
     serviceAccessSecurityGroups: NotRequired[ServiceAccessSecurityGroupsOutputTypeDef]
-    credentials: NotRequired[List[SecretTypeDef]]
+    credentials: NotRequired[list[SecretTypeDef]]
+
+class GetVersionsResponseTypeDef(TypedDict):
+    vcfVersions: list[VcfVersionInfoTypeDef]
+    instanceTypeEsxVersions: list[InstanceTypeEsxVersionsInfoTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class HostTypeDef(TypedDict):
     hostName: NotRequired[str]
@@ -283,7 +298,7 @@ class HostTypeDef(TypedDict):
     hostState: NotRequired[HostStateType]
     stateDetails: NotRequired[str]
     ec2InstanceId: NotRequired[str]
-    networkInterfaces: NotRequired[List[NetworkInterfaceTypeDef]]
+    networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
 
 class InitialVlansTypeDef(TypedDict):
     vmkManagement: InitialVlanInfoTypeDef
@@ -324,7 +339,7 @@ class DisassociateEipFromVlanResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListEnvironmentVlansResponseTypeDef(TypedDict):
-    environmentVlans: List[VlanTypeDef]
+    environmentVlans: list[VlanTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -351,14 +366,14 @@ class DeleteEnvironmentHostResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListEnvironmentHostsResponseTypeDef(TypedDict):
-    environmentHosts: List[HostTypeDef]
+    environmentHosts: list[HostTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class CreateEnvironmentRequestTypeDef(TypedDict):
     vpcId: str
     serviceAccessSubnetId: str
-    vcfVersion: Literal["VCF-5.2.1"]
+    vcfVersion: VcfVersionType
     termsAccepted: bool
     licenseInfo: Sequence[LicenseInfoTypeDef]
     initialVlans: InitialVlansTypeDef

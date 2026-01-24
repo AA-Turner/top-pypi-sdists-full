@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::process::ExitCode;
 
 use anyhow::{Context, Result};
 use ast_grep_config::{from_yaml_string, CombinedScan, RuleCollection, RuleConfig, Severity};
@@ -10,8 +11,8 @@ use ignore::WalkParallel;
 use crate::config::{read_rule_file, with_rule_stats, ProjectConfig};
 use crate::lang::SgLang;
 use crate::print::{
-  CloudPrinter, ColoredPrinter, Diff, InteractivePrinter, JSONPrinter, Platform, PrintProcessor,
-  Printer, ReportStyle, SimpleFile,
+  CloudPrinter, ColoredPrinter, Diff, FileNamePrinter, InteractivePrinter, JSONPrinter, Platform,
+  PrintProcessor, Printer, ReportStyle, SimpleFile,
 };
 use crate::utils::ErrorContext as EC;
 use crate::utils::RuleOverwrite;
@@ -38,9 +39,9 @@ pub struct ScanArg {
   #[clap(long, conflicts_with = "rule", value_name = "RULE_TEXT")]
   inline_rules: Option<String>,
 
-  /// Output warning/error messages in GitHub Action format.
+  /// Output warning/error messages in different formats.
   ///
-  /// Currently, only GitHub is supported.
+  /// Supported formats: GitHub Action, SARIF (Static Analysis Results Interchange Format).
   #[clap(long, conflicts_with = "json", conflicts_with = "interactive")]
   format: Option<Platform>,
 
@@ -75,12 +76,16 @@ impl ScanArg {
   }
 }
 
-pub fn run_with_config(arg: ScanArg, project: Result<ProjectConfig>) -> Result<()> {
+pub fn run_with_config(arg: ScanArg, project: Result<ProjectConfig>) -> Result<ExitCode> {
   let project_trace = arg.output.inspect.project_trace();
   project_trace.print_project(&project)?;
   let context = arg.context.get();
-  if let Some(_format) = &arg.format {
-    let printer = CloudPrinter::stdout();
+  if arg.output.files_with_matches {
+    let printer = FileNamePrinter::stdout(arg.output.color);
+    return run_scan(arg, printer, project);
+  }
+  if let Some(format) = &arg.format {
+    let printer = CloudPrinter::stdout(format.clone());
     return run_scan(arg, printer, project);
   }
   if let Some(json) = arg.output.json {
@@ -104,7 +109,7 @@ fn run_scan<P: Printer + 'static>(
   arg: ScanArg,
   printer: P,
   project: Result<ProjectConfig>,
-) -> Result<()> {
+) -> Result<ExitCode> {
   if arg.input.stdin {
     let worker = ScanStdin::try_new(arg)?;
     // TODO: report a soft error if rules have different languages
@@ -159,7 +164,11 @@ impl ScanWithConfig {
   }
 }
 impl Worker for ScanWithConfig {
-  fn consume_items<P: Printer>(&self, items: Items<P::Processed>, mut printer: P) -> Result<()> {
+  fn consume_items<P: Printer>(
+    &self,
+    items: Items<P::Processed>,
+    mut printer: P,
+  ) -> Result<ExitCode> {
     printer.before_print()?;
     for item in items {
       printer.process(item)?;
@@ -170,7 +179,7 @@ impl Worker for ScanWithConfig {
     if error_count > 0 {
       Err(anyhow::anyhow!(EC::DiagnosticError(error_count)))
     } else {
-      Ok(())
+      Ok(ExitCode::SUCCESS)
     }
   }
 }
@@ -267,7 +276,11 @@ impl ScanStdin {
 }
 
 impl Worker for ScanStdin {
-  fn consume_items<P: Printer>(&self, items: Items<P::Processed>, mut printer: P) -> Result<()> {
+  fn consume_items<P: Printer>(
+    &self,
+    items: Items<P::Processed>,
+    mut printer: P,
+  ) -> Result<ExitCode> {
     printer.before_print()?;
     for item in items {
       printer.process(item)?;
@@ -277,7 +290,7 @@ impl Worker for ScanStdin {
     if error_count > 0 {
       Err(anyhow::anyhow!(EC::DiagnosticError(error_count)))
     } else {
-      Ok(())
+      Ok(ExitCode::SUCCESS)
     }
   }
 }
@@ -402,6 +415,7 @@ rule:
       output: OutputArgs {
         interactive: false,
         json: None,
+        files_with_matches: false,
         update_all: false,
         color: ColorArg::Never,
         inspect: Default::default(),

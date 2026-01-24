@@ -25,11 +25,14 @@ from collections.abc import Callable
 from typing import Any
 from typing import Optional
 
-import jsonschema
-
 import apache_beam as beam
 from apache_beam.portability.api import schema_pb2
 from apache_beam.typehints import schemas
+
+try:
+  import jsonschema
+except ImportError:
+  pass
 
 JSON_ATOMIC_TYPES_TO_BEAM = {
     'boolean': schema_pb2.BOOLEAN,
@@ -287,8 +290,10 @@ def row_to_json(beam_type: schema_pb2.FieldType) -> Callable[[Any], Any]:
         for field in beam_type.row_type.schema.fields
     }
     return lambda row: {
-        name: convert(getattr(row, name))
+        name: converted
         for (name, convert) in converters.items()
+        # To filter out nullable fields in rows
+        if (converted := convert(getattr(row, name, None))) is not None
     }
   elif type_info == "logical_type":
     return lambda value: value
@@ -348,6 +353,9 @@ def row_validator(beam_schema: schema_pb2.Schema,
     nonlocal validator
     if validator is None:
       validator = jsonschema.validators.validator_for(json_schema)(json_schema)
+    # NOTE: A row like BeamSchema_...(name='Bob', score=None, age=25) needs to
+    # have any fields that are None to be filtered out or the validator will
+    # fail (e.g. {'age': 25, 'name': 'Bob'}).
     validator.validate(convert(row))
 
   return validate

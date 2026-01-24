@@ -9,66 +9,67 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
+from typing import Literal, Union
 
 from pydantic import Field
 
-from githubkit.compat import PYDANTIC_V2, GitHubModel, model_rebuild
+from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class OrgsOrgCampaignsPostBody(GitHubModel):
-    """OrgsOrgCampaignsPostBody"""
+class OrgsOrgActionsHostedRunnersPostBody(GitHubModel):
+    """OrgsOrgActionsHostedRunnersPostBody"""
 
     name: str = Field(
-        min_length=1, max_length=50, description="The name of the campaign"
+        description="Name of the runner. Must be between 1 and 64 characters and may only contain upper and lowercase letters a-z, numbers 0-9, '.', '-', and '_'."
     )
-    description: str = Field(
-        min_length=1, max_length=255, description="A description for the campaign"
+    image: OrgsOrgActionsHostedRunnersPostBodyPropImage = Field(
+        description="The image of runner. To list all available images, use `GET /actions/hosted-runners/images/github-owned` or `GET /actions/hosted-runners/images/partner`."
     )
-    managers: Missing[list[str]] = Field(
-        max_length=10 if PYDANTIC_V2 else None,
+    size: str = Field(
+        description="The machine size of the runner. To list available sizes, use `GET actions/hosted-runners/machine-sizes`"
+    )
+    runner_group_id: int = Field(
+        description="The existing runner group to add this runner to."
+    )
+    maximum_runners: Missing[int] = Field(
         default=UNSET,
-        description="The logins of the users to set as the campaign managers. At this time, only a single manager can be supplied.",
+        description="The maximum amount of runners to scale up to. Runners will not auto-scale above this number. Use this setting to limit your cost.",
     )
-    team_managers: Missing[list[str]] = Field(
-        max_length=10 if PYDANTIC_V2 else None,
+    enable_static_ip: Missing[bool] = Field(
         default=UNSET,
-        description="The slugs of the teams to set as the campaign managers.",
+        description="Whether this runner should be created with a static public IP. Note limit on account. To list limits on account, use `GET actions/hosted-runners/limits`",
     )
-    ends_at: datetime = Field(
-        description="The end date and time of the campaign. The date must be in the future."
-    )
-    contact_link: Missing[Union[str, None]] = Field(
-        default=UNSET, description="The contact link of the campaign. Must be a URI."
-    )
-    code_scanning_alerts: list[OrgsOrgCampaignsPostBodyPropCodeScanningAlertsItems] = (
-        Field(
-            min_length=1 if PYDANTIC_V2 else None,
-            description="The code scanning alerts to include in this campaign",
-        )
-    )
-    generate_issues: Missing[bool] = Field(
+    image_gen: Missing[bool] = Field(
         default=UNSET,
-        description="If true, will automatically generate issues for the campaign. The default is false.",
+        description="Whether this runner should be used to generate custom images.",
     )
 
 
-class OrgsOrgCampaignsPostBodyPropCodeScanningAlertsItems(GitHubModel):
-    """OrgsOrgCampaignsPostBodyPropCodeScanningAlertsItems"""
+class OrgsOrgActionsHostedRunnersPostBodyPropImage(GitHubModel):
+    """OrgsOrgActionsHostedRunnersPostBodyPropImage
 
-    repository_id: int = Field(description="The repository id")
-    alert_numbers: list[int] = Field(
-        min_length=1 if PYDANTIC_V2 else None, description="The alert numbers"
+    The image of runner. To list all available images, use `GET /actions/hosted-
+    runners/images/github-owned` or `GET /actions/hosted-runners/images/partner`.
+    """
+
+    id: Missing[str] = Field(
+        default=UNSET, description="The unique identifier of the runner image."
+    )
+    source: Missing[Literal["github", "partner", "custom"]] = Field(
+        default=UNSET, description="The source of the runner image."
+    )
+    version: Missing[Union[str, None]] = Field(
+        default=UNSET,
+        description="The version of the runner image to deploy. This is relevant only for runners using custom images.",
     )
 
 
-model_rebuild(OrgsOrgCampaignsPostBody)
-model_rebuild(OrgsOrgCampaignsPostBodyPropCodeScanningAlertsItems)
+model_rebuild(OrgsOrgActionsHostedRunnersPostBody)
+model_rebuild(OrgsOrgActionsHostedRunnersPostBodyPropImage)
 
 __all__ = (
-    "OrgsOrgCampaignsPostBody",
-    "OrgsOrgCampaignsPostBodyPropCodeScanningAlertsItems",
+    "OrgsOrgActionsHostedRunnersPostBody",
+    "OrgsOrgActionsHostedRunnersPostBodyPropImage",
 )

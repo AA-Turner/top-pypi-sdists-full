@@ -1,15 +1,19 @@
+from __future__ import annotations
+
 import re
-from collections.abc import Sequence
 from os import environ
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING
 
 from ..exceptions import ConfigValidationError, PoeException
 from .base import PoeTask
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from ..context import RunContext
     from ..env.manager import EnvVarsManager
+    from ..executor.task_run import PoeTaskRun
 
 
 class ShellTask(PoeTask):
@@ -22,7 +26,8 @@ class ShellTask(PoeTask):
     __key__ = "shell"
 
     class TaskOptions(PoeTask.TaskOptions):
-        interpreter: Optional[Union[str, Sequence[str]]] = None
+        interpreter: str | Sequence[str] | None = None
+        ignore_fail: bool | list[int] = False
 
         def validate(self):
             super().validate()
@@ -53,16 +58,17 @@ class ShellTask(PoeTask):
 
     class TaskSpec(PoeTask.TaskSpec):
         content: str
-        options: "ShellTask.TaskOptions"
+        options: ShellTask.TaskOptions
 
     spec: TaskSpec
 
-    def _handle_run(
-        self,
-        context: "RunContext",
-        env: "EnvVarsManager",
-    ) -> int:
-        named_arg_values, extra_args = self.get_parsed_arguments(env)
+    async def _handle_run(
+        self, context: RunContext, env: EnvVarsManager, task_state: PoeTaskRun
+    ):
+        if ignore_fail := self.spec.options.ignore_fail:
+            task_state.ignore_failure(ignore_fail)
+
+        named_arg_values, _ = self.get_parsed_arguments(env)
         env.update(named_arg_values)
 
         if not named_arg_values and any(arg.strip() for arg in self.invocation[1:]):
@@ -87,19 +93,21 @@ class ShellTask(PoeTask):
 
         self._print_action(content, context.dry)
 
-        return self._get_executor(
+        executor = self._get_executor(
             context, env, resolve_python=interpreter_cmd == "python"
-        ).execute(interpreter_cmd, input=content.encode())
+        )
+        process = await executor.execute(interpreter_cmd, input=content.encode())
+        await task_state.add_process(process, finalize=True)
 
     def _get_interpreter_config(self) -> tuple[str, ...]:
-        result: Union[str, tuple[str, ...]] = self.spec.options.get(
+        result: str | tuple[str, ...] = self.spec.options.get(
             "interpreter", self.ctx.config.shell_interpreter
         )
         if isinstance(result, str):
             return (result,)
         return tuple(result)
 
-    def resolve_interpreter_cmd(self) -> Optional[list[str]]:
+    def resolve_interpreter_cmd(self) -> list[str] | None:
         """
         Return a formatted command for the first specified interpreter that can be
         located.
@@ -116,7 +124,7 @@ class ShellTask(PoeTask):
 
         return None
 
-    def _locate_interpreter(self, interpreter: str) -> Optional[str]:
+    def _locate_interpreter(self, interpreter: str) -> str | None:
         from shutil import which
 
         result = None
@@ -207,15 +215,5 @@ def _unindent_code(python_code: str):
 
     prefix = " " * indent
     return "\n".join(
-        _remove_prefix(line, prefix)
-        for line in re.split(r"(?:\r\n|\r|\n)", python_code)
+        line.removeprefix(prefix) for line in re.split(r"(?:\r\n|\r|\n)", python_code)
     )
-
-
-def _remove_prefix(text: str, prefix: str):
-    """
-    When we drop support for python <3.9 then str.removeprefix can be used
-    """
-    if text.startswith(prefix):
-        return text[len(prefix) :]
-    return text

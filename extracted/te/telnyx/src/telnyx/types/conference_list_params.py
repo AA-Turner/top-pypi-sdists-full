@@ -26,8 +26,17 @@ class ConferenceListParams(TypedDict, total=False):
     Originally: page[after], page[before], page[limit], page[size], page[number]
     """
 
+    page_number: Annotated[int, PropertyInfo(alias="page[number]")]
+
+    page_size: Annotated[int, PropertyInfo(alias="page[size]")]
+
+    region: Literal["Australia", "Europe", "Middle East", "US"]
+    """Region where the conference data is located"""
+
 
 class FilterApplicationName(TypedDict, total=False):
+    """Application name filters"""
+
     contains: str
     """
     If present, applications with <code>application_name</code> containing the given
@@ -37,6 +46,8 @@ class FilterApplicationName(TypedDict, total=False):
 
 
 class FilterOccurredAt(TypedDict, total=False):
+    """Event occurred_at filters"""
+
     eq: str
     """Event occurred_at: equal"""
 
@@ -63,6 +74,11 @@ _FilterReservedKeywords = TypedDict(
 
 
 class Filter(_FilterReservedKeywords, total=False):
+    """Consolidated filter parameter (deepObject style).
+
+    Originally: filter[application_name][contains], filter[outbound.outbound_voice_profile_id], filter[leg_id], filter[application_session_id], filter[connection_id], filter[product], filter[failed], filter[from], filter[to], filter[name], filter[type], filter[occurred_at][eq/gt/gte/lt/lte], filter[status]
+    """
+
     application_name: FilterApplicationName
     """Application name filters"""
 
@@ -107,6 +123,11 @@ class Filter(_FilterReservedKeywords, total=False):
 
 
 class Page(TypedDict, total=False):
+    """Consolidated page parameter (deepObject style).
+
+    Originally: page[after], page[before], page[limit], page[size], page[number]
+    """
+
     after: str
     """Opaque identifier of next page"""
 
@@ -115,9 +136,3 @@ class Page(TypedDict, total=False):
 
     limit: int
     """Limit of records per single page"""
-
-    number: int
-    """The page number to load"""
-
-    size: int
-    """The size of the page"""

@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 class Cluster(object):
     def __init__(self, region_name, discovery_endpoints, credentials, user_agent=None, user_agent_extra=None, connect_timeout=None,
-                 read_timeout=None, skip_hostname_verification=None, router_factory=None, client_factory=None):
+                 read_timeout=None, skip_hostname_verification=None, router_factory=None, client_factory=None, ip_discovery=None):
         self._region_name = region_name
         self._discovery_endpoints = [_parse_host_ports(endpoint) for endpoint in discovery_endpoints]
         self._credentials = credentials
@@ -37,6 +37,7 @@ class Cluster(object):
         self._read_timeout = read_timeout
         self._client_factory = client_factory or self._new_client
         self._skip_hostname_verification = skip_hostname_verification
+        self._ip_discovery = ip_discovery
 
         _router_factory = router_factory or EndpointRouter
 
@@ -50,7 +51,8 @@ class Cluster(object):
         self._router = _router_factory(self._client_factory,
                                        self._discovery_endpoints,
                                        self._cluster_update_interval,
-                                       self._health_check_interval)
+                                       self._health_check_interval,
+                                       ip_discovery=self._ip_discovery)
 
         self._lock = threading.Lock()
 
@@ -96,13 +98,13 @@ class Cluster(object):
     def wait_for_routes(self, min_healthy=1, leader_min=1, timeout=None):
         return self._router.wait_for_routes(min_healthy=min_healthy, leader_min=leader_min, timeout=timeout)
 
-    def _new_client(self, scheme, hostname, sockaddr):
+    def _new_client(self, scheme, hostname, sockaddr, ip_version):
         ''' Create a new client.
 
         Caller is responsible for closing the client.
         '''
         tube_pool = SocketTubePool(
-                scheme, hostname, sockaddr,
+                scheme, hostname, sockaddr, ip_version,
                 lambda: self._credentials,
                 self._region_name,
                 self._user_agent,

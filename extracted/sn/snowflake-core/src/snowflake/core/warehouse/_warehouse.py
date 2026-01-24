@@ -137,8 +137,8 @@ class WarehouseCollection(AccountObjectCollectionParent["WarehouseResource"]):
 class WarehouseResource(ObjectReferenceMixin[WarehouseCollection]):
     """Represents a reference to a Snowflake warehouse.
 
-    With this warehouse reference, you can create, update, and fetch information about warehouses, as well
-    as perform certain actions on them.
+    With this warehouse reference, you can fetch information about a warehouse, as well as perform
+    certain actions on it.
     """
 
     def __init__(self, name: str, collection: WarehouseCollection):

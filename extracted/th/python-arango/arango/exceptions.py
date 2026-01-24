@@ -121,6 +121,10 @@ class AQLQueryTrackingGetError(ArangoServerError):
     """Failed to retrieve AQL tracking properties."""
 
 
+class AQLQueryHistoryError(ArangoServerError):
+    """Failed to retrieve recent AQL queries."""
+
+
 class AQLQueryTrackingSetError(ArangoServerError):
     """Failed to configure AQL tracking properties."""
 
@@ -155,6 +159,23 @@ class AQLFunctionDeleteError(ArangoServerError):
 
 class AQLQueryRulesGetError(ArangoServerError):
     """Failed to retrieve AQL query rules."""
+
+
+#######################
+# Access Token Errors #
+#######################
+
+
+class AccessTokenCreateError(ArangoServerError):
+    """Failed to create an access token."""
+
+
+class AccessTokenDeleteError(ArangoServerError):
+    """Failed to delete an access token."""
+
+
+class AccessTokenListError(ArangoServerError):
+    """Failed to retrieve access tokens."""
 
 
 ##############################
@@ -636,6 +657,10 @@ class ServerVersionError(ArangoServerError):
 
 class ServerDetailsError(ArangoServerError):
     """Failed to retrieve server details."""
+
+
+class ServerAPICallsError(ArangoServerError):
+    """Failed to retrieve recent API calls."""
 
 
 class ServerLicenseGetError(ArangoServerError):

@@ -24,7 +24,7 @@ AbstractT = TypeVar('AbstractT')
 
 @runtime_checkable
 class StatefulCheckpointable(Protocol[T]):
-  """An interface that defines save/load logic for a `checkpointable` object."""
+  """An interface that defines save/load logic for a checkpointable object."""
 
   async def save(
       self, directory: path_types.PathAwaitingCreation
@@ -44,7 +44,9 @@ class StatefulCheckpointable(Protocol[T]):
 class CheckpointableHandler(Protocol[T, AbstractT]):
   """An interface that defines save/load logic for a `checkpointable` object.
 
-  NOTE: Prefer to use `StatefulCheckpointable` interface when possible.
+  NOTE: Prefer to use
+  :py:class:`.StatefulCheckpointable`
+  interface when possible.
 
   A "checkpointable" is a fundamental concept in Orbax. A “checkpointable”
   refers to a logical piece of the checkpoint that is distinct in some way from
@@ -91,7 +93,19 @@ class CheckpointableHandler(Protocol[T, AbstractT]):
   returning an `Awaitable` function (which itself may return a result).
 
   Let's look at some suggestions on how to implement a `CheckpointableHandler`.
-  TODO(b/398249409): Include more details on implementing this Protocol.
+
+  To create a custom handler, you must define a class that implements the
+  methods defined in this Protocol. The class should be generic over the
+  concrete type `T` (the object being saved/loaded) and the abstract type
+  `AbstractT` (the lightweight metadata representation).
+
+  Crucially, once implemented, the handler must be registered with the
+  global registry or a context-local registry so that `save_checkpointables`
+  and `load_checkpointables` can automatically detect and use it for the
+  corresponding types. Use `orbax.checkpoint.v1.handlers.register_handler`
+  for global registration, or provide handlers via
+  `orbax.checkpoint.v1.context.CheckpointablesOptions` for context-local
+  registration.
 
   First, take a look at
   orbax/checkpoint/experimental/v1/_src/testing/handler_utils.py

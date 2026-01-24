@@ -740,8 +740,7 @@ class Executor(abc.ABC):
     @abc.abstractmethod
     def _internal_process_submissions(
         self, delayed_submissions: tp.List[utils.DelayedSubmission]
-    ) -> tp.List[Job[tp.Any]]:
-        ...
+    ) -> tp.List[Job[tp.Any]]: ...
 
     def map_array(self, fn: tp.Callable[..., R], *iterable: tp.Iterable[tp.Any]) -> tp.List[Job[R]]:
         """A distributed equivalent of the map() built-in function
@@ -862,7 +861,9 @@ class PicklingExecutor(Executor):
         Note: during a batch submission, this is the estimated sum of all pickles.
     """
 
-    def __init__(self, folder: tp.Union[Path, str], max_num_timeout: int = 3, max_pickle_size_gb: float = 1.0) -> None:
+    def __init__(
+        self, folder: tp.Union[Path, str], max_num_timeout: int = 3, max_pickle_size_gb: float = 1.0
+    ) -> None:
         super().__init__(folder)
         self.max_num_timeout = max_num_timeout
         self.max_pickle_size_gb = max_pickle_size_gb
@@ -900,7 +901,7 @@ class PicklingExecutor(Executor):
             if check_size:  # warn if the dumped objects are too big
                 check_size = False
                 num = len(delayed_submissions)
-                size =  pickle_path.stat().st_size / 1024**3
+                size = pickle_path.stat().st_size / 1024**3
                 if num * size > self.max_pickle_size_gb:
                     pickle_path.unlink()
                     msg = f"Submitting an estimated {num} x {size:.2f} > {self.max_pickle_size_gb}GB of objects "

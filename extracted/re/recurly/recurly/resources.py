@@ -126,6 +126,8 @@ class Account(Resource):
     Attributes
     ----------
     address : Address
+    bill_date : datetime
+        The preferred billing date for the account. This date will be used as the billing date for when activating new subscriptions on the account.
     bill_to : str
         An enumerable describing the billing behavior of the account, specifically whether the account is self-paying or will rely on the parent account to pay.
     billing_info : BillingInfo
@@ -195,6 +197,7 @@ class Account(Resource):
 
     schema = {
         "address": "Address",
+        "bill_date": datetime,
         "bill_to": str,
         "billing_info": "BillingInfo",
         "cc_emails": str,
@@ -813,6 +816,8 @@ class Transaction(Resource):
           - Service Extension: Send `service_extension` if you are in a service industry and the customer has increased/extended their service in some way. For example: adding a day onto a car rental agreement.
           - Split Shipment: Send `split_shipment` if you sell physical product and need to split up a shipment into multiple transactions when the customer is no longer in session.
           - Top Up: Send `top_up` if you process one-time transactions based on a pre-arranged agreement with your customer where there is a pre-arranged account balance that needs maintaining. For example, if the customer has agreed to maintain an account balance of 30.00 and their current balance is 20.00, the MIT amount would be at least 10.00 to meet that 30.00 threshold.
+    next_action : TransactionNextAction
+        Next action values are used for any required customer follow-up action. Currently, this is supported for Ebanx when using Pix Automatico.
     object : str
         Object type
     origin : str
@@ -878,6 +883,7 @@ class Transaction(Resource):
         "ip_address_country": str,
         "ip_address_v4": str,
         "merchant_reason_code": str,
+        "next_action": "TransactionNextAction",
         "object": str,
         "origin": str,
         "original_transaction_id": str,
@@ -982,6 +988,22 @@ class TransactionPaymentGateway(Resource):
         "name": str,
         "object": str,
         "type": str,
+    }
+
+
+class TransactionNextAction(Resource):
+    """
+    Attributes
+    ----------
+    type : str
+        The type of next action required.
+    value : str
+        The value associated with the next action type.
+    """
+
+    schema = {
+        "type": str,
+        "value": str,
     }
 
 
@@ -1732,6 +1754,12 @@ class ReferenceOnlyCurrencyConversion(Resource):
     ----------
     currency : str
         3-letter ISO 4217 currency code.
+    date : str
+        The date of the conversion rate.
+    rate : str
+        The conversion rate to the currency.
+    source : str
+        The source of the conversion rate.
     subtotal_in_cents : float
         The subtotal converted to the currency.
     tax_in_cents : float
@@ -1740,6 +1768,9 @@ class ReferenceOnlyCurrencyConversion(Resource):
 
     schema = {
         "currency": str,
+        "date": str,
+        "rate": str,
+        "source": str,
         "subtotal_in_cents": float,
         "tax_in_cents": float,
     }
@@ -1754,7 +1785,7 @@ class TaxInfo(Resource):
     region : str
         Provides the tax region applied on an invoice. For U.S. Sales Tax, this will be the 2 letter state code. For EU VAT this will be the 2 letter country code. For all country level tax types, this will display the regional tax, like VAT, GST, or PST. Not present when Avalara for Communications is enabled.
     tax_details : :obj:`list` of :obj:`TaxDetail`
-        Provides additional tax details for Communications taxes when Avalara for Communications is enabled or Canadian Sales Tax when there is tax applied at both the country and province levels. This will only be populated for the Invoice response when fetching a single invoice and not for the InvoiceList or LineItemList. Only populated for a single LineItem fetch when Avalara for Communications is enabled.
+        Provides additional tax details for Communications taxes when Avalara for Communications or Vertex Tax Breakdown is enabled or Canadian Sales Tax. Tax details will only be populated for the Invoice response when fetching a single invoice and not for the InvoiceList or LineItemList. Only populated for a single LineItem fetch when Avalara for Communications is enabled.
     type : str
         Provides the tax type as "vat" for EU VAT, "usst" for U.S. Sales Tax, or the 2 letter country code for country level tax types like Canada, Australia, New Zealand, Israel, and all non-EU European countries. Not present when Avalara for Communications is enabled.
     """
@@ -1772,11 +1803,11 @@ class TaxDetail(Resource):
     Attributes
     ----------
     billable : bool
-        Whether or not the line item is taxable. Only populated for a single LineItem fetch when Avalara for Communications is enabled.
+        Whether or not the line item is taxable. Only populated for a single LineItem fetch when Avalara for Communications or Vertex is enabled.
     level : str
-        Provides the jurisdiction level for the Communications tax applied. Example values include city, state and federal. Present only when Avalara for Communications is enabled.
+        Provides the jurisdiction level for the Communications tax applied. Example values include city, state and federal. Present only when Avalara for Communications or Vertex is enabled.
     name : str
-        Provides the name of the Communications tax applied. Present only when Avalara for Communications is enabled.
+        Provides the name of the Communications tax applied. Present only when Avalara for Communications or Vertex is enabled.
     rate : float
         Provides the tax rate for the region.
     region : str
@@ -1784,7 +1815,7 @@ class TaxDetail(Resource):
     tax : float
         The total tax applied for this tax type.
     type : str
-        Provides the tax type for the region or type of Comminications tax when Avalara for Communications is enabled. For Canadian Sales Tax, this will be GST, HST, QST or PST.
+        Provides the tax type for the region or type of Comminications tax when Avalara for Communications or Vertex is enabled. For Canadian Sales Tax, this will be GST, HST, QST or PST.
     """
 
     schema = {
@@ -1838,6 +1869,8 @@ class LineItem(Resource):
         If this date is provided, it indicates the end of a time range.
     external_sku : str
         Optional Stock Keeping Unit assigned to an item. Available when the Credit Invoices feature is enabled.
+    harmonized_system_code : str
+        The Harmonized System (HS) code is an internationally standardized system of names and numbers to classify traded products. The HS code, sometimes called Commodity Code, is used by customs authorities around the world to identify products when assessing duties and taxes. The HS code may also be referred to as the tariff code or customs code. Values should contain only digits and decimals.
     id : str
         Line item ID
     invoice_id : str
@@ -1927,6 +1960,8 @@ class LineItem(Resource):
         When the line item was last changed.
     uuid : str
         The UUID is useful for matching data with the CSV exports and building URLs into Recurly's UI.
+    vertex_transaction_type : str
+        Used by Vertex for tax calculations. Possible values are sale, rental, lease.
     """
 
     schema = {
@@ -1948,6 +1983,7 @@ class LineItem(Resource):
         "discount": float,
         "end_date": datetime,
         "external_sku": str,
+        "harmonized_system_code": str,
         "id": str,
         "invoice_id": str,
         "invoice_number": str,
@@ -1988,6 +2024,7 @@ class LineItem(Resource):
         "unit_amount_decimal": str,
         "updated_at": datetime,
         "uuid": str,
+        "vertex_transaction_type": str,
     }
 
 
@@ -2093,6 +2130,9 @@ class Subscription(Resource):
         Returns subscription level coupon redemptions that are tied to this subscription.
     created_at : datetime
         Created at
+    credit_application_policy : CreditApplicationPolicy
+        Controls whether credit invoices are automatically applied to new invoices.
+        The `mode` field determines the application behavior.
     currency : str
         3-letter ISO 4217 currency code.
     current_period_ends_at : datetime
@@ -2208,6 +2248,7 @@ class Subscription(Resource):
         "converted_at": datetime,
         "coupon_redemptions": ["CouponRedemptionMini"],
         "created_at": datetime,
+        "credit_application_policy": "CreditApplicationPolicy",
         "currency": str,
         "current_period_ends_at": datetime,
         "current_period_started_at": datetime,
@@ -2379,6 +2420,8 @@ class SubscriptionChange(Resource):
         The ID of the Subscription Change.
     invoice_collection : InvoiceCollection
         Invoice Collection
+    next_bill_date : datetime
+        If present, this sets the date the subscription's next billing period will start (`current_period_ends_at`). When combined with proration_settings, proration calculation should occur, only supported when timeframe is now.
     object : str
         Object type
     plan : PlanMini
@@ -2412,6 +2455,7 @@ class SubscriptionChange(Resource):
         "deleted_at": datetime,
         "id": str,
         "invoice_collection": "InvoiceCollection",
+        "next_bill_date": datetime,
         "object": str,
         "plan": "PlanMini",
         "quantity": int,
@@ -2645,6 +2689,21 @@ class SubscriptionRampIntervalResponse(Resource):
     }
 
 
+class CreditApplicationPolicy(Resource):
+    """
+    Attributes
+    ----------
+    mode : str
+        Determines which credit invoices are applied to invoices:
+        - `all`: All available credit invoices are applied (default)
+        - `none`: No credit invoices are applied automatically
+    """
+
+    schema = {
+        "mode": str,
+    }
+
+
 class UniqueCouponCodeParams(Resource):
     """
     Attributes
@@ -2834,6 +2893,8 @@ class Item(Resource):
         Optional, description.
     external_sku : str
         Optional, stock keeping unit to link the item to other inventory systems.
+    harmonized_system_code : str
+        The Harmonized System (HS) code is an internationally standardized system of names and numbers to classify traded products. The HS code, sometimes called Commodity Code, is used by customs authorities around the world to identify products when assessing duties and taxes. The HS code may also be referred to as the tariff code or customs code. Values should contain only digits and decimals.
     id : str
         Item ID
     liability_gl_account_id : str
@@ -2875,6 +2936,7 @@ class Item(Resource):
         "deleted_at": datetime,
         "description": str,
         "external_sku": str,
+        "harmonized_system_code": str,
         "id": str,
         "liability_gl_account_id": str,
         "name": str,
@@ -3038,6 +3100,8 @@ class Plan(Resource):
         Optional description, not displayed.
     dunning_campaign_id : str
         Unique ID to identify a dunning campaign. Used to specify if a non-default dunning campaign should be assigned to this plan. For sites without multiple dunning campaigns enabled, the default dunning campaign will always be used.
+    harmonized_system_code : str
+        The Harmonized System (HS) code is an internationally standardized system of names and numbers to classify traded products. The HS code, sometimes called Commodity Code, is used by customs authorities around the world to identify products when assessing duties and taxes. The HS code may also be referred to as the tariff code or customs code. Values should contain only digits and decimals.
     hosted_pages : PlanHostedPages
         Hosted pages settings
     id : str
@@ -3121,6 +3185,7 @@ class Plan(Resource):
         "deleted_at": datetime,
         "description": str,
         "dunning_campaign_id": str,
+        "harmonized_system_code": str,
         "hosted_pages": "PlanHostedPages",
         "id": str,
         "interval_length": int,
@@ -3275,6 +3340,8 @@ class AddOn(Resource):
         Determines if the quantity field is displayed on the hosted pages for the add-on.
     external_sku : str
         Optional, stock keeping unit to link the item to other inventory systems.
+    harmonized_system_code : str
+        The Harmonized System (HS) code is an internationally standardized system of names and numbers to classify traded products. The HS code, sometimes called Commodity Code, is used by customs authorities around the world to identify products when assessing duties and taxes. The HS code may also be referred to as the tariff code or customs code. Values should contain only digits and decimals.
     id : str
         Add-on ID
     item : ItemMini
@@ -3340,6 +3407,7 @@ class AddOn(Resource):
         "deleted_at": datetime,
         "display_quantity": bool,
         "external_sku": str,
+        "harmonized_system_code": str,
         "id": str,
         "item": "ItemMini",
         "liability_gl_account_id": str,

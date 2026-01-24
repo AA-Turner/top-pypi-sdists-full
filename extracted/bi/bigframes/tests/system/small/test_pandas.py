@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from datetime import datetime
-import re
 import typing
 
 import pandas as pd
@@ -22,7 +21,7 @@ import pytest
 import pytz
 
 import bigframes.pandas as bpd
-from bigframes.testing.utils import assert_pandas_df_equal
+from bigframes.testing.utils import assert_frame_equal
 
 
 @pytest.mark.parametrize(
@@ -38,7 +37,7 @@ def test_concat_dataframe(scalars_dfs, ordered):
     bf_result = bf_result.to_pandas(ordered=ordered)
     pd_result = pd.concat(11 * [scalars_pandas_df])
 
-    assert_pandas_df_equal(bf_result, pd_result, ignore_order=not ordered)
+    assert_frame_equal(bf_result, pd_result, ignore_order=not ordered)
 
 
 def test_concat_dataframe_w_struct_cols(nested_structs_df, nested_structs_pandas_df):
@@ -307,7 +306,7 @@ def test_merge(scalars_dfs, merge_how):
         sort=True,
     )
 
-    assert_pandas_df_equal(bf_result, pd_result, ignore_order=True)
+    assert_frame_equal(bf_result, pd_result, ignore_order=True)
 
 
 @pytest.mark.parametrize(
@@ -341,7 +340,7 @@ def test_merge_left_on_right_on(scalars_dfs, merge_how):
         sort=True,
     )
 
-    assert_pandas_df_equal(bf_result, pd_result, ignore_order=True)
+    assert_frame_equal(bf_result, pd_result, ignore_order=True)
 
 
 def test_merge_cross(scalars_dfs):
@@ -396,7 +395,7 @@ def test_merge_series(scalars_dfs, merge_how):
         sort=True,
     )
 
-    assert_pandas_df_equal(bf_result, pd_result, ignore_order=True)
+    assert_frame_equal(bf_result, pd_result, ignore_order=True)
 
 
 def test_merge_w_common_columns(scalars_dfs):
@@ -414,7 +413,7 @@ def test_merge_w_common_columns(scalars_dfs):
         "inner",
         sort=True,
     )
-    assert_pandas_df_equal(df.to_pandas(), pd_result, ignore_order=True)
+    assert_frame_equal(df.to_pandas(), pd_result, ignore_order=True)
 
 
 def test_merge_raises_error_when_no_common_columns(scalars_dfs):
@@ -440,10 +439,7 @@ def test_merge_raises_error_when_left_right_on_set(scalars_dfs):
     left = scalars_df[left_columns]
     right = scalars_df[right_columns]
 
-    with pytest.raises(
-        ValueError,
-        match=re.escape("Can not pass both `on` and `left_on` + `right_on` params."),
-    ):
+    with pytest.raises(ValueError):
         bpd.merge(
             left,
             right,
@@ -452,6 +448,72 @@ def test_merge_raises_error_when_left_right_on_set(scalars_dfs):
             right_on="int64_col",
             on="int64_col",
         )
+
+
+def test_crosstab_aligned_series(scalars_dfs):
+    scalars_df, scalars_pandas_df = scalars_dfs
+
+    pd_result = pd.crosstab(
+        scalars_pandas_df["int64_col"], scalars_pandas_df["int64_too"]
+    )
+    bf_result = bpd.crosstab(
+        scalars_df["int64_col"], scalars_df["int64_too"]
+    ).to_pandas()
+
+    assert_frame_equal(bf_result, pd_result, check_dtype=False)
+
+
+def test_crosstab_nondefault_func(scalars_dfs):
+    scalars_df, scalars_pandas_df = scalars_dfs
+
+    pd_result = pd.crosstab(
+        scalars_pandas_df["int64_col"],
+        scalars_pandas_df["int64_too"],
+        values=scalars_pandas_df["float64_col"],
+        aggfunc="mean",
+    )
+    bf_result = bpd.crosstab(
+        scalars_df["int64_col"],
+        scalars_df["int64_too"],
+        values=scalars_df["float64_col"],
+        aggfunc="mean",
+    ).to_pandas()
+
+    assert_frame_equal(bf_result, pd_result, check_dtype=False)
+
+
+def test_crosstab_multi_cols(scalars_dfs):
+    scalars_df, scalars_pandas_df = scalars_dfs
+
+    pd_result = pd.crosstab(
+        [scalars_pandas_df["int64_col"], scalars_pandas_df["bool_col"]],
+        [scalars_pandas_df["int64_too"], scalars_pandas_df["string_col"]],
+        rownames=["a", "b"],
+        colnames=["c", "d"],
+    )
+    bf_result = bpd.crosstab(
+        [scalars_df["int64_col"], scalars_df["bool_col"]],
+        [scalars_df["int64_too"], scalars_df["string_col"]],
+        rownames=["a", "b"],
+        colnames=["c", "d"],
+    ).to_pandas()
+
+    assert_frame_equal(bf_result, pd_result, check_dtype=False)
+
+
+def test_crosstab_unaligned_series(scalars_dfs, session):
+    scalars_df, scalars_pandas_df = scalars_dfs
+    other_pd_series = pd.Series(
+        [10, 20, 10, 30, 10], index=[5, 4, 1, 2, 3], dtype="Int64", name="nums"
+    )
+    other_bf_series = session.Series(
+        [10, 20, 10, 30, 10], index=[5, 4, 1, 2, 3], name="nums"
+    )
+
+    pd_result = pd.crosstab(scalars_pandas_df["int64_col"], other_pd_series)
+    bf_result = bpd.crosstab(scalars_df["int64_col"], other_bf_series).to_pandas()
+
+    assert_frame_equal(bf_result, pd_result, check_dtype=False)
 
 
 def _convert_pandas_category(pd_s: pd.Series):

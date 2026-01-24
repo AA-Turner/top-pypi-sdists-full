@@ -10,11 +10,18 @@ from ...types.mcp_approval_policy import McpApprovalPolicy
 from ...types.mcp_server_config_input import McpServerConfigInput
 from ...types.mcp_server_response_model import McpServerResponseModel
 from ...types.mcp_servers_response_model import McpServersResponseModel
+from ...types.tool_call_sound_behavior import ToolCallSoundBehavior
+from ...types.tool_call_sound_type import ToolCallSoundType
+from ...types.tool_execution_mode import ToolExecutionMode
 from .raw_client import AsyncRawMcpServersClient, RawMcpServersClient
+from .types.mcp_server_config_update_request_model_request_headers_value import (
+    McpServerConfigUpdateRequestModelRequestHeadersValue,
+)
 
 if typing.TYPE_CHECKING:
     from .approval_policy.client import ApprovalPolicyClient, AsyncApprovalPolicyClient
     from .tool_approvals.client import AsyncToolApprovalsClient, ToolApprovalsClient
+    from .tool_configs.client import AsyncToolConfigsClient, ToolConfigsClient
     from .tools.client import AsyncToolsClient, ToolsClient
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -27,6 +34,7 @@ class McpServersClient:
         self._tools: typing.Optional[ToolsClient] = None
         self._approval_policy: typing.Optional[ApprovalPolicyClient] = None
         self._tool_approvals: typing.Optional[ToolApprovalsClient] = None
+        self._tool_configs: typing.Optional[ToolConfigsClient] = None
 
     @property
     def with_raw_response(self) -> RawMcpServersClient:
@@ -134,12 +142,51 @@ class McpServersClient:
         _response = self._raw_client.get(mcp_server_id, request_options=request_options)
         return _response.data
 
+    def delete(self, mcp_server_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> typing.Any:
+        """
+        Delete a specific MCP server configuration from the workspace.
+
+        Parameters
+        ----------
+        mcp_server_id : str
+            ID of the MCP Server.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.Any
+            Successful Response
+
+        Examples
+        --------
+        from elevenlabs import ElevenLabs
+
+        client = ElevenLabs(
+            api_key="YOUR_API_KEY",
+        )
+        client.conversational_ai.mcp_servers.delete(
+            mcp_server_id="mcp_server_id",
+        )
+        """
+        _response = self._raw_client.delete(mcp_server_id, request_options=request_options)
+        return _response.data
+
     def update(
         self,
         mcp_server_id: str,
         *,
         approval_policy: typing.Optional[McpApprovalPolicy] = OMIT,
         force_pre_tool_speech: typing.Optional[bool] = OMIT,
+        disable_interruptions: typing.Optional[bool] = OMIT,
+        tool_call_sound: typing.Optional[ToolCallSoundType] = OMIT,
+        tool_call_sound_behavior: typing.Optional[ToolCallSoundBehavior] = OMIT,
+        execution_mode: typing.Optional[ToolExecutionMode] = OMIT,
+        request_headers: typing.Optional[
+            typing.Dict[str, typing.Optional[McpServerConfigUpdateRequestModelRequestHeadersValue]]
+        ] = OMIT,
+        disable_compression: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> McpServerResponseModel:
         """
@@ -154,7 +201,25 @@ class McpServersClient:
             The approval mode to set for the MCP server
 
         force_pre_tool_speech : typing.Optional[bool]
-            Whether to force pre-tool speech for all tools from this MCP server
+            If set, overrides the server's force_pre_tool_speech setting for this tool
+
+        disable_interruptions : typing.Optional[bool]
+            If set, overrides the server's disable_interruptions setting for this tool
+
+        tool_call_sound : typing.Optional[ToolCallSoundType]
+            Predefined tool call sound type to play during tool execution for all tools from this MCP server
+
+        tool_call_sound_behavior : typing.Optional[ToolCallSoundBehavior]
+            Determines when the tool call sound should play for all tools from this MCP server
+
+        execution_mode : typing.Optional[ToolExecutionMode]
+            If set, overrides the server's execution_mode setting for this tool
+
+        request_headers : typing.Optional[typing.Dict[str, typing.Optional[McpServerConfigUpdateRequestModelRequestHeadersValue]]]
+            The headers to include in requests to the MCP server
+
+        disable_compression : typing.Optional[bool]
+            Whether to disable HTTP compression for this MCP server
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -179,6 +244,12 @@ class McpServersClient:
             mcp_server_id,
             approval_policy=approval_policy,
             force_pre_tool_speech=force_pre_tool_speech,
+            disable_interruptions=disable_interruptions,
+            tool_call_sound=tool_call_sound,
+            tool_call_sound_behavior=tool_call_sound_behavior,
+            execution_mode=execution_mode,
+            request_headers=request_headers,
+            disable_compression=disable_compression,
             request_options=request_options,
         )
         return _response.data
@@ -207,6 +278,14 @@ class McpServersClient:
             self._tool_approvals = ToolApprovalsClient(client_wrapper=self._client_wrapper)
         return self._tool_approvals
 
+    @property
+    def tool_configs(self):
+        if self._tool_configs is None:
+            from .tool_configs.client import ToolConfigsClient  # noqa: E402
+
+            self._tool_configs = ToolConfigsClient(client_wrapper=self._client_wrapper)
+        return self._tool_configs
+
 
 class AsyncMcpServersClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -215,6 +294,7 @@ class AsyncMcpServersClient:
         self._tools: typing.Optional[AsyncToolsClient] = None
         self._approval_policy: typing.Optional[AsyncApprovalPolicyClient] = None
         self._tool_approvals: typing.Optional[AsyncToolApprovalsClient] = None
+        self._tool_configs: typing.Optional[AsyncToolConfigsClient] = None
 
     @property
     def with_raw_response(self) -> AsyncRawMcpServersClient:
@@ -346,12 +426,61 @@ class AsyncMcpServersClient:
         _response = await self._raw_client.get(mcp_server_id, request_options=request_options)
         return _response.data
 
+    async def delete(
+        self, mcp_server_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> typing.Any:
+        """
+        Delete a specific MCP server configuration from the workspace.
+
+        Parameters
+        ----------
+        mcp_server_id : str
+            ID of the MCP Server.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.Any
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from elevenlabs import AsyncElevenLabs
+
+        client = AsyncElevenLabs(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.conversational_ai.mcp_servers.delete(
+                mcp_server_id="mcp_server_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.delete(mcp_server_id, request_options=request_options)
+        return _response.data
+
     async def update(
         self,
         mcp_server_id: str,
         *,
         approval_policy: typing.Optional[McpApprovalPolicy] = OMIT,
         force_pre_tool_speech: typing.Optional[bool] = OMIT,
+        disable_interruptions: typing.Optional[bool] = OMIT,
+        tool_call_sound: typing.Optional[ToolCallSoundType] = OMIT,
+        tool_call_sound_behavior: typing.Optional[ToolCallSoundBehavior] = OMIT,
+        execution_mode: typing.Optional[ToolExecutionMode] = OMIT,
+        request_headers: typing.Optional[
+            typing.Dict[str, typing.Optional[McpServerConfigUpdateRequestModelRequestHeadersValue]]
+        ] = OMIT,
+        disable_compression: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> McpServerResponseModel:
         """
@@ -366,7 +495,25 @@ class AsyncMcpServersClient:
             The approval mode to set for the MCP server
 
         force_pre_tool_speech : typing.Optional[bool]
-            Whether to force pre-tool speech for all tools from this MCP server
+            If set, overrides the server's force_pre_tool_speech setting for this tool
+
+        disable_interruptions : typing.Optional[bool]
+            If set, overrides the server's disable_interruptions setting for this tool
+
+        tool_call_sound : typing.Optional[ToolCallSoundType]
+            Predefined tool call sound type to play during tool execution for all tools from this MCP server
+
+        tool_call_sound_behavior : typing.Optional[ToolCallSoundBehavior]
+            Determines when the tool call sound should play for all tools from this MCP server
+
+        execution_mode : typing.Optional[ToolExecutionMode]
+            If set, overrides the server's execution_mode setting for this tool
+
+        request_headers : typing.Optional[typing.Dict[str, typing.Optional[McpServerConfigUpdateRequestModelRequestHeadersValue]]]
+            The headers to include in requests to the MCP server
+
+        disable_compression : typing.Optional[bool]
+            Whether to disable HTTP compression for this MCP server
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -399,6 +546,12 @@ class AsyncMcpServersClient:
             mcp_server_id,
             approval_policy=approval_policy,
             force_pre_tool_speech=force_pre_tool_speech,
+            disable_interruptions=disable_interruptions,
+            tool_call_sound=tool_call_sound,
+            tool_call_sound_behavior=tool_call_sound_behavior,
+            execution_mode=execution_mode,
+            request_headers=request_headers,
+            disable_compression=disable_compression,
             request_options=request_options,
         )
         return _response.data
@@ -426,3 +579,11 @@ class AsyncMcpServersClient:
 
             self._tool_approvals = AsyncToolApprovalsClient(client_wrapper=self._client_wrapper)
         return self._tool_approvals
+
+    @property
+    def tool_configs(self):
+        if self._tool_configs is None:
+            from .tool_configs.client import AsyncToolConfigsClient  # noqa: E402
+
+            self._tool_configs = AsyncToolConfigsClient(client_wrapper=self._client_wrapper)
+        return self._tool_configs

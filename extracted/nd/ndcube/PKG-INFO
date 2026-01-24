@@ -1,76 +1,62 @@
 Metadata-Version: 2.4
 Name: ndcube
-Version: 2.3.2
+Version: 2.4.0
 Summary: A package for multi-dimensional contiguous and non-contiguous coordinate aware arrays.
 Author-email: The SunPy Community <sunpy@googlegroups.com>
-License: Copyright (c) 2024, The SunPy Community
-        
-        Redistribution and use in source and binary forms, with or without modification,
-        are permitted provided that the following conditions are met:
-        
-        1. Redistributions of source code must retain the above copyright notice, this
-           list of conditions and the following disclaimer.
-        
-        2. Redistributions in binary form must reproduce the above copyright notice,
-           this list of conditions and the following disclaimer in the documentation
-           and/or other materials provided with the distribution.
-        
-        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-        ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-        WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-        ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-        (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-        LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-        ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-        (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-        SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-        
 Project-URL: Homepage, https://docs.sunpy.org/projects/ndcube
 Project-URL: Source Code, https://github.com/sunpy/ndcube
 Project-URL: Download, https://pypi.org/project/ndcube
 Project-URL: Documentation, https://docs.sunpy.org/projects/ndcube
 Project-URL: Changelog, https://docs.sunpy.org/projects/ndcube/en/stable/whatsnew/changelog.html
 Project-URL: Issue Tracker, https://github.com/sunpy/ndcube/issues
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
-License-File: LICENSE.rst
-Requires-Dist: astropy!=5.1.0,>=5.0.6
-Requires-Dist: gwcs>=0.18
-Requires-Dist: numpy>=1.23.0
-Requires-Dist: scipy>=1.8.0
+License-File: licenses/LICENSE.rst
+Requires-Dist: astropy>=6.1.0
+Requires-Dist: gwcs>=0.21.0
+Requires-Dist: numpy>=1.26.0
+Requires-Dist: scipy>=1.12.0
+Provides-Extra: tests-optional
+Requires-Dist: dask>=2024.1.0; extra == "tests-optional"
+Requires-Dist: specutils>=1.13.0; extra == "tests-optional"
+Requires-Dist: sunpy>=6.1.0; extra == "tests-optional"
+Provides-Extra: tests-only
+Requires-Dist: pytest-astropy; extra == "tests-only"
+Requires-Dist: pytest-cov; extra == "tests-only"
+Requires-Dist: pytest-doctestplus; extra == "tests-only"
+Requires-Dist: pytest-mpl>=0.12; extra == "tests-only"
+Requires-Dist: pytest-xdist; extra == "tests-only"
+Requires-Dist: pytest; extra == "tests-only"
+Requires-Dist: pytest-memray; sys_platform != "win32" and extra == "tests-only"
+Provides-Extra: tests-minimal
+Requires-Dist: ndcube[plotting,reproject,tests-only]; extra == "tests-minimal"
+Requires-Dist: sunpy>=6.1.0; extra == "tests-minimal"
 Provides-Extra: tests
-Requires-Dist: dask; extra == "tests"
-Requires-Dist: pytest-astropy; extra == "tests"
-Requires-Dist: pytest-cov; extra == "tests"
-Requires-Dist: pytest-doctestplus; extra == "tests"
-Requires-Dist: pytest-mpl>=0.12; extra == "tests"
-Requires-Dist: pytest-xdist; extra == "tests"
-Requires-Dist: pytest; extra == "tests"
-Requires-Dist: pytest-memray; sys_platform != "win32" and extra == "tests"
-Requires-Dist: scipy; extra == "tests"
-Requires-Dist: specutils; extra == "tests"
-Requires-Dist: sunpy>=5.0.0; extra == "tests"
+Requires-Dist: ndcube[asdf-tests,plotting,reproject,tests-only,tests-optional]; extra == "tests"
 Provides-Extra: docs
+Requires-Dist: ndcube[all,tests-optional]; extra == "docs"
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-automodapi; extra == "docs"
 Requires-Dist: sunpy-sphinx-theme; extra == "docs"
 Requires-Dist: packaging; extra == "docs"
-Requires-Dist: matplotlib; extra == "docs"
-Requires-Dist: mpl-animators>=1.0; extra == "docs"
-Requires-Dist: sphinx-changelog>=1.1.0; extra == "docs"
+Requires-Dist: sphinx-changelog>=1.5.0; extra == "docs"
 Requires-Dist: sphinx-gallery; extra == "docs"
 Requires-Dist: sphinxext-opengraph; extra == "docs"
-Requires-Dist: sunpy>=5.0.0; extra == "docs"
 Provides-Extra: plotting
-Requires-Dist: matplotlib>=3.5.0; extra == "plotting"
-Requires-Dist: mpl_animators>=1.0; extra == "plotting"
+Requires-Dist: matplotlib>=3.9.0; extra == "plotting"
+Requires-Dist: mpl_animators>=1.2; extra == "plotting"
 Provides-Extra: reproject
-Requires-Dist: reproject>=0.7.1; extra == "reproject"
+Requires-Dist: reproject>=0.14; extra == "reproject"
+Provides-Extra: asdf
+Requires-Dist: asdf>=3.1.0; extra == "asdf"
+Requires-Dist: asdf-astropy>=0.7.0; extra == "asdf"
+Provides-Extra: asdf-tests
+Requires-Dist: ndcube[asdf]; extra == "asdf-tests"
+Requires-Dist: pytest-asdf-plugin; extra == "asdf-tests"
 Provides-Extra: all
 Requires-Dist: ndcube[plotting,reproject]; extra == "all"
 Provides-Extra: dev
-Requires-Dist: ndcube[docs,plotting,reproject,tests]; extra == "dev"
+Requires-Dist: ndcube[asdf,docs,plotting,reproject,tests-only]; extra == "dev"
 Dynamic: license-file
 
 ******
@@ -130,10 +116,10 @@ Getting Help
 For more information or to ask questions about ndcube, check out:
 
 -  `ndcube Documentation`_
--  `ndcube Element Channel`_
+-  `ndcube Chat Channel`_
 
 .. _ndcube Documentation: https://docs.sunpy.org/projects/ndcube/
-.. _ndcube Element Channel: https://app.element.io/#/room/#ndcube:openastronomy.org
+.. _ndcube Chat Channel: https://app.element.io/#/room/#ndcube:openastronomy.org
 
 Contributing
 ============

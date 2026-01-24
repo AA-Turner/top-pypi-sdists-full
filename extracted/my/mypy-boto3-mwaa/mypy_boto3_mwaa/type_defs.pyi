@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -31,12 +32,6 @@ from .literals import (
     WorkerReplacementStrategyType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -89,7 +84,7 @@ class CreateCliTokenRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -104,8 +99,8 @@ class DimensionTypeDef(TypedDict):
     Value: str
 
 class NetworkConfigurationOutputTypeDef(TypedDict):
-    SubnetIds: NotRequired[List[str]]
-    SecurityGroupIds: NotRequired[List[str]]
+    SubnetIds: NotRequired[list[str]]
+    SecurityGroupIds: NotRequired[list[str]]
 
 class GetEnvironmentInputTypeDef(TypedDict):
     Name: str
@@ -183,16 +178,16 @@ class CreateWebLoginTokenResponseTypeDef(TypedDict):
 
 class InvokeRestApiResponseTypeDef(TypedDict):
     RestApiStatusCode: int
-    RestApiResponse: Dict[str, Any]
+    RestApiResponse: dict[str, Any]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListEnvironmentsOutputTypeDef(TypedDict):
-    Environments: List[str]
+    Environments: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateEnvironmentOutputTypeDef(TypedDict):
@@ -278,14 +273,14 @@ class EnvironmentTypeDef(TypedDict):
     RequirementsS3ObjectVersion: NotRequired[str]
     StartupScriptS3Path: NotRequired[str]
     StartupScriptS3ObjectVersion: NotRequired[str]
-    AirflowConfigurationOptions: NotRequired[Dict[str, str]]
+    AirflowConfigurationOptions: NotRequired[dict[str, str]]
     EnvironmentClass: NotRequired[str]
     MaxWorkers: NotRequired[int]
     NetworkConfiguration: NotRequired[NetworkConfigurationOutputTypeDef]
     LoggingConfiguration: NotRequired[LoggingConfigurationTypeDef]
     LastUpdate: NotRequired[LastUpdateTypeDef]
     WeeklyMaintenanceWindowStart: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     WebserverAccessMode: NotRequired[WebserverAccessModeType]
     MinWorkers: NotRequired[int]
     Schedulers: NotRequired[int]

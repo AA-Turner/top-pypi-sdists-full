@@ -9,8 +9,8 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
+import datetime as _dt
+from typing import Literal, Union
 
 from pydantic import Field
 
@@ -18,70 +18,81 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-
-class SecretScanningScanHistory(GitHubModel):
-    """SecretScanningScanHistory"""
-
-    incremental_scans: Missing[list[SecretScanningScan]] = Field(default=UNSET)
-    pattern_update_scans: Missing[list[SecretScanningScan]] = Field(default=UNSET)
-    backfill_scans: Missing[list[SecretScanningScan]] = Field(default=UNSET)
-    custom_pattern_backfill_scans: Missing[
-        list[SecretScanningScanHistoryPropCustomPatternBackfillScansItems]
-    ] = Field(default=UNSET)
+from .group_0003 import SimpleUser
+from .group_0047 import ReactionRollup
+from .group_0402 import ReviewCommentPropLinks
 
 
-class SecretScanningScan(GitHubModel):
-    """SecretScanningScan
+class ReviewComment(GitHubModel):
+    """Legacy Review Comment
 
-    Information on a single scan performed by secret scanning on the repository
+    Legacy Review Comment
     """
 
-    type: Missing[str] = Field(default=UNSET, description="The type of scan")
-    status: Missing[str] = Field(
-        default=UNSET,
-        description='The state of the scan. Either "completed", "running", or "pending"',
+    url: str = Field()
+    pull_request_review_id: Union[int, None] = Field()
+    id: int = Field()
+    node_id: str = Field()
+    diff_hunk: str = Field()
+    path: str = Field()
+    position: Union[int, None] = Field()
+    original_position: int = Field()
+    commit_id: str = Field()
+    original_commit_id: str = Field()
+    in_reply_to_id: Missing[int] = Field(default=UNSET)
+    user: Union[None, SimpleUser] = Field()
+    body: str = Field()
+    created_at: _dt.datetime = Field()
+    updated_at: _dt.datetime = Field()
+    html_url: str = Field()
+    pull_request_url: str = Field()
+    author_association: Literal[
+        "COLLABORATOR",
+        "CONTRIBUTOR",
+        "FIRST_TIMER",
+        "FIRST_TIME_CONTRIBUTOR",
+        "MANNEQUIN",
+        "MEMBER",
+        "NONE",
+        "OWNER",
+    ] = Field(
+        title="author_association",
+        description="How the author is associated with the repository.",
     )
-    completed_at: Missing[Union[datetime, None]] = Field(
+    links: ReviewCommentPropLinks = Field(alias="_links")
+    body_text: Missing[str] = Field(default=UNSET)
+    body_html: Missing[str] = Field(default=UNSET)
+    reactions: Missing[ReactionRollup] = Field(default=UNSET, title="Reaction Rollup")
+    side: Missing[Literal["LEFT", "RIGHT"]] = Field(
         default=UNSET,
-        description="The time that the scan was completed. Empty if the scan is running",
+        description="The side of the first line of the range for a multi-line comment.",
     )
-    started_at: Missing[Union[datetime, None]] = Field(
+    start_side: Missing[Union[None, Literal["LEFT", "RIGHT"]]] = Field(
         default=UNSET,
-        description="The time that the scan was started. Empty if the scan is pending",
+        description="The side of the first line of the range for a multi-line comment.",
+    )
+    line: Missing[int] = Field(
+        default=UNSET,
+        description="The line of the blob to which the comment applies. The last line of the range for a multi-line comment",
+    )
+    original_line: Missing[int] = Field(
+        default=UNSET,
+        description="The original line of the blob to which the comment applies. The last line of the range for a multi-line comment",
+    )
+    start_line: Missing[Union[int, None]] = Field(
+        default=UNSET,
+        description="The first line of the range for a multi-line comment.",
+    )
+    original_start_line: Missing[Union[int, None]] = Field(
+        default=UNSET,
+        description="The original first line of the range for a multi-line comment.",
+    )
+    subject_type: Missing[Literal["line", "file"]] = Field(
+        default=UNSET,
+        description="The level at which the comment is targeted, can be a diff line or a file.",
     )
 
 
-class SecretScanningScanHistoryPropCustomPatternBackfillScansItems(GitHubModel):
-    """SecretScanningScanHistoryPropCustomPatternBackfillScansItems"""
+model_rebuild(ReviewComment)
 
-    type: Missing[str] = Field(default=UNSET, description="The type of scan")
-    status: Missing[str] = Field(
-        default=UNSET,
-        description='The state of the scan. Either "completed", "running", or "pending"',
-    )
-    completed_at: Missing[Union[datetime, None]] = Field(
-        default=UNSET,
-        description="The time that the scan was completed. Empty if the scan is running",
-    )
-    started_at: Missing[Union[datetime, None]] = Field(
-        default=UNSET,
-        description="The time that the scan was started. Empty if the scan is pending",
-    )
-    pattern_name: Missing[str] = Field(
-        default=UNSET, description="Name of the custom pattern for custom pattern scans"
-    )
-    pattern_scope: Missing[str] = Field(
-        default=UNSET,
-        description='Level at which the custom pattern is defined, one of "repository", "organization", or "enterprise"',
-    )
-
-
-model_rebuild(SecretScanningScanHistory)
-model_rebuild(SecretScanningScan)
-model_rebuild(SecretScanningScanHistoryPropCustomPatternBackfillScansItems)
-
-__all__ = (
-    "SecretScanningScan",
-    "SecretScanningScanHistory",
-    "SecretScanningScanHistoryPropCustomPatternBackfillScansItems",
-)
+__all__ = ("ReviewComment",)

@@ -17,6 +17,7 @@
 import unittest
 import os
 import patoolib
+import patoolib.mime
 from . import needs_program, datadir
 
 
@@ -27,6 +28,7 @@ class TestMime(unittest.TestCase):
         """Test that file has given mime and encoding as determined by
         given function.
         """
+        self.assertTrue(os.path.isfile(filename), f"archive {filename!r} is not a file")
         file_mime, file_encoding = func(filename)
         fail_msg = "%s for archive `%s' should be %s, but was %s. Info: %s"
         if isinstance(mime, tuple):
@@ -52,8 +54,11 @@ class TestMime(unittest.TestCase):
         """
         archive = os.path.join(datadir, filename)
         file_prog = patoolib.util.find_program("file")
-        info = patoolib.mime.guess_mime_file_text(file_prog, archive)
-        self.mime_test(patoolib.mime.guess_mime_file, archive, mime, encoding, info)
+        if file_prog is None:
+            self.assertTrue(False, "could not find program 'file' in path")
+        else:
+            info = patoolib.mime.guess_mime_file_text(file_prog, archive)
+            self.mime_test(patoolib.mime.guess_mime_file, archive, mime, encoding, info)
 
     def mime_test_mimedb(self, filename, mime, encoding=None):
         """Test that file has given mime and encoding as determined by the
@@ -72,7 +77,7 @@ class TestMime(unittest.TestCase):
         self.mime_test_file("t.arj.foo", "application/x-arj")
         self.mime_test_file("t.txt.bz2", "application/x-bzip2")
         self.mime_test_file("t.txt.bz2.foo", "application/x-bzip2")
-        # fails on ubuntu-latest github ci
+        # fails on macos-15 github ci
         # self.mime_test_file("t.txt.bz3", "application/x-bzip3")
         # self.mime_test_file("t.txt.bz3.foo", "application/x-bzip3")
         self.mime_test_file("t.cab", "application/vnd.ms-cab-compressed")
@@ -101,7 +106,7 @@ class TestMime(unittest.TestCase):
         self.mime_test_file("t.tar.foo", "application/x-tar")
         self.mime_test_file("t.cbt", "application/x-tar")
         self.mime_test_file("t.cbt.foo", "application/x-tar")
-        # fails on ubuntu-latest github ci
+        # fails on macos-15 and windows-2025 github ci
         # self.mime_test_file("t.tar.lz", "application/x-tar", "lzip")
         self.mime_test_file("t.tar.bz2", "application/x-tar", "bzip2")
         self.mime_test_file("t.tbz2", "application/x-tar", "bzip2")
@@ -131,7 +136,7 @@ class TestMime(unittest.TestCase):
         self.mime_test_file("t.ace.foo", "application/x-ace")
         self.mime_test_file("t.cba", "application/x-ace")
         self.mime_test_file("t.cba.foo", "application/x-ace")
-        # fixme: test errors on windows
+        # test errors on windows
         # self.mime_test_file("t.txt.a", "application/x-archive")
         # self.mime_test_file("t.txt.a.foo", "application/x-archive")
         self.mime_test_file("t.lha", "application/x-lha")
@@ -141,6 +146,8 @@ class TestMime(unittest.TestCase):
         self.mime_test_file("t.alz.foo", "application/x-alzip")
         self.mime_test_file("t.arc", "application/x-arc")
         self.mime_test_file("t.arc.foo", "application/x-arc")
+        self.mime_test_file("t.freearc.arc", "application/x-freearc")
+        self.mime_test_file("t.freearc.arc.foo", "application/x-freearc")
         self.mime_test_file("t.txt.lz4", "application/x-lz4")
         self.mime_test_file("t.txt.lz4.foo", "application/x-lz4")
         self.mime_test_file("t.txt.lrz", "application/x-lrzip")
@@ -178,7 +185,7 @@ class TestMime(unittest.TestCase):
         self.mime_test_file("t.zpaq", "application/zpaq")
         self.mime_test_file("t.zpaq.foo", "application/zpaq")
 
-    # fixme: broken tests
+    # file(1) does not recognize .tar.lz files (at least not with --uncompress)
     # @needs_program('file')
     # @needs_program('lzip')
     # def test_mime_file_lzip(self):
@@ -207,21 +214,21 @@ class TestMime(unittest.TestCase):
         self.mime_test_file("t.taz.foo", "application/x-tar", "gzip")
         self.mime_test_file("t.tgz.foo", "application/x-tar", "gzip")
 
-    # fixme: broken tests
+    # broken tests
     # @needs_program('file')
     # @needs_program('xz')
     # def test_mime_file_xzip(self):
     #    """Test mime detection of TAR XZ archives"""
     #    self.mime_test_file("t.tar.xz.foo", "application/x-tar", "xz")
 
-    # fixme: broken tests
+    # file(1) does not recognize .tar.zst files (at least not with --uncompress)
     # @needs_program("file")
     # @needs_program("zstd")
     # def test_mime_file_zstd(self):
     #    """Test mime detection of TAR ZSTD archives"""
     #    self.mime_test_file("t.tar.zst.foo", "application/x-tar", "zstd")
 
-    # fixme: broken tests
+    # file(1) does not recognize .tar.Z files (at least not with --uncompress)
     # @needs_program('file')
     # @needs_program('uncompress')
     # def test_mime_file_compress(self):
@@ -233,19 +240,15 @@ class TestMime(unittest.TestCase):
         self.mime_test_mimedb("t .7z", "application/x-7z-compressed")
         self.mime_test_mimedb("t .cb7", "application/x-7z-compressed")
         self.mime_test_mimedb("t.arj", "application/x-arj")
-        self.mime_test_mimedb("t .bz2", "application/x-bzip2")
-        self.mime_test_mimedb("t .bz3", "application/x-bzip3")
         self.mime_test_mimedb("t.cab", "application/x-cab")
         self.mime_test_mimedb("t.cbr", "application/vnd.rar")
         self.mime_test_mimedb("t.cpio", "application/x-cpio")
         self.mime_test_mimedb("t.deb", "application/x-debian-package")
-        self.mime_test_mimedb("t.gz", "application/gzip")
-        self.mime_test_mimedb("t.GZ", "application/gzip")
         self.mime_test_mimedb("t.jar", "application/java-archive")
-        self.mime_test_mimedb("t.lzma", "application/x-lzma")
+        self.mime_test_mimedb("t.txt.lzma", "application/x-lzma")
         self.mime_test_mimedb("t.txt.lz", "application/x-lzip")
         self.mime_test_mimedb("t.txt.lz4", "application/x-lz4")
-        self.mime_test_mimedb("t.lzo", "application/x-lzop")
+        self.mime_test_mimedb("t.txt.lzo", "application/x-lzop")
         self.mime_test_mimedb("t.rar", "application/vnd.rar")
         self.mime_test_mimedb("t.rpm", "application/x-rpm")
         self.mime_test_mimedb("t.tar", "application/x-tar")
@@ -264,8 +267,8 @@ class TestMime(unittest.TestCase):
         self.mime_test_mimedb("t.txt.bz2", "application/x-bzip2")
         self.mime_test_mimedb("t.txt.bz3", "application/x-bzip3")
         self.mime_test_mimedb("t.txt.zst", "application/zstd")
-        self.mime_test_mimedb("t .xz", "application/x-xz")
-        self.mime_test_mimedb("t.Z", "application/x-compress")
+        self.mime_test_mimedb("t.txt.xz", "application/x-xz")
+        self.mime_test_mimedb("t.txt.Z", "application/x-compress")
         self.mime_test_mimedb(
             "t.zip", ("application/zip", "application/x-zip-compressed")
         )
@@ -274,13 +277,13 @@ class TestMime(unittest.TestCase):
         )
         self.mime_test_mimedb("t.ace", "application/x-ace")
         self.mime_test_mimedb("t.cba", "application/x-ace")
-        self.mime_test_mimedb("t.a", "application/x-archive")
+        self.mime_test_mimedb("t.txt.a", "application/x-archive")
         self.mime_test_mimedb("t.lha", "application/x-lha")
         self.mime_test_mimedb("t.lzh", "application/x-lzh")
         self.mime_test_mimedb("t.alz", "application/x-alzip")
         self.mime_test_mimedb("t.arc", "application/x-arc")
-        self.mime_test_mimedb("t.lrz", "application/x-lrzip")
-        self.mime_test_mimedb("t.rz", "application/x-rzip")
+        self.mime_test_mimedb("t.txt.lrz", "application/x-lrzip")
+        self.mime_test_mimedb("t.txt.rz", "application/x-rzip")
         self.mime_test_mimedb("t.zoo", "application/x-zoo")
         self.mime_test_mimedb("t.dms", "application/x-dms")
         self.mime_test_mimedb("t.shar", "application/x-shar")

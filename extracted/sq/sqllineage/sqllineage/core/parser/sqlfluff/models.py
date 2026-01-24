@@ -1,5 +1,3 @@
-from typing import Optional
-
 from sqlfluff.core.parser import BaseSegment
 
 from sqllineage import SQLPARSE_DIALECT
@@ -8,6 +6,7 @@ from sqllineage.core.parser.sqlfluff.utils import (
     extract_column_qualifier,
     extract_identifier,
     is_subquery,
+    is_teradata_title_phrase,
     is_wildcard,
     list_child_segments,
 )
@@ -40,7 +39,7 @@ class SqlFluffTable(Table):
     """
 
     @staticmethod
-    def of(table: BaseSegment, alias: Optional[str] = None) -> Table:
+    def of(table: BaseSegment, alias: str | None = None) -> Table:
         """
         Build an object of type 'Table'
         :param table: table segment to be processed
@@ -80,7 +79,7 @@ class SqlFluffSubQuery(SubQuery):
     """
 
     @staticmethod
-    def of(subquery: BaseSegment, alias: Optional[str]) -> SubQuery:
+    def of(subquery: BaseSegment, alias: str | None) -> SubQuery:
         """
         Build a 'SubQuery' object
         :param subquery: subquery segment
@@ -103,6 +102,19 @@ class SqlFluffColumn(Column):
         :return: 'Column' object
         """
         if column.type == "select_clause_element":
+
+            # Special handling for Teradata TITLE phrase
+            if is_teradata_title_phrase(column):
+                function_name_identifier = next(
+                    column.recursive_crawl("function_name_identifier")
+                )
+                return Column(
+                    function_name_identifier.raw,
+                    source_columns=[
+                        ColumnQualifierTuple(function_name_identifier.raw, None)
+                    ],
+                )
+
             source_columns, alias = SqlFluffColumn._get_column_and_alias(column)
             if alias:
                 return Column(alias, source_columns=source_columns, from_alias=True)
@@ -216,7 +228,7 @@ class SqlFluffColumn(Column):
     @staticmethod
     def _get_column_and_alias(
         segment: BaseSegment, check_bracketed: bool = True
-    ) -> tuple[list[ColumnQualifierTuple], Optional[str]]:
+    ) -> tuple[list[ColumnQualifierTuple], str | None]:
         """
         check_bracketed is True for top-level column definition, like (col1 + col2) as col3
         set to False for bracket in function call, like coalesce(col1, col2) as col3

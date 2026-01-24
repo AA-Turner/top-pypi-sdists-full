@@ -675,10 +675,6 @@ class TDBase(rhf.TDBase):
     get_nto = get_nto
     _contract_multipole = _contract_multipole  # needed by transition dipoles
 
-    def nuc_grad_method(self):
-        from pyscf.grad import tduhf
-        return tduhf.Gradients(self)
-
 
 @lib.with_doc(rhf.TDA.__doc__)
 class TDA(TDBase):
@@ -792,7 +788,20 @@ class TDA(TDBase):
         self._finalize()
         return self.e, self.xy
 
-    to_gpu = lib.to_gpu
+    def Gradients(self):
+        if getattr(self._scf, 'with_df', None):
+            logger.warn(self, 'TDDFT Gradients with DF approximation is not available. '
+                        'TDDFT Gradients are computed using exact integrals')
+        from pyscf.grad import tduhf
+        return tduhf.Gradients(self)
+
+    def to_gpu(self):
+        import cupy as cp
+        out = lib.to_gpu(self)
+        if out.xy is not None:
+            out.xy = [((cp.asarray(xa), cp.asarray(xb)), y)
+                      for (xa, xb), y in out.xy]
+        return out
 
 CIS = TDA
 
@@ -980,7 +989,16 @@ class TDHF(TDBase):
         self._finalize()
         return self.e, self.xy
 
-    to_gpu = lib.to_gpu
+    Gradients = TDA.Gradients
+
+    def to_gpu(self):
+        import cupy as cp
+        out = lib.to_gpu(self)
+        if out.xy is not None:
+            out.xy = [((cp.asarray(xa), cp.asarray(xb)),
+                       (cp.asarray(ya), cp.asarray(yb)))
+                      for (xa, xb), (ya, yb) in out.xy]
+        return out
 
 RPA = TDUHF = TDHF
 

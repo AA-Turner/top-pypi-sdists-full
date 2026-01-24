@@ -16,36 +16,50 @@ classifiers = [
 ]
 dynamic = ["version"]
 
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "beartype>=0.16.2",
     "typing-extensions>=4.9.0",
     "rich>=10.0"
 ]
 
-[project.optional-dependencies]
-dev = [
-    "numpy",
-    "pytest>=6",
-    "pytest-cov",
-    "coveralls",
-    "pre-commit",
-    "IPython",
-    "black==23.9.0",
-    "ghp-import",
-    "wheel",
-    "build",
-    "tox",
-    "jupyter-book",
-    "mypy",
-    "pyright>=1.1.331",
-    "ruff>=0.2.1",
-    "sybil",
-]
-
 [project.urls]
 repository = "https://github.com/beartype/plum"
 documentation = "https://beartype.github.io/plum"
+
+
+[dependency-groups]
+dev = [
+    { include-group = "docs" },
+    { include-group = "lint" },
+    { include-group = "nox" },
+    { include-group = "test_static" },
+    { include-group = "test_runtime" },
+]
+docs = [
+    "jupyter-book>=1.0.0,<2.0.0",
+]
+lint = [
+    "pre-commit>=4.3.0",
+    "pylint>=4.0.4",
+]
+nox = [
+    "nox>=2025.11.12",
+    "nox-uv>=0.6.3",
+    "uv>=0.9.16",
+]
+test_static = [
+    "mypy>=1.18.2",
+    "pyright>=1.1.331",
+]
+test_runtime = [
+    "coveralls>=4.0.1",
+    "ipython>=8.18.1",
+    "numpy>=2.0.2",
+    "pytest>=8.4.2",
+    "pytest-cov>=7.0.0",
+    "sybil[pytest]>=9.2.0",
+]
 
 
 [build-system]
@@ -82,7 +96,7 @@ minversion = "6.0"
 
 [tool.ruff]
 src = ["plum"]
-target-version = "py38"
+target-version = "py310"
 line-length = 88
 
 [tool.ruff.lint]
@@ -95,12 +109,13 @@ select = [
     "SIM",  # flake8-simplify
     "UP",  # pyupgrade
 ]
-ignore = ["F811", "B018"]
+ignore = ["F811", "B018", "UP038"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
 known-first-party = ["beartype"]
 known-local-folder = ["plum"]
+extra-standard-library = ["typing_extensions"]
 
 [tool.ruff.format]
 docstring-code-format = true

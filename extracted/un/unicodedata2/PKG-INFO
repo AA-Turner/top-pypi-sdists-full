@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: unicodedata2
-Version: 16.0.0
+Version: 17.0.0
 Summary: Unicodedata backport updated to the latest Unicode version.
 Home-page: http://github.com/fonttools/unicodedata2
 Download-URL: http://github.com/fonttools/unicodedata2
@@ -22,6 +22,7 @@ Dynamic: description-content-type
 Dynamic: download-url
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: platform
 Dynamic: provides-extra
 Dynamic: summary
@@ -32,7 +33,7 @@ Dynamic: summary
 unicodedata2
 ============
 
-[unicodedata] backport/updates.
+[unicodedata] backport/updates. Currently supports Unicode 17.0.0.
 
 The versions of this package match Unicode versions, so unicodedata2==13.0.0 is data from Unicode 13.0.0.
 

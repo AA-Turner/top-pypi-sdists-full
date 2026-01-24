@@ -1,15 +1,16 @@
-#  Copyright (c) 2023 EPAM Systems
+#  Copyright 2025 EPAM Systems
+#
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
 #  You may obtain a copy of the License at
 #
-#  https://www.apache.org/licenses/LICENSE-2.0
+#      https://www.apache.org/licenses/LICENSE-2.0
 #
 #  Unless required by applicable law or agreed to in writing, software
 #  distributed under the License is distributed on an "AS IS" BASIS,
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
-#  limitations under the License
+#  limitations under the License.
 
 """This module contains ReportPortal Client interface and synchronous implementation class."""
 
@@ -19,11 +20,13 @@ import sys
 import warnings
 from abc import abstractmethod
 from os import getenv
-from typing import Any, Dict, List, Optional, TextIO, Tuple, Union
+from typing import Any, Optional, TextIO, Union
 
 import aenum
-import requests
 from requests.adapters import DEFAULT_RETRIES, HTTPAdapter, Retry
+
+# noinspection PyProtectedMember
+from reportportal_client._internal.http import ClientSession
 
 # noinspection PyProtectedMember
 from reportportal_client._internal.local import set_current
@@ -32,12 +35,13 @@ from reportportal_client._internal.local import set_current
 from reportportal_client._internal.logs.batcher import LogBatcher
 
 # noinspection PyProtectedMember
+from reportportal_client._internal.services.auth import ApiKeyAuthSync, Auth, OAuthPasswordGrantSync
+
+# noinspection PyProtectedMember
 from reportportal_client._internal.services.statistics import send_event
 
 # noinspection PyProtectedMember
 from reportportal_client._internal.static.abstract import AbstractBaseClass
-
-# noinspection PyProtectedMember
 from reportportal_client.core.rp_issues import Issue
 from reportportal_client.core.rp_requests import (
     ErrorPrintingHttpRequest,
@@ -66,12 +70,13 @@ class OutputType(aenum.Enum):
 
     def get_output(self) -> Optional[TextIO]:
         """Return TextIO based on the current type."""
-        if self == OutputType.STDOUT:
-            return sys.stdout
         if self == OutputType.STDERR:
             return sys.stderr
+        else:
+            return sys.stdout
 
 
+# noinspection PyAbstractClass
 class RP(metaclass=AbstractBaseClass):
     """Common interface for ReportPortal clients.
 
@@ -162,7 +167,7 @@ class RP(metaclass=AbstractBaseClass):
         start_time: str,
         item_type: str,
         description: Optional[str] = None,
-        attributes: Optional[Union[List[dict], dict]] = None,
+        attributes: Optional[Union[list[dict], dict]] = None,
         parameters: Optional[dict] = None,
         parent_item_id: Optional[str] = None,
         has_stats: Optional[bool] = True,
@@ -311,7 +316,7 @@ class RP(metaclass=AbstractBaseClass):
         level: Optional[Union[int, str]] = None,
         attachment: Optional[dict] = None,
         item_id: Optional[str] = None,
-    ) -> Optional[Tuple[str, ...]]:
+    ) -> Optional[tuple[str, ...]]:
         """Send Log message to the ReportPortal and attach it to a Test Item or Launch.
 
         This method stores Log messages in internal batch and sent it when batch is full, so not every method
@@ -382,17 +387,24 @@ class RPClient(RP):
     base_url_v2: str
     __endpoint: str
     is_skipped_an_issue: bool
-    __launch_uuid: str
+    __launch_uuid: Optional[str]
     use_own_launch: bool
     log_batch_size: int
-    log_batch_payload_size: int
+    log_batch_payload_limit: int
     __project: str
-    api_key: str
+    api_key: Optional[str]
+    oauth_uri: Optional[str]
+    oauth_username: Optional[str]
+    oauth_password: Optional[str]
+    oauth_client_id: Optional[str]
+    oauth_client_secret: Optional[str]
+    oauth_scope: Optional[str]
+    auth: Auth
     verify_ssl: Union[bool, str]
     retries: int
     max_pool_size: int
-    http_timeout: Union[float, Tuple[float, float]]
-    session: requests.Session
+    http_timeout: Union[float, tuple[float, float]]
+    session: ClientSession
     __step_reporter: StepReporter
     mode: str
     launch_uuid_print: Optional[bool]
@@ -440,55 +452,66 @@ class RPClient(RP):
             if self.retries
             else DEFAULT_RETRIES
         )
-        session = requests.Session()
+        session = ClientSession(auth=self.auth)
         session.mount("https://", HTTPAdapter(max_retries=retry_strategy, pool_maxsize=self.max_pool_size))
         # noinspection HttpUrlsUsage
         session.mount("http://", HTTPAdapter(max_retries=retry_strategy, pool_maxsize=self.max_pool_size))
-        if self.api_key:
-            session.headers["Authorization"] = "Bearer {0}".format(self.api_key)
         self.session = session
 
     def __init__(
         self,
         endpoint: str,
         project: str,
-        api_key: str = None,
+        api_key: Optional[str] = None,
         log_batch_size: int = 20,
         is_skipped_an_issue: bool = True,
         verify_ssl: Union[bool, str] = True,
         retries: int = None,
         max_pool_size: int = 50,
-        launch_uuid: str = None,
-        http_timeout: Union[float, Tuple[float, float]] = (10, 10),
-        log_batch_payload_size: int = MAX_LOG_BATCH_PAYLOAD_SIZE,
+        launch_uuid: Optional[str] = None,
+        http_timeout: Union[float, tuple[float, float]] = (10, 10),
+        log_batch_payload_limit: int = MAX_LOG_BATCH_PAYLOAD_SIZE,
         mode: str = "DEFAULT",
         launch_uuid_print: bool = False,
         print_output: OutputType = OutputType.STDOUT,
         log_batcher: Optional[LogBatcher[RPRequestLog]] = None,
         truncate_attributes: bool = True,
+        # OAuth 2.0 Password Grant parameters
+        oauth_uri: Optional[str] = None,
+        oauth_username: Optional[str] = None,
+        oauth_password: Optional[str] = None,
+        oauth_client_id: Optional[str] = None,
+        oauth_client_secret: Optional[str] = None,
+        oauth_scope: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         """Initialize the class instance with arguments.
 
-        :param endpoint:               Endpoint of the ReportPortal service.
-        :param project:                Project name to report to.
-        :param api_key:                Authorization API key.
-        :param log_batch_size:         Option to set the maximum number of logs that can be processed in one
-                                       batch.
-        :param is_skipped_an_issue:    Option to mark skipped tests as not 'To Investigate' items on the
-                                       server side.
-        :param verify_ssl:             Option to skip ssl verification.
-        :param retries:                Number of retry attempts to make in case of connection / server errors.
-        :param max_pool_size:          Option to set the maximum number of connections to save the pool.
-        :param launch_uuid:            A launch UUID to use instead of starting own one.
-        :param http_timeout:           A float in seconds for connect and read timeout. Use a Tuple to
-                                       specific connect and read separately.
-        :param log_batch_payload_size: Maximum size in bytes of logs that can be processed in one batch.
-        :param mode:                   Launch mode, all Launches started by the client will be in that mode.
-        :param launch_uuid_print:      Print Launch UUID into passed TextIO or by default to stdout.
-        :param print_output:           Set output stream for Launch UUID printing.
-        :param log_batcher:            Use existing LogBatcher instance instead of creation of own one.
-        :param truncate_attributes:    Truncate test item attributes to default maximum length.
+        :param endpoint:                Endpoint of the ReportPortal service.
+        :param project:                 Project name to report to.
+        :param api_key:                 Authorization API key.
+        :param oauth_uri:               OAuth 2.0 token endpoint URI (for OAuth authentication).
+        :param oauth_username:          Username for OAuth 2.0 authentication.
+        :param oauth_password:          Password for OAuth 2.0 authentication.
+        :param oauth_client_id:         OAuth 2.0 client ID.
+        :param oauth_client_secret:     OAuth 2.0 client secret (optional).
+        :param oauth_scope:             OAuth 2.0 scope (optional).
+        :param log_batch_size:          Option to set the maximum number of logs that can be processed in one
+                                        batch.
+        :param is_skipped_an_issue:     Option to mark skipped tests as not 'To Investigate' items on the
+                                        server side.
+        :param verify_ssl:              Option to skip ssl verification.
+        :param retries:                 Number of retry attempts to make in case of connection / server errors.
+        :param max_pool_size:           Option to set the maximum number of connections to save the pool.
+        :param launch_uuid:             A launch UUID to use instead of starting own one.
+        :param http_timeout:            A float in seconds for connect and read timeout. Use a Tuple to
+                                        specific connect and read separately.
+        :param log_batch_payload_limit: Maximum size in bytes of logs that can be processed in one batch.
+        :param mode:                    Launch mode, all Launches started by the client will be in that mode.
+        :param launch_uuid_print:       Print Launch UUID into passed TextIO or by default to stdout.
+        :param print_output:            Set output stream for Launch UUID printing.
+        :param log_batcher:             Use existing LogBatcher instance instead of creation of own one.
+        :param truncate_attributes:     Truncate test item attributes to default maximum length.
         """
         set_current(self)
         self.api_v1, self.api_v2 = "v1", "v2"
@@ -499,7 +522,7 @@ class RPClient(RP):
         self.is_skipped_an_issue = is_skipped_an_issue
         self.__launch_uuid = launch_uuid
         if not self.__launch_uuid:
-            launch_id = kwargs.get("launch_id")
+            launch_id = kwargs.get("launch_id")  # type: ignore
             if launch_id:
                 warnings.warn(
                     message="`launch_id` property is deprecated since 5.5.0 and will be subject for removing"
@@ -510,8 +533,8 @@ class RPClient(RP):
                 self.__launch_uuid = launch_id
         self.use_own_launch = not bool(self.__launch_uuid)
         self.log_batch_size = log_batch_size
-        self.log_batch_payload_size = log_batch_payload_size
-        self._log_batcher = log_batcher or LogBatcher(self.log_batch_size, self.log_batch_payload_size)
+        self.log_batch_payload_limit = log_batch_payload_limit
+        self._log_batcher = log_batcher or LogBatcher(self.log_batch_size, self.log_batch_payload_limit)
         self.verify_ssl = verify_ssl
         self.retries = retries
         self.max_pool_size = max_pool_size
@@ -525,24 +548,54 @@ class RPClient(RP):
         self.truncate_attributes = truncate_attributes
 
         self.api_key = api_key
-        if not self.api_key:
-            if "token" in kwargs:
-                warnings.warn(
-                    message="Argument `token` is deprecated since 5.3.5 and will be subject for removing in "
-                    "the next major version. Use `api_key` argument instead.",
-                    category=DeprecationWarning,
-                    stacklevel=2,
-                )
-                self.api_key = kwargs["token"]
+        # Handle deprecated token argument
+        if not self.api_key and "token" in kwargs:
+            warnings.warn(
+                message="Argument `token` is deprecated since 5.3.5 and will be subject for removing in "
+                "the next major version. Use `api_key` argument instead.",
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+            self.api_key = kwargs["token"]
 
-            if not self.api_key:
-                warnings.warn(
-                    message="Argument `api_key` is `None` or empty string, that is not supposed to happen "
-                    "because ReportPortal is usually requires an authorization key. Please check "
-                    "your code.",
-                    category=RuntimeWarning,
-                    stacklevel=2,
-                )
+        self.oauth_uri = oauth_uri
+        self.oauth_username = oauth_username
+        self.oauth_password = oauth_password
+        self.oauth_client_id = oauth_client_id
+        self.oauth_client_secret = oauth_client_secret
+        self.oauth_scope = oauth_scope
+
+        # Initialize authentication
+        oauth_params = [oauth_uri, oauth_username, oauth_password, oauth_client_id]
+        oauth_provided = all(oauth_params)
+
+        if oauth_provided:
+            # Use OAuth 2.0 Password Grant authentication
+            self.auth = OAuthPasswordGrantSync(
+                oauth_uri=oauth_uri,
+                username=oauth_username,
+                password=oauth_password,
+                client_id=oauth_client_id,
+                client_secret=oauth_client_secret,
+                scope=oauth_scope,
+            )
+        elif self.api_key:
+            self.auth = ApiKeyAuthSync(api_key)
+        else:
+            # Neither OAuth nor API key provided
+            raise ValueError(
+                "Authentication credentials are required. Please provide either:\n"
+                "1. OAuth 2.0 parameters: oauth_uri, username, password, and client_id\n"
+                "   (with optional client_secret and scope), or\n"
+                "2. api_key parameter for API key authentication.\n"
+                "\n"
+                "Example for OAuth:\n"
+                "  RPClient(endpoint='...', project='...', oauth_uri='https://example.com/oauth/token',\n"
+                "           username='user', password='pass', client_id='client_id')\n"
+                "\n"
+                "Example for API key:\n"
+                "  RPClient(endpoint='...', project='...', api_key='your_api_key')"
+            )
 
         self.__init_session()
 
@@ -605,7 +658,7 @@ class RPClient(RP):
         start_time: str,
         item_type: str,
         description: Optional[str] = None,
-        attributes: Optional[Union[List[dict], dict]] = None,
+        attributes: Optional[Union[list[dict], dict]] = None,
         parameters: Optional[dict] = None,
         parent_item_id: Optional[str] = None,
         has_stats: bool = True,
@@ -803,19 +856,20 @@ class RPClient(RP):
         logger.debug("update_test_item - Item: %s", item_id)
         return response.message
 
-    def _log(self, batch: Optional[List[RPRequestLog]]) -> Optional[Tuple[str, ...]]:
-        if batch:
-            url = uri_join(self.base_url_v2, "log")
-            response = ErrorPrintingHttpRequest(
-                self.session.post,
-                url,
-                files=RPLogBatch(batch).payload,
-                verify_ssl=self.verify_ssl,
-                http_timeout=self.http_timeout,
-                name="log",
-            ).make()
-            if response:
-                return response.messages
+    def _log(self, batch: Optional[list[RPRequestLog]]) -> Optional[tuple[str, ...]]:
+        if not batch:
+            return None
+
+        url = uri_join(self.base_url_v2, "log")
+        response = ErrorPrintingHttpRequest(
+            self.session.post,
+            url,
+            files=RPLogBatch(batch).payload,
+            verify_ssl=self.verify_ssl,
+            http_timeout=self.http_timeout,
+            name="log",
+        ).make()
+        return response.messages if response else None
 
     def log(
         self,
@@ -824,7 +878,7 @@ class RPClient(RP):
         level: Optional[Union[int, str]] = None,
         attachment: Optional[dict] = None,
         item_id: Optional[str] = None,
-    ) -> Optional[Tuple[str, ...]]:
+    ) -> Optional[tuple[str, ...]]:
         """Send Log message to the ReportPortal and attach it to a Test Item or Launch.
 
         This method stores Log messages in internal batch and sent it when batch is full, so not every method
@@ -962,9 +1016,15 @@ class RPClient(RP):
             max_pool_size=self.max_pool_size,
             launch_uuid=self.__launch_uuid,
             http_timeout=self.http_timeout,
-            log_batch_payload_size=self.log_batch_payload_size,
+            log_batch_payload_limit=self.log_batch_payload_limit,
             mode=self.mode,
             log_batcher=self._log_batcher,
+            oauth_uri=self.oauth_uri,
+            oauth_username=self.oauth_username,
+            oauth_password=self.oauth_password,
+            oauth_client_id=self.oauth_client_id,
+            oauth_client_secret=self.oauth_client_secret,
+            oauth_scope=self.oauth_scope,
         )
         current_item = self.current_item()
         if current_item:
@@ -976,7 +1036,7 @@ class RPClient(RP):
         self._log(self._log_batcher.flush())
         self.session.close()
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         """Control object pickling and return object fields as Dictionary.
 
         :return: object state dictionary
@@ -987,7 +1047,7 @@ class RPClient(RP):
         del state["session"]
         return state
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         """Control object pickling, receives object state as Dictionary.
 
         :param dict state: object state dictionary

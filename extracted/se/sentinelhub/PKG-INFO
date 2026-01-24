@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentinelhub
-Version: 3.11.2
+Version: 3.11.3
 Summary: Python API for Sentinel Hub
 Project-URL: Homepage, https://github.com/sentinel-hub/sentinelhub-py
 Project-URL: Documentation, https://sentinelhub-py.readthedocs.io

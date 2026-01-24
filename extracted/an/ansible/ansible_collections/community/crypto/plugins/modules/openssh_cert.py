@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: openssh_cert
 author: "David Kainz (@lolcube)"
@@ -287,6 +286,7 @@ import os
 import typing as t
 
 from ansible.module_utils.basic import AnsibleModule
+
 from ansible_collections.community.crypto.plugins.module_utils._openssh.backends.common import (
     KeygenCommand,
     OpensshModule,

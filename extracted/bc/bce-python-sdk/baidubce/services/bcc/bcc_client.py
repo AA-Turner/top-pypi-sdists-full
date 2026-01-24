@@ -1515,8 +1515,10 @@ class BccClient(bce_base_client.BceBaseClient):
 
     @required(instance_id=(bytes, str),  # ***Unicode***
               image_id=(bytes, str))  # ***Unicode***
-    def rebuild_instance(self, instance_id, image_id, admin_pass=None, key_pair_id=None,
-                         config=None):
+    def rebuild_instance(self, instance_id, image_id, admin_pass=None, key_pair_id=None, is_keep_image_login=None,
+                         config=None, user_data=None, clean_last_user_data=None, is_open_hostEye=None,
+                         sys_root_size=None, is_preserve_data=None, raid_id=None, data_partition_type=None,
+                         root_partition_type=None):
         """
         Rebuilding the instance owned by the user.
         After rebuilding the instance,
@@ -1545,6 +1547,40 @@ class BccClient(bce_base_client.BceBaseClient):
             key_pair_id or admin_pass is required for rebuild instance.
         :type key_pair_id: string
 
+        :param user_data:
+            User data to pass to the instance at launch time.
+        :type user_data: string
+
+        :param clean_last_user_data:
+            Indicates whether to clean the user data after the instance has been rebuilded.
+            Default value is False.
+        :type clean_user_data: boolean
+
+        :param is_open_hostEye:
+            Indicates whether to open host eye.
+        :type is_open_hostEye: boolean
+
+        :param sys_root_size:
+            System partition size (unit: GB).
+        :type sys_root_size: int
+
+        :param is_preserve_data:
+            Indicates whether to preserve data during the instance rebuilding process.
+            Default value is False.
+        :type is_preserve_data: boolean
+
+        :param raid_id:
+            RAID ID.
+        :type raid_id: string
+
+        :param data_partition_type:
+            Data partition type.
+        :type data_partition_type: string
+
+        :param root_partition_type:
+            Root partition type.
+        :type root_partition_type: string
+
         :return:
         :rtype baidubce.bce_response.BceResponse
         """
@@ -1555,10 +1591,28 @@ class BccClient(bce_base_client.BceBaseClient):
         }
         if key_pair_id is not None:
             body['keypairId'] = key_pair_id
+        if is_keep_image_login is not None:
+            body['keepImageLogin'] = is_keep_image_login
         if admin_pass is not None:
             secret_access_key = self.config.credentials.secret_access_key
             cipher_admin_pass = aes128_encrypt_16char_key(admin_pass, secret_access_key)
             body['adminPass'] = cipher_admin_pass
+        if user_data is not None:
+            body['userData'] = user_data
+        if clean_last_user_data is not None:
+            body['cleanLastUserData'] = clean_last_user_data
+        if is_open_hostEye is not None:
+            body['isOpenHostEye'] = is_open_hostEye
+        if sys_root_size is not None:
+            body['sysRootSize'] = sys_root_size
+        if is_preserve_data is not None:
+            body['isPreserveData'] = is_preserve_data
+        if raid_id is not None:
+            body['raidId'] = raid_id
+        if data_partition_type is not None:
+            body['dataPartitionType'] = data_partition_type
+        if root_partition_type is not None:
+            body['rootPartitionType'] = root_partition_type
         params = {
             'rebuild': None
         }
@@ -2600,12 +2654,17 @@ class BccClient(bce_base_client.BceBaseClient):
     def modify_volume_charge_type(self,
                                   volume_id,
                                   billing=None,
+                                  effective_type=None,
                                   config=None):
         """
         :param volume_id: volume id
         :type volume_id: string
         :param billing: payment information
         :type billing: bcc_model.Billing
+        :param effective_type: Optional parameters:
+                                AtOnce (switch to pay-as-you-go immediately),
+                                AfterExpiration (switch to pay-as-you-go after expiration).
+                                Defaults to AfterExpiration if not provided.
         :param config:
 
         :return:
@@ -2617,6 +2676,7 @@ class BccClient(bce_base_client.BceBaseClient):
         if billing is None:
             billing = default_billing_to_purchase_reserved
         body = {
+            'effectiveType': effective_type,
             'billing': billing.__dict__
         }
 
@@ -3993,14 +4053,17 @@ class BccClient(bce_base_client.BceBaseClient):
                                 is_open_ipv6=None, tags=None, key_pair_id=None, auto_renew_time_unit=None,
                                 auto_renew_time=0, cds_auto_renew=None, asp_id=None, bid_model=None, bid_price=None,
                                 dedicate_host_id=None, deploy_id=None, deploy_id_list=None, enable_jumbo_frame=None,
-                                cpu_thread_config=None, numa_config=None, eni_ids=None,
-                                client_token=None, config=None):
+                                cpu_thread_config=None, numa_config=None, eni_ids=None, client_token=None, config=None,
+                                user_data=None, spec_id=None, deletion_protection=None, is_open_hosteye=None,
+                                hosteye_type=None, res_group_id=None, enable_ht=None, data_partition_type=None,
+                                root_partition_type=None, file_systems=None, disable_root_disk_serial=None,
+                                internal_ips=None, network_purchase_type=None, is_keep_image_login=None,
+                                reserved_instance=None):
         """
         Create a bcc Instance with the specified options.
         You must fill the field of clientToken,which is especially for keeping idempotent.
         This is an asynchronous interface,
         you can get the latest status by BccClient.get_instance.
-
         :param spec:
             The specification of the BBC package.
         :type spec: string
@@ -4211,6 +4274,53 @@ class BccClient(bce_base_client.BceBaseClient):
             The enis must in the same vpc and available zone with instance.
         :type eni_ids: list<string>
 
+        :param user_data:
+        :type user_data: string
+
+        :param is_open_hosteye:
+        :type is_open_hosteye: boolean
+
+        :param hosteye_type:
+        :type hosteye_type: string
+
+        :param res_group_id:
+            The optional parameter to specify the resGroupId of the instance
+        :type res_group_id: string
+
+        :param enable_ht:
+            Whether to enable HT (used by EBC). Default: true
+        :type enable_ht: bool
+
+        :param data_partition_type:
+            Data disk file system format.Available values: xfs, ext4.
+        :type data_partition_type: bool
+
+        :param root_partition_type:
+            System disk file system format.Available values: xfs, ext4.
+        :type root_partition_type: bool
+
+        :param deletion_protection:
+        :type deletion_protection: int
+
+        :param spec_id:
+            Identify of the spec.
+
+        :param file_systems:
+            This parameter is obsolete.
+        :type file_systems:list<bcc_model.FileSystemModel>
+
+        :param disable_root_disk_serial:
+            Whether to hide the system disk SN during instance creation. Default: false
+        :type disable_root_disk_serial: bool
+
+        :param internal_ips:
+            The parameter to specify the internal ips.
+        :type internal_ips: list<string>
+
+        :param network_purchase_type:
+            EIP line type, including Standard BGP (BGP) and Enhanced BGP (BGP_S).The default value is Standard BGP.
+        :type network_purchase_type: string
+
         :return:
         :rtype baidubce.bce_response.BceResponse
         """
@@ -4305,7 +4415,37 @@ class BccClient(bce_base_client.BceBaseClient):
         if eni_ids is not None:
             body['eniIds'] = eni_ids
         body['cdsAutoRenew'] = cds_auto_renew
-
+        if user_data is not None:
+            body['userData'] = user_data
+        if spec_id is not None:
+            body['specId'] = spec_id
+        if is_open_hosteye is not None:
+            body['isOpenHosteye'] = is_open_hosteye
+        if deletion_protection is not None:
+            body['deletionProtection'] = deletion_protection
+        if hosteye_type is not None:
+            body['hosteyeType'] = hosteye_type
+        if res_group_id is not None:
+            body['resGroupId'] = res_group_id
+        if enable_ht is not None:
+            body['enableHt'] = enable_ht
+        if data_partition_type is not None:
+            body['dataPartitionType'] = data_partition_type
+        if root_partition_type is not None:
+            body['rootPartitionType'] = root_partition_type
+        if file_systems is not None:
+            file_system_list = [file_system.__dict__ for file_system in file_systems]
+            body['fileSystems'] = file_system_list
+        if disable_root_disk_serial is not None:
+            body['disableRootDiskSerial'] = disable_root_disk_serial
+        if internal_ips is not None:
+            body['internalIps'] = internal_ips
+        if network_purchase_type is not None:
+            body['networkPurchaseType'] = network_purchase_type
+        if is_keep_image_login is not None:
+            body['keepImageLogin'] = is_keep_image_login
+        if reserved_instance is not None:
+            body['reservedInstance'] = reserved_instance
         return self._send_request(http_methods.POST, path, json.dumps(body),
                                   params=params, config=config)
 
@@ -4352,7 +4492,8 @@ class BccClient(bce_base_client.BceBaseClient):
     @required(instance_id=(bytes, str))  # ***Unicode***
     def release_instance_with_related_resources(self, instance_id, related_release_flag=None,
                                                 delete_cds_snapshot_flag=None, delete_related_enis_flag=None,
-                                                bcc_recycle_flag=None, client_token=None, config=None):
+                                                bcc_recycle_flag=None, cds_attribute_active=None,
+                                                client_token=None, config=None):
         """
         Releasing the instance owned by the user.
         Only the Postpaid instance or Prepaid which is expired can be released.
@@ -4401,6 +4542,8 @@ class BccClient(bce_base_client.BceBaseClient):
             body['deleteRelatedEnisFlag'] = delete_related_enis_flag
         if bcc_recycle_flag is not None:
             body['bccRecycleFlag'] = bcc_recycle_flag
+        if bcc_recycle_flag is not None:
+            body['cdsAttributeActive'] = cds_attribute_active
         return self._send_request(http_methods.POST, path, body=json.dumps(body), params=params, config=config)
 
     @required(instance_id=(bytes, str))  # ***Unicode***
@@ -5527,8 +5670,10 @@ class BccClient(bce_base_client.BceBaseClient):
 
         return self._send_request(http_methods.PUT, path, body=json.dumps(body), params=params, config=config)
 
-    def batch_rebuild_instances(self, image_id, admin_pass, instance_ids, keypair_id=None,
-                                client_token=None, config=None):
+    def batch_rebuild_instances(self, image_id, admin_pass, instance_ids, keypair_id=None, is_keep_image_login=None,
+                                client_token=None, config=None, user_data=None, use_last_user_data=None,
+                                is_open_hostEye=None, sys_root_size=None, is_preserve_data=None, raid_id=None,
+                                data_partition_type=None, root_partition_type=None):
         """
         Batch rebuild instances.
 
@@ -5547,6 +5692,30 @@ class BccClient(bce_base_client.BceBaseClient):
         :param keypair_id:
             Set the id of the keypair to be bound. (optional param)
         :type keypair_id: string
+
+        :param user_data:
+            UserData of the instance.
+
+        :param use_last_user_data:
+            Use last user data.
+
+        :param is_open_hostEye:
+            Is open host eye.
+
+        :param sys_root_size:
+            System disk size.
+
+        :param is_preserve_data:
+            Preserve data.
+
+        :param raid_id:
+            Raid id.
+
+        :param data_partition_type:
+            Data partition type.
+
+        :param root_partition_type:
+            Root partition type.
 
         :return:
         :rtype baidubce.bce_response.BceResponse
@@ -5567,6 +5736,24 @@ class BccClient(bce_base_client.BceBaseClient):
             body['adminPass'] = cipher_admin_pass
         if keypair_id is not None:
             body['keypairId'] = keypair_id
+        if is_keep_image_login is not None:
+            body['keepImageLogin'] = is_keep_image_login
+        if user_data is not None:
+            body['userData'] = user_data
+        if use_last_user_data is not None:
+            body['useLastUserData'] = use_last_user_data
+        if is_open_hostEye is not None:
+            body['isOpenHostEye'] = is_open_hostEye
+        if sys_root_size is not None:
+            body['sysRootSize'] = sys_root_size
+        if is_preserve_data is not None:
+            body['isPreserveData'] = is_preserve_data
+        if raid_id is not None:
+            body['raidId'] = raid_id
+        if data_partition_type is not None:
+            body['dataPartitionType'] = data_partition_type
+        if root_partition_type is not None:
+            body['rootPartitionType'] = root_partition_type
         return self._send_request(http_methods.PUT, path, body=json.dumps(body), params=params, config=config)
 
     def change_to_prepaid(self, instance_id, duration, relation_cds, auto_renew, auto_renew_period=None,
@@ -5847,7 +6034,8 @@ class BccClient(bce_base_client.BceBaseClient):
 
     def batch_delete_instance_with_related_resource(self, instance_ids, related_release_flag=None,
                                                     delete_cds_snapshot_flag=None, delete_related_enis_flag=None,
-                                                    bcc_recycle_flag=None, client_token=None, config=None):
+                                                    bcc_recycle_flag=None, cds_attribute_active=None,
+                                                    client_token=None, config=None):
         """
         batch delete instance with related resource
 
@@ -5892,6 +6080,8 @@ class BccClient(bce_base_client.BceBaseClient):
             body['deleteRelatedEnisFlag'] = delete_related_enis_flag
         if bcc_recycle_flag is not None:
             body['bccRecycleFlag'] = bcc_recycle_flag
+        if bcc_recycle_flag is not None:
+            body['cdsAttributeActive'] = cds_attribute_active
         return self._send_request(http_methods.POST, path, body=json.dumps(body), params=params, config=config)
 
     def batch_start_instance(self, instance_ids, client_token=None, config=None):

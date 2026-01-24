@@ -1062,6 +1062,8 @@ class AlarmNotice(AbstractModel):
         :param _Tags: 通知模板绑定的标签
 注意：此字段可能返回 null，表示取不到有效值。
         :type Tags: list of Tag
+        :param _IsLoginFree: 是否免登录，0-否，1-是
+        :type IsLoginFree: int
         """
         self._Id = None
         self._Name = None
@@ -1076,6 +1078,7 @@ class AlarmNotice(AbstractModel):
         self._AMPConsumerId = None
         self._CLSNotices = None
         self._Tags = None
+        self._IsLoginFree = None
 
     @property
     def Id(self):
@@ -1233,6 +1236,17 @@ class AlarmNotice(AbstractModel):
     def Tags(self, Tags):
         self._Tags = Tags
 
+    @property
+    def IsLoginFree(self):
+        r"""是否免登录，0-否，1-是
+        :rtype: int
+        """
+        return self._IsLoginFree
+
+    @IsLoginFree.setter
+    def IsLoginFree(self, IsLoginFree):
+        self._IsLoginFree = IsLoginFree
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -1268,6 +1282,7 @@ class AlarmNotice(AbstractModel):
                 obj = Tag()
                 obj._deserialize(item)
                 self._Tags.append(obj)
+        self._IsLoginFree = params.get("IsLoginFree")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -2734,6 +2749,199 @@ class BasicAuth(AbstractModel):
         
 
 
+class BindProgressResponse(AbstractModel):
+    r"""绑定状态Response
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Steps: 绑定步骤
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Steps: list of BindProgressStep
+        :param _ClusterId: 集群id
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ClusterId: str
+        :param _Status: 集群绑定状态
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Status: str
+        """
+        self._Steps = None
+        self._ClusterId = None
+        self._Status = None
+
+    @property
+    def Steps(self):
+        r"""绑定步骤
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of BindProgressStep
+        """
+        return self._Steps
+
+    @Steps.setter
+    def Steps(self, Steps):
+        self._Steps = Steps
+
+    @property
+    def ClusterId(self):
+        r"""集群id
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def Status(self):
+        r"""集群绑定状态
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+
+    def _deserialize(self, params):
+        if params.get("Steps") is not None:
+            self._Steps = []
+            for item in params.get("Steps"):
+                obj = BindProgressStep()
+                obj._deserialize(item)
+                self._Steps.append(obj)
+        self._ClusterId = params.get("ClusterId")
+        self._Status = params.get("Status")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class BindProgressStep(AbstractModel):
+    r"""绑定进度参数
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _EndAt: 结束时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :type EndAt: str
+        :param _FailedMsg: 错误信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :type FailedMsg: str
+        :param _LifeState: 状态
+        :type LifeState: str
+        :param _StartAt: 开始时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :type StartAt: str
+        :param _Step: 任务进程
+"prepare_env"   // 准备环境,安装instance EKS
+"check_target"  // 检查target是否为running
+"install_crd"   // 安装需要测crd
+"install_rbac"  // 安装rbac
+"install_agent" // 安装agent
+"install_cr"    // 安装prometheus CR
+"install_basic" // 安装基础采集信息，标记target状态为normal
+        :type Step: str
+        """
+        self._EndAt = None
+        self._FailedMsg = None
+        self._LifeState = None
+        self._StartAt = None
+        self._Step = None
+
+    @property
+    def EndAt(self):
+        r"""结束时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._EndAt
+
+    @EndAt.setter
+    def EndAt(self, EndAt):
+        self._EndAt = EndAt
+
+    @property
+    def FailedMsg(self):
+        r"""错误信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._FailedMsg
+
+    @FailedMsg.setter
+    def FailedMsg(self, FailedMsg):
+        self._FailedMsg = FailedMsg
+
+    @property
+    def LifeState(self):
+        r"""状态
+        :rtype: str
+        """
+        return self._LifeState
+
+    @LifeState.setter
+    def LifeState(self, LifeState):
+        self._LifeState = LifeState
+
+    @property
+    def StartAt(self):
+        r"""开始时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._StartAt
+
+    @StartAt.setter
+    def StartAt(self, StartAt):
+        self._StartAt = StartAt
+
+    @property
+    def Step(self):
+        r"""任务进程
+"prepare_env"   // 准备环境,安装instance EKS
+"check_target"  // 检查target是否为running
+"install_crd"   // 安装需要测crd
+"install_rbac"  // 安装rbac
+"install_agent" // 安装agent
+"install_cr"    // 安装prometheus CR
+"install_basic" // 安装基础采集信息，标记target状态为normal
+        :rtype: str
+        """
+        return self._Step
+
+    @Step.setter
+    def Step(self, Step):
+        self._Step = Step
+
+
+    def _deserialize(self, params):
+        self._EndAt = params.get("EndAt")
+        self._FailedMsg = params.get("FailedMsg")
+        self._LifeState = params.get("LifeState")
+        self._StartAt = params.get("StartAt")
+        self._Step = params.get("Step")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class BindPrometheusManagedGrafanaRequest(AbstractModel):
     r"""BindPrometheusManagedGrafana请求参数结构体
 
@@ -3994,6 +4202,8 @@ class CreateAlarmNoticeRequest(AbstractModel):
         :type CLSNotices: list of CLSNotice
         :param _Tags: 模板绑定的标签
         :type Tags: list of Tag
+        :param _IsLoginFree: 是否免登录，0-否，1-是
+        :type IsLoginFree: int
         """
         self._Module = None
         self._Name = None
@@ -4003,6 +4213,7 @@ class CreateAlarmNoticeRequest(AbstractModel):
         self._URLNotices = None
         self._CLSNotices = None
         self._Tags = None
+        self._IsLoginFree = None
 
     @property
     def Module(self):
@@ -4092,6 +4303,17 @@ class CreateAlarmNoticeRequest(AbstractModel):
     def Tags(self, Tags):
         self._Tags = Tags
 
+    @property
+    def IsLoginFree(self):
+        r"""是否免登录，0-否，1-是
+        :rtype: int
+        """
+        return self._IsLoginFree
+
+    @IsLoginFree.setter
+    def IsLoginFree(self, IsLoginFree):
+        self._IsLoginFree = IsLoginFree
+
 
     def _deserialize(self, params):
         self._Module = params.get("Module")
@@ -4122,6 +4344,7 @@ class CreateAlarmNoticeRequest(AbstractModel):
                 obj = Tag()
                 obj._deserialize(item)
                 self._Tags.append(obj)
+        self._IsLoginFree = params.get("IsLoginFree")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -5721,7 +5944,8 @@ class CreateGrafanaInstanceRequest(AbstractModel):
         :type InstanceName: str
         :param _VpcId: VPC ID (私有网络 ID)
         :type VpcId: str
-        :param _SubnetIds: 子网 ID 数组(VPC ID下的子网 ID，只取第一个)
+        :param _SubnetIds: 子网 ID 数组(VPC ID下的子网 ID，只取第一个)。
+注意：并不是所有可用区都可用（可通过 monitor:DescribePrometheusZones 接口获取可用区状态，选择 ZoneState 和ZoneResourceState 都为1的可用区）
         :type SubnetIds: list of str
         :param _EnableInternet: 是否启用外网
         :type EnableInternet: bool
@@ -5764,7 +5988,8 @@ class CreateGrafanaInstanceRequest(AbstractModel):
 
     @property
     def SubnetIds(self):
-        r"""子网 ID 数组(VPC ID下的子网 ID，只取第一个)
+        r"""子网 ID 数组(VPC ID下的子网 ID，只取第一个)。
+注意：并不是所有可用区都可用（可通过 monitor:DescribePrometheusZones 接口获取可用区状态，选择 ZoneState 和ZoneResourceState 都为1的可用区）
         :rtype: list of str
         """
         return self._SubnetIds
@@ -10709,6 +10934,8 @@ class DescribeAlarmHistoriesRequest(AbstractModel):
         :type ConvergenceHistoryIDs: list of str
         :param _AlarmTypes: 告警类型
         :type AlarmTypes: list of str
+        :param _ShieldStatus: 是否已屏蔽
+        :type ShieldStatus: list of str
         """
         self._Module = None
         self._PageNumber = None
@@ -10731,6 +10958,7 @@ class DescribeAlarmHistoriesRequest(AbstractModel):
         self._AlarmLevels = None
         self._ConvergenceHistoryIDs = None
         self._AlarmTypes = None
+        self._ShieldStatus = None
 
     @property
     def Module(self):
@@ -10966,6 +11194,17 @@ class DescribeAlarmHistoriesRequest(AbstractModel):
     def AlarmTypes(self, AlarmTypes):
         self._AlarmTypes = AlarmTypes
 
+    @property
+    def ShieldStatus(self):
+        r"""是否已屏蔽
+        :rtype: list of str
+        """
+        return self._ShieldStatus
+
+    @ShieldStatus.setter
+    def ShieldStatus(self, ShieldStatus):
+        self._ShieldStatus = ShieldStatus
+
 
     def _deserialize(self, params):
         self._Module = params.get("Module")
@@ -10994,6 +11233,7 @@ class DescribeAlarmHistoriesRequest(AbstractModel):
         self._AlarmLevels = params.get("AlarmLevels")
         self._ConvergenceHistoryIDs = params.get("ConvergenceHistoryIDs")
         self._AlarmTypes = params.get("AlarmTypes")
+        self._ShieldStatus = params.get("ShieldStatus")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -14182,6 +14422,51 @@ class DescribeClusterAgentCreatingProgressRequest(AbstractModel):
 
     """
 
+    def __init__(self):
+        r"""
+        :param _InstanceId: prom实例id
+        :type InstanceId: str
+        :param _ClusterIds: 集群ids
+        :type ClusterIds: list of str
+        """
+        self._InstanceId = None
+        self._ClusterIds = None
+
+    @property
+    def InstanceId(self):
+        r"""prom实例id
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def ClusterIds(self):
+        r"""集群ids
+        :rtype: list of str
+        """
+        return self._ClusterIds
+
+    @ClusterIds.setter
+    def ClusterIds(self, ClusterIds):
+        self._ClusterIds = ClusterIds
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._ClusterIds = params.get("ClusterIds")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
 
 class DescribeClusterAgentCreatingProgressResponse(AbstractModel):
     r"""DescribeClusterAgentCreatingProgress返回参数结构体
@@ -14190,10 +14475,24 @@ class DescribeClusterAgentCreatingProgressResponse(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _Response: 绑定状态response
+        :type Response: list of BindProgressResponse
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
+        self._Response = None
         self._RequestId = None
+
+    @property
+    def Response(self):
+        r"""绑定状态response
+        :rtype: list of BindProgressResponse
+        """
+        return self._Response
+
+    @Response.setter
+    def Response(self, Response):
+        self._Response = Response
 
     @property
     def RequestId(self):
@@ -14208,6 +14507,12 @@ class DescribeClusterAgentCreatingProgressResponse(AbstractModel):
 
 
     def _deserialize(self, params):
+        if params.get("Response") is not None:
+            self._Response = []
+            for item in params.get("Response"):
+                obj = BindProgressResponse()
+                obj._deserialize(item)
+                self._Response.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -23175,6 +23480,154 @@ class DescribePrometheusScrapeJobsResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribePrometheusScrapeStatisticsRequest(AbstractModel):
+    r"""DescribePrometheusScrapeStatistics请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceIds: 实例ID列表
+        :type InstanceIds: list of str
+        :param _ClusterId: 集群ID
+        :type ClusterId: str
+        :param _JobType: job 类型
+        :type JobType: str
+        :param _Job: job 过滤，不写就是全部 job
+        :type Job: str
+        """
+        self._InstanceIds = None
+        self._ClusterId = None
+        self._JobType = None
+        self._Job = None
+
+    @property
+    def InstanceIds(self):
+        r"""实例ID列表
+        :rtype: list of str
+        """
+        return self._InstanceIds
+
+    @InstanceIds.setter
+    def InstanceIds(self, InstanceIds):
+        self._InstanceIds = InstanceIds
+
+    @property
+    def ClusterId(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def JobType(self):
+        r"""job 类型
+        :rtype: str
+        """
+        return self._JobType
+
+    @JobType.setter
+    def JobType(self, JobType):
+        self._JobType = JobType
+
+    @property
+    def Job(self):
+        r"""job 过滤，不写就是全部 job
+        :rtype: str
+        """
+        return self._Job
+
+    @Job.setter
+    def Job(self, Job):
+        self._Job = Job
+
+
+    def _deserialize(self, params):
+        self._InstanceIds = params.get("InstanceIds")
+        self._ClusterId = params.get("ClusterId")
+        self._JobType = params.get("JobType")
+        self._Job = params.get("Job")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribePrometheusScrapeStatisticsResponse(AbstractModel):
+    r"""DescribePrometheusScrapeStatistics返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Total: 总个数
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Total: int
+        :param _InstanceResults: 实例指标抓取速率详情
+注意：此字段可能返回 null，表示取不到有效值。
+        :type InstanceResults: list of PrometheusInstanceScrapeStatistics
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Total = None
+        self._InstanceResults = None
+        self._RequestId = None
+
+    @property
+    def Total(self):
+        r"""总个数
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Total
+
+    @Total.setter
+    def Total(self, Total):
+        self._Total = Total
+
+    @property
+    def InstanceResults(self):
+        r"""实例指标抓取速率详情
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of PrometheusInstanceScrapeStatistics
+        """
+        return self._InstanceResults
+
+    @InstanceResults.setter
+    def InstanceResults(self, InstanceResults):
+        self._InstanceResults = InstanceResults
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Total = params.get("Total")
+        if params.get("InstanceResults") is not None:
+            self._InstanceResults = []
+            for item in params.get("InstanceResults"):
+                obj = PrometheusInstanceScrapeStatistics()
+                obj._deserialize(item)
+                self._InstanceResults.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
 class DescribePrometheusTargetsTMPRequest(AbstractModel):
     r"""DescribePrometheusTargetsTMP请求参数结构体
 
@@ -23954,6 +24407,135 @@ class DescribeRemoteURLsResponse(AbstractModel):
             self._RemoteWrites = []
             for item in params.get("RemoteWrites"):
                 obj = RemoteWrite()
+                obj._deserialize(item)
+                self._RemoteWrites.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeRemoteWritesRequest(AbstractModel):
+    r"""DescribeRemoteWrites请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 实例 ID
+        :type InstanceId: str
+        :param _Offset: 列表 offset
+        :type Offset: int
+        :param _Limit: 返回 limit
+        :type Limit: int
+        """
+        self._InstanceId = None
+        self._Offset = None
+        self._Limit = None
+
+    @property
+    def InstanceId(self):
+        r"""实例 ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def Offset(self):
+        r"""列表 offset
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""返回 limit
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeRemoteWritesResponse(AbstractModel):
+    r"""DescribeRemoteWrites返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Count: 存储数据
+        :type Count: int
+        :param _RemoteWrites: 多写信息
+        :type RemoteWrites: list of WriteDestination
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Count = None
+        self._RemoteWrites = None
+        self._RequestId = None
+
+    @property
+    def Count(self):
+        r"""存储数据
+        :rtype: int
+        """
+        return self._Count
+
+    @Count.setter
+    def Count(self, Count):
+        self._Count = Count
+
+    @property
+    def RemoteWrites(self):
+        r"""多写信息
+        :rtype: list of WriteDestination
+        """
+        return self._RemoteWrites
+
+    @RemoteWrites.setter
+    def RemoteWrites(self, RemoteWrites):
+        self._RemoteWrites = RemoteWrites
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Count = params.get("Count")
+        if params.get("RemoteWrites") is not None:
+            self._RemoteWrites = []
+            for item in params.get("RemoteWrites"):
+                obj = WriteDestination()
                 obj._deserialize(item)
                 self._RemoteWrites.append(obj)
         self._RequestId = params.get("RequestId")
@@ -25293,7 +25875,7 @@ class GetMonitorDataRequest(AbstractModel):
         :type StartTime: str
         :param _EndTime: 结束时间，如2018-09-22T20:51:23+08:00，默认为当前时间。 EndTime不能小于StartTime
         :type EndTime: str
-        :param _SpecifyStatistics: 返回多种统计方式数据。avg, max, min (1,2,4)可以自由组合。注意: 仅支持对API配置文档中展示的统计方式返回对应的统计数据。如所需的统计方式不满足您的查询需求，请提工单反馈。
+        :param _SpecifyStatistics: 返回多种统计方式数据。avg, max, min (1,2,4)可以自由组合。特别说明：建议查询时严格参考API配置文档中提供的统计方式。如选择其他未提供的统计方式，可能有数据统计误差。
         :type SpecifyStatistics: int
         """
         self._Namespace = None
@@ -25372,7 +25954,7 @@ class GetMonitorDataRequest(AbstractModel):
 
     @property
     def SpecifyStatistics(self):
-        r"""返回多种统计方式数据。avg, max, min (1,2,4)可以自由组合。注意: 仅支持对API配置文档中展示的统计方式返回对应的统计数据。如所需的统计方式不满足您的查询需求，请提工单反馈。
+        r"""返回多种统计方式数据。avg, max, min (1,2,4)可以自由组合。特别说明：建议查询时严格参考API配置文档中提供的统计方式。如选择其他未提供的统计方式，可能有数据统计误差。
         :rtype: int
         """
         return self._SpecifyStatistics
@@ -28385,6 +28967,8 @@ class ModifyAlarmNoticeRequest(AbstractModel):
         :type CLSNotices: list of CLSNotice
         :param _PolicyIds: 告警通知模板绑定的告警策略ID列表
         :type PolicyIds: list of str
+        :param _IsLoginFree: 是否免登录，0-否，1-是
+        :type IsLoginFree: int
         """
         self._Module = None
         self._Name = None
@@ -28395,6 +28979,7 @@ class ModifyAlarmNoticeRequest(AbstractModel):
         self._URLNotices = None
         self._CLSNotices = None
         self._PolicyIds = None
+        self._IsLoginFree = None
 
     @property
     def Module(self):
@@ -28495,6 +29080,17 @@ class ModifyAlarmNoticeRequest(AbstractModel):
     def PolicyIds(self, PolicyIds):
         self._PolicyIds = PolicyIds
 
+    @property
+    def IsLoginFree(self):
+        r"""是否免登录，0-否，1-是
+        :rtype: int
+        """
+        return self._IsLoginFree
+
+    @IsLoginFree.setter
+    def IsLoginFree(self, IsLoginFree):
+        self._IsLoginFree = IsLoginFree
+
 
     def _deserialize(self, params):
         self._Module = params.get("Module")
@@ -28521,6 +29117,7 @@ class ModifyAlarmNoticeRequest(AbstractModel):
                 obj._deserialize(item)
                 self._CLSNotices.append(obj)
         self._PolicyIds = params.get("PolicyIds")
+        self._IsLoginFree = params.get("IsLoginFree")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -33446,6 +34043,98 @@ class PrometheusClusterAgentPodConfig(AbstractModel):
         
 
 
+class PrometheusClusterScrapeStatistics(AbstractModel):
+    r"""集群指标抓取统计
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterID: 集群ID
+        :type ClusterID: str
+        :param _ScrapedRate: 被采集的点数
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ScrapedRate: float
+        :param _Jobs: Job列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Jobs: list of PrometheusJobScrapeStatistics
+        :param _SamplesRate: 过滤前的指标采集速率
+注意：此字段可能返回 null，表示取不到有效值。
+        :type SamplesRate: float
+        """
+        self._ClusterID = None
+        self._ScrapedRate = None
+        self._Jobs = None
+        self._SamplesRate = None
+
+    @property
+    def ClusterID(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._ClusterID
+
+    @ClusterID.setter
+    def ClusterID(self, ClusterID):
+        self._ClusterID = ClusterID
+
+    @property
+    def ScrapedRate(self):
+        r"""被采集的点数
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: float
+        """
+        return self._ScrapedRate
+
+    @ScrapedRate.setter
+    def ScrapedRate(self, ScrapedRate):
+        self._ScrapedRate = ScrapedRate
+
+    @property
+    def Jobs(self):
+        r"""Job列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of PrometheusJobScrapeStatistics
+        """
+        return self._Jobs
+
+    @Jobs.setter
+    def Jobs(self, Jobs):
+        self._Jobs = Jobs
+
+    @property
+    def SamplesRate(self):
+        r"""过滤前的指标采集速率
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: float
+        """
+        return self._SamplesRate
+
+    @SamplesRate.setter
+    def SamplesRate(self, SamplesRate):
+        self._SamplesRate = SamplesRate
+
+
+    def _deserialize(self, params):
+        self._ClusterID = params.get("ClusterID")
+        self._ScrapedRate = params.get("ScrapedRate")
+        if params.get("Jobs") is not None:
+            self._Jobs = []
+            for item in params.get("Jobs"):
+                obj = PrometheusJobScrapeStatistics()
+                obj._deserialize(item)
+                self._Jobs.append(obj)
+        self._SamplesRate = params.get("SamplesRate")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class PrometheusConfigItem(AbstractModel):
     r"""prometheus配置
 
@@ -33634,6 +34323,114 @@ class PrometheusInstanceGrantInfo(AbstractModel):
         self._HasAgentManage = params.get("HasAgentManage")
         self._HasTkeManage = params.get("HasTkeManage")
         self._HasApiOperation = params.get("HasApiOperation")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class PrometheusInstanceScrapeStatistics(AbstractModel):
+    r"""实例抓取指标统计
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 实例ID
+        :type InstanceId: str
+        :param _ScrapedRate: 被采集的点数
+        :type ScrapedRate: float
+        :param _Clusters: 集群指标列表
+        :type Clusters: list of PrometheusClusterScrapeStatistics
+        :param _Global: 非容器指标列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Global: list of PrometheusClusterScrapeStatistics
+        :param _SamplesRate: 过滤前的指标采集速率
+        :type SamplesRate: float
+        """
+        self._InstanceId = None
+        self._ScrapedRate = None
+        self._Clusters = None
+        self._Global = None
+        self._SamplesRate = None
+
+    @property
+    def InstanceId(self):
+        r"""实例ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def ScrapedRate(self):
+        r"""被采集的点数
+        :rtype: float
+        """
+        return self._ScrapedRate
+
+    @ScrapedRate.setter
+    def ScrapedRate(self, ScrapedRate):
+        self._ScrapedRate = ScrapedRate
+
+    @property
+    def Clusters(self):
+        r"""集群指标列表
+        :rtype: list of PrometheusClusterScrapeStatistics
+        """
+        return self._Clusters
+
+    @Clusters.setter
+    def Clusters(self, Clusters):
+        self._Clusters = Clusters
+
+    @property
+    def Global(self):
+        r"""非容器指标列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of PrometheusClusterScrapeStatistics
+        """
+        return self._Global
+
+    @Global.setter
+    def Global(self, Global):
+        self._Global = Global
+
+    @property
+    def SamplesRate(self):
+        r"""过滤前的指标采集速率
+        :rtype: float
+        """
+        return self._SamplesRate
+
+    @SamplesRate.setter
+    def SamplesRate(self, SamplesRate):
+        self._SamplesRate = SamplesRate
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._ScrapedRate = params.get("ScrapedRate")
+        if params.get("Clusters") is not None:
+            self._Clusters = []
+            for item in params.get("Clusters"):
+                obj = PrometheusClusterScrapeStatistics()
+                obj._deserialize(item)
+                self._Clusters.append(obj)
+        if params.get("Global") is not None:
+            self._Global = []
+            for item in params.get("Global"):
+                obj = PrometheusClusterScrapeStatistics()
+                obj._deserialize(item)
+                self._Global.append(obj)
+        self._SamplesRate = params.get("SamplesRate")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -34644,6 +35441,94 @@ class PrometheusInstancesOverview(AbstractModel):
         
 
 
+class PrometheusJobScrapeStatistics(AbstractModel):
+    r"""Job抓取统计
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _JobName: Job 名
+        :type JobName: str
+        :param _ScrapedRate: 被采集的点数
+        :type ScrapedRate: float
+        :param _Metrics: 指标列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Metrics: list of PrometheusMetricScrapeStatistics
+        :param _JobType: Job 类型
+        :type JobType: str
+        """
+        self._JobName = None
+        self._ScrapedRate = None
+        self._Metrics = None
+        self._JobType = None
+
+    @property
+    def JobName(self):
+        r"""Job 名
+        :rtype: str
+        """
+        return self._JobName
+
+    @JobName.setter
+    def JobName(self, JobName):
+        self._JobName = JobName
+
+    @property
+    def ScrapedRate(self):
+        r"""被采集的点数
+        :rtype: float
+        """
+        return self._ScrapedRate
+
+    @ScrapedRate.setter
+    def ScrapedRate(self, ScrapedRate):
+        self._ScrapedRate = ScrapedRate
+
+    @property
+    def Metrics(self):
+        r"""指标列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of PrometheusMetricScrapeStatistics
+        """
+        return self._Metrics
+
+    @Metrics.setter
+    def Metrics(self, Metrics):
+        self._Metrics = Metrics
+
+    @property
+    def JobType(self):
+        r"""Job 类型
+        :rtype: str
+        """
+        return self._JobType
+
+    @JobType.setter
+    def JobType(self, JobType):
+        self._JobType = JobType
+
+
+    def _deserialize(self, params):
+        self._JobName = params.get("JobName")
+        self._ScrapedRate = params.get("ScrapedRate")
+        if params.get("Metrics") is not None:
+            self._Metrics = []
+            for item in params.get("Metrics"):
+                obj = PrometheusMetricScrapeStatistics()
+                obj._deserialize(item)
+                self._Metrics.append(obj)
+        self._JobType = params.get("JobType")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class PrometheusJobTargets(AbstractModel):
     r"""prometheus一个job的targets
 
@@ -34720,6 +35605,95 @@ class PrometheusJobTargets(AbstractModel):
         self._JobName = params.get("JobName")
         self._Total = params.get("Total")
         self._Up = params.get("Up")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class PrometheusMetricScrapeStatistics(AbstractModel):
+    r"""指标抓取统计
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _MetricName: 指标名
+注意：此字段可能返回 null，表示取不到有效值。
+        :type MetricName: str
+        :param _SamplesRate: 原始数据中的点数
+注意：此字段可能返回 null，表示取不到有效值。
+        :type SamplesRate: float
+        :param _ScrapedRate: 被采集的点数
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ScrapedRate: float
+        :param _IsRecommended: 是否推荐采集
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsRecommended: bool
+        """
+        self._MetricName = None
+        self._SamplesRate = None
+        self._ScrapedRate = None
+        self._IsRecommended = None
+
+    @property
+    def MetricName(self):
+        r"""指标名
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._MetricName
+
+    @MetricName.setter
+    def MetricName(self, MetricName):
+        self._MetricName = MetricName
+
+    @property
+    def SamplesRate(self):
+        r"""原始数据中的点数
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: float
+        """
+        return self._SamplesRate
+
+    @SamplesRate.setter
+    def SamplesRate(self, SamplesRate):
+        self._SamplesRate = SamplesRate
+
+    @property
+    def ScrapedRate(self):
+        r"""被采集的点数
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: float
+        """
+        return self._ScrapedRate
+
+    @ScrapedRate.setter
+    def ScrapedRate(self, ScrapedRate):
+        self._ScrapedRate = ScrapedRate
+
+    @property
+    def IsRecommended(self):
+        r"""是否推荐采集
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: bool
+        """
+        return self._IsRecommended
+
+    @IsRecommended.setter
+    def IsRecommended(self, IsRecommended):
+        self._IsRecommended = IsRecommended
+
+
+    def _deserialize(self, params):
+        self._MetricName = params.get("MetricName")
+        self._SamplesRate = params.get("SamplesRate")
+        self._ScrapedRate = params.get("ScrapedRate")
+        self._IsRecommended = params.get("IsRecommended")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -39483,12 +40457,15 @@ class UpdateExporterIntegrationRequest(AbstractModel):
         :type KubeType: int
         :param _ClusterId: 集群 ID，可不填
         :type ClusterId: str
+        :param _Disable: 值为true时禁用集成
+        :type Disable: bool
         """
         self._InstanceId = None
         self._Kind = None
         self._Content = None
         self._KubeType = None
         self._ClusterId = None
+        self._Disable = None
 
     @property
     def InstanceId(self):
@@ -39548,6 +40525,17 @@ class UpdateExporterIntegrationRequest(AbstractModel):
     def ClusterId(self, ClusterId):
         self._ClusterId = ClusterId
 
+    @property
+    def Disable(self):
+        r"""值为true时禁用集成
+        :rtype: bool
+        """
+        return self._Disable
+
+    @Disable.setter
+    def Disable(self, Disable):
+        self._Disable = Disable
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
@@ -39555,6 +40543,7 @@ class UpdateExporterIntegrationRequest(AbstractModel):
         self._Content = params.get("Content")
         self._KubeType = params.get("KubeType")
         self._ClusterId = params.get("ClusterId")
+        self._Disable = params.get("Disable")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -41420,6 +42409,42 @@ class UserNotice(AbstractModel):
         self._Weekday = params.get("Weekday")
         self._OnCallFormIDs = params.get("OnCallFormIDs")
         self._VoiceConfirmKey = params.get("VoiceConfirmKey")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class WriteDestination(AbstractModel):
+    r"""数据写向目标
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Destination: 存储标识
+        :type Destination: str
+        """
+        self._Destination = None
+
+    @property
+    def Destination(self):
+        r"""存储标识
+        :rtype: str
+        """
+        return self._Destination
+
+    @Destination.setter
+    def Destination(self, Destination):
+        self._Destination = Destination
+
+
+    def _deserialize(self, params):
+        self._Destination = params.get("Destination")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

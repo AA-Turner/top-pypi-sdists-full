@@ -17,7 +17,9 @@
 #
 from posix.types cimport mode_t
 
-from pylibsshext.includes.libssh cimport ssh_channel, ssh_session
+from libc cimport stdint
+
+from pylibsshext.includes.libssh cimport ssh_channel, ssh_session, ssh_string
 
 
 cdef extern from "libssh/sftp.h" nogil:
@@ -29,6 +31,31 @@ cdef extern from "libssh/sftp.h" nogil:
     struct sftp_file_struct:
         pass
     ctypedef sftp_file_struct * sftp_file
+
+    struct sftp_attributes_struct:
+        char *name
+        char *longname
+        stdint.uint32_t flags
+        stdint.uint8_t type
+        stdint.uint64_t size
+        stdint.uint32_t uid
+        stdint.uint32_t gid
+        char *owner
+        char *group
+        stdint.uint32_t permissions
+        stdint.uint64_t atime64
+        stdint.uint32_t atime
+        stdint.uint32_t atime_nseconds
+        stdint.uint64_t createtime
+        stdint.uint32_t createtime_nseconds
+        stdint.uint64_t mtime64
+        stdint.uint32_t mtime
+        stdint.uint32_t mtime_nseconds
+        ssh_string acl
+        stdint.uint32_t extended_count
+        ssh_string extended_type
+        ssh_string extended_data
+    ctypedef sftp_attributes_struct * sftp_attributes
 
     cdef int SSH_FX_OK
     cdef int SSH_FX_EOF
@@ -54,6 +81,9 @@ cdef extern from "libssh/sftp.h" nogil:
     ssize_t sftp_write(sftp_file file, const void *buf, size_t count)
     ssize_t sftp_read(sftp_file file, const void *buf, size_t count)
     int sftp_get_error(sftp_session sftp)
+
+    sftp_attributes sftp_stat(sftp_session session, const char *path)
+
 
 cdef extern from "sys/stat.h" nogil:
     cdef int S_IRWXU

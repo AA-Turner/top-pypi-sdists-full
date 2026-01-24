@@ -13,8 +13,8 @@ from wbcore.contrib.example_app.serializers import TeamResultsModelSerializer
 @pytest.mark.django_db
 class TestTeamResultSerializer(APITestCase):
     def test_result_serializer(self):
-        team = TeamFactory()
-        league = LeagueFactory()
+        team = TeamFactory.create()
+        league = LeagueFactory.create()
         result: dict = model_to_dict(TeamResultsFactory.build(team=team, league=league))
         result["games_played"] = 3
         result_serializer = TeamResultsModelSerializer(data=result)
@@ -22,7 +22,7 @@ class TestTeamResultSerializer(APITestCase):
         self.assertTrue(result_serializer.is_valid())
 
     def test_same_result(self):
-        result = TeamResultsFactory()
+        result = TeamResultsFactory.create()
         new_result: dict = model_to_dict(TeamResultsFactory.build(team=result.team, league=result.league))
         new_result["games_played"] = 3
 

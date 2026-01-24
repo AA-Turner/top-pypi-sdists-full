@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing_extensions import Annotated
 
 
@@ -43,45 +43,45 @@ class ComputePool(BaseModel):
     comment : str, optional
         Comment describing the compute pool.
     state : str, optional
-        Current state of the compute pool. Possible values include UNKNOWN, STARTING, IDLE, ACTIVE, STOPPING, SUSPENDED, and RESIZING.
+        Current state of the compute pool. Possible values include UNKNOWN, STARTING, IDLE, ACTIVE, STOPPING, SUSPENDED, and RESIZING — **Read-only:** *any user-provided value will be ignored.*
     num_services : int, optional
-        Number of services on the compute pool.
+        Number of services on the compute pool — **Read-only:** *any user-provided value will be ignored.*
     num_jobs : int, optional
-        Number of jobs on the compute pool.
+        Number of jobs on the compute pool — **Read-only:** *any user-provided value will be ignored.*
     auto_suspend_secs : int, optional
         Number of seconds until the compute pool automatically suspends.
     active_nodes : int, optional
-        Number of currently active nodes on the compute pool.
+        Number of currently active nodes on the compute pool — **Read-only:** *any user-provided value will be ignored.*
     idle_nodes : int, optional
-        Number of currently idle nodes on the compute pool.
+        Number of currently idle nodes on the compute pool — **Read-only:** *any user-provided value will be ignored.*
     target_nodes : int, optional
-        Number of target nodes on the compute pool.
+        Number of target nodes on the compute pool — **Read-only:** *any user-provided value will be ignored.*
     created_on : datetime, optional
-        Time the compute pool was created.
+        Time the compute pool was created — **Read-only:** *any user-provided value will be ignored.*
     resumed_on : datetime, optional
-        Time the compute pool was last resumed.
+        Time the compute pool was last resumed — **Read-only:** *any user-provided value will be ignored.*
     updated_on : datetime, optional
-        Time the compute pool was last updated.
+        Time the compute pool was last updated — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Identifier for the current owner of the compute pool.
+        Identifier for the current owner of the compute pool — **Read-only:** *any user-provided value will be ignored.*
     is_exclusive : bool, optional
-        Whether a compute pool is created exclusively for a Snowflake Native App.
+        Whether a compute pool is created exclusively for a Snowflake Native App — **Read-only:** *any user-provided value will be ignored.*
     application : str, optional
-        Name of the Snowflake Native App if the compute pool is created exclusively for the app.
+        Name of the Snowflake Native App if the compute pool is created exclusively for the app — **Read-only:** *any user-provided value will be ignored.*
     budget : str, optional
-        The name of the budget monitoring the credit usage of the compute pool.
+        The name of the budget monitoring the credit usage of the compute pool — **Read-only:** *any user-provided value will be ignored.*
     error_code : str, optional
-        Current error the compute pool hit if any.
+        Current error the compute pool hit if any — **Read-only:** *any user-provided value will be ignored.*
     status_message : str, optional
-        Current status of the compute pool if any.
+        Current status of the compute pool if any — **Read-only:** *any user-provided value will be ignored.*
     desired_nodes : int, optional
-        Number of nodes to maintain on the compute pool
+        Number of nodes to maintain on the compute pool — **Read-only:** *any user-provided value will be ignored.*
     desired_nodes_expire_after : datetime, optional
-        Time after which the desired nodes on the compute pool will expire.
+        Time after which the desired nodes on the compute pool will expire — **Read-only:** *any user-provided value will be ignored.*
     optimize_for_capacity : bool, optional
-        Whether the compute pool is optimized for capacity.
+        Whether the compute pool is optimized for capacity — **Read-only:** *any user-provided value will be ignored.*
     placement_group : str, optional
-        The name of the placement group on the compute pool.
+        The name of the placement group on the compute pool — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: Annotated[str, Field(strict=True)]
@@ -181,9 +181,10 @@ class ComputePool(BaseModel):
             )
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -230,7 +231,7 @@ class ComputePool(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -245,9 +246,9 @@ class ComputePool(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return ComputePool.parse_obj(obj)
+            return ComputePool.model_validate(obj)
 
-        _obj = ComputePool.parse_obj(
+        _obj = ComputePool.model_validate(
             {
                 "name": obj.get("name"),
                 "min_nodes": obj.get("min_nodes"),

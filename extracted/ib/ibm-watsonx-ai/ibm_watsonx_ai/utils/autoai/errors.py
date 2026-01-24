@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -579,7 +579,7 @@ class MissingMandatoryKey(WMLClientError, ValueError):
 class MaxSizeOfFileExceeded(WMLClientError, ValueError):
     def __init__(self, size, max_size):
         WMLClientError.__init__(
-            self, f"Size of upladed file is exceeding {max_size}B limit: {size}B."
+            self, f"Size of uploaded file is exceeding {max_size}B limit: {size}B."
         )
 
 
@@ -627,10 +627,10 @@ class FolderDownloadNotSupported(WMLClientError):
 
 
 class NoDocumentsLoaded(WMLClientError):
-    def __init__(self, class_name):
+    def __init__(self, last_exception):
         WMLClientError.__init__(
             self,
-            f"During documents loading no documents where loaded. "
-            f"Use `error_callback` parameter of `{class_name}` class to check the exceptions "
-            f"which were raised during documents loading.",
+            f"No documents were successfully loaded during the document loading process. "
+            f"The operation encountered an error: {last_exception}. "
+            f"Please review the error details and ensure the document source is accessible and valid.",
         )

@@ -13,7 +13,6 @@
 #   under the License.
 
 import base64
-import collections
 import getpass
 import json
 import tempfile
@@ -21,9 +20,11 @@ from unittest import mock
 import uuid
 
 import iso8601
+from openstack.compute.v2 import flavor as _flavor
 from openstack.compute.v2 import server as _server
 from openstack.compute.v2 import server_group as _server_group
 from openstack import exceptions as sdk_exceptions
+from openstack.image.v2 import image as _image
 from openstack.test import fakes as sdk_fakes
 from osc_lib.cli import format_columns
 from osc_lib import exceptions
@@ -1212,7 +1213,6 @@ class TestServerCreate(TestServer):
         'locked',
         'locked_reason',
         'name',
-        'pinned_availability_zone',
         'progress',
         'project_id',
         'properties',
@@ -1261,7 +1261,6 @@ class TestServerCreate(TestServer):
             None,  # locked
             None,  # locked_reason
             self.server.name,
-            None,  # pinned_availability_zone
             None,  # progress
             None,  # project_id
             format_columns.DictColumn({}),  # properties
@@ -4450,6 +4449,55 @@ class TestServerDelete(compute_fakes.TestComputev2):
         )
         self.assertIsNone(result)
 
+    def test_server_delete_multi_servers_with_exceptions(self):
+        servers = compute_fakes.create_servers(count=2)
+        self.compute_client.find_server.side_effect = [
+            servers[0],
+            sdk_exceptions.ResourceNotFound(),
+            servers[1],
+        ]
+
+        arglist = [servers[0].id, 'unexist_server', servers[1].id]
+
+        verifylist = [
+            ('force', False),
+            ('all_projects', False),
+            ('wait', False),
+            (
+                'server',
+                [servers[0].id, 'unexist_server', servers[1].id],
+            ),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        exc = self.assertRaises(
+            exceptions.CommandError,
+            self.cmd.take_action,
+            parsed_args,
+        )
+        self.assertEqual('1 of 3 servers failed to delete.', str(exc))
+
+        self.compute_client.find_server.assert_has_calls(
+            [
+                mock.call(
+                    servers[0].id, ignore_missing=False, all_projects=False
+                ),
+                mock.call(
+                    'unexist_server', ignore_missing=False, all_projects=False
+                ),
+                mock.call(
+                    servers[1].id, ignore_missing=False, all_projects=False
+                ),
+            ]
+        )
+
+        self.compute_client.delete_server.assert_has_calls(
+            [
+                mock.call(servers[0], force=False),
+                mock.call(servers[1], force=False),
+            ]
+        )
+
     def test_server_delete_with_all_projects(self):
         arglist = [
             self.server.id,
@@ -4583,10 +4631,8 @@ class _TestServerList(TestServer):
         'Flavor Name',
         'Flavor ID',
         'Availability Zone',
-        'Pinned Availability Zone',
         'Host',
         'Properties',
-        'Scheduler Hints',
     )
     columns_all_projects = (
         'ID',
@@ -4653,17 +4699,19 @@ class TestServerList(_TestServerList):
     def setUp(self):
         super().setUp()
 
-        Image = collections.namedtuple('Image', 'id name')
         self.image_client.images.return_value = [
-            Image(id=s.image['id'], name=self.image.name)
+            sdk_fakes.generate_fake_resource(
+                _image.Image, id=s.image['id'], name=self.image.name
+            )
             # Image will be an empty string if boot-from-volume
             for s in self.servers
             if s.image
         ]
 
-        Flavor = collections.namedtuple('Flavor', 'id name')
         self.compute_client.flavors.return_value = [
-            Flavor(id=s.flavor['id'], name=self.flavor.name)
+            sdk_fakes.generate_fake_resource(
+                _flavor.Flavor, id=s.flavor['id'], name=self.flavor.name
+            )
             for s in self.servers
         ]
 
@@ -4732,10 +4780,8 @@ class TestServerList(_TestServerList):
                 self.flavor.name,
                 s.flavor['id'],
                 getattr(s, 'availability_zone'),
-                getattr(s, 'pinned_availability_zone', ''),
                 server.HostColumn(getattr(s, 'hypervisor_hostname')),
                 format_columns.DictColumn(s.metadata),
-                format_columns.DictListColumn(None),
             )
             for s in self.servers
         )
@@ -4809,13 +4855,9 @@ class TestServerList(_TestServerList):
             '-c',
             'Availability Zone',
             '-c',
-            'Pinned Availability Zone',
-            '-c',
             'Host',
             '-c',
             'Properties',
-            '-c',
-            'Scheduler Hints',
             '--long',
         ]
         verifylist = [
@@ -4835,10 +4877,8 @@ class TestServerList(_TestServerList):
         self.assertIn('Image ID', columns)
         self.assertIn('Flavor ID', columns)
         self.assertIn('Availability Zone', columns)
-        self.assertIn('Pinned Availability Zone', columns)
         self.assertIn('Host', columns)
         self.assertIn('Properties', columns)
-        self.assertIn('Scheduler Hints', columns)
         self.assertCountEqual(columns, set(columns))
 
     def test_server_list_no_name_lookup_option(self):
@@ -5249,10 +5289,8 @@ class TestServerList(_TestServerList):
                 self.flavor.name,
                 s.flavor['id'],
                 getattr(s, 'availability_zone'),
-                getattr(s, 'pinned_availability_zone', ''),
                 server.HostColumn(getattr(s, 'hypervisor_hostname')),
                 format_columns.DictColumn(s.metadata),
-                format_columns.DictListColumn(s.scheduler_hints),
             )
             for s in self.servers
         )
@@ -5281,9 +5319,10 @@ class TestServerList(_TestServerList):
         self.compute_client.servers.return_value = servers
 
         # Make sure the returned image and flavor IDs match the servers.
-        Image = collections.namedtuple('Image', 'id name')
         self.image_client.images.return_value = [
-            Image(id=s.image['id'], name=self.image.name)
+            sdk_fakes.generate_fake_resource(
+                _image.Image, id=s.image['id'], name=self.image.name
+            )
             # Image will be an empty string if boot-from-volume
             for s in servers
             if s.image
@@ -5305,10 +5344,8 @@ class TestServerList(_TestServerList):
                 self.flavor.name,
                 s.flavor['id'],
                 getattr(s, 'availability_zone'),
-                getattr(s, 'pinned_availability_zone', ''),
                 server.HostColumn(getattr(s, 'hypervisor_hostname')),
                 format_columns.DictColumn(s.metadata),
-                format_columns.DictListColumn(s.scheduler_hints),
                 s.host_status,
             )
             for s in servers
@@ -5343,7 +5380,6 @@ class TestServerListV273(_TestServerList):
         'Image ID',
         'Flavor',
         'Availability Zone',
-        'Pinned Availability Zone',
         'Host',
         'Properties',
         'Scheduler Hints',
@@ -5368,9 +5404,10 @@ class TestServerListV273(_TestServerList):
         self.servers = self.setup_sdk_servers_mock(3)
         self.compute_client.servers.return_value = self.servers
 
-        Image = collections.namedtuple('Image', 'id name')
         self.image_client.images.return_value = [
-            Image(id=s.image['id'], name=self.image.name)
+            sdk_fakes.generate_fake_resource(
+                _image.Image, id=s.image['id'], name=self.image.name
+            )
             # Image will be an empty string if boot-from-volume
             for s in self.servers
             if s.image
@@ -5539,6 +5576,307 @@ class TestServerListV273(_TestServerList):
             '',
         )
         self.assertEqual(expected_row, partial_server)
+
+
+class TestServerListV296(_TestServerList):
+    columns = (
+        'ID',
+        'Name',
+        'Status',
+        'Networks',
+        'Image',
+        'Flavor',
+    )
+    columns_long = (
+        'ID',
+        'Name',
+        'Status',
+        'Task State',
+        'Power State',
+        'Networks',
+        'Image Name',
+        'Image ID',
+        'Flavor',
+        'Availability Zone',
+        'Host',
+        'Properties',
+        'Pinned Availability Zone',
+    )
+
+    def setUp(self):
+        super().setUp()
+        self.set_compute_api_version('2.96')
+
+        self.image_client.images.return_value = [
+            sdk_fakes.generate_fake_resource(
+                _image.Image, id=s.image['id'], name=self.image.name
+            )
+            # Image will be an empty string if boot-from-volume
+            for s in self.servers
+            if s.image
+        ]
+
+        self.compute_client.flavors.return_value = [
+            sdk_fakes.generate_fake_resource(
+                _flavor.Flavor, id=s.flavor['id'], name=self.flavor.name
+            )
+            for s in self.servers
+        ]
+
+        self.data = tuple(
+            (
+                s.id,
+                s.name,
+                s.status,
+                server.AddressesColumn(s.addresses),
+                # Image will be an empty string if boot-from-volume
+                self.image.name if s.image else server.IMAGE_STRING_FOR_BFV,
+                self.flavor.name,
+            )
+            for s in self.servers
+        )
+
+    def test_server_list_long_option(self):
+        self.data = tuple(
+            (
+                s.id,
+                s.name,
+                s.status,
+                getattr(s, 'task_state'),
+                server.PowerStateColumn(getattr(s, 'power_state')),
+                server.AddressesColumn(s.addresses),
+                # Image will be an empty string if boot-from-volume
+                self.image.name if s.image else server.IMAGE_STRING_FOR_BFV,
+                s.image['id'] if s.image else server.IMAGE_STRING_FOR_BFV,
+                self.flavor.name,
+                getattr(s, 'availability_zone'),
+                server.HostColumn(getattr(s, 'hypervisor_hostname')),
+                format_columns.DictColumn(s.metadata),
+                getattr(s, 'pinned_availability_zone', ''),
+            )
+            for s in self.servers
+        )
+        arglist = [
+            '--long',
+        ]
+        verifylist = [
+            ('all_projects', False),
+            ('long', True),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        columns, data = self.cmd.take_action(parsed_args)
+        self.compute_client.servers.assert_called_with(**self.kwargs)
+        image_ids = {s.image['id'] for s in self.servers if s.image}
+        self.image_client.images.assert_called_once_with(
+            id=f'in:{",".join(image_ids)}',
+        )
+        self.compute_client.flavors.assert_called_once_with(is_public=None)
+        self.assertEqual(self.columns_long, columns)
+        self.assertEqual(self.data, tuple(data))
+
+    def test_server_list_column_option(self):
+        arglist = [
+            '-c',
+            'Project ID',
+            '-c',
+            'User ID',
+            '-c',
+            'Created At',
+            '-c',
+            'Security Groups',
+            '-c',
+            'Task State',
+            '-c',
+            'Power State',
+            '-c',
+            'Image ID',
+            '-c',
+            'Flavor ID',
+            '-c',
+            'Availability Zone',
+            '-c',
+            'Host',
+            '-c',
+            'Properties',
+            '-c',
+            'Pinned Availability Zone',
+            '--long',
+        ]
+        verifylist = [
+            ('long', True),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        columns, data = self.cmd.take_action(parsed_args)
+
+        self.compute_client.servers.assert_called_with(**self.kwargs)
+        self.assertIn('Project ID', columns)
+        self.assertIn('User ID', columns)
+        self.assertIn('Created At', columns)
+        self.assertIn('Security Groups', columns)
+        self.assertIn('Task State', columns)
+        self.assertIn('Power State', columns)
+        self.assertIn('Image ID', columns)
+        self.assertIn('Flavor ID', columns)
+        self.assertIn('Availability Zone', columns)
+        self.assertIn('Pinned Availability Zone', columns)
+        self.assertIn('Host', columns)
+        self.assertIn('Properties', columns)
+        self.assertCountEqual(columns, set(columns))
+
+
+class TestServerListV2100(_TestServerList):
+    columns = (
+        'ID',
+        'Name',
+        'Status',
+        'Networks',
+        'Image',
+        'Flavor',
+    )
+    columns_long = (
+        'ID',
+        'Name',
+        'Status',
+        'Task State',
+        'Power State',
+        'Networks',
+        'Image Name',
+        'Image ID',
+        'Flavor',
+        'Availability Zone',
+        'Host',
+        'Properties',
+        'Pinned Availability Zone',
+        'Scheduler Hints',
+    )
+
+    def setUp(self):
+        super().setUp()
+        self.set_compute_api_version('2.100')
+
+        self.image_client.images.return_value = [
+            sdk_fakes.generate_fake_resource(
+                _image.Image, id=s.image['id'], name=self.image.name
+            )
+            # Image will be an empty string if boot-from-volume
+            for s in self.servers
+            if s.image
+        ]
+
+        self.compute_client.flavors.return_value = [
+            sdk_fakes.generate_fake_resource(
+                _flavor.Flavor, id=s.flavor['id'], name=self.flavor.name
+            )
+            for s in self.servers
+        ]
+
+        self.data = tuple(
+            (
+                s.id,
+                s.name,
+                s.status,
+                server.AddressesColumn(s.addresses),
+                # Image will be an empty string if boot-from-volume
+                self.image.name if s.image else server.IMAGE_STRING_FOR_BFV,
+                self.flavor.name,
+            )
+            for s in self.servers
+        )
+
+    def test_server_list_long_option(self):
+        self.data = tuple(
+            (
+                s.id,
+                s.name,
+                s.status,
+                getattr(s, 'task_state'),
+                server.PowerStateColumn(getattr(s, 'power_state')),
+                server.AddressesColumn(s.addresses),
+                # Image will be an empty string if boot-from-volume
+                self.image.name if s.image else server.IMAGE_STRING_FOR_BFV,
+                s.image['id'] if s.image else server.IMAGE_STRING_FOR_BFV,
+                self.flavor.name,
+                getattr(s, 'availability_zone'),
+                server.HostColumn(getattr(s, 'hypervisor_hostname')),
+                format_columns.DictColumn(s.metadata),
+                getattr(s, 'pinned_availability_zone', ''),
+                format_columns.DictListColumn(None),
+            )
+            for s in self.servers
+        )
+        arglist = [
+            '--long',
+        ]
+        verifylist = [
+            ('all_projects', False),
+            ('long', True),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        columns, data = self.cmd.take_action(parsed_args)
+        self.compute_client.servers.assert_called_with(**self.kwargs)
+        image_ids = {s.image['id'] for s in self.servers if s.image}
+        self.image_client.images.assert_called_once_with(
+            id=f'in:{",".join(image_ids)}',
+        )
+        self.compute_client.flavors.assert_called_once_with(is_public=None)
+        self.assertEqual(self.columns_long, columns)
+        self.assertEqual(self.data, tuple(data))
+
+    def test_server_list_column_option(self):
+        arglist = [
+            '-c',
+            'Project ID',
+            '-c',
+            'User ID',
+            '-c',
+            'Created At',
+            '-c',
+            'Security Groups',
+            '-c',
+            'Task State',
+            '-c',
+            'Power State',
+            '-c',
+            'Image ID',
+            '-c',
+            'Flavor ID',
+            '-c',
+            'Availability Zone',
+            '-c',
+            'Host',
+            '-c',
+            'Properties',
+            '-c',
+            'Pinned Availability Zone',
+            '-c',
+            'Scheduler Hints',
+            '--long',
+        ]
+        verifylist = [
+            ('long', True),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        columns, data = self.cmd.take_action(parsed_args)
+
+        self.compute_client.servers.assert_called_with(**self.kwargs)
+        self.assertIn('Project ID', columns)
+        self.assertIn('User ID', columns)
+        self.assertIn('Created At', columns)
+        self.assertIn('Security Groups', columns)
+        self.assertIn('Task State', columns)
+        self.assertIn('Power State', columns)
+        self.assertIn('Image ID', columns)
+        self.assertIn('Flavor ID', columns)
+        self.assertIn('Availability Zone', columns)
+        self.assertIn('Pinned Availability Zone', columns)
+        self.assertIn('Host', columns)
+        self.assertIn('Properties', columns)
+        self.assertIn('Scheduler Hints', columns)
+        self.assertCountEqual(columns, set(columns))
 
 
 class TestServerAction(compute_fakes.TestComputev2):
@@ -8533,7 +8871,6 @@ class TestServerShow(TestServer):
             'locked',
             'locked_reason',
             'name',
-            'pinned_availability_zone',
             'progress',
             'project_id',
             'properties',
@@ -8583,7 +8920,6 @@ class TestServerShow(TestServer):
             None,  # locked
             None,  # locked_reason
             self.server.name,
-            None,  # pinned_availability_zone
             None,  # progress
             'tenant-id-xxx',  # project_id
             format_columns.DictColumn({}),  # properties
@@ -9522,7 +9858,6 @@ class TestServerGeneral(TestServer):
             'locked': None,
             'locked_reason': None,
             'name': _server.name,
-            'pinned_availability_zone': None,
             'progress': None,
             'project_id': 'tenant-id-xxx',
             'properties': format_columns.DictColumn({}),
@@ -9609,7 +9944,6 @@ class TestServerGeneral(TestServer):
             'locked': None,
             'locked_reason': None,
             'name': _server.name,
-            'pinned_availability_zone': None,
             'progress': None,
             'project_id': 'tenant-id-xxx',
             'properties': format_columns.DictColumn({}),

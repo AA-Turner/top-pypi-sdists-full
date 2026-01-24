@@ -8,8 +8,9 @@ from typing import List, Optional
 from botocore.exceptions import ClientError
 import click
 import colorama
+from rich.console import Console
+from rich.status import Status
 
-from anyscale.anyscale_halo import Halo
 from anyscale.client.openapi_client.models import (
     CloudAnalyticsEventCloudProviderError,
     CloudAnalyticsEventCloudResource,
@@ -31,6 +32,38 @@ def bold(text: str, color: Optional[int] = None) -> str:
 INDENT = " " * 2
 
 
+class SpinnerManager:
+    """
+    Thin wrapper around Rich's Status spinner that adds a text property.
+
+    Rich's Status already has start() and stop() methods, but doesn't expose
+    the text as a readable property. This wrapper adds that capability.
+    """
+
+    def __init__(self, status: Status, initial_text: str):
+        self._status = status
+        self._text = initial_text
+
+    def start(self) -> None:
+        """Start the spinner animation."""
+        self._status.start()
+
+    def stop(self) -> None:
+        """Stop the spinner animation."""
+        self._status.stop()
+
+    @property
+    def text(self) -> str:
+        """Get the current spinner text."""
+        return self._text
+
+    @text.setter
+    def text(self, value: str) -> None:
+        """Set the spinner text."""
+        self._text = value
+        self._status.update(value)
+
+
 def pad_string(text: str, padding: int = 10) -> str:
     """Pads the remainder of text with spaces (`spaces == padding - len(text)`)
 
@@ -49,7 +82,7 @@ class BlockLogger:
         self,
         log_output: bool = True,
         t0: float = _process_start_time,
-        spinner_manager: Optional[Halo] = None,
+        spinner_manager=None,
     ) -> None:
         self.t0 = t0
         # Flag to disable all terminal output from CLILogger (useful for SDK)
@@ -228,35 +261,33 @@ class BlockLogger:
 
     @contextmanager
     def spinner(self, msg: str):
-        """DEPRECATED:
-
-        See https://github.com/manrajgrover/halo/issues/179.
-        This `Halo` spinner is not compatible with newer Python notebook versions.
-        (iPython and Jupyter)
-
-        Use `rich.spinner.Spinner` or `rich.progress.Progress` instead.
-
-        ---
-        Create a spinner with the starting text.
-
-        To update the text next to the spinner, set `spinner.text = "new_text"`
-        The spinner will be stopped when the context is exited.
-        Spinner is only enabled for interactive shell
         """
+        Simple spinner for long-running operations.
 
-        enable_spinner = self.is_interactive_cli_enabled()
+        Uses Rich's status spinner. Rich automatically handles non-TTY
+        environments gracefully (no animation, just static text).
 
-        with Halo(
-            text=msg, spinner="dots", stream=sys.stderr, enabled=enable_spinner
-        ) as spinner:
-            yield spinner
+        Yields a SpinnerManager that can be used to control the spinner
+        (start/stop) and passed to other functions that need spinner control.
 
-    def is_interactive_cli_enabled(self) -> bool:
-        """Check if shell is interactive
+        Example:
+            with self.log.spinner("Creating resources...") as spinner:
+                create_resources()
+                # Pass spinner to functions that may need to pause it
+                some_function(spinner_manager=spinner)
+
+            with self.spinner("Creating resources..."):
+                # work without capturing the spinner as well
+                pass
         """
-
-        default_env_var = "1" if sys.stderr.isatty() else "0"
-        return os.environ.get("ANYSCALE_CLI_INTERACTIVE_UX", default_env_var) == "1"
+        console = Console(stderr=True)
+        status = Status(msg, spinner="dots", console=console)
+        spinner_manager = SpinnerManager(status, initial_text=msg)
+        try:
+            spinner_manager.start()
+            yield spinner_manager
+        finally:
+            spinner_manager.stop()
 
 
 class LogsLogger(BlockLogger):
@@ -289,7 +320,7 @@ class CloudSetupLogger(LogsLogger):
         self,
         log_output: bool = True,
         t0: float = _process_start_time,
-        spinner_manager: Optional[Halo] = None,
+        spinner_manager=None,
     ):
         self.cloud_resource_errors: List[CloudAnalyticsEventCloudProviderError] = []
         super().__init__(log_output, t0, spinner_manager)

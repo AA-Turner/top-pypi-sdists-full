@@ -2,29 +2,30 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 from pymatgen.analysis.phase_diagram import PhaseDiagram
 from pymatgen.apps.battery.battery_abc import AbstractElectrode
 from pymatgen.apps.battery.conversion_battery import ConversionElectrode
 from pymatgen.apps.battery.insertion_battery import InsertionElectrode
-from pymatgen.core import Composition, Structure
+from pymatgen.core import Composition
 from pymatgen.core.periodic_table import DummySpecies, Element, Species
 from pymatgen.entries.computed_entries import ComputedEntry, ComputedStructureEntry
 
-from emmet.core.common import convert_datetime
-from emmet.core.mpid import MPID
-from emmet.core.utils import ValueEnum, utcnow
-
-
-class BatteryType(str, ValueEnum):
-    """
-    Enum for battery type
-    """
-
-    insertion = "insertion"
-    conversion = "conversion"
+from emmet.core.base import EmmetBaseModel
+from emmet.core.types.enums import BatteryType
+from emmet.core.types.pymatgen_types.balanced_reaction_adapter import (
+    BalancedReactionType,
+)
+from emmet.core.types.pymatgen_types.composition_adapter import CompositionType
+from emmet.core.types.pymatgen_types.electrode_adapter import (
+    ConversionElectrodeType,
+    InsertionElectrodeType,
+)
+from emmet.core.types.pymatgen_types.element_adapter import ElementType
+from emmet.core.types.pymatgen_types.structure_adapter import StructureType
+from emmet.core.types.typing import DateTimeType, IdentifierType
+from emmet.core.utils import type_override, utcnow
 
 
 class VoltagePairDoc(BaseModel):
@@ -84,6 +85,7 @@ class VoltagePairDoc(BaseModel):
         return cls(**sub_electrode.get_summary_dict(), **kwargs)
 
 
+@type_override({"id_charge": IdentifierType, "id_discharge": IdentifierType})
 class InsertionVoltagePairDoc(VoltagePairDoc):
     """
     Features specific to insertion electrode
@@ -97,11 +99,11 @@ class InsertionVoltagePairDoc(VoltagePairDoc):
         None, description="The energy above hull of the discharged material in eV/atom."
     )
 
-    id_charge: MPID | int | None | None = Field(
+    id_charge: IdentifierType | int | None = Field(
         None, description="The Materials Project ID of the charged structure."
     )
 
-    id_discharge: MPID | int | None | None = Field(
+    id_discharge: IdentifierType | int | None = Field(
         None, description="The Materials Project ID of the discharged structure."
     )
 
@@ -111,12 +113,13 @@ class ConversionVoltagePairDoc(VoltagePairDoc):
     Features specific to conversion electrode
     """
 
-    reaction: dict | None = Field(
+    reaction: BalancedReactionType | None = Field(
         None,
         description="The reaction that characterizes that particular voltage step.",
     )
 
 
+@type_override({"all_elements": list[ElementType]})
 class EntriesCompositionSummary(BaseModel):
     """
     Composition summary data for all material entries associated with this electrode.
@@ -138,12 +141,12 @@ class EntriesCompositionSummary(BaseModel):
         description="Anonymous formulas for material entries across all voltage pairs.",
     )
 
-    all_elements: list[Element | Species | DummySpecies] | None = Field(
+    all_elements: list[ElementType | Species | DummySpecies] | None = Field(
         None,
         description="Elements in material entries across all voltage pairs.",
     )
 
-    all_composition_reduced: dict | None = Field(
+    all_composition_reduced: dict[str, list[float]] | None = Field(
         None,
         description="Composition reduced data for entries across all voltage pairs.",
     )
@@ -174,7 +177,7 @@ class EntriesCompositionSummary(BaseModel):
         )
 
 
-class BaseElectrode(BaseModel):
+class BaseElectrode(EmmetBaseModel):
     battery_type: BatteryType | None = Field(
         None, description="The type of battery (insertion or conversion)."
     )
@@ -195,7 +198,7 @@ class BaseElectrode(BaseModel):
         description="Reduced formula with working ion range produced by combining the charge and discharge formulas.",
     )
 
-    working_ion: Element | None = Field(
+    working_ion: ElementType | None = Field(
         None, description="The working ion as an Element object."
     )
 
@@ -209,12 +212,11 @@ class BaseElectrode(BaseModel):
         None, description="Maximum absolute difference in adjacent voltage steps."
     )
 
-    last_updated: datetime = Field(
-        default_factory=utcnow,
+    last_updated: DateTimeType = Field(
         description="Timestamp for the most recent calculation for this Material document.",
     )
 
-    framework: Composition | None = Field(
+    framework: CompositionType | None = Field(
         None, description="The chemical compositions of the host framework."
     )
 
@@ -222,7 +224,7 @@ class BaseElectrode(BaseModel):
         None, description="The id for this battery document."
     )
 
-    elements: list[Element] | None = Field(
+    elements: list[ElementType] | None = Field(
         None,
         description="The atomic species contained in this electrode (not including the working ion).",
     )
@@ -247,19 +249,13 @@ class BaseElectrode(BaseModel):
         [], description="Any warnings related to this electrode data."
     )
 
-    # Make sure that the datetime field is properly formatted
-    @field_validator("last_updated", mode="before")
-    @classmethod
-    def handle_datetime(cls, v):
-        return convert_datetime(cls, v)
-
 
 class InsertionElectrodeDoc(InsertionVoltagePairDoc, BaseElectrode):
     """
     Insertion electrode
     """
 
-    host_structure: Structure | None = Field(
+    host_structure: StructureType | None = Field(
         None, description="Host structure (structure without the working ion)."
     )
 
@@ -267,7 +263,7 @@ class InsertionElectrodeDoc(InsertionVoltagePairDoc, BaseElectrode):
         None, description="Returns all of the voltage steps material pairs."
     )
 
-    material_ids: list[MPID] | None = Field(
+    material_ids: list[IdentifierType] | None = Field(
         None,
         description="The ids of all structures that matched to the present host lattice, regardless of stability. "
         "The stable entries can be found in the adjacent pairs.",
@@ -278,8 +274,9 @@ class InsertionElectrodeDoc(InsertionVoltagePairDoc, BaseElectrode):
         description="Composition summary data for all material in entries across all voltage pairs.",
     )
 
-    electrode_object: InsertionElectrode | None = Field(
-        None, description="The Pymatgen electrode object."
+    electrode_object: InsertionElectrodeType | None = Field(
+        None,
+        description="The Pymatgen electrode object.",
     )
 
     @classmethod
@@ -289,7 +286,7 @@ class InsertionElectrodeDoc(InsertionVoltagePairDoc, BaseElectrode):
         working_ion_entry: ComputedEntry,
         battery_id: str,
         strip_structures: bool = False,
-    ) -> "InsertionElectrodeDoc" | None:
+    ) -> InsertionElectrodeDoc | None:
         try:
             ie = InsertionElectrode.from_entries(
                 entries=grouped_entries,
@@ -447,7 +444,7 @@ class ConversionElectrodeDoc(ConversionVoltagePairDoc, BaseElectrode):
         None, description="Returns all of the voltage steps material pairs."
     )
 
-    electrode_object: ConversionElectrode | None = Field(
+    electrode_object: ConversionElectrodeType | None = Field(
         None, description="The Pymatgen conversion electrode object."
     )
 

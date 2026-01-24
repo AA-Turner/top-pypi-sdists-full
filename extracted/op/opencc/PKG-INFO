@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: OpenCC
-Version: 1.1.9
+Version: 1.2.0
 Summary:  Conversion between Traditional and Simplified Chinese
 Home-page: https://github.com/BYVoid/OpenCC
 Author: Carbo Kuo, Peng Huang, Kefu Chai, LI Daobing, Asias, Peng Wu, Xiaojun Ma, 佛振
@@ -21,9 +21,20 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Localization
 Classifier: Topic :: Text Processing :: Linguistic
+Classifier: Typing :: Typed
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
 
 # Open Chinese Convert 開放中文轉換
 
@@ -60,7 +71,7 @@ Discussion (Telegram): https://t.me/open_chinese_convert
 * [Ubuntu](https://launchpad.net/ubuntu/+source/opencc)
 * [Fedora](https://packages.fedoraproject.org/pkgs/opencc/opencc/)
 * [Arch Linux](https://archlinux.org/packages/extra/x86_64/opencc/)
-* [Mac](https://formulae.brew.sh/formula/opencc)
+* [macOS](https://formulae.brew.sh/formula/opencc)
 * [Bazel](https://registry.bazel.build/modules/opencc)
 * [Node.js](https://npmjs.org/package/opencc)
 * [Python](https://pypi.org/project/OpenCC/)
@@ -105,7 +116,7 @@ See [demo.js](https://github.com/BYVoid/OpenCC/blob/master/node/demo.js) and [ts
 
 ### Python
 
-`pip install opencc` (Windows, Linux, Mac)
+`pip install opencc` (Windows, Linux, macOS)
 
 ```python
 import opencc
@@ -159,9 +170,11 @@ Document 文檔: https://byvoid.github.io/OpenCC/
 * Android: [android-opencc](https://github.com/qichuan/android-opencc)
 * PHP: [opencc4php](https://github.com/nauxliu/opencc4php)
 * Pure JavaScript: [opencc-js](https://github.com/nk2028/opencc-js)
-* WebAssembly: [wasm-opencc](https://github.com/oyyd/wasm-opencc)
+* WebAssembly:
+    * [opencc-wasm](https://www.npmjs.com/package/opencc-wasm) ([website](https://opencc.js.org/))
+    * [wasm-opencc](https://github.com/oyyd/wasm-opencc)
 * Browser Extension: [opencc-extension](https://github.com/tnychn/opencc-extension)
-* Go (Pure): [OpenCC for Go](https://github.com/longbridgeapp/opencc)
+* Go (Pure): [OpenCC for Go](https://github.com/longbridge/opencc)
 * Dart (native-assets): [opencc-dart](https://github.com/lindeer/opencc-dart)
 
 ### Configurations 配置文件
@@ -187,7 +200,7 @@ Document 文檔: https://byvoid.github.io/OpenCC/
 
 ### Build with CMake
 
-#### Linux & Mac OS X
+#### Linux & macOS
 
 g++ 4.6+ or clang 3.2+ is required.
 
@@ -205,12 +218,11 @@ build.cmd
 
 ```bash
 bazel build //:opencc
-bazel test --test_output=all //src/... //data/... //test/...
 ```
 
 ### Test 測試
 
-#### Linux & Mac OS X
+#### Linux & macOS
 
 ```
 make test
@@ -220,6 +232,12 @@ make test
 
 ```bash
 test.cmd
+```
+
+#### Test with Bazel
+
+```bash
+bazel test --test_output=all //src/... //data/... //python/... //test/...
 ```
 
 ### Benchmark 基準測試
@@ -265,6 +283,7 @@ Please update if your project is using OpenCC.
 * [ibus-libpinyin](https://github.com/libpinyin/ibus-libpinyin)
 * [alfred-chinese-converter](https://github.com/amowu/alfred-chinese-converter)
 * [GoldenDict](https://github.com/goldendict/goldendict)
+* [China Biographical Database Project (CBDB)](https://cbdb.hsites.harvard.edu/)
 
 ## License 許可協議
 
@@ -333,5 +352,6 @@ All these libraries are statically linked by default.
 * [Prcuvu](https://github.com/Prcuvu)
 * [Tony Able](https://github.com/TonyAble)
 * [Xiao Liang](https://github.com/yxliang01)
+* [Frank Lin](https://github.com/frankslin)
 
 Please feel free to update this list if you have contributed OpenCC.

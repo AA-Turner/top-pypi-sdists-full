@@ -26,9 +26,11 @@ if TYPE_CHECKING:
     from twilio.rest.frontline_api import FrontlineApi
     from twilio.rest.preview_iam import PreviewIam
     from twilio.rest.iam import Iam
+    from twilio.rest.iam import Iam
     from twilio.rest.insights import Insights
     from twilio.rest.intelligence import Intelligence
     from twilio.rest.ip_messaging import IpMessaging
+    from twilio.rest.knowledge import Knowledge
     from twilio.rest.lookups import Lookups
     from twilio.rest.marketplace import Marketplace
     from twilio.rest.messaging import Messaging
@@ -138,9 +140,11 @@ class Client(ClientBase):
         self._frontline_api: Optional["FrontlineApi"] = None
         self._preview_iam: Optional["PreviewIam"] = None
         self._iam: Optional["Iam"] = None
+        self._iam: Optional["Iam"] = None
         self._insights: Optional["Insights"] = None
         self._intelligence: Optional["Intelligence"] = None
         self._ip_messaging: Optional["IpMessaging"] = None
+        self._knowledge: Optional["Knowledge"] = None
         self._lookups: Optional["Lookups"] = None
         self._marketplace: Optional["Marketplace"] = None
         self._messaging: Optional["Messaging"] = None
@@ -321,6 +325,19 @@ class Client(ClientBase):
         return self._iam
 
     @property
+    def iam(self) -> "Iam":
+        """
+        Access the Iam Twilio Domain
+
+        :returns: Iam Twilio Domain
+        """
+        if self._iam is None:
+            from twilio.rest.iam import Iam
+
+            self._iam = Iam(self)
+        return self._iam
+
+    @property
     def insights(self) -> "Insights":
         """
         Access the Insights Twilio Domain
@@ -358,6 +375,19 @@ class Client(ClientBase):
 
             self._ip_messaging = IpMessaging(self)
         return self._ip_messaging
+
+    @property
+    def knowledge(self) -> "Knowledge":
+        """
+        Access the Knowledge Twilio Domain
+
+        :returns: Knowledge Twilio Domain
+        """
+        if self._knowledge is None:
+            from twilio.rest.knowledge import Knowledge
+
+            self._knowledge = Knowledge(self)
+        return self._knowledge
 
     @property
     def lookups(self) -> "Lookups":

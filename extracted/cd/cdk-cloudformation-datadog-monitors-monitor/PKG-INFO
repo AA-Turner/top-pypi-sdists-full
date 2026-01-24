@@ -1,0 +1,62 @@
+Metadata-Version: 2.1
+Name: cdk-cloudformation-datadog-monitors-monitor
+Version: 4.8.0a7
+Summary: Datadog Monitor 4.8.0
+Home-page: https://github.com/cdklabs/cdk-cloudformation.git
+Author: Amazon Web Services
+License: Apache-2.0
+Project-URL: Source, https://github.com/cdklabs/cdk-cloudformation.git
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: JavaScript
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Typing :: Typed
+Classifier: License :: OSI Approved
+Requires-Python: ~=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# datadog-monitors-monitor
+
+> AWS CDK [L1 construct](https://docs.aws.amazon.com/cdk/latest/guide/constructs.html) and data structures for the [AWS CloudFormation Registry](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/registry.html) type `Datadog::Monitors::Monitor` v4.8.0.
+
+## Description
+
+Datadog Monitor 4.8.0
+
+## Usage
+
+In order to use this library, you will need to activate this AWS CloudFormation Registry type in your account. You can do this via the AWS Management Console or using the [AWS CLI](https://aws.amazon.com/cli/) using the following command:
+
+```sh
+aws cloudformation activate-type \
+  --type-name Datadog::Monitors::Monitor \
+  --publisher-id 7171b96e5d207b947eb72ca9ce05247c246de623 \
+  --type RESOURCE \
+  --execution-role-arn ROLE-ARN
+```
+
+Alternatively:
+
+```sh
+aws cloudformation activate-type \
+  --public-type-arn arn:aws:cloudformation:us-east-1::type/resource/7171b96e5d207b947eb72ca9ce05247c246de623/Datadog-Monitors-Monitor \
+  --execution-role-arn ROLE-ARN
+```
+
+You can find more information about activating this type in the [AWS CloudFormation documentation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/registry-public.html).
+
+## Feedback
+
+This library is auto-generated and published to all supported programming languages by the [cdklabs/cdk-cloudformation](https://github.com/cdklabs/cdk-cloudformation) project based on the API schema published for `Datadog::Monitors::Monitor`.
+
+* Issues related to this generated library should be [reported here](https://github.com/cdklabs/cdk-cloudformation/issues/new?title=Issue+with+%40cdk-cloudformation%2Fdatadog-monitors-monitor+v4.8.0).
+* Issues related to `Datadog::Monitors::Monitor` should be reported to the [publisher](undefined).
+
+## License
+
+Distributed under the Apache-2.0 License.

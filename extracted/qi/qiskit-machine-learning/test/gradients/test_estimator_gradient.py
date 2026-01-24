@@ -15,29 +15,25 @@
 
 import unittest
 from test import QiskitAlgorithmsTestCase
+from test.gradients.logging_primitives import LoggingEstimator
 
 import numpy as np
-from ddt import ddt, data
-
+from ddt import data, ddt
 from qiskit import QuantumCircuit
 from qiskit.circuit import Parameter
-from qiskit.circuit.library import EfficientSU2, RealAmplitudes
+from qiskit.circuit.library import efficient_su2, real_amplitudes
 from qiskit.circuit.library.standard_gates import RXXGate, RYYGate, RZXGate, RZZGate
-from qiskit.primitives import Estimator
-from qiskit.quantum_info import SparsePauliOp
 from qiskit.providers.fake_provider import GenericBackendV2
+from qiskit.quantum_info import SparsePauliOp
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
-
-from qiskit_ibm_runtime import Session, EstimatorV2
+from qiskit_ibm_runtime import EstimatorV2, Session
 from qiskit_ibm_runtime.options import EstimatorOptions, SimulatorOptions
-
 from qiskit_machine_learning.gradients import (
     LinCombEstimatorGradient,
     ParamShiftEstimatorGradient,
     SPSAEstimatorGradient,
 )
-
-from .logging_primitives import LoggingEstimator
+from qiskit_machine_learning.primitives import QMLEstimator as Estimator
 
 gradient_factories = [
     ParamShiftEstimatorGradient,
@@ -130,7 +126,7 @@ class TestEstimatorGradient(QiskitAlgorithmsTestCase):
     def test_gradient_efficient_su2(self, grad):
         """Test the estimator gradient for EfficientSU2"""
 
-        qc = EfficientSU2(2, reps=1)
+        qc = efficient_su2(2, reps=1)
         op = SparsePauliOp.from_list([("ZI", 1)])
         gradient = grad(self.estimator)
         param_list = [
@@ -183,7 +179,7 @@ class TestEstimatorGradient(QiskitAlgorithmsTestCase):
     def test_gradient_parameter_coefficient(self, grad):
         """Test the estimator gradient for parameter variables with coefficients"""
 
-        qc = RealAmplitudes(num_qubits=2, reps=1)
+        qc = real_amplitudes(num_qubits=2, reps=1)
         qc.rz(qc.parameters[0].exp() + 2 * qc.parameters[1], 0)
         qc.rx(3.0 * qc.parameters[0] + qc.parameters[1].sin(), 1)
         qc.u(qc.parameters[0], qc.parameters[1], qc.parameters[3], 1)
@@ -367,60 +363,6 @@ class TestEstimatorGradient(QiskitAlgorithmsTestCase):
         LinCombEstimatorGradient,
         SPSAEstimatorGradient,
     )
-    def test_options(self, grad):
-        """Test estimator gradient's run options"""
-        a = Parameter("a")
-        qc = QuantumCircuit(1)
-        qc.rx(a, 0)
-        op = SparsePauliOp.from_list([("Z", 1)])
-        estimator = Estimator(options={"shots": 100})
-        with self.subTest("estimator"):
-            if grad is SPSAEstimatorGradient:
-                gradient = grad(estimator, epsilon=1e-6)
-            else:
-                gradient = grad(estimator)
-            options = gradient.options
-            result = gradient.run([qc], [op], [[1]]).result()
-            self.assertEqual(result.options.get("shots"), 100)
-            self.assertEqual(options.get("shots"), 100)
-
-        with self.subTest("gradient init"):
-            if grad is SPSAEstimatorGradient:
-                gradient = grad(estimator, epsilon=1e-6, options={"shots": 200})
-            else:
-                gradient = grad(estimator, options={"shots": 200})
-            options = gradient.options
-            result = gradient.run([qc], [op], [[1]]).result()
-            self.assertEqual(result.options.get("shots"), 200)
-            self.assertEqual(options.get("shots"), 200)
-
-        with self.subTest("gradient update"):
-            if grad is SPSAEstimatorGradient:
-                gradient = grad(estimator, epsilon=1e-6, options={"shots": 200})
-            else:
-                gradient = grad(estimator, options={"shots": 200})
-            gradient.update_default_options(shots=100)
-            options = gradient.options
-            result = gradient.run([qc], [op], [[1]]).result()
-            self.assertEqual(result.options.get("shots"), 100)
-            self.assertEqual(options.get("shots"), 100)
-
-        with self.subTest("gradient run"):
-            if grad is SPSAEstimatorGradient:
-                gradient = grad(estimator, epsilon=1e-6, options={"shots": 200})
-            else:
-                gradient = grad(estimator, options={"shots": 200})
-            options = gradient.options
-            result = gradient.run([qc], [op], [[1]], shots=300).result()
-            self.assertEqual(result.options.get("shots"), 300)
-            # Only default + estimator options. Not run.
-            self.assertEqual(options.get("shots"), 200)
-
-    @data(
-        ParamShiftEstimatorGradient,
-        LinCombEstimatorGradient,
-        SPSAEstimatorGradient,
-    )
     def test_operations_preserved(self, gradient_cls):
         """Test non-parameterized instructions are preserved and not unrolled."""
         x = Parameter("x")
@@ -456,8 +398,8 @@ class TestEstimatorGradient(QiskitAlgorithmsTestCase):
 
 
 @ddt
-class TestEstimatorGradientV2(QiskitAlgorithmsTestCase):
-    """Test Estimator Gradient"""
+class TestEstimatorGradientRuntime(QiskitAlgorithmsTestCase):
+    """Test Estimator Gradient for IBM Runtime"""
 
     def __init__(self, TestCase):
         backend = GenericBackendV2(num_qubits=3, seed=123)
@@ -546,7 +488,7 @@ class TestEstimatorGradientV2(QiskitAlgorithmsTestCase):
     def test_gradient_efficient_su2(self, grad):
         """Test the estimator gradient for EfficientSU2"""
 
-        qc = EfficientSU2(2, reps=1)
+        qc = efficient_su2(2, reps=1)
         op = SparsePauliOp.from_list([("ZI", 1)])
         gradient = grad(estimator=self.estimator, pass_manager=self.pass_manager)
         param_list = [
@@ -599,7 +541,7 @@ class TestEstimatorGradientV2(QiskitAlgorithmsTestCase):
     def test_gradient_parameter_coefficient(self, grad):
         """Test the estimator gradient for parameter variables with coefficients"""
 
-        qc = RealAmplitudes(num_qubits=2, reps=1)
+        qc = real_amplitudes(num_qubits=2, reps=1)
         qc.rz(qc.parameters[0].exp() + 2 * qc.parameters[1], 0)
         qc.rx(3.0 * qc.parameters[0] + qc.parameters[1].sin(), 1)
         qc.u(qc.parameters[0], qc.parameters[1], qc.parameters[3], 1)
@@ -716,160 +658,6 @@ class TestEstimatorGradientV2(QiskitAlgorithmsTestCase):
             gradient.run([qc, qc], [op], param_list, parameters=[[a]])
         with self.assertRaises(ValueError):
             gradient.run([qc], [op], [[np.pi / 4, np.pi / 4]])
-
-    @unittest.skip("Skipping due to noise.")
-    def test_spsa_gradient(self):
-        """Test the SPSA estimator gradient"""
-
-        with self.assertRaises(ValueError):
-            _ = SPSAEstimatorGradient(
-                estimator=self.estimator, pass_manager=self.pass_manager, epsilon=-0.1
-            )
-        a = Parameter("a")
-        b = Parameter("b")
-        qc = QuantumCircuit(2)
-        qc.rx(b, 0)
-        qc.rx(a, 1)
-        param_list = [[1, 1]]
-        correct_results = [[-0.84147098, 0.84147098]]
-        op = SparsePauliOp.from_list([("ZI", 1)])
-        gradient = SPSAEstimatorGradient(
-            estimator=self.estimator, pass_manager=self.pass_manager, epsilon=1e-6, seed=123
-        )
-        gradients = gradient.run([qc], [op], param_list).result().gradients
-        np.testing.assert_allclose(gradients, correct_results, atol=1e-1, rtol=1e-1)
-
-        # multi parameters
-        with self.subTest(msg="Multiple parameters"):
-            gradient = SPSAEstimatorGradient(
-                estimator=self.estimator, pass_manager=self.pass_manager, epsilon=1e-6, seed=123
-            )
-            param_list2 = [[1, 1], [1, 1], [3, 3]]
-            gradients2 = (
-                gradient.run([qc] * 3, [op] * 3, param_list2, parameters=[None, [b], None])
-                .result()
-                .gradients
-            )
-            correct_results2 = [[-0.84147098, 0.84147098], [0.84147098], [-0.14112001, 0.14112001]]
-            for grad, correct in zip(gradients2, correct_results2):
-                np.testing.assert_allclose(grad, correct, atol=1e-1, rtol=1e-1)
-
-        # batch size
-        with self.subTest(msg="Batch size"):
-            correct_results = [[-0.84147098, 0.1682942]]
-            gradient = SPSAEstimatorGradient(
-                estimator=self.estimator,
-                pass_manager=self.pass_manager,
-                epsilon=1e-6,
-                batch_size=5,
-                seed=123,
-            )
-            gradients = gradient.run([qc], [op], param_list).result().gradients
-            np.testing.assert_allclose(gradients, correct_results, atol=1e-1, rtol=1e-1)
-
-        # parameter order
-        with self.subTest(msg="The order of gradients"):
-            gradient = SPSAEstimatorGradient(
-                estimator=self.estimator, pass_manager=self.pass_manager, epsilon=1e-6, seed=123
-            )
-            c = Parameter("c")
-            qc = QuantumCircuit(1)
-            qc.rx(a, 0)
-            qc.rz(b, 0)
-            qc.rx(c, 0)
-            op = SparsePauliOp.from_list([("Z", 1)])
-            param_list3 = [[np.pi / 4, np.pi / 2, np.pi / 3]]
-            expected = [
-                [-0.3535525, 0.3535525, 0.3535525],
-                [0.3535525, 0.3535525, -0.3535525],
-                [-0.3535525, 0.3535525],
-                [0.3535525, -0.3535525],
-            ]
-            param = [[a, b, c], [c, b, a], [a, c], [c, a]]
-            for i, p in enumerate(param):  # pylint: disable=invalid-name
-                gradient = SPSAEstimatorGradient(
-                    estimator=self.estimator, pass_manager=self.pass_manager, epsilon=1e-6, seed=123
-                )
-                gradients = (
-                    gradient.run([qc], [op], param_list3, parameters=[p]).result().gradients[0]
-                )
-                np.testing.assert_allclose(gradients, expected[i], atol=1e-1, rtol=1e-1)
-
-    @data(
-        ParamShiftEstimatorGradient,
-        LinCombEstimatorGradient,
-        SPSAEstimatorGradient,
-    )
-    @unittest.skip("Options needs to be added for V2.")
-    def test_options(self, grad):
-        """Test estimator gradient's run options"""
-        a = Parameter("a")
-        qc = QuantumCircuit(1)
-        qc.rx(a, 0)
-        op = SparsePauliOp.from_list([("Z", 1)])
-        estimator = EstimatorV2(options={"shots": 100})
-        with self.subTest("estimator"):
-            if grad is SPSAEstimatorGradient:
-                gradient = grad(estimator=estimator, pass_manager=self.pass_manager, epsilon=1e-6)
-            else:
-                gradient = grad(estimator=estimator, pass_manager=self.pass_manager)
-            options = gradient.options
-            result = gradient.run([qc], [op], [[1]]).result()
-            self.assertEqual(result.options.get("shots"), 100)
-            self.assertEqual(options.get("shots"), 100)
-
-        with self.subTest("gradient init"):
-            if grad is SPSAEstimatorGradient:
-                gradient = grad(
-                    estimator=self.estimator,
-                    pass_manager=self.pass_manager,
-                    epsilon=1e-6,
-                    options={"shots": 200},
-                )
-            else:
-                gradient = grad(
-                    estimator=self.estimator, pass_manager=self.pass_manager, options={"shots": 200}
-                )
-            options = gradient.options
-            result = gradient.run([qc], [op], [[1]]).result()
-            self.assertEqual(result.options.get("shots"), 200)
-            self.assertEqual(options.get("shots"), 200)
-
-        with self.subTest("gradient update"):
-            if grad is SPSAEstimatorGradient:
-                gradient = grad(
-                    estimator=self.estimator,
-                    pass_manager=self.pass_manager,
-                    epsilon=1e-6,
-                    options={"shots": 200},
-                )
-            else:
-                gradient = grad(
-                    estimator=self.estimator, pass_manager=self.pass_manager, options={"shots": 200}
-                )
-            gradient.update_default_options(shots=100)
-            options = gradient.options
-            result = gradient.run([qc], [op], [[1]]).result()
-            self.assertEqual(result.options.get("shots"), 100)
-            self.assertEqual(options.get("shots"), 100)
-
-        with self.subTest("gradient run"):
-            if grad is SPSAEstimatorGradient:
-                gradient = grad(
-                    estimator=self.estimator,
-                    pass_manager=self.pass_manager,
-                    epsilon=1e-6,
-                    options={"shots": 200},
-                )
-            else:
-                gradient = grad(
-                    estimator=self.estimator, pass_manager=self.pass_manager, options={"shots": 200}
-                )
-            options = gradient.options
-            result = gradient.run([qc], [op], [[1]], shots=300).result()
-            self.assertEqual(result.options.get("shots"), 300)
-            # Only default + estimator options. Not run.
-            self.assertEqual(options.get("shots"), 200)
 
     @data(
         ParamShiftEstimatorGradient,

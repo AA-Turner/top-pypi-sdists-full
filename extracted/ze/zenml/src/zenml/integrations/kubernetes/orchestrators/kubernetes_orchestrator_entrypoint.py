@@ -18,7 +18,8 @@ import random
 import socket
 import threading
 import time
-from typing import List, Optional, Tuple, cast
+from contextlib import nullcontext
+from typing import Dict, List, Optional, Tuple, cast
 from uuid import UUID
 
 from kubernetes import client as k8s_client
@@ -28,8 +29,9 @@ from zenml.client import Client
 from zenml.entrypoints.step_entrypoint_configuration import (
     StepEntrypointConfiguration,
 )
-from zenml.enums import ExecutionMode, ExecutionStatus
+from zenml.enums import ExecutionMode, ExecutionStatus, MetadataResourceTypes
 from zenml.exceptions import AuthorizationException
+from zenml.integrations.kubernetes import kube_utils
 from zenml.integrations.kubernetes.constants import (
     ENV_ZENML_KUBERNETES_RUN_ID,
     KUBERNETES_SECRET_TOKEN_KEY_NAME,
@@ -40,7 +42,11 @@ from zenml.integrations.kubernetes.constants import (
 from zenml.integrations.kubernetes.flavors.kubernetes_orchestrator_flavor import (
     KubernetesOrchestratorSettings,
 )
-from zenml.integrations.kubernetes.orchestrators import kube_utils
+from zenml.integrations.kubernetes.manifest_utils import (
+    build_job_manifest,
+    build_pod_manifest,
+    pod_template_manifest_from_pod,
+)
 from zenml.integrations.kubernetes.orchestrators.dag_runner import (
     DagRunner,
     InterruptMode,
@@ -50,17 +56,13 @@ from zenml.integrations.kubernetes.orchestrators.dag_runner import (
 from zenml.integrations.kubernetes.orchestrators.kubernetes_orchestrator import (
     KubernetesOrchestrator,
 )
-from zenml.integrations.kubernetes.orchestrators.manifest_utils import (
-    build_job_manifest,
-    build_pod_manifest,
-    pod_template_manifest_from_pod,
-)
 from zenml.logger import get_logger
-from zenml.logging.step_logging import setup_orchestrator_logging
 from zenml.models import (
-    PipelineDeploymentResponse,
     PipelineRunResponse,
     PipelineRunUpdate,
+    PipelineSnapshotResponse,
+    RunMetadataResource,
+    StepRunResponse,
 )
 from zenml.orchestrators import publish_utils
 from zenml.orchestrators.step_run_utils import (
@@ -72,6 +74,12 @@ from zenml.orchestrators.utils import (
     get_config_environment_vars,
 )
 from zenml.pipelines.run_utils import create_placeholder_run
+from zenml.utils import env_utils
+from zenml.utils.logging_utils import (
+    is_pipeline_logging_enabled,
+    setup_run_logging,
+)
+from zenml.utils.time_utils import utc_now
 
 logger = get_logger(__name__)
 
@@ -83,7 +91,7 @@ def parse_args() -> argparse.Namespace:
         Parsed args.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--deployment_id", type=str, required=True)
+    parser.add_argument("--snapshot_id", type=str, required=True)
     parser.add_argument("--run_id", type=str, required=False)
     return parser.parse_args()
 
@@ -122,7 +130,7 @@ def _get_orchestrator_job_state(
 
 
 def _reconstruct_nodes(
-    deployment: PipelineDeploymentResponse,
+    snapshot: PipelineSnapshotResponse,
     pipeline_run: PipelineRunResponse,
     namespace: str,
     batch_api: k8s_client.BatchV1Api,
@@ -130,7 +138,7 @@ def _reconstruct_nodes(
     """Reconstruct the nodes from the pipeline run.
 
     Args:
-        deployment: The deployment.
+        snapshot: The snapshot.
         pipeline_run: The pipeline run.
         namespace: The namespace.
         batch_api: The batch api.
@@ -140,7 +148,7 @@ def _reconstruct_nodes(
     """
     nodes = {
         step_name: Node(id=step_name, upstream_nodes=step.spec.upstream_steps)
-        for step_name, step in deployment.step_configurations.items()
+        for step_name, step in snapshot.step_configurations.items()
     }
 
     for step_name, existing_step_run in pipeline_run.steps.items():
@@ -157,8 +165,10 @@ def _reconstruct_nodes(
     )
     for job in job_list.items:
         annotations = job.metadata.annotations or {}
-        if step_name := annotations.get(STEP_NAME_ANNOTATION_KEY, None):
-            node = nodes[step_name]
+        if step_name_annotation := annotations.get(
+            STEP_NAME_ANNOTATION_KEY, None
+        ):
+            node = nodes[str(step_name_annotation)]
             node.metadata["job_name"] = job.metadata.name
 
             if node.status == NodeStatus.NOT_READY:
@@ -203,7 +213,7 @@ def main() -> None:
     orchestrator_pod_name = socket.gethostname()
 
     client = Client()
-    deployment = client.get_deployment(args.deployment_id)
+    snapshot = client.get_snapshot(args.snapshot_id)
     active_stack = client.active_stack
     orchestrator = active_stack.orchestrator
     assert isinstance(orchestrator, KubernetesOrchestrator)
@@ -211,7 +221,7 @@ def main() -> None:
 
     pipeline_settings = cast(
         KubernetesOrchestratorSettings,
-        orchestrator.get_settings(deployment),
+        orchestrator.get_settings(snapshot),
     )
 
     # Get a Kubernetes client from the active Kubernetes orchestrator, but
@@ -240,26 +250,21 @@ def main() -> None:
         namespace=namespace,
         job_name=job_name,
     )
-    existing_logs_response = None
 
     if run_id and orchestrator_run_id:
         logger.info("Continuing existing run `%s`.", run_id)
         pipeline_run = client.get_pipeline_run(run_id)
         nodes = _reconstruct_nodes(
-            deployment=deployment,
+            snapshot=snapshot,
             pipeline_run=pipeline_run,
             namespace=namespace,
             batch_api=batch_api,
         )
         logger.debug("Reconstructed nodes: %s", nodes)
 
-        # Continue logging to the same log file if it exists
-        for log_response in pipeline_run.log_collection or []:
-            if log_response.source == "orchestrator":
-                existing_logs_response = log_response
-                break
     else:
         orchestrator_run_id = orchestrator_pod_name
+
         if args.run_id:
             pipeline_run = client.zen_store.update_run(
                 run_id=args.run_id,
@@ -269,7 +274,7 @@ def main() -> None:
             )
         else:
             pipeline_run = create_placeholder_run(
-                deployment=deployment,
+                snapshot=snapshot,
                 orchestrator_run_id=orchestrator_run_id,
             )
 
@@ -286,51 +291,56 @@ def main() -> None:
         )
         nodes = [
             Node(id=step_name, upstream_nodes=step.spec.upstream_steps)
-            for step_name, step in deployment.step_configurations.items()
+            for step_name, step in snapshot.step_configurations.items()
         ]
 
-    logs_context = setup_orchestrator_logging(
-        run_id=pipeline_run.id,
-        deployment=deployment,
-        logs_response=existing_logs_response,
-    )
+    logs_context = nullcontext()
+    if is_pipeline_logging_enabled(snapshot.pipeline_configuration):
+        logs_context = setup_run_logging(
+            pipeline_run=pipeline_run,
+            source="orchestrator",
+        )
 
     with logs_context:
         step_command = StepEntrypointConfiguration.get_entrypoint_command()
         mount_local_stores = active_stack.orchestrator.config.is_local
 
-        env = get_config_environment_vars()
-        env[ENV_ZENML_KUBERNETES_RUN_ID] = orchestrator_run_id
+        shared_env, secrets = get_config_environment_vars()
+        shared_env[ENV_ZENML_KUBERNETES_RUN_ID] = orchestrator_run_id
 
-        try:
-            owner_references = kube_utils.get_pod_owner_references(
-                core_api=core_api,
-                pod_name=orchestrator_pod_name,
-                namespace=namespace,
-            )
-        except Exception as e:
-            logger.warning(f"Failed to get pod owner references: {str(e)}")
-            owner_references = []
-        else:
-            # Make sure None of the owner references are marked as controllers of
-            # the created pod, which messes with the garbage collection logic.
-            for owner_reference in owner_references:
-                owner_reference.controller = False
+        owner_references = None
+        if not orchestrator.config.skip_owner_references:
+            try:
+                owner_references = kube_utils.get_pod_owner_references(
+                    core_api=core_api,
+                    pod_name=orchestrator_pod_name,
+                    namespace=namespace,
+                )
+                # Make sure None of the owner references are marked as
+                # controllers of the created pod, which messes with the
+                # garbage collection logic.
+                for owner_reference in owner_references:
+                    owner_reference.controller = False
+            except Exception as e:
+                logger.warning(f"Failed to get pod owner references: {str(e)}")
 
         step_run_request_factory = StepRunRequestFactory(
-            deployment=deployment,
+            snapshot=snapshot,
             pipeline_run=pipeline_run,
             stack=active_stack,
         )
-        step_runs = {}
+        step_runs: Dict[str, StepRunResponse] = {}
 
         base_labels = {
+            "project_id": kube_utils.sanitize_label(str(snapshot.project_id)),
             "run_id": kube_utils.sanitize_label(str(pipeline_run.id)),
             "run_name": kube_utils.sanitize_label(str(pipeline_run.name)),
             "pipeline": kube_utils.sanitize_label(
-                deployment.pipeline_configuration.name
+                snapshot.pipeline_configuration.name
             ),
         }
+
+        step_run_skip_hb_set = set()
 
         def _cache_step_run_if_possible(step_name: str) -> bool:
             if not step_run_request_factory.has_caching_enabled(step_name):
@@ -340,7 +350,9 @@ def main() -> None:
                 step_name
             )
             try:
-                step_run_request_factory.populate_request(step_run_request)
+                step_run_request_factory.populate_request(
+                    step_run_request, step_runs=step_runs
+                )
             except Exception as e:
                 logger.error(
                     f"Failed to populate step run request for step {step_name}: {e}"
@@ -357,6 +369,39 @@ def main() -> None:
 
             return False
 
+        def _maybe_publish_failed_step_run(step_name: str) -> None:
+            steps = Client().list_run_steps(
+                name=step_name, pipeline_run_id=pipeline_run.id
+            )
+            if steps.total > 0:
+                # Step run already exists, we don't need to publish a new one
+                return
+
+            step_run_request = step_run_request_factory.create_request(
+                step_name
+            )
+            try:
+                step_run_request_factory.populate_request(
+                    step_run_request, step_runs=step_runs
+                )
+            except Exception as e:
+                logger.error(
+                    "Failed to populate step run request for step `%s`: %s",
+                    step_name,
+                    e,
+                )
+                return
+
+            step_run_request.status = ExecutionStatus.FAILED
+            step_run_request.end_time = utc_now()
+
+            try:
+                Client().zen_store.create_run_step(step_run_request)
+            except Exception as e:
+                logger.error(
+                    "Failed to publish failed step run `%s`: %s", step_name, e
+                )
+
         startup_lock = threading.Lock()
         last_startup_time: float = 0.0
 
@@ -370,7 +415,7 @@ def main() -> None:
                 The status of the node.
             """
             step_name = node.id
-            step_config = deployment.step_configurations[step_name].config
+            step_config = snapshot.step_configurations[step_name].config
             settings = step_config.settings.get(
                 "orchestrator.kubernetes", None
             )
@@ -387,11 +432,18 @@ def main() -> None:
                 STEP_NAME_ANNOTATION_KEY: step_name,
             }
 
+            step_env = shared_env.copy()
+            step_env.update(
+                env_utils.get_step_environment(
+                    step_config=step_config, stack=active_stack
+                )
+            )
+
             image = KubernetesOrchestrator.get_image(
-                deployment=deployment, step_name=step_name
+                snapshot=snapshot, step_name=step_name
             )
             step_args = StepEntrypointConfiguration.get_entrypoint_arguments(
-                step_name=step_name, deployment_id=deployment.id
+                step_name=step_name, snapshot_id=snapshot.id
             )
 
             # We set some default minimum memory resource requests for the step pod
@@ -405,8 +457,8 @@ def main() -> None:
             )
 
             if orchestrator.config.pass_zenml_token_as_secret:
-                env.pop("ZENML_STORE_API_TOKEN", None)
-                secret_name = orchestrator.get_token_secret_name(deployment.id)
+                step_env.pop("ZENML_STORE_API_TOKEN", None)
+                secret_name = orchestrator.get_token_secret_name(snapshot.id)
                 pod_settings.env.append(
                     {
                         "name": "ZENML_STORE_API_TOKEN",
@@ -418,13 +470,15 @@ def main() -> None:
                         },
                     }
                 )
+            else:
+                step_env.update(secrets)
 
             pod_manifest = build_pod_manifest(
                 pod_name=None,
                 image_name=image,
                 command=step_command,
                 args=step_args,
-                env=env,
+                env=step_env,
                 privileged=settings.privileged,
                 pod_settings=pod_settings,
                 service_account_name=settings.step_pod_service_account_name
@@ -469,7 +523,7 @@ def main() -> None:
 
             job_name = settings.job_name_prefix or ""
             random_prefix = "".join(random.choices("0123456789abcdef", k=8))
-            job_name += f"-{random_prefix}-{step_name}-{deployment.pipeline_configuration.name}"
+            job_name += f"-{random_prefix}-{step_name}-{snapshot.pipeline_configuration.name}"
             # The job name will be used as a label on the pods, so we need to make
             # sure it doesn't exceed the label length limit
             job_name = kube_utils.sanitize_label(job_name)
@@ -509,6 +563,23 @@ def main() -> None:
                 namespace=namespace,
                 job_manifest=job_manifest,
             )
+
+            try:
+                Client().create_run_metadata(
+                    metadata={"step_jobs": {step_name: job_name}},
+                    resources=[
+                        RunMetadataResource(
+                            id=pipeline_run.id,
+                            type=MetadataResourceTypes.PIPELINE_RUN,
+                        )
+                    ],
+                )
+            except Exception as e:
+                logger.warning(
+                    "Failed to create run metadata for step `%s`: %s",
+                    step_name,
+                    str(e),
+                )
 
             node.metadata["job_name"] = job_name
 
@@ -587,6 +658,33 @@ def main() -> None:
                     )
                     break
 
+        def is_node_heartbeat_unhealthy(node: Node) -> bool:
+            from zenml.steps.heartbeat import is_heartbeat_unhealthy
+
+            if node.id in step_run_skip_hb_set:
+                return False
+
+            sr_ = client.list_run_steps(
+                name=node.id, pipeline_run_id=pipeline_run.id, hydrate=False
+            )
+
+            if sr_.items:
+                if (
+                    sr_.items[0].heartbeat_threshold is None
+                ):  # heartbeat disabled/unset - skip next checks
+                    step_run_skip_hb_set.add(node.id)
+                    return False
+
+                return is_heartbeat_unhealthy(
+                    step_run_id=sr_.items[0].id,
+                    status=sr_.items[0].status,
+                    start_time=sr_.items[0].start_time,
+                    heartbeat_threshold=sr_.items[0].heartbeat_threshold,
+                    latest_heartbeat=sr_.items[0].latest_heartbeat,
+                )
+
+            return False
+
         def check_job_status(node: Node) -> NodeStatus:
             """Check the status of a job.
 
@@ -604,7 +702,7 @@ def main() -> None:
                 )
                 return NodeStatus.FAILED
 
-            step_config = deployment.step_configurations[step_name].config
+            step_config = snapshot.step_configurations[step_name].config
             settings = step_config.settings.get(
                 "orchestrator.kubernetes", None
             )
@@ -626,6 +724,17 @@ def main() -> None:
                     step_name,
                     error_message,
                 )
+                _maybe_publish_failed_step_run(step_name)
+                return NodeStatus.FAILED
+            elif (
+                snapshot.pipeline_configuration.enable_heartbeat
+                and is_node_heartbeat_unhealthy(node)
+            ):
+                logger.error(
+                    "Heartbeat for step `%s` indicates unhealthy status.",
+                    step_name,
+                )
+                stop_step(node=node)
                 return NodeStatus.FAILED
             else:
                 return NodeStatus.RUNNING
@@ -655,7 +764,7 @@ def main() -> None:
                     return InterruptMode.GRACEFUL
                 elif run.status == ExecutionStatus.FAILED:
                     if (
-                        deployment.pipeline_configuration.execution_mode
+                        snapshot.pipeline_configuration.execution_mode
                         == ExecutionMode.STOP_ON_FAILURE
                     ):
                         logger.info(
@@ -665,7 +774,7 @@ def main() -> None:
                         )
                         return InterruptMode.GRACEFUL
                     elif (
-                        deployment.pipeline_configuration.execution_mode
+                        snapshot.pipeline_configuration.execution_mode
                         == ExecutionMode.FAIL_FAST
                     ):
                         logger.info(
@@ -696,9 +805,9 @@ def main() -> None:
         finally:
             if (
                 orchestrator.config.pass_zenml_token_as_secret
-                and deployment.schedule is None
+                and snapshot.schedule is None
             ):
-                secret_name = orchestrator.get_token_secret_name(deployment.id)
+                secret_name = orchestrator.get_token_secret_name(snapshot.id)
                 try:
                     kube_utils.delete_secret(
                         core_api=core_api,

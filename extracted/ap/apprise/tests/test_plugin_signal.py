@@ -39,6 +39,7 @@ import requests
 
 from apprise import Apprise, AppriseAttachment, NotifyType
 from apprise.config import ConfigBase
+from apprise.plugins.base import NotifyFormat
 from apprise.plugins.signal_api import NotifySignalAPI
 
 logging.disable(logging.CRITICAL)
@@ -124,6 +125,13 @@ apprise_url_tests = (
         },
     ),
     (
+    "signals://localhost/{}/{}?format=markdown".format("1" * 11, "3" * 11),
+    {
+        # Test our markdown flag
+        "instance": NotifySignalAPI,
+    },
+    ),
+    (
         "signal://localhost:8080/+{}/group.abcd/".format("1" * 11),
         {
             # another valid group (without @ symbol)
@@ -168,6 +176,8 @@ apprise_url_tests = (
             # use get args to acomplish the same thing (use source instead of
             # from)
             "instance": NotifySignalAPI,
+            # Run through code with debug logging enabled
+            "force_debug": True,
         },
     ),
     (
@@ -208,7 +218,7 @@ apprise_url_tests = (
         "signal://localhost/{}/{}".format("1" * 11, "4" * 11),
         {
             "instance": NotifySignalAPI,
-            # throw a bizzare code forcing us to fail to look it up
+            # throw a bizarre code forcing us to fail to look it up
             "response": False,
             "requests_response_code": 999,
         },
@@ -218,7 +228,7 @@ apprise_url_tests = (
         {
             "instance": NotifySignalAPI,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
         },
     ),
@@ -277,7 +287,7 @@ def test_plugin_signal_yaml_config(request_mock):
     """NotifySignalAPI() YAML Configuration."""
 
     # Load our configuration
-    result, config = ConfigBase.config_parse_yaml(cleandoc("""
+    result, _ = ConfigBase.config_parse_yaml(cleandoc("""
     urls:
       - signal://signal:8080/+1234567890:
          - to: +0987654321
@@ -301,7 +311,7 @@ def test_plugin_signal_yaml_config(request_mock):
     #
 
     # Load our configuration
-    result, config = ConfigBase.config_parse_yaml(cleandoc("""
+    result, _config = ConfigBase.config_parse_yaml(cleandoc("""
     urls:
       - signal://signal:8080/+1234567890/+0987654321:
          - tag: signal
@@ -483,3 +493,47 @@ def test_notify_signal_plugin_attachments(request_mock):
         is True
     )
     assert request_mock.call_count == 1
+
+def test_plugin_signal_text_mode_markdown_from_url(request_mock):
+    """NotifySignalAPI() sets text_mode=styled when ?format=markdown"""
+    source = "+1 (555) 123-3456"
+    target = "+1 (555) 987-5432"
+    body = "Body **bold** _italic_"
+    title = "Title"
+
+    aobj = Apprise()
+    # Use URL path tokens, add the markdown format via query string
+    assert aobj.add(
+        f"signals://localhost:231/{source}/{target}?format=markdown")
+    assert aobj.notify(title=title, body=body)
+
+    assert request_mock.call_count == 1
+    details = request_mock.call_args_list[0]
+
+    payload = loads(details[1]["data"])
+    # Core behaviour we are validating
+    assert payload.get("text_mode") == "styled"
+
+
+def test_plugin_signal_text_mode_markdown_from_library(request_mock):
+    """NotifySignalAPI() sets text_mode=styled when class format=MARKDOWN"""
+    source = "+1 (555) 123-3456"
+    target = "+1 (555) 987-5432"
+
+    obj = NotifySignalAPI(
+        host="localhost",
+        port=231,
+        secure=True,
+        source=source,
+        targets=[target],
+        format=NotifyFormat.MARKDOWN,
+    )
+
+    assert obj.notify(title="Title", body="Body **bold** _italic_") is True
+
+    assert request_mock.call_count == 1
+    details = request_mock.call_args_list[0]
+
+    payload = loads(details[1]["data"])
+    # Core behaviour we are validating
+    assert payload.get("text_mode") == "styled"

@@ -30,7 +30,12 @@ class AlitaJSONLoader(BaseLoader):
                 with open(self.file_path, encoding=self.encoding) as f:
                     return json.load(f)
             elif hasattr(self, 'file_content') and self.file_content:
-                return json.load(self.file_content)
+                if isinstance(self.file_content, bytes):
+                    return json.loads(self.file_content.decode(self.encoding))
+                elif isinstance(self.file_content, str):
+                    return json.loads(self.file_content)
+                else:
+                    return json.load(self.file_content)
             else:
                 raise ValueError("Neither file_path nor file_content is provided.")
 
@@ -42,7 +47,6 @@ class AlitaJSONLoader(BaseLoader):
                         try:
                             with open(self.file_path, encoding=encoding.encoding) as f:
                                 return f.read()
-                            break
                         except UnicodeDecodeError:
                             continue
                 elif hasattr(self, 'file_content') and self.file_content:
@@ -55,9 +59,11 @@ class AlitaJSONLoader(BaseLoader):
                 else:
                     raise ValueError("Neither file_path nor file_content is provided for encoding detection.")
             else:
-                raise RuntimeError(f"Error loading content with encoding {self.encoding}.") from e
+                raise RuntimeError(f"Error loading content with encoding {self.encoding}: {e}") from e
         except Exception as e:
-            raise RuntimeError(f"Error loading content.") from e
+            # Preserve original error details so callers (e.g., parse_file_content)
+            # can expose the real root cause instead of a generic message.
+            raise RuntimeError(f"Error loading content: {e}") from e
 
     def lazy_load(self) -> Iterator[Document]:
         """Load from file path."""

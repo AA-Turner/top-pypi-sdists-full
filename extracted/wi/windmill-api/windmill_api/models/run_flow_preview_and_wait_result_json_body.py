@@ -20,7 +20,8 @@ T = TypeVar("T", bound="RunFlowPreviewAndWaitResultJsonBody")
 class RunFlowPreviewAndWaitResultJsonBody:
     """
     Attributes:
-        value (RunFlowPreviewAndWaitResultJsonBodyValue):
+        value (RunFlowPreviewAndWaitResultJsonBodyValue): The flow structure containing modules and optional
+            preprocessor/failure handlers
         args (RunFlowPreviewAndWaitResultJsonBodyArgs): The arguments to pass to the script or flow
         path (Union[Unset, str]):
         tag (Union[Unset, str]):

@@ -6,10 +6,11 @@ from langgraph_runtime_inmem import (
     ops,
     queue,
     retry,
+    routes,
     store,
 )
 
-__version__ = "0.14.0"
+__version__ = "0.23.1"
 __all__ = [
     "ops",
     "database",
@@ -19,5 +20,6 @@ __all__ = [
     "store",
     "queue",
     "metrics",
+    "routes",
     "__version__",
 ]

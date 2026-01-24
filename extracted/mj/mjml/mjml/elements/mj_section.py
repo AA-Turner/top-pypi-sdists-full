@@ -1,9 +1,7 @@
-
 import re
 from collections import namedtuple
 from decimal import Decimal
-
-from dotmap import DotMap
+from typing import Any
 
 from ..helpers import parse_percentage, strip_unit, suffixCssClasses
 from ..lib import merge_dicts
@@ -19,7 +17,7 @@ class MjSection(BodyComponent):
     component_name = 'mj-section'
 
     @classmethod
-    def allowed_attrs(cls):
+    def allowed_attrs(cls) -> dict[str, str]:
         return {
             'background-color' : 'color',
             'background-url'   : 'string',
@@ -136,7 +134,9 @@ class MjSection(BodyComponent):
 
     def getBackgroundString(self):
         bg_pos = self.getBackgroundPosition()
-        return f'{bg_pos.posX} {bg_pos.posY}'
+        x = bg_pos.get("posX")
+        y = bg_pos.get("posY")
+        return f'{x} {y}'
 
     def getChildContext(self):
         box = self.getBoxWidths()['box']
@@ -188,12 +188,12 @@ class MjSection(BodyComponent):
             self.renderAfter()
         ])
 
-    def getBackgroundPosition(self):
+    def getBackgroundPosition(self) -> dict[str, Any]:
         pos = self.parseBackgroundPosition()
-        return DotMap({
+        return {
             'posX': self.getAttribute('background-position-x') or pos.x,
             'posY': self.getAttribute('background-position-y') or pos.y,
-        })
+        }
 
     def parseBackgroundPosition(self):
         posSplit = self.getAttribute('background-position').split(' ')
@@ -337,8 +337,16 @@ class MjSection(BodyComponent):
             vY = 0
         else:
             bgPos = self.getBackgroundPosition()
-            bgPosX = self._get_bg_percentage(bgPos.posX, ('left', 'center', 'right'), default='50%')
-            bgPosY = self._get_bg_percentage(bgPos.posY, ('top', 'center', 'bottom'), default='0%')
+            bgPosX = self._get_bg_percentage(
+                bgPos.get("posX"),
+                ('left', 'center', 'right'),
+                default='50%'
+            )
+            bgPosY = self._get_bg_percentage(
+                bgPos.get("posY"),
+                ('top', 'center', 'bottom'),
+                default='0%'
+            )
             # this logic is different when using repeat or no-repeat
             vX = self._calc_origin_pos_value(is_x=True, bg_pos=bgPosX)
             vY = self._calc_origin_pos_value(is_x=False, bg_pos=bgPosY)
@@ -407,8 +415,10 @@ class MjSection(BodyComponent):
           cellpadding = '0',
           cellspacing = '0',
           class_ = suffixCssClasses(self.get_attr('css-class'), 'outlook'),
+          role = 'presentation',
           style = {'width': str(containerWidth)},
           width = containerWidth_int,
+          bgcolor = self.get_attr('background-color') or None,
         )
         return f'''
             <!--[if mso | IE]>

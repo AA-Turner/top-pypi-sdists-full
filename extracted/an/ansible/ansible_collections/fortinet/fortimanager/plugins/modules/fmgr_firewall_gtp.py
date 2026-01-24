@@ -16,7 +16,6 @@ short_description: Configure GTP.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -1472,7 +1474,7 @@ EXAMPLES = '''
         adom: FortiCarrier # This is FOC-only object, need a FortiCarrier adom
         state: present
         firewall_gtp:
-          monitor-mode: disable # <value in [disable, enable, vdom]>
+          monitor_mode: disable # <value in [disable, enable, vdom]>
           name: "ansible-test"
 
 - name: Gathering fortimanager facts
@@ -1547,6 +1549,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_gtp': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],

@@ -5,9 +5,11 @@ use autosar_data_abstraction::{self, AbstractionElement, IdentifiableAbstraction
 
 mod can;
 mod flexray;
+mod lin;
 
 pub(crate) use can::*;
 pub(crate) use flexray::*;
+pub(crate) use lin::*;
 
 //##################################################################
 
@@ -34,6 +36,15 @@ impl PduToFrameMapping {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -55,7 +66,7 @@ impl PduToFrameMapping {
 
     /// Reference to the PDU that is mapped into the frame. The PDU reference is mandatory.
     #[getter]
-    fn pdu(&self) -> Option<PyObject> {
+    fn pdu(&self) -> Option<Py<PyAny>> {
         self.0.pdu().and_then(|pdu| pdu_to_pyany(&pdu).ok())
     }
 
@@ -144,6 +155,15 @@ impl FramePort {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]

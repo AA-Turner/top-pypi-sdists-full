@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: antsibull-changelog
-Version: 0.34.0
+Version: 0.35.0
 Summary: Changelog tool for Ansible-core and Ansible collections
-Project-URL: Documentation, https://ansible.readthedocs.io/projects/antsibull-changelog/
+Project-URL: Documentation, https://docs.ansible.com/projects/antsibull-changelog/
 Project-URL: Source code, https://github.com/ansible-community/antsibull-changelog/
-Project-URL: Code of Conduct, https://docs.ansible.com/ansible/latest/community/code_of_conduct.html
+Project-URL: Code of Conduct, https://docs.ansible.com/projects/ansible/latest/community/code_of_conduct.html
 Project-URL: Bug tracker, https://github.com/ansible-community/antsibull-changelog/issues
 Project-URL: Changelog, https://github.com/ansible-community/antsibull-changelog/tree/main/CHANGELOG.md
 Author-email: Felix Fontein <felix@fontein.de>, Toshio Kuratomi <a.badger@gmail.com>, Matt Clay <matt@mystile.com>
@@ -20,9 +20,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.9.0
 Requires-Dist: annotated-types
+Requires-Dist: antsibull-docs-parser<2.0.0,>=1.2.2
 Requires-Dist: antsibull-docutils<2.0.0,>=1.0.0
 Requires-Dist: antsibull-fileutils<2.0.0,>=1.0.0
 Requires-Dist: docutils
@@ -74,7 +76,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
 # antsibull-changelog -- Ansible Changelog Tool
-[![Documentation](https://img.shields.io/badge/docs-brightgreen.svg)](https://ansible.readthedocs.io/projects/antsibull-changelog/)
+[![Documentation](https://img.shields.io/badge/docs-brightgreen.svg)](https://docs.ansible.com/projects/antsibull-changelog/)
 [![Discuss on Matrix at #antsibull:ansible.com](https://img.shields.io/matrix/antsibull:ansible.com.svg?server_fqdn=ansible-accounts.ems.host&label=Discuss%20on%20Matrix%20at%20%23antsibull:ansible.com&logo=matrix)](https://matrix.to/#/#antsibull:ansible.com)
 [![Nox badge](https://github.com/ansible-community/antsibull-changelog/workflows/nox/badge.svg?event=push&branch=main)](https://github.com/ansible-community/antsibull-changelog/actions?query=workflow%3A%22nox%22+branch%3Amain)
 [![Codecov badge](https://img.shields.io/codecov/c/github/ansible-community/antsibull-changelog)](https://codecov.io/gh/ansible-community/antsibull-changelog)
@@ -83,18 +85,18 @@ SPDX-License-Identifier: GPL-3.0-or-later
 A changelog generator used by ansible-core and Ansible collections.
 
 - Using the
-  [`antsibull-changelog` CLI tool for collections](https://ansible.readthedocs.io/projects/antsibull-changelog/changelogs/).
+  [`antsibull-changelog` CLI tool for collections](https://docs.ansible.com/projects/antsibull-changelog/changelogs/).
 - Using the
-  [`antsibull-changelog` CLI tool for other projects](https://ansible.readthedocs.io/projects/antsibull-changelog/other-projects/).
-- Documentation on the [`changelogs/config.yaml` configuration file for `antsibull-changelog`](https://ansible.readthedocs.io/projects/antsibull-changelog/changelog-configuration/).
+  [`antsibull-changelog` CLI tool for other projects](https://docs.ansible.com/projects/antsibull-changelog/other-projects/).
+- Documentation on the [`changelogs/config.yaml` configuration file for `antsibull-changelog`](https://docs.ansible.com/projects/antsibull-changelog/changelog-configuration/).
 - Documentation on the
-  [`changelog.yaml` format](https://ansible.readthedocs.io/projects/antsibull-changelog/changelog.yaml-format/).
+  [`changelog.yaml` format](https://docs.ansible.com/projects/antsibull-changelog/changelog.yaml-format/).
 
-antsibull-changelog is covered by the [Ansible Code of Conduct](https://docs.ansible.com/ansible/latest/community/code_of_conduct.html).
+antsibull-changelog is covered by the [Ansible Code of Conduct](https://docs.ansible.com/projects/ansible/latest/community/code_of_conduct.html).
 
 ## Community
 
-Need help or want to discuss the project? See our [Community guide](https://ansible.readthedocs.io/projects/antsibull-changelog/community/) to learn how to join the conversation!
+Need help or want to discuss the project? See our [Community guide](https://docs.ansible.com/projects/antsibull-changelog/community/) to learn how to join the conversation!
 
 ## Installation
 
@@ -112,7 +114,7 @@ to pull in the necessary toml parser for this feature.
 The `toml` extra is always available, but it is noop on Python >= 3.11,
 as `tomllib` is part of the standard library.
 
-For more information, see the [documentation](https://ansible.readthedocs.io/projects/antsibull-changelog/).
+For more information, see the [documentation](https://docs.ansible.com/projects/antsibull-changelog/).
 
 ## Development
 
@@ -122,16 +124,16 @@ and install the requirements needed to run the tests there.
 
 ---
 
-antsibull-changelog depends on the sister antsibull-docutils and antsibull-fileutils projects.
+antsibull-changelog depends on the sister antsibull-docs-parser, antsibull-docutils, and antsibull-fileutils projects.
 By default, `nox` will install a development version of these projects from Github.
-If you're hacking on antsibull-docutils and/or antsibull-fileutils alongside antsibull-changelog,
-nox will automatically install these projects from  `../antsibull-docutils` and `../antsibull-fileutils`
+If you're hacking on antsibull-docs-parser, antsibull-docutils, and/or antsibull-fileutils alongside antsibull-changelog,
+nox will automatically install these projects from `../antsibull-docs-parser`, `../antsibull-docutils`, and `../antsibull-fileutils`
 when running tests if those paths exist.
 You can change this behavior through the `OTHER_ANTSIBULL_MODE` env var:
 
 - `OTHER_ANTSIBULL_MODE=auto` — the default behavior described above
-- `OTHER_ANTSIBULL_MODE=local` — install the projects from `../antsibull-docutils`
-  and `../antsibull-fileutils`.
+- `OTHER_ANTSIBULL_MODE=local` — install the projects from `../antsibull-docs-parser`,
+  `../antsibull-docutils`, and `../antsibull-fileutils`.
   Fail if those paths don't exist.
 - `OTHER_ANTSIBULL_MODE=git` — install the projects from the Github main branch
 - `OTHER_ANTSIBULL_MODE=pypi` — install the latest versions from PyPI

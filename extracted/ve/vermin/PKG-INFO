@@ -1,23 +1,23 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: vermin
-Version: 1.6.0
+Version: 1.8.0
 Summary: Concurrently detect the minimum Python versions needed to run code
-Home-page: https://github.com/netromdk/vermin
-Author: Morten Kristensen
-Author-email: me@mortens.dev
-License: MIT
+Author-email: Morten Kristensen <me@mortens.dev>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/netromdk/vermin
+Project-URL: Source, https://github.com/netromdk/vermin
 Project-URL: Bug Reports, https://github.com/netromdk/vermin/issues
-Project-URL: Source, https://github.com/netromdk/vermin/
-Keywords: version detection analysis ast development
+Keywords: version,detection,analysis,ast,development
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.0
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: Utilities
 Classifier: Topic :: Software Development
 Requires-Python: >=3.0
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Dynamic: license-file
 
 |Test Status| |Analyze Status| |CodeQL Status| |Coverage| |PyPI version| |Commits since last| |Downloads| |CII best practices|
 
@@ -55,9 +55,9 @@ vanilla Python, and it doesn't have any external dependencies, it can be run wit
 includes detection of v2.x functionality.
 
 It functions by parsing Python code into an abstract syntax tree (AST), which it traverses and
-matches against internal dictionaries with **3796** rules, covering v2.0-2.7 and v3.0-3.12, divided
-into **178** modules, **2614** classes/functions/constants members of modules, **875** kwargs of
-functions, **4** strftime directives, **3** bytes format directives, **2** array typecodes, **3**
+matches against internal dictionaries with **4140** rules, covering v2.0-2.7 and v3.0-3.14, divided
+into **190** modules, **2888** classes/functions/constants members of modules, **932** kwargs of
+functions, **4** strftime directives, **3** bytes format directives, **3** array typecodes, **3**
 codecs error handler names, **20** codecs encodings, **78** builtin generic annotation types, **9**
 builtin dict union (``|``) types, **8** builtin dict union merge (``|=``) types, and **2** user
 function decorators.
@@ -65,7 +65,7 @@ function decorators.
 Backports of the standard library, like ``typing``, can be enabled for better results. Get full list
 of backports via ``--help``.
 
-The project is fairly well-tested with **4008** unit and integration tests that are executed on
+The project is fairly well-tested with **4362** unit and integration tests that are executed on
 Linux, macOS, and Windows.
 
 It is recommended to use the most recent Python version to run Vermin on projects since Python's own
@@ -84,6 +84,7 @@ Table of Contents
 * `API (experimental) <#api-experimental>`__
 * `Analysis Exclusions <#analysis-exclusions>`__
 * `Parsable Output <#parsable-output>`__
+* `GitHub Output <#github-output>`__
 * `Contributing <#contributing>`__
 
 Usage
@@ -105,7 +106,7 @@ Or if installed via `PyPi <https://pypi.python.org/pypi/vermin/>`__::
 
   % brew install vermin
 
-`Spack <https://spack.io>`__ (`pkg <https://github.com/spack/spack/blob/develop/var/spack/repos/builtin/packages/py-vermin/package.py>`__)::
+`Spack <https://spack.io>`__ (`pkg <https://github.com/spack/spack-packages/blob/develop/repos/spack_repo/builtin/packages/py_vermin/package.py>`__)::
 
   % git clone https://github.com/spack/spack.git
   % . spack/share/spack/setup-env.sh  # depending on shell
@@ -168,9 +169,11 @@ bytearray, ``with`` statement, asynchronous ``with`` statement, multiple context
 unpacking assignment, generalized unpacking, ellipsis literal (``...``) out of slices, dictionary
 union (``{..}  | {..}``), dictionary union merge (``a = {..}; a |= {..}``), builtin generic type
 annotations (``list[str]``), function decorators, class decorators, relaxed decorators,
-``metaclass`` class keyword, pattern matching with ``match``, union types written as ``X | Y``, and
-type alias statements (``type X = SomeType``). It tries to detect and ignore user-defined functions,
-classes, arguments, and variables with names that clash with library-defined symbols.
+``metaclass`` class keyword, pattern matching with ``match``, union types written as ``X | Y``, type
+alias statements (``type X = SomeType``), type alias statements with lambdas/comprehensions in class
+scopes, generic classes (``class C[T]: ...``), and template string literals (``t'{var}'``). It tries
+to detect and ignore user-defined functions, classes, arguments, and variables with names that clash
+with library-defined symbols.
 
 Caveats
 =======
@@ -230,18 +233,18 @@ Examples
 
   % ./vermin.py vermin
   Minimum required versions: 3.0
-  Incompatible versions:     2
+  Incompatible versions:     2.x
 
   % ./vermin.py -t=3.3 vermin
   Minimum required versions: 3.0
-  Incompatible versions:     2
+  Incompatible versions:     2.x
   Target versions not met:   3.3
   % echo $?
   1
 
   % ./vermin.py --versions vermin
   Minimum required versions: 3.0
-  Incompatible versions:     2
+  Incompatible versions:     2.x
   Version range:             2.0, 2.6, 2.7, 3.0
 
   % ./vermin.py -v examples
@@ -254,7 +257,7 @@ Examples
   !2, 3.4      /path/to/examples/abc.py
                /path/to/examples/unknown.py
   Minimum required versions:   3.4
-  Incompatible versions:         2
+  Incompatible versions:       2.x
 
   % ./vermin.py -vv /path/to/examples/abc.py
   Detecting python files..
@@ -264,7 +267,7 @@ Examples
     'abc.ABC' requires !2, 3.4
 
   Minimum required versions: 3.4
-  Incompatible versions:     2
+  Incompatible versions:     2.x
 
   % ./vermin.py -vvv /path/to/examples/abc.py
   Detecting python files..
@@ -274,7 +277,7 @@ Examples
     L2: 'abc.ABC' requires !2, 3.4
 
   Minimum required versions: 3.4
-  Incompatible versions:     2
+  Incompatible versions:     2.x
 
   % ./vermin.py -f parsable /path/to/examples/abc.py
   /path/to/examples/abc.py:1:7:2.6:3.0:'abc' module
@@ -452,6 +455,19 @@ That means that the final result is ``!2`` and ``3.4``, which is shown by the la
 .. code-block::
 
   :::!2:3.4:
+
+GitHub Output
+=============
+
+The GitHub output format has the same output as `parsable <#parsable-output>`__, but the lines are
+formatted as GitHub Actions annotations. This let's you see minimum version violations as annotated
+errors directly from a GitHub pipeline.
+
+For annotations to appear in a pull request:
+
+- Vermin must be called from a GitHub Actions workflow triggered by a PR
+- Vermin must be called with current working directory as the root of the repository
+- Only violations found in files changed in the PR will show up
 
 Contributing
 ============

@@ -2,9 +2,10 @@ from adam.checks.check import Check
 from adam.checks.check_context import CheckContext
 from adam.checks.check_result import CheckResult
 from adam.checks.issue import Issue
-from adam.k8s_utils.cassandra_nodes import CassandraNodes
-from adam.k8s_utils.custom_resources import CustomResources
-from adam.k8s_utils.pods import Pods
+from adam.utils import Color
+from adam.utils_k8s.cassandra_nodes import CassandraNodes
+from adam.utils_k8s.custom_resources import CustomResources
+from adam.utils_k8s.pods import Pods
 
 class Memory(Check):
     def name(self):
@@ -47,7 +48,7 @@ class Memory(Check):
 
     def find_error(self, ctx: CheckContext, pattern: str, issue_desc: str):
         escaped = pattern.replace('"', '\"')
-        result = CassandraNodes.exec(ctx.pod, ctx.namespace, f'tac /c3/cassandra/logs/system.log | grep "{escaped}" | head -1', show_out=ctx.show_output)
+        result = CassandraNodes.exec(ctx.pod, ctx.namespace, f'tac /c3/cassandra/logs/system.log | grep "{escaped}" | head -1', show_out=ctx.show_output, text_color=Color.gray)
         if result.stdout.find(pattern) > 0:
             return Issue(
                 statefulset=ctx.statefulset,

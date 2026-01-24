@@ -64,6 +64,79 @@ def bm_with_statement(number, timer=time.perf_counter):
     }
 
 
+def bm_create_inner_function(int number, timer=time.perf_counter):
+    t = timer()
+    for _ in range(number):
+        def inner_a(arg1, int arg2):
+            pass
+        def inner_b(arg1, int arg2):
+            pass
+        def inner_c(arg1, int arg2):
+            pass
+    plain_time = timer() - t
+
+    t = timer()
+    for _ in range(number):
+        def inner1():
+            pass
+        def inner2(arg1, int arg2):
+            return inner1()
+        def inner3(arg1, arg2=inner1):
+            return inner2()
+    closure_time = timer() - t
+
+    return {
+        'create_inner_function[plain]': plain_time,
+        'create_inner_function[closure]': closure_time,
+    }
+
+
+def bm_iter_string_literal(int number, timer=time.perf_counter):
+    # iterate over first digits of π
+    any_none: bool
+
+    # str
+    t = timer()
+    for _ in range(number):
+        [ch for ch in (
+            "3141592653589793238462643383279502884197169399375105820974944592307816406286"  # 76 characters
+            "2089986280348253421170679821480865132823066470938446095505822317253594081284"  # 76 characters
+        )]
+
+    any_none = False
+    for _ in range(number):
+        for ch in (
+                "3141592653589793238462643383279502884197169399375105820974944592307816406286"  # 76 characters
+                "2089986280348253421170679821480865132823066470938446095505822317253594081284"  # 76 characters
+                ):
+            any_none |= (ch is None)
+    str_time = timer() - t
+    assert not any_none
+
+    # bytes
+    t = timer()
+    for _ in range(number):
+        [ch for ch in (
+            b"3141592653589793238462643383279502884197169399375105820974944592307816406286"  # 76 characters
+            b"2089986280348253421170679821480865132823066470938446095505822317253594081284"  # 76 characters
+        )]
+
+    any_none = False
+    for _ in range(number):
+        for ch in (
+                b"3141592653589793238462643383279502884197169399375105820974944592307816406286"  # 76 characters
+                b"2089986280348253421170679821480865132823066470938446095505822317253594081284"  # 76 characters
+                ):
+            any_none |= (ch is None)
+    bytes_time = timer() - t
+    assert not any_none
+
+    return {
+        'iter_str': str_time,
+        'iter_bytes': bytes_time,
+    }
+
+
 def run_benchmark(repeat: cython.int = 10, number=100, timer=time.perf_counter):
     i: cython.int
 

@@ -10,6 +10,7 @@ import gdown
 # project dependencies
 from deepface.commons import folder_utils, package_utils
 from deepface.commons.logger import Logger
+from deepface.modules.exceptions import UnimplementedError
 
 
 tf_version = package_utils.get_tf_major_version()
@@ -46,7 +47,7 @@ def download_weights_if_necessary(
         return target_file
 
     if compress_type is not None and compress_type not in ALLOWED_COMPRESS_TYPES:
-        raise ValueError(f"unimplemented compress type - {compress_type}")
+        raise UnimplementedError(f"unimplemented compress type - {compress_type}")
 
     try:
         logger.info(f"🔗 {file_name} will be downloaded from {source_url} to {target_file}...")
@@ -127,11 +128,7 @@ def download_all_models_in_one_shot() -> None:
         MODEL_URL as SSD_MODEL,
         WEIGHTS_URL as SSD_WEIGHTS,
     )
-    from deepface.models.face_detection.Yolo import (
-        WEIGHT_URLS as YOLO_WEIGHTS,
-        WEIGHT_NAMES as YOLO_WEIGHT_NAMES,
-        YoloModel
-    )
+    from deepface.models.face_detection.Yolo import YoloModel
     from deepface.models.face_detection.YuNet import WEIGHTS_URL as YUNET_WEIGHTS
     from deepface.models.face_detection.Dlib import WEIGHTS_URL as DLIB_FD_WEIGHTS
     from deepface.models.face_detection.CenterFace import WEIGHTS_URL as CENTERFACE_WEIGHTS
@@ -163,20 +160,48 @@ def download_all_models_in_one_shot() -> None:
         SSD_MODEL,
         SSD_WEIGHTS,
         {
-            "filename": YOLO_WEIGHT_NAMES[YoloModel.V8N.value],
-            "url": YOLO_WEIGHTS[YoloModel.V8N.value],
+            "filename": YoloModel.V8N.value[0],
+            "url": YoloModel.V8N.value[1],
         },
         {
-            "filename": YOLO_WEIGHT_NAMES[YoloModel.V11N.value],
-            "url": YOLO_WEIGHTS[YoloModel.V11N.value],
+            "filename": YoloModel.V8M.value[0],
+            "url": YoloModel.V8M.value[1],
         },
         {
-            "filename": YOLO_WEIGHT_NAMES[YoloModel.V11S.value],
-            "url": YOLO_WEIGHTS[YoloModel.V11S.value],
+            "filename": YoloModel.V8L.value[0],
+            "url": YoloModel.V8L.value[1],
         },
         {
-            "filename": YOLO_WEIGHT_NAMES[YoloModel.V11M.value],
-            "url": YOLO_WEIGHTS[YoloModel.V11M.value],
+            "filename": YoloModel.V11N.value[0],
+            "url": YoloModel.V11N.value[1],
+        },
+        {
+            "filename": YoloModel.V11S.value[0],
+            "url": YoloModel.V11S.value[1],
+        },
+        {
+            "filename": YoloModel.V11M.value[0],
+            "url": YoloModel.V11M.value[1],
+        },
+        {
+            "filename": YoloModel.V11L.value[0],
+            "url": YoloModel.V11L.value[1],
+        },
+        {
+            "filename": YoloModel.V12N.value[0],
+            "url": YoloModel.V12N.value[1],
+        },
+        {
+            "filename": YoloModel.V12S.value[0],
+            "url": YoloModel.V12S.value[1],
+        },
+        {
+            "filename": YoloModel.V12M.value[0],
+            "url": YoloModel.V12M.value[1],
+        },
+        {
+            "filename": YoloModel.V12L.value[0],
+            "url": YoloModel.V12L.value[1],
         },
         YUNET_WEIGHTS,
         DLIB_FD_WEIGHTS,
@@ -199,7 +224,7 @@ def download_all_models_in_one_shot() -> None:
             filename = i["filename"]
             url = i["url"]
         else:
-            raise ValueError("unimplemented scenario")
+            raise UnimplementedError("unimplemented scenario")
         logger.info(
             f"Downloading {url} to ~/.deepface/weights/{filename} with {compress_type} compression"
         )

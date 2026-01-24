@@ -25,7 +25,7 @@ def is_running_trio() -> bool:
         # sniffio is a dependency of trio.
 
         # See https://github.com/python-trio/trio/issues/2802
-        import sniffio
+        import sniffio  # type: ignore[unresolved-import]
 
         if sniffio.current_async_library() == "trio":
             return True
@@ -84,7 +84,8 @@ class ASGITransport(ASGITransportBase):
     ) -> Response:
         from langgraph_api.asyncio import call_soon_in_main_loop
 
-        assert isinstance(request.stream, AsyncByteStream)
+        if not isinstance(request.stream, AsyncByteStream):
+            raise ValueError("Request stream must be an AsyncByteStream")
 
         # ASGI scope.
         scope = {
@@ -133,14 +134,15 @@ class ASGITransport(ASGITransportBase):
             nonlocal status_code, response_headers, response_started
 
             if message["type"] == "http.response.start":
-                assert not response_started
-
+                if response_started:
+                    raise RuntimeError("Response already started")
                 status_code = message["status"]
                 response_headers = message.get("headers", [])
                 response_started = True
 
             elif message["type"] == "http.response.body":
-                assert not response_complete.is_set()
+                if response_complete.is_set():
+                    raise RuntimeError("Response already complete")
                 body = message.get("body", b"")
                 more_body = message.get("more_body", False)
 
@@ -152,7 +154,7 @@ class ASGITransport(ASGITransportBase):
 
         try:
             await call_soon_in_main_loop(self.app(scope, receive, send))
-        except Exception:  # noqa: PIE-786
+        except Exception:
             if self.raise_app_exceptions:
                 raise
 
@@ -162,9 +164,12 @@ class ASGITransport(ASGITransportBase):
             if response_headers is None:
                 response_headers = {}
 
-        assert response_complete.is_set()
-        assert status_code is not None
-        assert response_headers is not None
+        if not response_complete.is_set():
+            raise RuntimeError("Response not complete")
+        if status_code is None:
+            raise RuntimeError("Status code not set")
+        if response_headers is None:
+            raise RuntimeError("Response headers not set")
 
         stream = ASGIResponseStream(body_parts)
 

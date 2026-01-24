@@ -7,11 +7,9 @@ import logging
 import os
 import pathlib
 import platform
-import random
 import re
 import shutil
 import stat
-import string
 import tempfile
 from test import check_present, mark_windows_only, raises_nested
 from unittest import mock
@@ -43,6 +41,7 @@ from cmdstanpy.utils import (
     validate_dir,
     windows_short_path,
 )
+from cmdstanpy.utils.cmdstan import stanc_path
 from cmdstanpy.utils.filesystem import temp_inits, temp_single_json
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -134,6 +133,16 @@ def test_set_path() -> None:
         assert os.path.samefile(install_version, os.environ['CMDSTAN'])
 
 
+@contextlib.contextmanager
+def temporary_cmdstan_path(path: str) -> None:
+    prev = cmdstan_path()
+    try:
+        set_cmdstan_path(path)
+        yield
+    finally:
+        set_cmdstan_path(prev)
+
+
 def test_validate_path() -> None:
     if 'CMDSTAN' in os.environ:
         install_version = os.environ.get('CMDSTAN')
@@ -150,20 +159,18 @@ def test_validate_path() -> None:
     with pytest.raises(ValueError, match='No CmdStan directory'):
         validate_cmdstan_path(path_foo)
 
-    folder_name = ''.join(
-        random.choice(string.ascii_letters) for _ in range(10)
-    )
-    while os.path.exists(folder_name):
-        folder_name = ''.join(
-            random.choice(string.ascii_letters) for _ in range(10)
-        )
-    folder = pathlib.Path(folder_name)
-    folder.mkdir(parents=True)
-    (folder / "makefile").touch()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        folder = pathlib.Path(tmpdir)
+        with pytest.raises(ValueError, match='missing makefile'):
+            validate_cmdstan_path(str(folder.absolute()))
 
-    with pytest.raises(ValueError, match='missing binaries'):
-        validate_cmdstan_path(str(folder.absolute()))
-    shutil.rmtree(folder)
+        (folder / "makefile").touch()
+        with temporary_cmdstan_path(str(folder.absolute())):
+            with pytest.raises(
+                ValueError,
+                match='stanc executable not found in CmdStan installation',
+            ):
+                stanc_path()
 
 
 def test_validate_dir() -> None:
@@ -216,7 +223,6 @@ def test_cmdstan_version(caplog: pytest.LogCaptureFixture) -> None:
         fake_bin.mkdir(parents=True)
         fake_makefile = fake_path / 'makefile'
         fake_makefile.touch()
-        (fake_bin / f'stanc{EXTENSION}').touch()
         with mock.patch.dict("os.environ", CMDSTAN=str(fake_path)):
             assert str(fake_path) == cmdstan_path()
             with open(fake_makefile, 'w') as fd:
@@ -230,10 +236,7 @@ def test_cmdstan_version(caplog: pytest.LogCaptureFixture) -> None:
             check_present(caplog, ('cmdstanpy', 'INFO', expect))
 
             fake_makefile.unlink()
-            expect = (
-                'CmdStan installation {} missing makefile, '
-                'cannot get version.'.format(fake_path)
-            )
+            expect = 'No CmdStan installation found.'
             with caplog.at_level(logging.INFO):
                 cmdstan_version()
             check_present(caplog, ('cmdstanpy', 'INFO', expect))
@@ -291,7 +294,6 @@ def test_check_sampler_csv_1() -> None:
     csv_good = os.path.join(DATAFILES_PATH, 'bernoulli_output_1.csv')
     dict = check_sampler_csv(
         path=csv_good,
-        is_fixed_param=False,
         iter_warmup=100,
         iter_sampling=10,
         thin=1,
@@ -381,7 +383,6 @@ def test_check_sampler_csv_thin() -> None:
     csv_file = bern_fit.runset.csv_files[0]
     dict = check_sampler_csv(
         path=csv_file,
-        is_fixed_param=False,
         iter_sampling=490,
         iter_warmup=490,
         thin=7,
@@ -396,7 +397,6 @@ def test_check_sampler_csv_thin() -> None:
     with raises_nested(ValueError, 'config error'):
         check_sampler_csv(
             path=csv_file,
-            is_fixed_param=False,
             iter_sampling=490,
             iter_warmup=490,
             thin=9,
@@ -404,7 +404,6 @@ def test_check_sampler_csv_thin() -> None:
     with raises_nested(ValueError, 'expected 490 draws, found 70'):
         check_sampler_csv(
             path=csv_file,
-            is_fixed_param=False,
             iter_sampling=490,
             iter_warmup=490,
         )
@@ -452,6 +451,21 @@ def test_metric_missing() -> None:
     metric_file = os.path.join(DATAFILES_PATH, 'no_such_file.json')
     with pytest.raises(Exception, match='No such file or directory'):
         read_metric(metric_file)
+
+
+def test_deduce_metric_type() -> None:
+    assert stancsv.try_deduce_metric_type(np.zeros((3, 3))) == 'dense_e'
+    assert stancsv.try_deduce_metric_type(np.zeros((3,))) == 'diag_e'
+
+    assert stancsv.try_deduce_metric_type([np.zeros((3, 3))]) == 'dense_e'
+    assert (
+        stancsv.try_deduce_metric_type({"inv_metric": np.zeros((3,))})
+        == 'diag_e'
+    )
+    assert (
+        stancsv.try_deduce_metric_type([{"inv_metric": np.zeros((3,))}])
+        == 'diag_e'
+    )
 
 
 @mark_windows_only

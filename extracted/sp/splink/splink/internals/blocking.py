@@ -11,7 +11,6 @@ from sqlglot.optimizer.simplify import flatten
 
 from splink.internals.database_api import DatabaseAPISubClass
 from splink.internals.dialects import SplinkDialect
-from splink.internals.exceptions import SplinkException
 from splink.internals.input_column import InputColumn
 from splink.internals.misc import ensure_is_list
 from splink.internals.pipeline import CTEPipeline
@@ -106,6 +105,10 @@ class BlockingRule:
     def sqlglot_dialect(self):
         return SplinkDialect.from_string(self._sql_dialect_str).sqlglot_dialect
 
+    def _input_column(self, name: str) -> InputColumn:
+        """Create an InputColumn with this blocking rule's dialect."""
+        return InputColumn(name, sqlglot_dialect_str=self.sqlglot_dialect)
+
     @property
     def match_key(self):
         return len(self.preceding_rules)
@@ -190,6 +193,15 @@ class BlockingRule:
             }
             """
         return sql
+
+    def create_blocking_input_sql(
+        self,
+        input_tablename: str,
+        input_columns: List[InputColumn],
+    ) -> str:
+        """A SQL string that creates the input tables that will be joined
+        for this blocking rule"""
+        return f"select * from {input_tablename}"
 
     @property
     def _parsed_join_condition(self) -> Join:
@@ -426,31 +438,7 @@ class ExplodingBlockingRule(BlockingRule):
         so that subsequent statements do not produce duplicate pairs
         """
 
-        unique_id_column = unique_id_input_column
-
-        unique_id_input_columns = combine_unique_id_input_columns(
-            source_dataset_input_column, unique_id_input_column
-        )
-
-        if (splink_df := self.exploded_id_pair_table) is None:
-            raise SplinkException(
-                "Must use `materialise_exploded_id_table(linker)` "
-                "to set `exploded_id_pair_table` before calling "
-                "exclude_pairs_generated_by_this_rule_sql()."
-            )
-        ids_to_compare_sql = f"select * from {splink_df.physical_name}"
-
-        id_expr_l = _composite_unique_id_from_nodes_sql(unique_id_input_columns, "l")
-        id_expr_r = _composite_unique_id_from_nodes_sql(unique_id_input_columns, "r")
-
-        return f"""EXISTS (
-            select 1 from ({ids_to_compare_sql}) as ids_to_compare
-            where (
-                {id_expr_l} = ids_to_compare.{unique_id_column.name_l} and
-                {id_expr_r} = ids_to_compare.{unique_id_column.name_r}
-            )
-        )
-        """
+        return "false"
 
     def create_blocked_pairs_sql(
         self,
@@ -476,6 +464,30 @@ class ExplodingBlockingRule(BlockingRule):
             from {exploded_id_pair_table.physical_name}
         """
         return sql
+
+    def create_blocking_input_sql(
+        self,
+        input_tablename: str,
+        input_columns: List[InputColumn],
+    ) -> str:
+        """A SQL string that creates the input tables that will be joined
+        for this blocking rule"""
+        arrays_to_explode_cols = [
+            self._input_column(colname) for colname in self.array_columns_to_explode
+        ]
+
+        # Get columns not in arrays_to_explode using InputColumn equality
+        other_cols = [col for col in input_columns if col not in arrays_to_explode_cols]
+
+        dialect = SplinkDialect.from_string(self._sql_dialect_str)
+
+        expl_sql = dialect.explode_arrays_sql(
+            input_tablename,
+            [col.quote().name for col in arrays_to_explode_cols],
+            [col.quote().name for col in other_cols],
+        )
+
+        return expl_sql
 
     def as_dict(self):
         output = super().as_dict()
@@ -509,21 +521,20 @@ def materialise_exploded_id_tables(
     pipeline.enqueue_sql(sql, "__splink__df_concat")
     nodes_concat = db_api.sql_pipeline_to_splink_dataframe(pipeline)
 
-    input_colnames = {col.name for col in nodes_concat.columns}
+    input_columns_set = set(nodes_concat.columns)
 
     for br in exploding_blocking_rules:
         pipeline = CTEPipeline([nodes_concat])
-        arrays_to_explode_quoted = [
-            InputColumn(colname, sqlglot_dialect_str=db_api.sql_dialect.sqlglot_dialect)
-            .quote()
-            .name
-            for colname in br.array_columns_to_explode
+        arrays_to_explode_cols = [
+            br._input_column(colname) for colname in br.array_columns_to_explode
         ]
+
+        other_cols = input_columns_set - set(arrays_to_explode_cols)
 
         expl_sql = db_api.sql_dialect.explode_arrays_sql(
             "__splink__df_concat",
             br.array_columns_to_explode,
-            list(input_colnames.difference(arrays_to_explode_quoted)),
+            [col.name for col in other_cols],
         )
 
         pipeline.enqueue_sql(
@@ -615,6 +626,20 @@ def block_using_rules_sqls(
         br_sqls.append(sql)
 
     sql = " UNION ALL ".join(br_sqls)
+
+    if any(isinstance(br, ExplodingBlockingRule) for br in blocking_rules):
+        sqls.append(
+            {"sql": sql, "output_table_name": "__splink__blocked_id_pairs_non_unique"}
+        )
+
+        sql = """
+        SELECT
+            min(match_key) as match_key,
+            join_key_l,
+            join_key_r
+        FROM __splink__blocked_id_pairs_non_unique
+        GROUP BY join_key_l, join_key_r
+        """
 
     sqls.append({"sql": sql, "output_table_name": "__splink__blocked_id_pairs"})
 

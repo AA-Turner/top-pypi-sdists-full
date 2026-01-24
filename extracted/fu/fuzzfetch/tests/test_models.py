@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pytest  # pylint: disable=import-error
 
 from fuzzfetch import FetcherException
-from fuzzfetch.models import BuildFlags, HgRevision, Platform
+from fuzzfetch.models import BuildFlags, HgRevision, Platform, Product
 
 
 def test_build_flags_custom_initialization():
@@ -97,7 +97,9 @@ def test_build_flags_update_raises_on_mismatch(initial, build_string, missing):
 )
 def test_hgrevision_properties(known_branch, known_revision):
     """Test HgRevision properties with a real revision and branch."""
-    revision = HgRevision(revision=known_revision, branch=known_branch)
+    revision = HgRevision(
+        revision=known_revision, branch=known_branch, product=Product("firefox")
+    )
 
     assert isinstance(revision.pushdate, datetime)
     assert revision.pushdate.tzinfo is not None
@@ -142,6 +144,8 @@ def test_platform_initialization_unsupported_machine():
         ("linux64", ("Linux", "x86_64", "linux64")),
         ("win64-aarch64", ("Windows", "arm64", "win64-aarch64")),
         ("android-aarch64", ("Android", "arm64", "android-aarch64")),
+        ("linux32", ("Linux", "x86", "linux")),
+        ("linux", ("Linux", "x86", "linux")),
     ],
 )
 def test_from_platform_guess(build_string, expected):

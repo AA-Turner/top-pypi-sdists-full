@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 
 class ToolToolSpecInputSchema(BaseModel):
@@ -46,9 +46,10 @@ class ToolToolSpecInputSchema(BaseModel):
 
     __properties = ["type", "properties", "required"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -73,7 +74,7 @@ class ToolToolSpecInputSchema(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
@@ -93,9 +94,9 @@ class ToolToolSpecInputSchema(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return ToolToolSpecInputSchema.parse_obj(obj)
+            return ToolToolSpecInputSchema.model_validate(obj)
 
-        _obj = ToolToolSpecInputSchema.parse_obj(
+        _obj = ToolToolSpecInputSchema.model_validate(
             {
                 "type": obj.get("type"),
                 "properties": obj.get("properties"),

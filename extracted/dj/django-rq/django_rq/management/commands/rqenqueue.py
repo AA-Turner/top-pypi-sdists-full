@@ -7,14 +7,13 @@ class Command(BaseCommand):
     """
     Queue a function with the given arguments.
     """
+
     help = __doc__
     args = '<function arg arg ...>'
 
     def add_arguments(self, parser):
-        parser.add_argument('--queue', '-q', dest='queue', default='default',
-                            help='Specify the queue [default]')
-        parser.add_argument('--timeout', '-t', type=int, dest='timeout',
-                            help='A timeout in seconds')
+        parser.add_argument('--queue', '-q', dest='queue', default='default', help='Specify the queue [default]')
+        parser.add_argument('--timeout', '-t', type=int, dest='timeout', help='A timeout in seconds')
         parser.add_argument('args', nargs='*')
 
     def handle(self, *args, **options):
@@ -25,4 +24,4 @@ class Command(BaseCommand):
         queue = get_queue(options['queue'])
         job = queue.enqueue_call(args[0], args=args[1:], timeout=options['timeout'])
         if options['verbosity']:
-            print('Job %s created' % job.id)
+            print(f'Job {job.id} created')

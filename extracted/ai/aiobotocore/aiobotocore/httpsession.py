@@ -3,6 +3,7 @@ import contextlib
 import io
 import os
 import socket
+from concurrent.futures import CancelledError
 from typing import Optional
 
 import aiohttp  # lgtm [py/import-and-import-from]
@@ -61,7 +62,9 @@ class AIOHTTPSession:
 
         # TODO: handle socket_options
         # keep track of sessions by proxy url (if any)
-        self._sessions: dict[Optional[str], aiohttp.ClientSession] = {}
+        self._sessions: Optional[
+            dict[Optional[str], aiohttp.ClientSession]
+        ] = None
         self._verify = verify
         self._proxy_config = ProxyConfiguration(
             proxies=proxies, proxies_settings=proxies_config
@@ -99,13 +102,17 @@ class AIOHTTPSession:
         # request so don't need proxy manager
 
     async def __aenter__(self):
-        assert not self._sessions
+        assert self._sessions is None
+        self._sessions = {}
 
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        assert self._sessions is not None, 'Session was never entered'
         self._sessions.clear()
         await self._exit_stack.aclose()
+        # Make _sessions unusable once context is exited
+        self._sessions = None
 
     def _get_ssl_context(self):
         return create_urllib3_context()
@@ -277,6 +284,8 @@ class AIOHTTPSession:
             raise EndpointConnectionError(endpoint_url=request.url, error=e)
         except asyncio.TimeoutError as e:
             raise ReadTimeoutError(endpoint_url=request.url, error=e)
+        except CancelledError:
+            raise
         except Exception as e:
             message = 'Exception received when sending urllib3 HTTP request'
             logger.debug(message, exc_info=True)

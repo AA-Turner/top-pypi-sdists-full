@@ -32,7 +32,6 @@ import ml_dtypes
 import numpy as np
 
 from jax._src import config
-from jax._src import deprecations
 from jax._src import literals
 from jax._src.typing import Array, DType, DTypeLike
 from jax._src.util import set_module, StrictABC
@@ -185,20 +184,10 @@ _intn_dtypes = [
 
 # Default types.
 bool_ = np.bool_
-int_: type[Any]
-uint: type[Any]
-float_: type[Any]
-complex_: type[Any]
-if config.default_dtype_bits.value == '32':
-  int_ = np.int32
-  uint = np.uint32
-  float_ = np.float32
-  complex_ = np.complex64
-else:
-  int_ = np.int64
-  uint = np.uint64
-  float_ = np.float64
-  complex_ = np.complex128
+int_: type[Any] = np.int64
+uint: type[Any] = np.uint64
+float_: type[Any] = np.float64
+complex_: type[Any] = np.complex128
 
 
 # Default dtypes. These are intended to have the same semantics as, say,
@@ -207,33 +196,23 @@ else:
 
 
 def default_int_dtype() -> DType:
-  return (
-      np.dtype(np.int64)
-      if config.enable_x64.value and config.default_dtype_bits.value == '64'
-      else np.dtype(np.int32)
-  )
+  return np.dtype(np.int64) if config.enable_x64.value else np.dtype(np.int32)
 
 
 def default_uint_dtype() -> DType:
-  return (
-      np.dtype(np.uint64)
-      if config.enable_x64.value and config.default_dtype_bits.value == '64'
-      else np.dtype(np.uint32)
-  )
+  return np.dtype(np.uint64) if config.enable_x64.value else np.dtype(np.uint32)
 
 
 def default_float_dtype() -> DType:
   return (
-      np.dtype(np.float64)
-      if config.enable_x64.value and config.default_dtype_bits.value == '64'
-      else np.dtype(np.float32)
+      np.dtype(np.float64) if config.enable_x64.value else np.dtype(np.float32)
   )
 
 
 def default_complex_dtype() -> DType:
   return (
       np.dtype(np.complex128)
-      if config.enable_x64.value and config.default_dtype_bits.value == '64'
+      if config.enable_x64.value
       else np.dtype(np.complex64)
   )
 
@@ -267,10 +246,12 @@ _DEFAULT_TYPEMAP: dict[type, Callable[[], np.dtype]] = {
   complex: default_complex_dtype,
 }
 
-def bit_width(dtype: DTypeLike) -> int:
+def itemsize_bits(dtype: DTypeLike) -> int:
   """Number of bits per element for the dtype."""
   # Note: we cannot use dtype.itemsize here because this is
   # incorrect for sub-byte integer types.
+  if dtype is None:
+    raise ValueError("dtype cannot be None.")
   if dtype == np.dtype(bool):
     return 8  # physical bit layout for boolean dtype
   elif issubdtype(dtype, np.integer):
@@ -298,6 +279,7 @@ _dtype_to_32bit_dtype: dict[DType, DType] = {
 _dtype_to_inexact: dict[DType, DType] = {
     np.dtype(k): np.dtype(v) for k, v in [
         ('bool', 'float32'),
+        ('uint4', 'float32'), ('int4', 'float32'),
         ('uint8', 'float32'), ('int8', 'float32'),
         ('uint16', 'float32'), ('int16', 'float32'),
         ('uint32', 'float32'), ('int32', 'float32'),
@@ -375,17 +357,11 @@ def canonicalize_value(x):
     if handler:
       return handler(x)
   if hasattr(x, '__jax_array__'):
-    deprecations.warn(
-        'jax-abstract-dunder-array',
-        (
-            'Triggering of __jax_array__() during abstractification is'
-            ' deprecated. To avoid this error, either explicitly convert your'
-            ' object using jax.numpy.array(), or register your object as a'
-            ' pytree.'
-        ),
-        stacklevel=6,
+    raise ValueError(
+        'Triggering __jax_array__() during abstractification is no longer'
+        ' supported. To avoid this error, either explicitly convert your object'
+        ' using jax.numpy.array(), or register your object as a pytree.'
     )
-    return canonicalize_value(x.__jax_array__())
   raise InvalidInputException(
       f"Argument '{x}' of type {type(x)} is not a valid JAX type."
   )
@@ -684,27 +660,42 @@ def _type_promotion_lattice(strict: bool, x64: bool) -> dict[JAXType, list[JAXTy
     x64: allow promotions that form x64 types from non-x64 inputs?
   """
   b1, = _bool_types
-  uint2, uint4, u1, u2, u4, u8, int2, int4, i1, i2, i4, i8 = _int_types
-  *f1_types, bf, f2, f4, f8 = _float_types
-  c4, c8 = _complex_types
+  u2, u4, u8, u16, u32, u64, i2, i4, i8, i16, i32, i64 = _int_types
+  *small_float_types, bf16, f16, f32, f64 = _float_types
+  c64, c128 = _complex_types
   i_, f_, c_ = _weak_types
   if not strict:
-    out: dict[JAXType, list[JAXType]]
-    out = {
-      b1: [i_],
-      i_: [u1, uint2, uint4, i1, int2, int4],
-      uint2: [], uint4: [], u1: [i2, u2], u2: [i4, u4], u4: [i8, u8], u8: [f_],
-      int2: [], int4: [], i1: [i2], i2: [i4], i4: [i8], i8: [f_],
-      f_: [*f1_types, bf, f2, c_],
-      **{t: [] for t in f1_types}, bf: [f4], f2: [f4], f4: [f8, c4], f8: [c8],
-      c_: [c4], c4: [c8], c8: [],
+    out: dict[JAXType, list[JAXType]] = {
+        b1: [i_],
+        i_: [u8, u2, u4, i8, i2, i4],
+        u2: [],
+        u4: [],
+        u8: [i16, u16],
+        u16: [i32, u32],
+        u32: [i64, u64],
+        u64: [f_],
+        i2: [],
+        i4: [],
+        i8: [i16],
+        i16: [i32],
+        i32: [i64],
+        i64: [f_],
+        f_: [*small_float_types, bf16, f16, c_],
+        **{t: [] for t in small_float_types},
+        bf16: [f32],
+        f16: [f32],
+        f32: [f64, c64],
+        f64: [c128],
+        c_: [c64],
+        c64: [c128],
+        c128: [],
     }
     # If x64 mode is not enabled, then we want to avoid any promotions that form
     # 64-bit types from non-64-bit inputs. There's only one of these in the
     # entire promotion lattice, namely u4xi4->i8, which we can avoid by
     # replacing it with u4xi4->i4.
     if not x64:
-      out[u4] = [i4, u8]
+      out[u32] = [i32, u64]
     return out
   else:
     return {
@@ -736,8 +727,8 @@ class TypePromotionError(ValueError):
 
 # We don't use util.memoize because there is no implicit X64 dependence.
 @functools.lru_cache(512)
-def _least_upper_bound(jax_numpy_dtype_promotion: str, x64: bool,
-                       *nodes: JAXType) -> JAXType:
+def _least_upper_bound(jax_numpy_dtype_promotion: config.NumpyDtypePromotion,
+                       x64: bool, *nodes: JAXType) -> JAXType:
   """Compute the least upper bound of a set of nodes.
 
   Args:
@@ -764,9 +755,9 @@ def _least_upper_bound(jax_numpy_dtype_promotion: str, x64: bool,
   #   ∀ c ∈ N: CUB(N) ⊆ UB(c)
   # So if N ∩ CUB(N) is nonempty, if follows that LUB(N) = N ∩ CUB(N).
   N = set(nodes)
-  if jax_numpy_dtype_promotion == 'strict':
+  if jax_numpy_dtype_promotion == config.NumpyDtypePromotion.STRICT:
     UB = _strict_lattice_ubs
-  elif jax_numpy_dtype_promotion == 'standard':
+  elif jax_numpy_dtype_promotion == config.NumpyDtypePromotion.STANDARD:
     if x64:
       UB = _standard_x64_lattice_ubs
     else:
@@ -784,7 +775,7 @@ def _least_upper_bound(jax_numpy_dtype_promotion: str, x64: bool,
   if len(LUB) == 1:
     return LUB.pop()
   elif len(LUB) == 0:
-    if config.numpy_dtype_promotion.value == 'strict':
+    if config.numpy_dtype_promotion.value == config.NumpyDtypePromotion.STRICT:
       msg = (
         f"Input dtypes {tuple(str(n) for n in nodes)} have no available implicit dtype "
         "promotion path when jax_numpy_dtype_promotion=strict. Try explicitly casting "
@@ -873,14 +864,19 @@ def promote_types(a: DTypeLike, b: DTypeLike) -> DType:
 
 def register_weak_scalar_type(typ: type):
   """Register a scalar type as a weak type."""
-  _registered_weak_types.append(typ)
-_registered_weak_types: list[JAXType] = []
+  _registered_weak_types.add(typ)
+
+_registered_weak_types: set[JAXType] = {
+    literals.TypedInt,
+    literals.TypedFloat,
+    literals.TypedComplex,
+}
 
 
 def is_weakly_typed(x: Any) -> bool:
   if type(x) in _weak_types or type(x) in _registered_weak_types:
     return True
-  if isinstance(x, literals.LiteralArray):
+  if isinstance(x, literals.TypedNdArray):
     return x.weak_type
   try:
     return x.aval.weak_type
@@ -898,11 +894,49 @@ def check_valid_dtype(dtype: DType) -> None:
     raise TypeError(f"Dtype {dtype} is not a valid JAX array "
                     "type. Only arrays of numeric types are supported by JAX.")
 
+def _maybe_canonicalize_explicit_dtype(dtype: DType, fun_name: str) -> DType:
+  "Canonicalizes explicitly requested dtypes, per explicit_x64_dtypes."
+  allow = config.explicit_x64_dtypes.value
+  if allow == config.ExplicitX64Mode.ALLOW or config.enable_x64.value:
+    return dtype
+  canonical_dtype = canonicalize_dtype(dtype)
+  if canonical_dtype == dtype:
+    return dtype
+  fun_name = f" requested in {fun_name}" if fun_name else ""
+  if allow == config.ExplicitX64Mode.ERROR:
+    msg = ("Explicitly requested dtype {}{} is not available. To enable more "
+           "dtypes, set the jax_enable_x64 or allow_explicit_x64_dtypes "
+           "configuration options."
+          "See https://github.com/jax-ml/jax#current-gotchas for more.")
+    msg = msg.format(dtype, fun_name, canonical_dtype.name)
+    raise ValueError(msg)
+  else:  # WARN
+    msg = ("Explicitly requested dtype {}{} is not available, "
+          "and will be truncated to dtype {}. To enable more dtypes, set the "
+          "jax_enable_x64 configuration option or the JAX_ENABLE_X64 shell "
+          "environment variable. "
+          "See https://github.com/jax-ml/jax#current-gotchas for more.")
+    msg = msg.format(dtype, fun_name, canonical_dtype.name)
+    warnings.warn(msg, stacklevel=4)
+    return canonical_dtype
+
+
+_types_whose_dtype_should_not_be_canonicalized = (
+    Array,
+    literals.TypedNdArray,
+    literals.TypedInt,
+    literals.TypedFloat,
+    literals.TypedComplex,
+)
+
 def dtype(x: Any) -> DType:
   """Return the dtype object for a value or type.
 
   Python scalars, Python scalar types, NumPy scalar type, NumPy dtypes, and
-  non-JAX arrays will have their dtypes canonicalized."""
+  non-JAX arrays will have their dtypes canonicalized.
+
+  Note: this is not the same function as jax.numpy.dtype, which simply aliases
+  numpy.dtype."""
   # TODO(phawkins): in the future, we would like to:
   # - return the default dtype for Python scalar types and values
   # - canonicalize NumPy array and scalar types
@@ -916,17 +950,26 @@ def dtype(x: Any) -> DType:
 
     # Numpy scalar types, e.g., np.int32, np.float32
     if _issubclass(x, np.generic):
-      return canonicalize_dtype(np.dtype(x))
+      dt = np.dtype(x)
+      return _maybe_canonicalize_explicit_dtype(dt, "dtype")
 
   # Python scalar values, e.g., int(3), float(3.14)
   elif (dt := python_scalar_types_to_dtypes.get(type(x))) is not None:
     return canonicalize_dtype(dt)
-
-  # jax Arrays. We intentionally do not canonicalize jax Arrays: once we've
-  # formed an x64 value in a jax Array, that is something we respect
-  # irrespective of the x64 mode.
-  elif isinstance(x, Array):
+  # Jax Arrays, literal arrays, and scalars.
+  # We intentionally do not canonicalize these types: once we've formed an x64
+  # value, that is something we respect irrespective of the x64 mode.
+  elif isinstance(x, _types_whose_dtype_should_not_be_canonicalized):
     return x.dtype
+
+  if isinstance(x, str):
+    x = np.dtype(x)
+
+  if isinstance(x, np.dtype):
+    if x not in _jax_dtype_set and not issubdtype(x, extended):
+      raise TypeError(f"Value '{x}' with dtype {dt} is not a valid JAX array "
+                      "type. Only arrays of numeric types are supported by JAX.")
+    return _maybe_canonicalize_explicit_dtype(x, "dtype")
 
   if issubdtype(getattr(x, 'dtype', None), extended):
     dt = x.dtype
@@ -950,7 +993,7 @@ def lattice_result_type(*args: Any) -> tuple[DType, bool]:
     # Trivial promotion case. This allows extended dtypes through.
     out_dtype = dtypes[0]
     out_weak_type = False
-  elif all(weak_types) and config.numpy_dtype_promotion.value != 'strict':
+  elif all(weak_types) and config.numpy_dtype_promotion.value != config.NumpyDtypePromotion.STRICT:
     # If all inputs are weakly typed, we compute the bound of the strongly-typed
     # counterparts and apply the weak type at the end. This avoids returning the
     # incorrect result with non-canonical weak types (e.g. weak int16).
@@ -1005,11 +1048,8 @@ def check_and_canonicalize_user_dtype(dtype, fun_name=None) -> DType:
   if dtype is None:
     raise ValueError("dtype must be specified.")
   if isinstance(dtype, Array):
-    # Deprecation warning added 2024 June 13.
-    warnings.warn("Passing an array as a dtype argument is deprecated; "
-                  "instead of dtype=arr use dtype=arr.dtype.",
-                  category=DeprecationWarning, stacklevel=3)
-    return dtype.dtype # no further check needed, as array dtypes have already been validated.
+    raise ValueError("Passing an array as a dtype argument is no longer "
+                     "supported; instead of dtype=arr use dtype=arr.dtype.")
   if issubdtype(dtype, extended):
     return dtype
   # Avoid using `dtype in [...]` because of numpy dtype equality overloading.
@@ -1022,17 +1062,7 @@ def check_and_canonicalize_user_dtype(dtype, fun_name=None) -> DType:
     )
     msg += f" in {fun_name}" if fun_name else ""
     raise TypeError(msg)
-  if np_dtype != canonicalize_dtype(np_dtype):
-    msg = ("Explicitly requested dtype {} {} is not available, "
-           "and will be truncated to dtype {}. To enable more dtypes, set the "
-           "jax_enable_x64 configuration option or the JAX_ENABLE_X64 shell "
-           "environment variable. "
-           "See https://github.com/jax-ml/jax#current-gotchas for more.")
-    fun_name = f"requested in {fun_name}" if fun_name else ""
-    truncated_dtype = canonicalize_dtype(np_dtype)
-    warnings.warn(msg.format(dtype, fun_name, truncated_dtype.name), stacklevel=3)
-    return truncated_dtype
-  return np_dtype
+  return _maybe_canonicalize_explicit_dtype(np_dtype, fun_name)
 
 def safe_to_cast(input_dtype_or_value: Any,
                  output_dtype_or_value: Any) -> bool:
@@ -1054,13 +1084,13 @@ def safe_to_cast(input_dtype_or_value: Any,
 
   Examples:
 
-    >>> safe_to_cast('int32', 'float64')
+    >>> safe_to_cast('int16', 'float32')
     True
-    >>> safe_to_cast('float64', 'int32')
+    >>> safe_to_cast('float32', 'int16')
     False
     >>> safe_to_cast('float32', 'complex64')
     True
-    >>> safe_to_cast('complex64', 'float64')
+    >>> safe_to_cast('complex64', 'float32')
     False
   """
   input_dtype = dtype(input_dtype_or_value)

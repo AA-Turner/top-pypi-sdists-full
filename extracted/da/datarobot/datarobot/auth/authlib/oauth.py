@@ -339,14 +339,10 @@ class AsyncOAuth(AsyncOAuthComponent):
             OAuthProviderNotFound: If the provider with the specified ID is not found.
         """
         if provider_id is None:
-            raise OAuthValidationErr(
-                "Provider ID is required to obtain new access token via Authlib"
-            )
+            raise OAuthValidationErr("Provider ID is required to obtain new access token via Authlib")
 
         if refresh_token is None:
-            raise OAuthValidationErr(
-                "Refresh token is required to obtain new access token via Authlib"
-            )
+            raise OAuthValidationErr("Refresh token is required to obtain new access token via Authlib")
 
         provider = self.get_provider(provider_id)
 
@@ -374,21 +370,17 @@ class AsyncOAuth(AsyncOAuthComponent):
             OAuthProviderNotFound: If the provider with the specified ID is not found.
         """
         if provider_id is None:
-            raise OAuthValidationErr(
-                "Provider ID is required to obtain new access token via Authlib"
-            )
+            raise OAuthValidationErr("Provider ID is required to obtain new access token via Authlib")
 
         if access_token is None:
             raise OAuthValidationErr("Access token is required to get user info via Authlib")
 
         provider = self.providers.create_client(provider_id)
 
-        token_data = OAuth2Token(
-            {
-                "access_token": access_token,
-                "expires_at": 0,
-            }
-        )
+        token_data = OAuth2Token({
+            "access_token": access_token,
+            "expires_at": 0,
+        })
 
         user_data = await provider.userinfo(token=token_data)
         server_metadata: ServerMetadata = provider.server_metadata

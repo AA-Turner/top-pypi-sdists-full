@@ -16,7 +16,6 @@ short_description: Certificate template
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -174,6 +176,10 @@ options:
                 aliases: ['scep-ca-identifier']
                 type: str
                 description: Scep ca identifier.
+            subject_alt_name:
+                aliases: ['subject-alt-name']
+                type: str
+                description: Support meta variable
 '''
 
 EXAMPLES = '''
@@ -191,12 +197,12 @@ EXAMPLES = '''
         adom: ansible
         state: present
         certificate_template:
-          # digest-type: sha1
-          id-type: host-ip
-          key-size: 512
-          key-type: rsa
+          # digest_type: sha1
+          id_type: host-ip
+          key_size: 512
+          key_type: rsa
           name: "ansible-test"
-          scep-password: "fortinet1"
+          scep_password: "fortinet1"
           type: external
 
 - name: Gathering fortimanager facts
@@ -271,6 +277,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'certificate_template': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -291,7 +298,8 @@ def main():
                 'subject-name': {'type': 'str'},
                 'type': {'choices': ['external', 'local'], 'type': 'str'},
                 'curve-name': {'v_range': [['6.2.1', '']], 'choices': ['secp256r1', 'secp384r1', 'secp521r1'], 'type': 'str'},
-                'scep-ca-identifier': {'v_range': [['7.0.4', '']], 'type': 'str'}
+                'scep-ca-identifier': {'v_range': [['7.0.4', '']], 'type': 'str'},
+                'subject-alt-name': {'v_range': [['7.4.8', '7.4.8'], ['7.6.4', '']], 'type': 'str'}
             }
         }
     }

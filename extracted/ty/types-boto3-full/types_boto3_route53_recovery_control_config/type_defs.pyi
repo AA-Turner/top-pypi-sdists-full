@@ -3,7 +3,7 @@ Type annotations for route53-recovery-control-config service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53_recovery_control_config/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,15 +17,10 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 
 from .literals import NetworkTypeType, RuleTypeType, StatusType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -140,7 +135,7 @@ class CreateClusterRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -252,7 +247,7 @@ class UpdateRoutingControlRequestTypeDef(TypedDict):
     RoutingControlName: str
 
 class AssertionRuleTypeDef(TypedDict):
-    AssertedControls: List[str]
+    AssertedControls: list[str]
     ControlPanelArn: str
     Name: str
     RuleConfig: RuleConfigTypeDef
@@ -263,12 +258,12 @@ class AssertionRuleTypeDef(TypedDict):
 
 class GatingRuleTypeDef(TypedDict):
     ControlPanelArn: str
-    GatingControls: List[str]
+    GatingControls: list[str]
     Name: str
     RuleConfig: RuleConfigTypeDef
     SafetyRuleArn: str
     Status: StatusType
-    TargetControls: List[str]
+    TargetControls: list[str]
     WaitPeriodMs: int
     Owner: NotRequired[str]
 
@@ -289,7 +284,7 @@ class NewGatingRuleTypeDef(TypedDict):
 
 class ClusterTypeDef(TypedDict):
     ClusterArn: NotRequired[str]
-    ClusterEndpoints: NotRequired[List[ClusterEndpointTypeDef]]
+    ClusterEndpoints: NotRequired[list[ClusterEndpointTypeDef]]
     Name: NotRequired[str]
     Status: NotRequired[StatusType]
     Owner: NotRequired[str]
@@ -308,17 +303,17 @@ class GetResourcePolicyResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAssociatedRoute53HealthChecksResponseTypeDef(TypedDict):
-    HealthCheckIds: List[str]
+    HealthCheckIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListControlPanelsResponseTypeDef(TypedDict):
-    ControlPanels: List[ControlPanelTypeDef]
+    ControlPanels: list[ControlPanelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateControlPanelResponseTypeDef(TypedDict):
@@ -334,7 +329,7 @@ class DescribeRoutingControlResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListRoutingControlsResponseTypeDef(TypedDict):
-    RoutingControls: List[RoutingControlTypeDef]
+    RoutingControls: list[RoutingControlTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -423,7 +418,7 @@ class DescribeClusterResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListClustersResponseTypeDef(TypedDict):
-    Clusters: List[ClusterTypeDef]
+    Clusters: list[ClusterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -432,6 +427,6 @@ class UpdateClusterResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListSafetyRulesResponseTypeDef(TypedDict):
-    SafetyRules: List[RuleTypeDef]
+    SafetyRules: list[RuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

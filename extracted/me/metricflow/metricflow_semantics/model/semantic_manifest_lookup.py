@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import logging
+from functools import cached_property
 
 from dbt_semantic_interfaces.protocols.semantic_manifest import SemanticManifest
 
 from metricflow_semantics.experimental.dsi.manifest_object_lookup import ManifestObjectLookup
-from metricflow_semantics.experimental.mf_graph.path_finding.pathfinder import MetricflowPathfinder
+from metricflow_semantics.experimental.mf_graph.path_finding.pathfinder import MetricFlowPathfinder
 from metricflow_semantics.experimental.semantic_graph.attribute_resolution.recipe_writer_path import (
     AttributeRecipeWriterPath,
 )
 from metricflow_semantics.experimental.semantic_graph.attribute_resolution.sg_linkable_spec_resolver import (
-    SemanticGraphLinkableSpecResolver,
+    SemanticGraphGroupByItemSetResolver,
 )
 from metricflow_semantics.experimental.semantic_graph.builder.graph_builder import SemanticGraphBuilder
 from metricflow_semantics.experimental.semantic_graph.sg_interfaces import SemanticGraphEdge, SemanticGraphNode
@@ -34,25 +35,24 @@ class SemanticManifestLookup:
         self._time_spine_sources = TimeSpineSource.build_standard_time_spine_sources(semantic_manifest)
         self.custom_granularities = TimeSpineSource.build_custom_granularities(list(self._time_spine_sources.values()))
         self._semantic_model_lookup = SemanticModelLookup(
-            model=semantic_manifest, custom_granularities=self.custom_granularities
+            semantic_manifest=semantic_manifest, custom_granularities=self.custom_granularities
         )
 
-        pathfinder = MetricflowPathfinder[SemanticGraphNode, SemanticGraphEdge, AttributeRecipeWriterPath]()
-        manifest_object_lookup = ManifestObjectLookup(semantic_manifest)
-        graph_builder = SemanticGraphBuilder(manifest_object_lookup=manifest_object_lookup)
+        pathfinder = MetricFlowPathfinder[SemanticGraphNode, SemanticGraphEdge, AttributeRecipeWriterPath]()
+        self._manifest_object_lookup = ManifestObjectLookup(semantic_manifest)
+        graph_builder = SemanticGraphBuilder(manifest_object_lookup=self._manifest_object_lookup)
         semantic_graph = graph_builder.build()
 
-        linkable_spec_resolver = SemanticGraphLinkableSpecResolver(
-            manifest_object_lookup=manifest_object_lookup,
+        group_by_item_set_resolver = SemanticGraphGroupByItemSetResolver(
+            manifest_object_lookup=self._manifest_object_lookup,
             semantic_graph=semantic_graph,
             path_finder=pathfinder,
         )
 
         self._metric_lookup = MetricLookup(
             semantic_manifest=semantic_manifest,
-            semantic_model_lookup=self._semantic_model_lookup,
-            custom_granularities=self.custom_granularities,
-            linkable_spec_resolver=linkable_spec_resolver,
+            group_by_item_set_resolver=group_by_item_set_resolver,
+            manifest_object_lookup=self._manifest_object_lookup,
         )
 
     @property
@@ -66,3 +66,7 @@ class SemanticManifestLookup:
     @property
     def metric_lookup(self) -> MetricLookup:  # noqa: D102
         return self._metric_lookup
+
+    @cached_property
+    def manifest_object_lookup(self) -> ManifestObjectLookup:  # noqa: D102
+        return self._manifest_object_lookup

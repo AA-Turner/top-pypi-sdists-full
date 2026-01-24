@@ -1,10 +1,9 @@
 from time import sleep
 from typing import Optional, Union
 
-from httpx import Client, ReadTimeout, HTTPStatusError
+from niquests import Session, ReadTimeout, HTTPError
+from niquests.typing import ProxyType, TimeoutType
 from pydantic import BaseModel, ConfigDict, field_validator
-
-from ipfabric.tools.shared import ProxyTypes, TimeoutTypes
 
 UNSUPPORTED_VENDORS = [
     "azure",
@@ -132,9 +131,9 @@ class CVEs(BaseModel):
     error: Optional[str] = None
 
 
-class NIST(Client):
+class NIST(Session):
     def __init__(
-        self, nvd_api_key: str, timeout: TimeoutTypes = 60, proxies: Optional[ProxyTypes] = None, retries: int = 2
+        self, nvd_api_key: str, timeout: TimeoutType = 60, proxies: Optional[ProxyType] = None, retries: int = 2
     ):
         """
         NIST updated to API v2.0.  You must request and pass an API Key which can be obtained at
@@ -149,10 +148,10 @@ class NIST(Client):
         super().__init__(
             base_url="https://services.nvd.nist.gov/rest/json/",
             timeout=timeout,
-            headers={"apiKey": nvd_api_key},
-            proxy=proxies,
         )
-        self.retries = retries
+        self.headers.update({"apiKey": nvd_api_key})
+        self.proxies = proxies
+        self.retry = retries  # TODO: Implement Retry Logic
 
     def _check_cisco(self, family, version):
         safe_version = version.replace("(", "\\(").replace(")", "\\)")
@@ -268,7 +267,7 @@ class NIST(Client):
         cpes = self.get_cpe(vendor, family, version)
         if not cpes:
             return [CVEs(total_results=0, cves=[], error="No CPEs Found.")]
-        cves = list()
+        cves = []
         for cpe in cpes:
             if cpe.error:
                 cves.append(CVEs(total_results=0, cves=[], error=cpe.error, cpe=cpe))
@@ -300,8 +299,8 @@ class NIST(Client):
             return cves
         except ReadTimeout:
             return CVEs(total_results=0, cves=[], error="Timeout", cpe=cpe)
-        except HTTPStatusError as e:
-            if attempt > self.retries:
+        except HTTPError as e:
+            if attempt > self.retry:
                 return CVEs(total_results=0, cves=[], error=f"HTTP Error {e.response.status_code}", cpe=cpe)
             else:
                 return self._query_cve(cpe, attempt + 1)
@@ -315,8 +314,8 @@ class NIST(Client):
             return [CPE(**_["cpe"]) for _ in data["products"] if "cpe" in _]
         except ReadTimeout:
             return [CPE(cpeName="", cpeNameId="", deprecated=False, created="", lastModified="", error="Timeout")]
-        except HTTPStatusError as e:
-            if attempt > self.retries:
+        except HTTPError as e:
+            if attempt > self.retry:
                 return [
                     CPE(
                         cpeName="",

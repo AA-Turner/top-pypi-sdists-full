@@ -1,24 +1,24 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: langchain-sambanova
-Version: 0.1.6
+Version: 1.0.0
 Summary: An integration package connecting SambaNova and LangChain
 License: MIT
+License-File: LICENSE
 Author: SambaNova Systems
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10.0,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: langchain (>=0.3.18,<0.4.0)
-Requires-Dist: langchain-core (>=0.3.34,<0.4.0)
-Requires-Dist: sseclient-py (>=1.8.0,<2.0)
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: langchain-core (>0.3.0,<2.0.0)
+Requires-Dist: sambanova (>=1.1.3,<2.0.0)
 Requires-Dist: types-requests
 Project-URL: Repository, https://github.com/sambanova/langchain-sambanova
-Project-URL: Release Notes, https://github.com/langchain-ai/langchain/releases?q=tag%3A%22sambanova%3D%3D0%22&expanded=true
-Project-URL: Source Code, https://github.com/langchain-ai/langchain/tree/master/libs/partners/sambanova
+Project-URL: Release Notes, https://github.com/sambanova/langchain-sambanova/releases
+Project-URL: Source Code, https://github.com/sambanova/langchain-sambanova
 Description-Content-Type: text/markdown
 
 <a href="https://sambanova.ai/">
@@ -40,45 +40,31 @@ pip install -U langchain-sambanova
 
 And you should configure credentials by setting the following environment variables:
 
-If you are a SambaNovaCloud user:
+If you are a SambaCloud user:
 
 ```bash
-export SAMBANOVA_API_KEY="your-sambanova-cloud-api-key-here"
+export SAMBANOVA_API_KEY="your-sambacloud-api-key-here"
 ```
-> You can obtain a free SambaNovaCloud API key [here](https://cloud.sambanova.ai/)
+> You can obtain a free SambaCloud API key [here](https://cloud.sambanova.ai/)
 
-or if you are SambaStudio User
+If you are a SambaStack user:
 
 ```bash
-export SAMBASTUDIO_URL="your-sambastudio-endpoint-url-here"
-export SAMBASTUDIO_API_KEY="your-sambastudio-api-key-here"
+export SAMBANOVA_API_BASE="your-sambastack-api-base-url-here"
+export SAMBANOVA_API_KEY="your-sambastack-api-key-here"
 ```
 
 ## Chat Models
 
-### SambaNova Cloud
+### SambaNova
 
-`ChatSambaNovaCloud` class exposes chat models from SambaNovaCloud.
-
-```python
-from langchain_sambanova import ChatSambaNovaCloud
-
-llm = ChatSambaNovaCloud(
-    model = "Meta-Llama-3.3-70B-Instruct",
-    temperature = 0.7
-)
-llm.invoke("Tell me a joke about artificial intelligence.")
-```
-
-### SambaStudio
-
-`ChatSambaStudio` class exposes chat models from SambaStudio Platform.
+`ChatSambaNova` class exposes chat models from SambaNova unified interface for SambaCloud and SambaStack.
 
 ```python
-from langchain_sambanova import ChatSambaStudio
+from langchain_sambanova import ChatSambaNova
 
-llm = ChatSambaStudio(
-    model = "Meta-Llama-3.3-70B-Instruct",
+llm = ChatSambaNova(
+    model = "Llama-4-Maverick-17B-128E-Instruct",
     temperature = 0.7
 )
 llm.invoke("Tell me a joke about artificial intelligence.")
@@ -86,28 +72,15 @@ llm.invoke("Tell me a joke about artificial intelligence.")
 
 ## Embeddings
 
-### SambaNova Cloud Embeddings
+### SambaNova
 
-`SambaNovaCloudEmbeddings` class exposes embeddings from SambaNovaCloud.
-
-```python
-from langchain_sambanova import SambaNovaCloudEmbeddings
-
-embeddings = SambaNovaCloudEmbeddings(
-    model = "E5-Mistral-7B-Instruct"
-)
-embeddings.embed_query("What is the meaning of life?")
-```
-
-### SambaStudio Embeddings
-
-`SambaStudioEmbeddings` class exposes embeddings from SambaStudio platform.
+`SambaNovaEmbeddings` class exposes embeddings from SambaNova unified interface for SambaCloud and SambaStack.
 
 ```python
-from langchain_sambanova import SambaStudioEmbeddings
+from langchain_sambanova import SambaNovaEmbeddings
 
-embeddings = SambaStudioEmbeddings(
-    model = "e5-mistral-7b-instruct"
+embeddings = SambaNovaEmbeddings(
+    model="E5-Mistral-7B-Instruct"
 )
 embeddings.embed_query("What is the meaning of life?")
 ```

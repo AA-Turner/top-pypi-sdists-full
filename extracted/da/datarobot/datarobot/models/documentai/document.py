@@ -32,9 +32,7 @@ __all__ = [
     "DocumentTextExtractionSample",
 ]
 
-FeaturesWithSamples = namedtuple(
-    "FeaturesWithSamples", ["model_id", "feature_name", "document_task"]
-)
+FeaturesWithSamples = namedtuple("FeaturesWithSamples", ["model_id", "feature_name", "document_task"])
 
 
 if TYPE_CHECKING:
@@ -162,17 +160,13 @@ class DocumentThumbnail(APIObject):
     _list_eda_sample_path = "projects/{project_id}/documentThumbnailSamples/"
     _list_project_sample_path = "projects/{project_id}/documentThumbnails/"
 
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): t.String(),
-            t.Key("document_page_id"): t.String(),
-            t.Key("height"): t.Int(),
-            t.Key("width"): t.Int(),
-            t.Key("target_value", optional=True): t.Or(
-                t.String(), t.Int(), t.Float(), t.List(t.String())
-            ),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): t.String(),
+        t.Key("document_page_id"): t.String(),
+        t.Key("height"): t.Int(),
+        t.Key("width"): t.Int(),
+        t.Key("target_value", optional=True): t.Or(t.String(), t.Int(), t.Float(), t.List(t.String())),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -289,17 +283,13 @@ class DocumentThumbnail(APIObject):
 COMMON_CONVERTER_DICT_KEYS = {
     t.Key("document_index"): t.Int(),
     t.Key("feature_name"): t.String(),
-    t.Key("actual_target_value", optional=True): t.Or(
-        t.Null(), t.String(), t.Int(), t.Float(), t.List(t.String)
-    ),
+    t.Key("actual_target_value", optional=True): t.Or(t.Null(), t.String(), t.Int(), t.Float(), t.List(t.String)),
     t.Key("prediction", optional=True): t.Or(
         t.Null(),
-        t.Dict(
-            {
-                t.Key("values"): t.Or(t.Float(), t.List(t.Float())),
-                t.Key("labels", optional=True): t.Or(t.Null(), t.List(t.String())),
-            }
-        ),
+        t.Dict({
+            t.Key("values"): t.Or(t.Float(), t.List(t.Float())),
+            t.Key("labels", optional=True): t.Or(t.Null(), t.List(t.String())),
+        }),
     ),
     t.Key("document_task"): t.String(),
 }
@@ -399,10 +389,7 @@ class DocumentTextExtractionSampleDocument(APIObject):
         params = dict(feature_name=feature_name)
         if document_task is not None:
             params["document_task"] = document_task
-        return [
-            cls.from_server_data(page)
-            for page in unpaginate(list_documents_path, params, cls._client)
-        ]
+        return [cls.from_server_data(page) for page in unpaginate(list_documents_path, params, cls._client)]
 
 
 class DocumentTextExtractionSamplePage(APIObject):
@@ -449,15 +436,13 @@ class DocumentTextExtractionSamplePage(APIObject):
         t.Key(
             "text_lines",
         ): t.List(
-            t.Dict(
-                {
-                    t.Key("left"): t.Int(),
-                    t.Key("top"): t.Int(),
-                    t.Key("right"): t.Int(),
-                    t.Key("bottom"): t.Int(),
-                    t.Key("text"): t.String(),
-                }
-            )
+            t.Dict({
+                t.Key("left"): t.Int(),
+                t.Key("top"): t.Int(),
+                t.Key("right"): t.Int(),
+                t.Key("bottom"): t.Int(),
+                t.Key("text"): t.String(),
+            })
         ),
     }
     _converter_dict_keys.update(COMMON_CONVERTER_DICT_KEYS)
@@ -657,9 +642,7 @@ class DocumentTextExtractionSample(APIObject):
     _text_extraction_computed_samples_list = "projects/{project_id}/documentTextExtractionSamples/"
 
     @classmethod
-    def compute(
-        cls, model_id: str, await_completion: bool = True, max_wait: int = DEFAULT_MAX_WAIT
-    ) -> None:
+    def compute(cls, model_id: str, await_completion: bool = True, max_wait: int = DEFAULT_MAX_WAIT) -> None:
         """
         Starts computation of document text extraction samples for the model and, if successful,
         returns computed text samples for it. This method allows calculation to continue for
@@ -747,9 +730,7 @@ class DocumentTextExtractionSample(APIObject):
         )
 
     @classmethod
-    def list_documents(
-        cls, model_id: str, feature_name: str
-    ) -> List[DocumentTextExtractionSampleDocument]:
+    def list_documents(cls, model_id: str, feature_name: str) -> List[DocumentTextExtractionSampleDocument]:
         """
         Returns a list of documents used for text extraction.
 
@@ -764,6 +745,4 @@ class DocumentTextExtractionSample(APIObject):
         -------
         List[DocumentTextExtractionSampleDocument]
         """
-        return DocumentTextExtractionSampleDocument.list(
-            model_id=model_id, feature_name=feature_name
-        )
+        return DocumentTextExtractionSampleDocument.list(model_id=model_id, feature_name=feature_name)

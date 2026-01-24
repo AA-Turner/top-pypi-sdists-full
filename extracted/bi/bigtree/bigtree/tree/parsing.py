@@ -1,4 +1,4 @@
-from typing import Iterable, List, Sequence, TypeVar
+from typing import Iterable, Sequence, TypeVar
 
 from bigtree.node import basenode
 from bigtree.utils import exceptions
@@ -11,7 +11,7 @@ __all__ = [
 T = TypeVar("T", bound=basenode.BaseNode)
 
 
-def get_common_ancestors(nodes: Sequence[T]) -> List[T]:
+def get_common_ancestors(nodes: Sequence[T]) -> list[T]:
     """Get common ancestors between different branches of the same tree.
 
     Args:
@@ -41,7 +41,7 @@ def get_path(from_node: T, to_node: T) -> Iterable[T]:
     nodes.
 
     Examples:
-        >>> from bigtree import Node, get_path, print_tree
+        >>> from bigtree import Node, Tree, get_path
         >>> a = Node(name="a")
         >>> b = Node(name="b", parent=a)
         >>> c = Node(name="c", parent=a)
@@ -50,7 +50,8 @@ def get_path(from_node: T, to_node: T) -> Iterable[T]:
         >>> f = Node(name="f", parent=c)
         >>> g = Node(name="g", parent=e)
         >>> h = Node(name="h", parent=e)
-        >>> print_tree(a)
+        >>> tree = Tree(a)
+        >>> tree.show()
         a
         ├── b
         │   ├── d

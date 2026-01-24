@@ -5,14 +5,18 @@ import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
+from ..types.phone_number_paginated_response import PhoneNumberPaginatedResponse
 from .raw_client import AsyncRawPhoneNumbersClient, RawPhoneNumbersClient
-from .types.phone_numbers_create_request import PhoneNumbersCreateRequest
-from .types.phone_numbers_create_response import PhoneNumbersCreateResponse
-from .types.phone_numbers_delete_response import PhoneNumbersDeleteResponse
-from .types.phone_numbers_get_response import PhoneNumbersGetResponse
-from .types.phone_numbers_list_response_item import PhoneNumbersListResponseItem
-from .types.phone_numbers_update_request import PhoneNumbersUpdateRequest
-from .types.phone_numbers_update_response import PhoneNumbersUpdateResponse
+from .types.create_phone_numbers_request import CreatePhoneNumbersRequest
+from .types.create_phone_numbers_response import CreatePhoneNumbersResponse
+from .types.delete_phone_numbers_response import DeletePhoneNumbersResponse
+from .types.get_phone_numbers_response import GetPhoneNumbersResponse
+from .types.list_phone_numbers_response_item import ListPhoneNumbersResponseItem
+from .types.phone_number_controller_find_all_paginated_request_sort_order import (
+    PhoneNumberControllerFindAllPaginatedRequestSortOrder,
+)
+from .types.update_phone_numbers_request_body import UpdatePhoneNumbersRequestBody
+from .types.update_phone_numbers_response import UpdatePhoneNumbersResponse
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -46,7 +50,7 @@ class PhoneNumbersClient:
         updated_at_ge: typing.Optional[dt.datetime] = None,
         updated_at_le: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[PhoneNumbersListResponseItem]:
+    ) -> typing.List[ListPhoneNumbersResponseItem]:
         """
         Parameters
         ----------
@@ -82,7 +86,7 @@ class PhoneNumbersClient:
 
         Returns
         -------
-        typing.List[PhoneNumbersListResponseItem]
+        typing.List[ListPhoneNumbersResponseItem]
 
 
         Examples
@@ -109,19 +113,19 @@ class PhoneNumbersClient:
         return _response.data
 
     def create(
-        self, *, request: PhoneNumbersCreateRequest, request_options: typing.Optional[RequestOptions] = None
-    ) -> PhoneNumbersCreateResponse:
+        self, *, request: CreatePhoneNumbersRequest, request_options: typing.Optional[RequestOptions] = None
+    ) -> CreatePhoneNumbersResponse:
         """
         Parameters
         ----------
-        request : PhoneNumbersCreateRequest
+        request : CreatePhoneNumbersRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        PhoneNumbersCreateResponse
+        CreatePhoneNumbersResponse
 
 
         Examples
@@ -140,7 +144,97 @@ class PhoneNumbersClient:
         _response = self._raw_client.create(request=request, request_options=request_options)
         return _response.data
 
-    def get(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> PhoneNumbersGetResponse:
+    def phone_number_controller_find_all_paginated(
+        self,
+        *,
+        search: typing.Optional[str] = None,
+        page: typing.Optional[float] = None,
+        sort_order: typing.Optional[PhoneNumberControllerFindAllPaginatedRequestSortOrder] = None,
+        limit: typing.Optional[float] = None,
+        created_at_gt: typing.Optional[dt.datetime] = None,
+        created_at_lt: typing.Optional[dt.datetime] = None,
+        created_at_ge: typing.Optional[dt.datetime] = None,
+        created_at_le: typing.Optional[dt.datetime] = None,
+        updated_at_gt: typing.Optional[dt.datetime] = None,
+        updated_at_lt: typing.Optional[dt.datetime] = None,
+        updated_at_ge: typing.Optional[dt.datetime] = None,
+        updated_at_le: typing.Optional[dt.datetime] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> PhoneNumberPaginatedResponse:
+        """
+        Parameters
+        ----------
+        search : typing.Optional[str]
+            This will search phone numbers by name, number, or SIP URI (partial match, case-insensitive).
+
+        page : typing.Optional[float]
+            This is the page number to return. Defaults to 1.
+
+        sort_order : typing.Optional[PhoneNumberControllerFindAllPaginatedRequestSortOrder]
+            This is the sort order for pagination. Defaults to 'DESC'.
+
+        limit : typing.Optional[float]
+            This is the maximum number of items to return. Defaults to 100.
+
+        created_at_gt : typing.Optional[dt.datetime]
+            This will return items where the createdAt is greater than the specified value.
+
+        created_at_lt : typing.Optional[dt.datetime]
+            This will return items where the createdAt is less than the specified value.
+
+        created_at_ge : typing.Optional[dt.datetime]
+            This will return items where the createdAt is greater than or equal to the specified value.
+
+        created_at_le : typing.Optional[dt.datetime]
+            This will return items where the createdAt is less than or equal to the specified value.
+
+        updated_at_gt : typing.Optional[dt.datetime]
+            This will return items where the updatedAt is greater than the specified value.
+
+        updated_at_lt : typing.Optional[dt.datetime]
+            This will return items where the updatedAt is less than the specified value.
+
+        updated_at_ge : typing.Optional[dt.datetime]
+            This will return items where the updatedAt is greater than or equal to the specified value.
+
+        updated_at_le : typing.Optional[dt.datetime]
+            This will return items where the updatedAt is less than or equal to the specified value.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        PhoneNumberPaginatedResponse
+
+
+        Examples
+        --------
+        from vapi import Vapi
+
+        client = Vapi(
+            token="YOUR_TOKEN",
+        )
+        client.phone_numbers.phone_number_controller_find_all_paginated()
+        """
+        _response = self._raw_client.phone_number_controller_find_all_paginated(
+            search=search,
+            page=page,
+            sort_order=sort_order,
+            limit=limit,
+            created_at_gt=created_at_gt,
+            created_at_lt=created_at_lt,
+            created_at_ge=created_at_ge,
+            created_at_le=created_at_le,
+            updated_at_gt=updated_at_gt,
+            updated_at_lt=updated_at_lt,
+            updated_at_ge=updated_at_ge,
+            updated_at_le=updated_at_le,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def get(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> GetPhoneNumbersResponse:
         """
         Parameters
         ----------
@@ -151,7 +245,7 @@ class PhoneNumbersClient:
 
         Returns
         -------
-        PhoneNumbersGetResponse
+        GetPhoneNumbersResponse
 
 
         Examples
@@ -168,7 +262,7 @@ class PhoneNumbersClient:
         _response = self._raw_client.get(id, request_options=request_options)
         return _response.data
 
-    def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> PhoneNumbersDeleteResponse:
+    def delete(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> DeletePhoneNumbersResponse:
         """
         Parameters
         ----------
@@ -179,7 +273,7 @@ class PhoneNumbersClient:
 
         Returns
         -------
-        PhoneNumbersDeleteResponse
+        DeletePhoneNumbersResponse
 
 
         Examples
@@ -197,21 +291,25 @@ class PhoneNumbersClient:
         return _response.data
 
     def update(
-        self, id: str, *, request: PhoneNumbersUpdateRequest, request_options: typing.Optional[RequestOptions] = None
-    ) -> PhoneNumbersUpdateResponse:
+        self,
+        id: str,
+        *,
+        request: UpdatePhoneNumbersRequestBody,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> UpdatePhoneNumbersResponse:
         """
         Parameters
         ----------
         id : str
 
-        request : PhoneNumbersUpdateRequest
+        request : UpdatePhoneNumbersRequestBody
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        PhoneNumbersUpdateResponse
+        UpdatePhoneNumbersResponse
 
 
         Examples
@@ -258,7 +356,7 @@ class AsyncPhoneNumbersClient:
         updated_at_ge: typing.Optional[dt.datetime] = None,
         updated_at_le: typing.Optional[dt.datetime] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[PhoneNumbersListResponseItem]:
+    ) -> typing.List[ListPhoneNumbersResponseItem]:
         """
         Parameters
         ----------
@@ -294,7 +392,7 @@ class AsyncPhoneNumbersClient:
 
         Returns
         -------
-        typing.List[PhoneNumbersListResponseItem]
+        typing.List[ListPhoneNumbersResponseItem]
 
 
         Examples
@@ -329,19 +427,19 @@ class AsyncPhoneNumbersClient:
         return _response.data
 
     async def create(
-        self, *, request: PhoneNumbersCreateRequest, request_options: typing.Optional[RequestOptions] = None
-    ) -> PhoneNumbersCreateResponse:
+        self, *, request: CreatePhoneNumbersRequest, request_options: typing.Optional[RequestOptions] = None
+    ) -> CreatePhoneNumbersResponse:
         """
         Parameters
         ----------
-        request : PhoneNumbersCreateRequest
+        request : CreatePhoneNumbersRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        PhoneNumbersCreateResponse
+        CreatePhoneNumbersResponse
 
 
         Examples
@@ -368,7 +466,105 @@ class AsyncPhoneNumbersClient:
         _response = await self._raw_client.create(request=request, request_options=request_options)
         return _response.data
 
-    async def get(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> PhoneNumbersGetResponse:
+    async def phone_number_controller_find_all_paginated(
+        self,
+        *,
+        search: typing.Optional[str] = None,
+        page: typing.Optional[float] = None,
+        sort_order: typing.Optional[PhoneNumberControllerFindAllPaginatedRequestSortOrder] = None,
+        limit: typing.Optional[float] = None,
+        created_at_gt: typing.Optional[dt.datetime] = None,
+        created_at_lt: typing.Optional[dt.datetime] = None,
+        created_at_ge: typing.Optional[dt.datetime] = None,
+        created_at_le: typing.Optional[dt.datetime] = None,
+        updated_at_gt: typing.Optional[dt.datetime] = None,
+        updated_at_lt: typing.Optional[dt.datetime] = None,
+        updated_at_ge: typing.Optional[dt.datetime] = None,
+        updated_at_le: typing.Optional[dt.datetime] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> PhoneNumberPaginatedResponse:
+        """
+        Parameters
+        ----------
+        search : typing.Optional[str]
+            This will search phone numbers by name, number, or SIP URI (partial match, case-insensitive).
+
+        page : typing.Optional[float]
+            This is the page number to return. Defaults to 1.
+
+        sort_order : typing.Optional[PhoneNumberControllerFindAllPaginatedRequestSortOrder]
+            This is the sort order for pagination. Defaults to 'DESC'.
+
+        limit : typing.Optional[float]
+            This is the maximum number of items to return. Defaults to 100.
+
+        created_at_gt : typing.Optional[dt.datetime]
+            This will return items where the createdAt is greater than the specified value.
+
+        created_at_lt : typing.Optional[dt.datetime]
+            This will return items where the createdAt is less than the specified value.
+
+        created_at_ge : typing.Optional[dt.datetime]
+            This will return items where the createdAt is greater than or equal to the specified value.
+
+        created_at_le : typing.Optional[dt.datetime]
+            This will return items where the createdAt is less than or equal to the specified value.
+
+        updated_at_gt : typing.Optional[dt.datetime]
+            This will return items where the updatedAt is greater than the specified value.
+
+        updated_at_lt : typing.Optional[dt.datetime]
+            This will return items where the updatedAt is less than the specified value.
+
+        updated_at_ge : typing.Optional[dt.datetime]
+            This will return items where the updatedAt is greater than or equal to the specified value.
+
+        updated_at_le : typing.Optional[dt.datetime]
+            This will return items where the updatedAt is less than or equal to the specified value.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        PhoneNumberPaginatedResponse
+
+
+        Examples
+        --------
+        import asyncio
+
+        from vapi import AsyncVapi
+
+        client = AsyncVapi(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.phone_numbers.phone_number_controller_find_all_paginated()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.phone_number_controller_find_all_paginated(
+            search=search,
+            page=page,
+            sort_order=sort_order,
+            limit=limit,
+            created_at_gt=created_at_gt,
+            created_at_lt=created_at_lt,
+            created_at_ge=created_at_ge,
+            created_at_le=created_at_le,
+            updated_at_gt=updated_at_gt,
+            updated_at_lt=updated_at_lt,
+            updated_at_ge=updated_at_ge,
+            updated_at_le=updated_at_le,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def get(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> GetPhoneNumbersResponse:
         """
         Parameters
         ----------
@@ -379,7 +575,7 @@ class AsyncPhoneNumbersClient:
 
         Returns
         -------
-        PhoneNumbersGetResponse
+        GetPhoneNumbersResponse
 
 
         Examples
@@ -406,7 +602,7 @@ class AsyncPhoneNumbersClient:
 
     async def delete(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> PhoneNumbersDeleteResponse:
+    ) -> DeletePhoneNumbersResponse:
         """
         Parameters
         ----------
@@ -417,7 +613,7 @@ class AsyncPhoneNumbersClient:
 
         Returns
         -------
-        PhoneNumbersDeleteResponse
+        DeletePhoneNumbersResponse
 
 
         Examples
@@ -443,21 +639,25 @@ class AsyncPhoneNumbersClient:
         return _response.data
 
     async def update(
-        self, id: str, *, request: PhoneNumbersUpdateRequest, request_options: typing.Optional[RequestOptions] = None
-    ) -> PhoneNumbersUpdateResponse:
+        self,
+        id: str,
+        *,
+        request: UpdatePhoneNumbersRequestBody,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> UpdatePhoneNumbersResponse:
         """
         Parameters
         ----------
         id : str
 
-        request : PhoneNumbersUpdateRequest
+        request : UpdatePhoneNumbersRequestBody
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        PhoneNumbersUpdateResponse
+        UpdatePhoneNumbersResponse
 
 
         Examples

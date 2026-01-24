@@ -1,16 +1,12 @@
 Metadata-Version: 2.4
 Name: pycares
-Version: 4.11.0
+Version: 5.0.1
 Summary: Python interface for c-ares
-Home-page: http://github.com/saghul/pycares
-Author: Saúl Ibarra Corretgé
-Author-email: s@saghul.net
-License: MIT
-Platform: POSIX
-Platform: Microsoft Windows
+Author-email: Saúl Ibarra Corretgé <s@saghul.net>
+License-Expression: MIT
+Project-URL: Homepage, http://github.com/saghul/pycares
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python
@@ -31,24 +27,7 @@ Requires-Dist: cffi>=1.5.0; python_version < "3.14"
 Requires-Dist: cffi>=2.0.0b1; python_version >= "3.14"
 Provides-Extra: idna
 Requires-Dist: idna>=2.1; extra == "idna"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: platform
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
-
-Looking for new maintainers
-===========================
-
-https://github.com/saghul/pycares/issues/139
 
 pycares: Python interface for c-ares
 ====================================
@@ -110,7 +89,7 @@ Running the test suite
 
 From the top level directory, run: ``python -m unittest -v``
 
-NOTE: Running the tests requires internet access and are somewhat environment sensitive because real DNS quesries
+NOTE: Running the tests requires internet access and are somewhat environment sensitive because real DNS queries
 are made, there is no mocking. If you observe a failure that the CI cannot reproduce, please try to setup an
 environment as close as the current CI.
 
@@ -164,4 +143,4 @@ Contributing
 
 If you'd like to contribute, fork the project, make a patch and send a pull
 request. Have a look at the surrounding code and please, make yours look
-alike :-)
+alike.

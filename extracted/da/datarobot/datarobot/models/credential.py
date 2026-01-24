@@ -26,15 +26,13 @@ from datarobot.utils import pagination, rawdict
 
 class Credential(APIObject):  # pylint: disable=missing-class-docstring
     _path = "credentials/"
-    _converter = t.Dict(
-        {
-            t.Key("name"): String(),
-            t.Key("credential_id"): String(),
-            t.Key("creation_date"): DateTime(),
-            t.Key("credential_type"): String(),
-            t.Key("description"): String(allow_blank=True),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("name"): String(),
+        t.Key("credential_id"): String(),
+        t.Key("creation_date"): DateTime(),
+        t.Key("credential_type"): String(),
+        t.Key("description"): String(allow_blank=True),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -73,9 +71,7 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
             ]
         """
 
-        return [
-            cls.from_server_data(item) for item in pagination.unpaginate(cls._path, {}, cls._client)
-        ]
+        return [cls.from_server_data(item) for item in pagination.unpaginate(cls._path, {}, cls._client)]
 
     @classmethod
     def get(cls, credential_id: str) -> Credential:
@@ -610,6 +606,39 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
         payload = {key: value for key, value in payload.items() if value is not None}
         return cls.from_server_data(cls._client.post(cls._path, data=payload).json())
 
+    @classmethod
+    def create_external_oauth_provider(
+        cls,
+        name: str,
+        authentication_id: str,
+        description: Optional[str] = None,
+    ) -> Credential:
+        """
+        Creates credentials for an external OAuth provider.
+
+        Parameters
+        ----------
+        name : str
+            The display name for these credentials in DataRobot.
+        authentication_id : str
+            The authorization identifier returned by the external OAuth provider service.
+        description : Optional[str]
+            The description to use for the credentials.
+
+        Returns
+        -------
+        credential : Credential
+            The created credential.
+        """
+        payload = {
+            "name": name,
+            "credentialType": CredentialTypes.EXTERNAL_OAUTH_PROVIDER.value,
+            "authenticationId": authentication_id,
+            "description": description,
+        }
+        payload = {key: value for key, value in payload.items() if value is not None}
+        return cls.from_server_data(cls._client.post(cls._path, data=payload).json())
+
     def __repr__(self) -> str:
         return "{}('{}', '{}', '{}')".format(
             self.__class__.__name__,
@@ -669,9 +698,7 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
         }
         return cls.from_server_data(cls._client.post(cls._path, data=payload).json())
 
-    def update(
-        self, name: Optional[str] = None, description: Optional[str] = None, **kwargs: Any
-    ) -> None:
+    def update(self, name: Optional[str] = None, description: Optional[str] = None, **kwargs: Any) -> None:
         """Update the credential values of an existing credential. Updates this object in place.
 
         .. versionadded:: v3.2
@@ -698,79 +725,68 @@ class Credential(APIObject):  # pylint: disable=missing-class-docstring
             self.description = description
 
 
-BasicCredentialsSchema = t.Dict(
-    {
-        t.Key("credentialType"): t.Atom("basic"),
-        t.Key("user"): String(),
-        t.Key("password"): String(),
-    }
-).allow_extra("*")
+BasicCredentialsSchema = t.Dict({
+    t.Key("credentialType"): t.Atom("basic"),
+    t.Key("user"): String(),
+    t.Key("password"): String(),
+}).allow_extra("*")
 
-S3CredentialsSchema = t.Dict(
-    {
-        t.Key("credentialType"): t.Atom("s3"),
-        t.Key("awsAccessKeyId", optional=True): String(),
-        t.Key("awsSecretAccessKey", optional=True): String(),
-        t.Key("awsSessionToken", optional=True): String(),
-        t.Key("configId", optional=True): String(),
-    }
-).allow_extra("*")
+S3CredentialsSchema = t.Dict({
+    t.Key("credentialType"): t.Atom("s3"),
+    t.Key("awsAccessKeyId", optional=True): String(),
+    t.Key("awsSecretAccessKey", optional=True): String(),
+    t.Key("awsSessionToken", optional=True): String(),
+    t.Key("configId", optional=True): String(),
+}).allow_extra("*")
 
-OauthCredentialsSchema = t.Dict(
-    {
-        t.Key("credentialType"): t.Atom("oauth"),
-        t.Key("oauthRefreshToken"): String(),
-        t.Key("oauthClientId", optional=True): String(),
-        t.Key("oauthClientSecret", optional=True): String(),
-        t.Key("oauthAccessToken", optional=True): String(),
-    }
-).allow_extra("*")
+OauthCredentialsSchema = t.Dict({
+    t.Key("credentialType"): t.Atom("oauth"),
+    t.Key("oauthRefreshToken"): String(),
+    t.Key("oauthClientId", optional=True): String(),
+    t.Key("oauthClientSecret", optional=True): String(),
+    t.Key("oauthAccessToken", optional=True): String(),
+}).allow_extra("*")
 
-SnowflakeKeyPairCredentialsSchema = t.Dict(
-    {
-        t.Key("credentialType"): t.Atom("snowflake_key_pair_user_account"),
-        t.Key("user", optional=True): t.Or(String, t.Null),
-        t.Key("privateKeyStr", optional=True): t.Or(String, t.Null),
-        t.Key("passphrase", optional=True): t.Or(String, t.Null),
-        t.Key("configId", optional=True): t.Or(String, t.Null),
-    }
-).allow_extra("*")
+SnowflakeKeyPairCredentialsSchema = t.Dict({
+    t.Key("credentialType"): t.Atom("snowflake_key_pair_user_account"),
+    t.Key("user", optional=True): t.Or(String, t.Null),
+    t.Key("privateKeyStr", optional=True): t.Or(String, t.Null),
+    t.Key("passphrase", optional=True): t.Or(String, t.Null),
+    t.Key("configId", optional=True): t.Or(String, t.Null),
+}).allow_extra("*")
 
-DatabricksAccessTokenCredentialsSchema = t.Dict(
-    {
-        t.Key("credentialType"): t.Atom("databricks_access_token_account"),
-        t.Key("databricksAccessToken"): String(),
-    }
-).allow_extra("*")
+DatabricksAccessTokenCredentialsSchema = t.Dict({
+    t.Key("credentialType"): t.Atom("databricks_access_token_account"),
+    t.Key("databricksAccessToken"): String(),
+}).allow_extra("*")
 
-DatabricksServicePrincipalCredentialsSchema = t.Dict(
-    {
-        t.Key("credentialType"): t.Atom("databricks_service_principal_account"),
-        t.Key("clientId", optional=True): String(),
-        t.Key("clientSecret", optional=True): String(),
-        t.Key("configId", optional=True): String(),
-    }
-).allow_extra("*")
+DatabricksServicePrincipalCredentialsSchema = t.Dict({
+    t.Key("credentialType"): t.Atom("databricks_service_principal_account"),
+    t.Key("clientId", optional=True): String(),
+    t.Key("clientSecret", optional=True): String(),
+    t.Key("configId", optional=True): String(),
+}).allow_extra("*")
 
-AzureServicePrincipalCredentialsSchema = t.Dict(
-    {
-        t.Key("credentialType"): t.Atom("azure_service_principal"),
-        t.Key("clientId", optional=True): String(),
-        t.Key("clientSecret", optional=True): String(),
-        t.Key("azureTenantId", optional=True): String(),
-        t.Key("configId", optional=True): String(),
-    }
-).allow_extra("*")
+AzureServicePrincipalCredentialsSchema = t.Dict({
+    t.Key("credentialType"): t.Atom("azure_service_principal"),
+    t.Key("clientId", optional=True): String(),
+    t.Key("clientSecret", optional=True): String(),
+    t.Key("azureTenantId", optional=True): String(),
+    t.Key("configId", optional=True): String(),
+}).allow_extra("*")
 
-AdlsOAuthCredentialsSchema = t.Dict(
-    {
-        t.Key("credentialType"): t.Atom("adls_gen2_oauth"),
-        t.Key("clientId", optional=True): String(),
-        t.Key("clientSecret", optional=True): String(),
-        t.Key("oauthScopes", optional=True): t.List(String()),
-        t.Key("configId", optional=True): String(),
-    }
-).allow_extra("*")
+AdlsOAuthCredentialsSchema = t.Dict({
+    t.Key("credentialType"): t.Atom("adls_gen2_oauth"),
+    t.Key("clientId", optional=True): String(),
+    t.Key("clientSecret", optional=True): String(),
+    t.Key("oauthScopes", optional=True): t.List(String()),
+    t.Key("configId", optional=True): String(),
+}).allow_extra("*")
+
+ExternalOAuthProviderCredentialsSchema = t.Dict({
+    t.Key("credentialType"): t.Atom("external_oauth_provider"),
+    t.Key("authenticationId"): String(),
+}).allow_extra("*")
 
 AnyCredentialsSchema = t.Dict({t.Key("credentialType"): String()}).allow_extra("*")
 
@@ -783,5 +799,6 @@ CredentialDataSchema = t.Or(
     DatabricksServicePrincipalCredentialsSchema,
     AzureServicePrincipalCredentialsSchema,
     AdlsOAuthCredentialsSchema,
+    ExternalOAuthProviderCredentialsSchema,
     AnyCredentialsSchema,
 )

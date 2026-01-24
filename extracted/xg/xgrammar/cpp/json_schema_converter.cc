@@ -262,8 +262,6 @@ class JSONSchemaConverter {
   // The name of the helper rules to construct basic rules
   inline static const std::string kBasicEscape = "basic_escape";
   inline static const std::string kBasicStringSub = "basic_string_sub";
-  inline static const std::string kXMLEntity = "xml_entity";
-  inline static const std::string kXMLEscape = "xml_escape";
   inline static const std::string kXMLString = "xml_string";
   inline static const std::string kXMLVariableName = "xml_variable_name";
 
@@ -727,15 +725,13 @@ void JSONSchemaConverter::AddXMLHelperRules() {
     }
   }
   ebnf_script_creator_.AddRule(
-      kXMLEscape, "[\"\\\\/bfnrt] | \"u\" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9]"
-  );
-  ebnf_script_creator_.AddRule(
-      kXMLEntity, " \"&lt;\" | \"&gt;\" | \"&amp;\" | \"&quot;\" | \"&apos;\""
-  );
-  ebnf_script_creator_.AddRule(
       kXMLString,
-      "(\"\" | [^<>&\\0-\\x1f\\\\\\r\\n] " + kXMLString + " | \"\\\\\" " + kXMLEscape + " " +
-          kXMLString + " | " + kXMLEntity + " " + kXMLString + ") (= " + whitespace_part + ")"
+      "TagDispatch("
+      "stop_eos=true,"
+      "stop_str=(),"
+      "loop_after_dispatch=false,"
+      "excludes=(\"</parameter>\")"
+      ")"
   );
   ebnf_script_creator_.AddRule(kXMLVariableName, "[a-zA-Z_] [a-zA-Z0-9_]*");
 }
@@ -956,11 +952,11 @@ std::string JSONSchemaConverter::URIToRule(const std::string& uri) {
     }
   }
 
-  picojson::value current = json_schema_;
+  auto current = std::cref(json_schema_);
   for (const auto& part : parts) {
-    XGRAMMAR_CHECK(current.is<picojson::object>() && current.contains(part))
-        << "Cannot find field " << part << " in " << current.serialize(false);
-    current = current.get(part);
+    XGRAMMAR_CHECK(current.get().is<picojson::object>() && current.get().contains(part))
+        << "Cannot find field " << part << " in " << current.get().serialize(false);
+    current = current.get().get(part);
   }
 
   auto new_rule_name = ebnf_script_creator_.AllocateRuleName(new_rule_name_perfix);
@@ -1963,7 +1959,7 @@ std::string JSONSchemaConverter::VisitNumber(
     return converted_regex;
   }
 
-  return "(\"0\" | \"-\"? [1-9] [0-9]*) (\".\" [0-9]+)? ([eE] [+-]? [0-9]+)?";
+  return "\"-\"? (\"0\" | [1-9] [0-9]*) (\".\" [0-9]+)? ([eE] [+-]? [0-9]+)?";
 }
 
 std::string JSONSchemaConverter::VisitString(
@@ -3207,6 +3203,8 @@ Result<JSONSchemaConverter::StringSpec, SchemaError> JSONSchemaConverter::ParseS
     }
     return ResultOk(string_spec);
   }
+
+  // No specific requirements.
   StringSpec string_spec;
   switch (json_format) {
     case JSONFormat::kJSON: {

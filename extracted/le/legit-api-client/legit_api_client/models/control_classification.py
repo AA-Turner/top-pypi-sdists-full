@@ -106,6 +106,9 @@ class ControlClassification(str, Enum):
     DYNATRACESAST = 'DynatraceSast'
     DYNATRACESCA = 'DynatraceSca'
     FORTIFYSCC = 'FortifyScc'
+    BRIGHTSECURITY = 'BrightSecurity'
+    AWSSECURITYHUB = 'AwsSecurityHub'
+    CYTRIX = 'Cytrix'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

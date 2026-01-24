@@ -1,18 +1,32 @@
 # Copyright 2025 Daytona Platforms Inc.
 # SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
 
 import io
 import os
+from collections.abc import Awaitable, Callable
 from contextlib import ExitStack
-from typing import List, Union, overload
+from typing import cast, overload
 
 import aiofiles
 import aiofiles.os
 import httpx
-from daytona_api_client_async import FileInfo, Match, ReplaceRequest, ReplaceResult, SearchFilesResponse, ToolboxApi
+import multipart
+from aiofiles.threadpool.binary import AsyncBufferedIOBase
+from daytona_toolbox_api_client_async import (
+    FileInfo,
+    FilesDownloadRequest,
+    FileSystemApi,
+    Match,
+    ReplaceRequest,
+    ReplaceResult,
+    SearchFilesResponse,
+)
+from multipart import MultipartSegment, PushMultipartParser
 
 from .._utils.errors import intercept_errors
-from ..common.filesystem import FileUpload
+from ..common.errors import DaytonaError
+from ..common.filesystem import FileDownloadRequest, FileDownloadResponse, FileUpload
 
 
 class AsyncFileSystem:
@@ -24,17 +38,18 @@ class AsyncFileSystem:
 
     def __init__(
         self,
-        sandbox_id: str,
-        toolbox_api: ToolboxApi,
+        api_client: FileSystemApi,
+        ensure_toolbox_url: Callable[[], Awaitable[None]],
     ):
         """Initializes a new FileSystem instance.
 
         Args:
-            sandbox_id (str): The Sandbox ID.
-            toolbox_api (ToolboxApi): API client for Sandbox operations.
+            api_client (FileSystemApi): API client for Sandbox file system operations.
+            ensure_toolbox_url (Callable[[], Awaitable[None]]): Ensures the toolbox API URL is initialized.
+            Must be called before invoking any private methods on the API client.
         """
-        self._sandbox_id = sandbox_id
-        self._toolbox_api = toolbox_api
+        self._api_client: FileSystemApi = api_client
+        self._ensure_toolbox_url: Callable[[], Awaitable[None]] = ensure_toolbox_url
 
     @intercept_errors(message_prefix="Failed to create folder: ")
     async def create_folder(self, path: str, mode: str) -> None:
@@ -56,8 +71,7 @@ class AsyncFileSystem:
             ```
         """
         print(f"Creating folder {path} with mode {mode}")
-        await self._toolbox_api.create_folder(
-            self._sandbox_id,
+        await self._api_client.create_folder(
             path=path,
             mode=mode,
         )
@@ -76,7 +90,7 @@ class AsyncFileSystem:
             await sandbox.fs.delete_file("workspace/data/old_file.txt")
             ```
         """
-        await self._toolbox_api.delete_file(self._sandbox_id, path=path, recursive=recursive)
+        await self._api_client.delete_file(path=path, recursive=recursive)
 
     @overload
     async def download_file(self, remote_path: str, timeout: int = 30 * 60) -> bytes:
@@ -126,45 +140,196 @@ class AsyncFileSystem:
         """
 
     @intercept_errors(message_prefix="Failed to download file: ")
-    async def download_file(self, *args: str) -> Union[bytes, None]:
+    async def download_file(self, *args: str) -> bytes | None:  # pyright: ignore[reportInconsistentOverload]
         if len(args) == 1 or (len(args) == 2 and isinstance(args[1], int)):
             remote_path = args[0]
-            timeout = args[1] if len(args) == 2 else 30 * 60
-            return await self._toolbox_api.download_file(
-                self._sandbox_id,
-                path=remote_path,
-                _request_timeout=timeout or None,
-            )
+            timeout = int(args[1]) if len(args) == 2 else 30 * 60
+            response = (await self.download_files([FileDownloadRequest(source=remote_path)], timeout=timeout))[0]
+            if response.error:
+                raise DaytonaError(response.error)
+            result = response.result
+            if isinstance(result, str):
+                result = result.encode("utf-8")
+            return result
 
         remote_path = args[0]
         local_path = args[1]
-        timeout = args[2] if len(args) == 3 else 30 * 60
-        # pylint: disable=protected-access
-        method, url, headers, *_ = self._toolbox_api._download_file_serialize(
-            self._sandbox_id,
-            path=remote_path,
-            x_daytona_organization_id=None,
+        timeout = int(args[2]) if len(args) == 3 else 30 * 60
+        response = (
+            await self.download_files(
+                [FileDownloadRequest(source=remote_path, destination=local_path)], timeout=timeout
+            )
+        )[0]
+        if response.error:
+            raise DaytonaError(response.error)
+        return None
+
+    @intercept_errors(message_prefix="Failed to download files: ")
+    async def download_files(
+        self, files: list[FileDownloadRequest], timeout: int = 30 * 60
+    ) -> list[FileDownloadResponse]:
+        """Downloads multiple files from the Sandbox. If the files already exist locally, they will be overwritten.
+
+        Args:
+            files (list[FileDownloadRequest]): List of files to download.
+            timeout (int): Timeout for the download operation in seconds. 0 means no timeout. Default is 30 minutes.
+
+        Returns:
+            list[FileDownloadResponse]: List of download results.
+
+        Raises:
+            Exception: Only if the request itself fails (network issues, invalid request/response, etc.). Individual
+            file download errors are returned in the `FileDownloadResponse.error` field.
+
+        Example:
+            ```python
+            # Download multiple files
+            results = await sandbox.fs.download_files([
+                FileDownloadRequest(source="tmp/data.json"),
+                FileDownloadRequest(source="tmp/config.json", destination="local_config.json")
+            ])
+            for result in results:
+                if result.error:
+                    print(f"Error downloading {result.source}: {result.error}")
+                elif result.result:
+                    print(f"Downloaded {result.source} to {result.result}")
+            ```
+        """
+        if not files:
+            return []
+
+        class FileMeta:
+            def __init__(self, dst: str | None):
+                self.dst: str | None = dst
+                self.error: str | None = None
+                self.result: str | bytes | io.BytesIO | None = None
+
+        src_file_meta_dict: dict[str, FileMeta] = {}
+        file_writers: list[AsyncBufferedIOBase] = []
+        for f in files:
+            src_file_meta_dict[f.source] = FileMeta(dst=f.destination)
+
+        await self._ensure_toolbox_url()
+        method, url, headers, body, *_ = self._api_client._download_files_serialize(
+            download_files=FilesDownloadRequest(paths=list(src_file_meta_dict.keys())),
             _request_auth=None,
             _content_type=None,
             _headers=None,
             _host_index=None,
         )
 
-        async with httpx.AsyncClient(timeout=timeout or None) as client:
-            async with client.stream(method, url, headers=headers) as response:
-                response.raise_for_status()
-                parent = os.path.dirname(local_path)
-                if parent:
-                    await aiofiles.os.makedirs(parent, exist_ok=True)
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                async with client.stream(
+                    method,
+                    url,
+                    json=body,
+                    headers=headers,
+                ) as resp:
+                    _ = resp.raise_for_status()
 
-                async with aiofiles.open(local_path, "wb") as f:
-                    async for chunk in response.aiter_bytes(chunk_size=10 * 1024):
-                        if chunk:
-                            await f.write(chunk)
-            return None
+                    content_type, options = multipart.parse_options_header(resp.headers.get("Content-Type", ""))
+                    if not (content_type == "multipart/form-data" and "boundary" in options):
+                        raise DaytonaError(f"Unexpected Content-Type: {content_type}")
+                    boundary = cast(str | bytes, options["boundary"])
+
+                    with PushMultipartParser(boundary) as parser:
+                        writer = None
+                        mode = None  # "file" or "error"
+                        source = None
+
+                        async for chunk in resp.aiter_bytes(64 * 1024):
+                            if parser.closed:
+                                raise DaytonaError("Unexpected end of multipart data")
+
+                            for result in parser.parse(chunk):  # pyright: ignore[reportUnknownVariableType]
+                                if isinstance(result, MultipartSegment):  # New part starting
+                                    writer = None
+                                    mode = None
+                                    source = result.filename
+                                    if not source:
+                                        raise DaytonaError(f"No source path found for this file {result.filename}")
+
+                                    if result.name == "error":
+                                        mode = "error"
+                                    elif result.name == "file":
+                                        mode = "file"
+                                        meta = src_file_meta_dict[source]
+                                        if meta.dst:
+                                            parent = os.path.dirname(meta.dst)
+                                            if parent:
+                                                await aiofiles.os.makedirs(parent, exist_ok=True)
+                                            # pylint: disable=consider-using-with
+                                            writer = await aiofiles.open(meta.dst, mode="wb")
+                                            file_writers.append(writer)
+                                            meta.result = meta.dst
+                                        else:
+                                            writer = io.BytesIO()
+                                            meta.result = writer
+
+                                elif result:  # Non-empty bytearray with content
+                                    if mode == "error":
+                                        raw = bytes(result)  # pyright: ignore[reportUnknownArgumentType]
+                                        error_text = raw.decode("utf-8", errors="ignore").strip()
+                                        if source:
+                                            src_file_meta_dict[source].error = error_text
+                                        else:
+                                            raise DaytonaError(
+                                                f"Error happened for unknown file with error {error_text}"
+                                            )
+                                    elif mode == "file":
+                                        try:
+                                            if isinstance(writer, io.BytesIO):
+                                                raw = bytes(result)  # pyright: ignore[reportUnknownArgumentType]
+                                                _ = writer.write(raw)
+                                            elif writer:
+                                                raw = bytes(result)  # pyright: ignore[reportUnknownArgumentType]
+                                                _ = await writer.write(raw)
+                                        except Exception as e:
+                                            if source:
+                                                src_file_meta_dict[source].error = f"Write failed: {e}"
+                                            else:
+                                                raise DaytonaError(
+                                                    (f"Write failed for unknown file with error {e}")
+                                                ) from e
+                                            mode = None
+
+                                else:  # None - end of current part
+                                    if writer and not isinstance(writer, io.BytesIO):
+                                        await writer.close()
+                                    writer = None
+                                    mode = None
+                                    source = None
+        finally:
+            for writer in file_writers:
+                await writer.close()
+
+        # Build results for all requested files
+        results: list[FileDownloadResponse] = []
+        for f in files:
+            meta = src_file_meta_dict[f.source]
+            # see if there's an explicit error; if not, but no data, set a default error
+            err = meta.error
+            if not err and not meta.result:
+                err = "No data received for this file"
+            # only fetch the value if there was no error
+            res = None
+            if err is None:
+                res = meta.result
+                if isinstance(res, io.BytesIO):
+                    res = res.getvalue()
+            results.append(
+                FileDownloadResponse(
+                    source=f.source,
+                    result=res,
+                    error=err,
+                )
+            )
+
+        return results
 
     @intercept_errors(message_prefix="Failed to find files: ")
-    async def find_files(self, path: str, pattern: str) -> List[Match]:
+    async def find_files(self, path: str, pattern: str) -> list[Match]:
         """Searches for files containing a pattern, similar to
         the grep command.
 
@@ -175,7 +340,7 @@ class AsyncFileSystem:
             pattern (str): Search pattern to match against file contents.
 
         Returns:
-            List[Match]: List of matches found in files. Each Match object includes:
+            list[Match]: List of matches found in files. Each Match object includes:
                 - file: Path to the file containing the match
                 - line: The line number where the match was found
                 - content: The matching line content
@@ -188,8 +353,7 @@ class AsyncFileSystem:
                 print(f"{match.file}:{match.line}: {match.content.strip()}")
             ```
         """
-        return await self._toolbox_api.find_in_files(
-            self._sandbox_id,
+        return await self._api_client.find_in_files(
             path=path,
             pattern=pattern,
         )
@@ -228,10 +392,10 @@ class AsyncFileSystem:
                 print("Path is a directory")
             ```
         """
-        return await self._toolbox_api.get_file_info(self._sandbox_id, path=path)
+        return await self._api_client.get_file_info(path=path)
 
     @intercept_errors(message_prefix="Failed to list files: ")
-    async def list_files(self, path: str) -> List[FileInfo]:
+    async def list_files(self, path: str) -> list[FileInfo]:
         """Lists files and directories in a given path and returns their information, similar to the ls -l command.
 
         Args:
@@ -239,7 +403,7 @@ class AsyncFileSystem:
             based on the sandbox working directory.
 
         Returns:
-            List[FileInfo]: List of file and directory information. Each FileInfo
+            list[FileInfo]: List of file and directory information. Each FileInfo
             object includes the same fields as described in get_file_info().
 
         Example:
@@ -257,7 +421,7 @@ class AsyncFileSystem:
             print("Subdirectories:", ", ".join(d.name for d in dirs))
             ```
         """
-        return await self._toolbox_api.list_files(self._sandbox_id, path=path)
+        return await self._api_client.list_files(path=path)
 
     @intercept_errors(message_prefix="Failed to move files: ")
     async def move_files(self, source: str, destination: str) -> None:
@@ -290,24 +454,23 @@ class AsyncFileSystem:
             )
             ```
         """
-        await self._toolbox_api.move_file(
-            self._sandbox_id,
+        await self._api_client.move_file(
             source=source,
             destination=destination,
         )
 
     @intercept_errors(message_prefix="Failed to replace in files: ")
-    async def replace_in_files(self, files: List[str], pattern: str, new_value: str) -> List[ReplaceResult]:
+    async def replace_in_files(self, files: list[str], pattern: str, new_value: str) -> list[ReplaceResult]:
         """Performs search and replace operations across multiple files.
 
         Args:
-            files (List[str]): List of file paths to perform replacements in. Relative paths are
+            files (list[str]): List of file paths to perform replacements in. Relative paths are
             resolved based on the sandbox working directory.
             pattern (str): Pattern to search for.
             new_value (str): Text to replace matches with.
 
         Returns:
-            List[ReplaceResult]: List of results indicating replacements made in
+            list[ReplaceResult]: List of results indicating replacements made in
                 each file. Each ReplaceResult includes:
                 - file: Path to the modified file
                 - success: Whether the operation was successful
@@ -335,7 +498,7 @@ class AsyncFileSystem:
 
         replace_request = ReplaceRequest(files=files, new_value=new_value, pattern=pattern)
 
-        return await self._toolbox_api.replace_in_files(self._sandbox_id, replace_request=replace_request)
+        return await self._api_client.replace_in_files(request=replace_request)
 
     @intercept_errors(message_prefix="Failed to search files: ")
     async def search_files(self, path: str, pattern: str) -> SearchFilesResponse:
@@ -364,24 +527,25 @@ class AsyncFileSystem:
             print(f"Found {len(result.files)} test files")
             ```
         """
-        return await self._toolbox_api.search_files(
-            self._sandbox_id,
+        return await self._api_client.search_files(
             path=path,
             pattern=pattern,
         )
 
     @intercept_errors(message_prefix="Failed to set file permissions: ")
-    async def set_file_permissions(self, path: str, mode: str = None, owner: str = None, group: str = None) -> None:
+    async def set_file_permissions(
+        self, path: str, mode: str | None = None, owner: str | None = None, group: str | None = None
+    ) -> None:
         """Sets permissions and ownership for a file or directory. Any of the parameters can be None
         to leave that attribute unchanged.
 
         Args:
             path (str): Path to the file or directory. Relative paths are resolved based on
             the sandbox working directory.
-            mode (Optional[str]): File mode/permissions in octal format
+            mode (str | None): File mode/permissions in octal format
                 (e.g., "644" for rw-r--r--).
-            owner (Optional[str]): User owner of the file.
-            group (Optional[str]): Group owner of the file.
+            owner (str | None): User owner of the file.
+            group (str | None): Group owner of the file.
 
         Example:
             ```python
@@ -399,8 +563,7 @@ class AsyncFileSystem:
             )
             ```
         """
-        await self._toolbox_api.set_file_permissions(
-            self._sandbox_id,
+        await self._api_client.set_file_permissions(
             path=path,
             mode=mode,
             owner=owner,
@@ -457,16 +620,18 @@ class AsyncFileSystem:
             ```
         """
 
-    async def upload_file(self, src: Union[str, bytes], dst: str, timeout: int = 30 * 60) -> None:
+    async def upload_file(  # pyright: ignore[reportInconsistentOverload]
+        self, src: str | bytes, dst: str, timeout: int = 30 * 60
+    ) -> None:
         await self.upload_files([FileUpload(src, dst)], timeout)
 
     @intercept_errors(message_prefix="Failed to upload files: ")
-    async def upload_files(self, files: List[FileUpload], timeout: int = 30 * 60) -> None:
+    async def upload_files(self, files: list[FileUpload], timeout: int = 30 * 60) -> None:
         """Uploads multiple files to the Sandbox. If files already exist at the destination paths,
         they will be overwritten.
 
         Args:
-            files (List[FileUpload]): List of files to upload.
+            files (list[FileUpload]): List of files to upload.
             timeout (int): Timeout for the upload operation in seconds. 0 means no timeout. Default is 30 minutes.
         Example:
             ```python
@@ -489,7 +654,7 @@ class AsyncFileSystem:
             ```
         """
         data_fields: dict[str, str] = {}
-        file_fields: dict[str, tuple[str, any]] = {}
+        file_fields: dict[str, tuple[str, io.BytesIO | io.BufferedReader]] = {}
 
         with ExitStack() as stack:
             for i, f in enumerate(files):
@@ -505,15 +670,13 @@ class AsyncFileSystem:
                 # HTTPX will stream this file object in 64 KiB chunks :contentReference[oaicite:1]{index=1}
                 file_fields[f"files[{i}].file"] = (filename, stream)
 
-            # pylint: disable=protected-access
-            _, url, headers, *_ = self._toolbox_api._upload_files_serialize(
-                self._sandbox_id, None, None, None, None, None
-            )
+            await self._ensure_toolbox_url()
+            _, url, headers, *_ = self._api_client._upload_files_serialize(None, None, None, None)
             # strip any prior Content-Type so HTTPX can set its own multipart header
-            headers.pop("Content-Type", None)
+            _ = headers.pop("Content-Type", None)
 
             async with httpx.AsyncClient(timeout=timeout or None) as client:
                 response = await client.post(
                     url, data=data_fields, files=file_fields, headers=headers  # any non-file form fields
                 )
-                response.raise_for_status()
+                _ = response.raise_for_status()

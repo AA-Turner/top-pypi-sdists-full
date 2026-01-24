@@ -3,7 +3,7 @@ Type annotations for pi service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pi/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -54,12 +55,6 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -70,10 +65,10 @@ __all__ = ("PIClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InternalServiceError: Type[BotocoreClientError]
-    InvalidArgumentException: Type[BotocoreClientError]
-    NotAuthorizedException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServiceError: type[BotocoreClientError]
+    InvalidArgumentException: type[BotocoreClientError]
+    NotAuthorizedException: type[BotocoreClientError]
 
 
 class PIClient(AioBaseClient):
@@ -124,7 +119,7 @@ class PIClient(AioBaseClient):
 
     async def delete_performance_analysis_report(
         self, **kwargs: Unpack[DeletePerformanceAnalysisReportRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a performance analysis report.
 
@@ -229,7 +224,7 @@ class PIClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pi/client/#list_tags_for_resource)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds metadata tags to the Amazon RDS Performance Insights resource.
 
@@ -237,7 +232,7 @@ class PIClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pi/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the metadata tags from the Amazon RDS Performance Insights resource.
 
@@ -253,7 +248,7 @@ class PIClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

@@ -6,15 +6,24 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.get_global_connected_repositories_response_200_item import GetGlobalConnectedRepositoriesResponse200Item
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
-def _get_kwargs() -> Dict[str, Any]:
+def _get_kwargs(
+    *,
+    page: Union[Unset, None, int] = 1,
+) -> Dict[str, Any]:
     pass
+
+    params: Dict[str, Any] = {}
+    params["page"] = page
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     return {
         "method": "get",
         "url": "/github_app/connected_repositories",
+        "params": params,
     }
 
 
@@ -50,8 +59,12 @@ def _build_response(
 def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
+    page: Union[Unset, None, int] = 1,
 ) -> Response[List["GetGlobalConnectedRepositoriesResponse200Item"]]:
     """get connected repositories
+
+    Args:
+        page (Union[Unset, None, int]):  Default: 1.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -61,7 +74,9 @@ def sync_detailed(
         Response[List['GetGlobalConnectedRepositoriesResponse200Item']]
     """
 
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        page=page,
+    )
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -73,8 +88,12 @@ def sync_detailed(
 def sync(
     *,
     client: Union[AuthenticatedClient, Client],
+    page: Union[Unset, None, int] = 1,
 ) -> Optional[List["GetGlobalConnectedRepositoriesResponse200Item"]]:
     """get connected repositories
+
+    Args:
+        page (Union[Unset, None, int]):  Default: 1.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -86,14 +105,19 @@ def sync(
 
     return sync_detailed(
         client=client,
+        page=page,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
+    page: Union[Unset, None, int] = 1,
 ) -> Response[List["GetGlobalConnectedRepositoriesResponse200Item"]]:
     """get connected repositories
+
+    Args:
+        page (Union[Unset, None, int]):  Default: 1.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -103,7 +127,9 @@ async def asyncio_detailed(
         Response[List['GetGlobalConnectedRepositoriesResponse200Item']]
     """
 
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        page=page,
+    )
 
     response = await client.get_async_httpx_client().request(**kwargs)
 
@@ -113,8 +139,12 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: Union[AuthenticatedClient, Client],
+    page: Union[Unset, None, int] = 1,
 ) -> Optional[List["GetGlobalConnectedRepositoriesResponse200Item"]]:
     """get connected repositories
+
+    Args:
+        page (Union[Unset, None, int]):  Default: 1.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -127,5 +157,6 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            page=page,
         )
     ).parsed

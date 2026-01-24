@@ -1,3 +1,6 @@
+from argparse import ArgumentParser
+from typing import Any
+
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import DEFAULT_DB_ALIAS
@@ -8,7 +11,7 @@ from django_pgviews.models import ViewSyncer
 class Command(BaseCommand):
     help = """Create/update Postgres views for all installed apps."""
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: ArgumentParser) -> None:
         parser.add_argument(
             "--no-update",
             action="store_false",
@@ -32,7 +35,7 @@ class Command(BaseCommand):
             help=(
                 "Before recreating materialized view, check the SQL has changed compared to the currently active "
                 "materialized view in the database, if there is one, and only re-create the materialized view "
-                "if the SQL is different. By default uses django setting MATERIALIZED_VIEWS_CHECK_SQL_CHANGED."
+                "if the SQL is different. By default uses Django setting MATERIALIZED_VIEWS_CHECK_SQL_CHANGED."
             ),
         )
         parser.add_argument(
@@ -44,7 +47,7 @@ class Command(BaseCommand):
             help=(
                 "Before recreating materialized view, check the SQL has changed compared to the currently active "
                 "materialized view in the database, if there is one, and only re-create the materialized view "
-                "if the SQL is different. By default uses django setting MATERIALIZED_VIEWS_CHECK_SQL_CHANGED."
+                "if the SQL is different. By default uses Django setting MATERIALIZED_VIEWS_CHECK_SQL_CHANGED."
             ),
         )
         parser.add_argument(
@@ -53,10 +56,17 @@ class Command(BaseCommand):
             help='Nominates a database to synchronize. Defaults to the "default" database.',
         )
 
-    def handle(self, force, update, materialized_views_check_sql_changed, database, **options):
+    def handle(
+        self, force: bool, update: bool, materialized_views_check_sql_changed: str, database: str, **options: Any
+    ) -> None:
         vs = ViewSyncer()
 
         if materialized_views_check_sql_changed is None:
-            materialized_views_check_sql_changed = getattr(settings, "MATERIALIZED_VIEWS_CHECK_SQL_CHANGED", False)
+            materialized_views_check_sql_changed = getattr(settings, "MATERIALIZED_VIEWS_CHECK_SQL_CHANGED", True)
 
-        vs.run(force, update, using=database, materialized_views_check_sql_changed=materialized_views_check_sql_changed)
+        vs.run(
+            force=force,
+            update=update,
+            using=database,
+            materialized_views_check_sql_changed=materialized_views_check_sql_changed,
+        )

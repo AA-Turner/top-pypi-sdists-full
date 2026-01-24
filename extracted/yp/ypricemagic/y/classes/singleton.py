@@ -1,6 +1,6 @@
 import threading
 from collections import defaultdict
-from typing import Dict, Generic, TypeVar
+from typing import Generic, TypeVar
 
 from a_sync.a_sync._meta import ASyncMeta
 from checksum_dict import ChecksumAddressDict
@@ -50,7 +50,7 @@ class ChecksumASyncSingletonMeta(ASyncMeta, Generic[T]):
 
         super().__init__(name, bases, namespace)
 
-        cls.__instances: Dict[bool, ChecksumAddressDict[T]] = {
+        cls.__instances: dict[bool, ChecksumAddressDict[T]] = {
             True: ChecksumAddressDict(),
             False: ChecksumAddressDict(),
         }
@@ -65,7 +65,7 @@ class ChecksumASyncSingletonMeta(ASyncMeta, Generic[T]):
         cls.__locks_lock: threading.Lock = threading.Lock()
         """A lock to ensure thread-safe access to the locks dictionary."""
 
-    def __call__(cls, address: AnyAddressOrContract, *args, **kwargs) -> T:  # type: ignore
+    def __call__(cls, address: AnyAddressOrContract, *args, **kwargs) -> T:
         """
         Create or retrieve a singleton instance for the given address.
 

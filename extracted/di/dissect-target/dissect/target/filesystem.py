@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import gzip
 import io
-import logging
 import os
 import pathlib
 import stat
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, BinaryIO, Callable, Final
+from typing import TYPE_CHECKING, Any, BinaryIO, Final
 
 from dissect.target.exceptions import (
     FileNotFoundError,
@@ -18,18 +17,19 @@ from dissect.target.exceptions import (
 )
 from dissect.target.helpers import fsutil, hashutil
 from dissect.target.helpers.lazy import import_lazy
+from dissect.target.helpers.logging import get_logger
 
 TarFilesystem = import_lazy("dissect.target.filesystems.tar").TarFilesystem
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
     from dissect.target.target import Target
 
 FILESYSTEMS: list[type[Filesystem]] = []
 MODULE_PATH = "dissect.target.filesystems"
 
-log = logging.getLogger(__name__)
+log = get_logger(__name__)
 
 
 class Filesystem:
@@ -755,7 +755,7 @@ class FilesystemEntry:
         Returns:
             The filesystem entry the link points to.
         """
-        log.debug("%r::readlink_ext()", self)
+        log.trace("%r::readlink_ext()", self)
         # Default behavior, resolve link own filesystem.
         return fsutil.resolve_link(self.fs, self.readlink(), self.path, alt_separator=self.fs.alt_separator)
 
@@ -1012,11 +1012,7 @@ class MappedFile(VirtualFile):
         return pathlib.Path(self.entry).open("rb")
 
     def stat(self, follow_symlinks: bool = True) -> fsutil.stat_result:
-        # Python 3.9 does not support follow_symlinks in stat()
-        if follow_symlinks:
-            return fsutil.stat_result.copy(pathlib.Path(self.entry).stat())
-
-        return self.lstat()
+        return fsutil.stat_result.copy(pathlib.Path(self.entry).stat(follow_symlinks=follow_symlinks))
 
     def lstat(self) -> fsutil.stat_result:
         return fsutil.stat_result.copy(pathlib.Path(self.entry).lstat())
@@ -1215,8 +1211,9 @@ class VirtualFilesystem(Filesystem):
                 real_file_path = root.joinpath(file_)
                 directory.add(file_, MappedFile(self, vfs_file_path, str(real_file_path)))
 
-    def map_file(self, vfspath: str, realpath: str, compression: str | None = None) -> None:
+    def map_file(self, vfspath: str, realpath: str | pathlib.Path, compression: str | None = None) -> None:
         """Map a file from the host machine into the VFS."""
+        realpath = str(realpath)
         vfspath = fsutil.normalize(vfspath, alt_separator=self.alt_separator)
         if vfspath[-1] == "/":
             raise AttributeError(f"Can't map a file onto a directory: {vfspath}")
@@ -1624,7 +1621,7 @@ class RootFilesystem(LayerFilesystem):
         raise TypeError("Detect is not allowed on RootFilesystem class")
 
     def get(self, path: str, relentry: LayerFilesystemEntry | None = None) -> RootFilesystemEntry:
-        self.target.log.debug("%r::get(%r)", self, path)
+        self.target.log.trace("%r::get(%r)", self, path)
         entry = super().get(path, relentry)
         entry.__class__ = RootFilesystemEntry
         return entry
@@ -1634,55 +1631,55 @@ class RootFilesystemEntry(LayerFilesystemEntry):
     fs: RootFilesystem
 
     def get(self, path: str) -> RootFilesystemEntry:
-        self.fs.target.log.debug("%r::get(%r)", self, path)
+        self.fs.target.log.trace("%r::get(%r)", self, path)
         entry = super().get(path)
         entry.__class__ = RootFilesystemEntry
         return entry
 
     def open(self) -> BinaryIO:
-        self.fs.target.log.debug("%r::open()", self)
+        self.fs.target.log.trace("%r::open()", self)
         return super().open()
 
     def iterdir(self) -> Iterator[str]:
-        self.fs.target.log.debug("%r::iterdir()", self)
+        self.fs.target.log.trace("%r::iterdir()", self)
         yield from super().iterdir()
 
     def scandir(self) -> Iterator[RootFilesystemEntry]:
-        self.fs.target.log.debug("%r::scandir()", self)
+        self.fs.target.log.trace("%r::scandir()", self)
         for entry in super().scandir():
             entry.__class__ = RootFilesystemEntry
             yield entry
 
     def is_file(self, follow_symlinks: bool = True) -> bool:
-        self.fs.target.log.debug("%r::is_file()", self)
+        self.fs.target.log.trace("%r::is_file()", self)
         return super().is_file(follow_symlinks=follow_symlinks)
 
     def is_dir(self, follow_symlinks: bool = True) -> bool:
-        self.fs.target.log.debug("%r::is_dir()", self)
+        self.fs.target.log.trace("%r::is_dir()", self)
         return super().is_dir(follow_symlinks=follow_symlinks)
 
     def is_symlink(self) -> bool:
-        self.fs.target.log.debug("%r::is_symlink()", self)
+        self.fs.target.log.trace("%r::is_symlink()", self)
         return super().is_symlink()
 
     def readlink(self) -> str:
-        self.fs.target.log.debug("%r::readlink()", self)
+        self.fs.target.log.trace("%r::readlink()", self)
         return super().readlink()
 
     def stat(self, follow_symlinks: bool = True) -> fsutil.stat_result:
-        self.fs.target.log.debug("%r::stat()", self)
+        self.fs.target.log.trace("%r::stat()", self)
         return super().stat(follow_symlinks=follow_symlinks)
 
     def lstat(self) -> fsutil.stat_result:
-        self.fs.target.log.debug("%r::lstat()", self)
+        self.fs.target.log.trace("%r::lstat()", self)
         return super().lstat()
 
     def attr(self) -> Any:
-        self.fs.target.log.debug("%r::attr()", self)
+        self.fs.target.log.trace("%r::attr()", self)
         return super().attr()
 
     def lattr(self) -> Any:
-        self.fs.target.log.debug("%r::lattr()", self)
+        self.fs.target.log.trace("%r::lattr()", self)
         return super().lattr()
 
 
@@ -1767,6 +1764,7 @@ register("vmfs", "VmfsFilesystem")
 register("btrfs", "BtrfsFilesystem")
 register("exfat", "ExfatFilesystem")
 register("squashfs", "SquashFSFilesystem")
+register("cramfs", "CramfsFilesystem")
 register("jffs", "JffsFilesystem")
 register("qnxfs", "QnxFilesystem")
 register("zip", "ZipFilesystem")

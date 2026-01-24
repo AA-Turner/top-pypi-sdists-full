@@ -7,10 +7,11 @@ from __future__ import annotations
 from typing import Type, overload
 
 import numpy as np
+import numpy.typing as npt
 from typing_extensions import Literal
 
 from .._fields import FieldArray
-from .._helper import verify_isinstance, verify_literal
+from .._helper import verify_arraylike, verify_isinstance, verify_literal
 from ..typing import ArrayLike
 
 
@@ -36,15 +37,15 @@ class _LinearCode:
         verify_isinstance(systematic, bool)
 
         if not n >= k:
-            raise ValueError(f"Argument `n` must be greater than or equal to `k`, {n} is not greater than {k}.")
+            raise ValueError(f"Argument 'n' must be greater than or equal to 'k', {n} is not greater than {k}.")
         if not d >= 1:
-            raise ValueError(f"Argument `d` must be at least 1, not {d}.")
+            raise ValueError(f"Argument 'd' must be at least 1, not {d}.")
         if not type(G) is type(H):
-            raise ValueError(f"Arguments `G` and `H` must be over the same field, not {type(G)} and {type(H)}.")
+            raise ValueError(f"Arguments 'G' and 'H' must be over the same field, not {type(G)} and {type(H)}.")
         if not G.shape == (k, n):
-            raise ValueError(f"Argument `G` must be have shape (k, n), {G.shape} is not ({k}, {n}).")
+            raise ValueError(f"Argument 'G' must be have shape (k, n), {G.shape} is not ({k}, {n}).")
         if not H.shape == (n - k, n):
-            raise ValueError(f"Argument `H` must be have shape (n - k, n), {H.shape} is not ({n - k}, {n}).")
+            raise ValueError(f"Argument 'H' must be have shape (n - k, n), {H.shape} is not ({n - k}, {n}).")
 
         self._n = n
         self._k = k
@@ -65,8 +66,8 @@ class _LinearCode:
                 .. info::
                     :title: Shortened codes
 
-                    For the shortened $[n-s,\ k-s,\ d]$ code (only applicable for systematic codes),
-                    pass $k-s$ symbols into :func:`encode` to return the $n-s$-symbol message.
+                    For the shortened $[n-s,\ k-s,\ d]$ code, pass $k-s$ message symbols into :func:`encode` to return
+                    the $n-s$ codeword symbols.
 
             output: Specify whether to return the codeword or parity symbols only. The default is `"codeword"`.
 
@@ -77,7 +78,7 @@ class _LinearCode:
         verify_literal(output, ["codeword", "parity"])
 
         if output == "parity" and not self.is_systematic:
-            raise ValueError("Argument `output` may only be 'parity' for systematic codes.")
+            raise ValueError("Argument 'output' may only be 'parity' for systematic codes.")
 
         message, is_message_1d = self._check_and_convert_message(message)
         codeword = self._encode_message(message)
@@ -102,8 +103,7 @@ class _LinearCode:
                 .. info::
                     :title: Shortened codes
 
-                    For the shortened $[n-s,\ k-s,\ d]$ code (only applicable for systematic codes),
-                    pass $n-s$ symbols into :func:`detect`.
+                    For the shortened $[n-s,\ k-s,\ d]$ code, pass $n-s$ codeword symbols into :func:`detect`.
 
         Returns:
             A boolean scalar or $N$-length array indicating if errors were detected in the corresponding codeword.
@@ -120,6 +120,7 @@ class _LinearCode:
     def decode(
         self,
         codeword: ArrayLike,
+        erasures: npt.NDArray | None = None,
         output: Literal["message", "codeword"] = "message",
         errors: Literal[False] = False,
     ) -> FieldArray: ...
@@ -128,11 +129,12 @@ class _LinearCode:
     def decode(
         self,
         codeword: ArrayLike,
+        erasures: npt.NDArray | None = None,
         output: Literal["message", "codeword"] = "message",
         errors: Literal[True] = True,
     ) -> tuple[FieldArray, int | np.ndarray]: ...
 
-    def decode(self, codeword, output="message", errors=False):
+    def decode(self, codeword, erasures=None, output="message", errors=False):
         r"""
         Decodes the codeword $\mathbf{c}$ into the message $\mathbf{m}$.
 
@@ -143,12 +145,16 @@ class _LinearCode:
                 .. info::
                     :title: Shortened codes
 
-                    For the shortened $[n-s,\ k-s,\ d]$ code (only applicable for systematic codes),
-                    pass $n-s$ symbols into :func:`decode` to return the $k-s$-symbol message.
+                    For the shortened $[n-s,\ k-s,\ d]$ code, pass $n-s$ codeword symbols into :func:`decode`
+                    to return the $k-s$ message symbols.
 
+            erasures: Optionally specify the erasure locations as a boolean array with shape equal to the codeword,
+                where `True` indicates an erasure at that location. The default is `None`, which indicates no erasures.
             output: Specify whether to return the error-corrected message or entire codeword. The default is
                 `"message"`.
             errors: Optionally specify whether to return the number of corrected errors. The default is `False`.
+                If erasures are provided, the number of corrected errors does not include the number of erasures
+                corrected, only the number of unknown symbol errors corrected.
 
         Returns:
             - If `output="message"`, the error-corrected message as either a $k$-length vector or
@@ -158,10 +164,13 @@ class _LinearCode:
               array. Valid number of corrections are in $[0, t]$. If a codeword has too many errors and cannot
               be corrected, -1 will be returned.
         """
+        codeword = verify_arraylike(codeword, dtype=self.field.dtypes[0])
+        erasures = verify_arraylike(erasures, optional=True, dtype=bool, shape=codeword.shape)
         verify_literal(output, ["message", "codeword"])
 
         codeword, is_codeword_1d = self._check_and_convert_codeword(codeword)
-        dec_codeword, N_errors = self._decode_codeword(codeword)
+        erasures = self._check_and_convert_erasures(erasures, codeword.shape)
+        dec_codeword, N_errors = self._decode_codeword(codeword, erasures=erasures)
 
         if output == "message":
             decoded = self._convert_codeword_to_message(dec_codeword)
@@ -198,19 +207,12 @@ class _LinearCode:
         message = self.field(message)
 
         if message.ndim > 2:
-            raise ValueError(f"Argument `message` can be either 1-D or 2-D, not {message.ndim}-D.")
-        if self.is_systematic:
-            if not message.shape[-1] <= self.k:
-                raise ValueError(
-                    f"For a systematic code, argument `message` must be a 1-D or 2-D array "
-                    f"with last dimension less than or equal to {self.k}, not shape {message.shape}."
-                )
-        else:
-            if not message.shape[-1] == self.k:
-                raise ValueError(
-                    f"For a non-systematic code, argument `message` must be a 1-D or 2-D array "
-                    f"with last dimension equal to {self.k}, not shape {message.shape}."
-                )
+            raise ValueError(f"Argument 'message' can be either 1-D or 2-D, not {message.ndim}-D.")
+        if not 1 <= message.shape[-1] <= self.k:
+            raise ValueError(
+                f"Argument 'message' must be a 1-D or 2-D array with last dimension between 1 and {self.k}, "
+                f"not shape {message.shape}."
+            )
 
         # Record if the original message was 1-D and then convert to 2-D
         is_message_1d = message.ndim == 1
@@ -225,24 +227,28 @@ class _LinearCode:
         # Convert the array-like codeword into a FieldArray
         codeword = self.field(codeword)
 
-        if self.is_systematic:
-            if not codeword.shape[-1] <= self.n:
-                raise ValueError(
-                    f"For a systematic code, argument `codeword` must be a 1-D or 2-D array "
-                    f"with last dimension less than or equal to {self.n}, not shape {codeword.shape}."
-                )
-        else:
-            if not codeword.shape[-1] == self.n:
-                raise ValueError(
-                    f"For a non-systematic code, argument `codeword` must be a 1-D or 2-D array "
-                    f"with last dimension equal to {self.n}, not shape {codeword.shape}."
-                )
+        if not self.n - self.k + 1 <= codeword.shape[-1] <= self.n:
+            raise ValueError(
+                f"Argument 'codeword' must be a 1-D or 2-D array with last dimension between {self.n - self.k + 1} "
+                f"and {self.n}, not shape {codeword.shape}."
+            )
 
         # Record if the original codeword was 1-D and then convert to 2-D
         is_codeword_1d = codeword.ndim == 1
         codeword = np.atleast_2d(codeword)
 
         return codeword, is_codeword_1d
+
+    def _check_and_convert_erasures(self, erasures: npt.NDArray | None, shape: tuple[int, ...]) -> npt.NDArray:
+        """
+        Converts the erasures into a boolean array with the same shape as the codeword.
+        """
+        if erasures is None:
+            erasures = np.zeros(shape, dtype=bool)
+        else:
+            erasures = verify_arraylike(erasures, dtype=bool, atleast_2d=True, shape=shape)
+
+        return erasures
 
     def _convert_codeword_to_message(self, codeword: FieldArray) -> FieldArray:
         """
@@ -266,12 +272,14 @@ class _LinearCode:
         Encodes the message with shape (N, ks) into the codeword with shape (N, ns).
         """
         ks = message.shape[-1]  # The number of input message symbols (could be less than self.k for shortened codes)
+        pad = self.k - ks  # The number of leading zero message symbols to pad for shortened codes
 
         if self.is_systematic:
-            parity = message @ self.G[-ks:, self.k :]
+            # ks can be zero, so we use self.k - ks instead of just -ks
+            parity = message @ self.G[pad:, self.k :]
             codeword = np.hstack((message, parity))
         else:
-            codeword = message @ self.G
+            codeword = message @ self.G[pad:, pad:]
 
         return codeword
 
@@ -289,7 +297,9 @@ class _LinearCode:
 
         return detected
 
-    def _decode_codeword(self, codeword: FieldArray) -> tuple[FieldArray, np.ndarray]:
+    def _decode_codeword(
+        self, codeword: FieldArray, erasures: npt.NDArray | None = None
+    ) -> tuple[FieldArray, np.ndarray]:
         """
         Decodes errors in the received codeword. Returns the corrected codeword (N, ns) and array of number of
         corrected errors (N,).

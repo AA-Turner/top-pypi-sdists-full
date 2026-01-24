@@ -94,29 +94,47 @@ from fluids.numerics import exp, horner_and_der3, log, sqrt
 
 from chemicals.iapws import iapws92_dPsat_dT, iapws92_Psat, iapws95_Tc, iapws95_Tc_inv
 
-__all__ = ['lemmon2000_air_A0', 'lemmon2000_air_dA0_dtau',
-           'lemmon2000_air_d2A0_dtau2', 'lemmon2000_air_d3A0_dtau3',
-           'lemmon2000_air_d4A0_dtau4',
-           'lemmon2000_air_Ar', 'lemmon2000_air_dAr_dtau',
-           'lemmon2000_air_d2Ar_dtau2', 'lemmon2000_air_d3Ar_dtau3',
-           'lemmon2000_air_d4Ar_dtau4',
-           'lemmon2000_air_dAr_ddelta', 'lemmon2000_air_d2Ar_ddelta2',
-           'lemmon2000_air_d3Ar_ddelta3', 'lemmon2000_air_d4Ar_ddelta4',
-           'lemmon2000_air_d2Ar_ddeltadtau', 'lemmon2000_air_d3Ar_ddeltadtau2',
-           'lemmon2000_air_d3Ar_ddelta2dtau', 'lemmon2000_air_d4Ar_ddelta2dtau2',
-           'lemmon2000_air_d4Ar_ddeltadtau3', 'lemmon2000_air_d4Ar_ddelta3dtau',
-           'lemmon2000_air_rho_dew', 'lemmon2000_air_rho_bubble',
-           'lemmon2000_air_P_dew', 'lemmon2000_air_P_bubble',
-           'lemmon2000_air_R', 'lemmon2000_air_T_reducing', 'lemmon2000_air_P_reducing',
-           'lemmon2000_air_rho_reducing',
-
-           'lemmon2000_air_MW', 'lemmon2000_air_P_max', 'lemmon2000_air_T_max',
-           'lemmon2000_rho', 'lemmon2000_P', 'lemmon2000_T',
-
-           'TEOS10_BAW_derivatives', 'TEOS10_CAWW_derivatives',
-           'TEOS10_CAAW_derivatives',
-           'iapws04_Henry_air', 'iapws04_dHenry_air_dT',
-           ]
+__all__ = [
+    "TEOS10_BAW_derivatives",
+    "TEOS10_CAAW_derivatives",
+    "TEOS10_CAWW_derivatives",
+    "iapws04_Henry_air",
+    "iapws04_dHenry_air_dT",
+    "lemmon2000_P",
+    "lemmon2000_T",
+    "lemmon2000_air_A0",
+    "lemmon2000_air_Ar",
+    "lemmon2000_air_MW",
+    "lemmon2000_air_P_bubble",
+    "lemmon2000_air_P_dew",
+    "lemmon2000_air_P_max",
+    "lemmon2000_air_P_reducing",
+    "lemmon2000_air_R",
+    "lemmon2000_air_T_max",
+    "lemmon2000_air_T_reducing",
+    "lemmon2000_air_d2A0_dtau2",
+    "lemmon2000_air_d2Ar_ddelta2",
+    "lemmon2000_air_d2Ar_ddeltadtau",
+    "lemmon2000_air_d2Ar_dtau2",
+    "lemmon2000_air_d3A0_dtau3",
+    "lemmon2000_air_d3Ar_ddelta2dtau",
+    "lemmon2000_air_d3Ar_ddelta3",
+    "lemmon2000_air_d3Ar_ddeltadtau2",
+    "lemmon2000_air_d3Ar_dtau3",
+    "lemmon2000_air_d4A0_dtau4",
+    "lemmon2000_air_d4Ar_ddelta2dtau2",
+    "lemmon2000_air_d4Ar_ddelta3dtau",
+    "lemmon2000_air_d4Ar_ddelta4",
+    "lemmon2000_air_d4Ar_ddeltadtau3",
+    "lemmon2000_air_d4Ar_dtau4",
+    "lemmon2000_air_dA0_dtau",
+    "lemmon2000_air_dAr_ddelta",
+    "lemmon2000_air_dAr_dtau",
+    "lemmon2000_air_rho_bubble",
+    "lemmon2000_air_rho_dew",
+    "lemmon2000_air_rho_reducing",
+    "lemmon2000_rho",
+]
 
 # Get a good, fast variant of lemmon (2000) in here
 
@@ -148,7 +166,7 @@ lemmon2000_air_T_max = 2000.
 """Maximum temperature in K valid for the Lemmon (2000) EOS for dry air"""
 
 def lemmon2000_air_A0(tau, delta):
-    r'''Calculates the ideal gas Helmholtz energy of air according to Lemmon
+    r"""Calculates the ideal gas Helmholtz energy of air according to Lemmon
     (2000).
 
     .. math::
@@ -180,7 +198,7 @@ def lemmon2000_air_A0(tau, delta):
     --------
     >>> lemmon2000_air_A0(132.6312/200.0, 13000/10447.7)
     -14.65173785639
-    '''
+    """
     tau_inv = 1.0/tau
 
 #    exp0_00001 = exp(0.00001*tau)
@@ -198,7 +216,7 @@ def lemmon2000_air_A0(tau, delta):
 
 
 def lemmon2000_air_dA0_dtau(tau, delta):
-    r'''Calculates the first temperature derivative of ideal gas Helmholtz
+    r"""Calculates the first temperature derivative of ideal gas Helmholtz
     energy of air according to Lemmon (2000).
 
     Parameters
@@ -221,7 +239,7 @@ def lemmon2000_air_dA0_dtau(tau, delta):
     --------
     >>> lemmon2000_air_dA0_dtau(132.6312/200.0, 13000/10447.7)
     3.749095669249
-    '''
+    """
     tau_inv = 1.0/tau
     dA0_dtau = (-0.00029304513*sqrt(tau) + tau_inv*(-tau_inv*(tau_inv*(1.8171582e-7*tau_inv
             - 0.0000420549538) - 0.000158860716) + 2.490888032) + 17.275266575)
@@ -244,7 +262,7 @@ def lemmon2000_air_dA0_dtau(tau, delta):
 
 
 def lemmon2000_air_d2A0_dtau2(tau, delta):
-    r'''Calculates the second temperature derivative of ideal gas Helmholtz
+    r"""Calculates the second temperature derivative of ideal gas Helmholtz
     energy of air according to Lemmon (2000).
 
     Parameters
@@ -267,7 +285,7 @@ def lemmon2000_air_d2A0_dtau2(tau, delta):
     --------
     >>> lemmon2000_air_d2A0_dtau2(132.6312/200.0, 13000/10447.7)
     -5.66675499015
-    '''
+    """
     tau_inv = 1.0/tau
     d2A0_dtau2 = (-0.000146522565*sqrt(tau_inv) + tau_inv*(tau_inv*(tau_inv*(
             7.2686328e-7*tau_inv - 0.0001261648614) - 0.000317721432)
@@ -293,7 +311,7 @@ def lemmon2000_air_d2A0_dtau2(tau, delta):
     return d2A0_dtau2
 
 def lemmon2000_air_d3A0_dtau3(tau, delta):
-    r'''Calculates the third temperature derivative of ideal gas Helmholtz
+    r"""Calculates the third temperature derivative of ideal gas Helmholtz
     energy of air according to Lemmon (2000).
 
     Parameters
@@ -316,7 +334,7 @@ def lemmon2000_air_d3A0_dtau3(tau, delta):
     --------
     >>> lemmon2000_air_d3A0_dtau3(132.6312/200.0, 13000/10447.7)
     17.10538866838
-    '''
+    """
     tau_inv = 1.0/tau
     d3A0_dtau3 = (tau_inv*(0.0000732612825*sqrt(tau_inv) + tau_inv*(-tau_inv*(tau_inv*(
             3.6343164e-6*tau_inv - 0.0005046594456) - 0.000953164296) + 4.981776064)*tau_inv))
@@ -343,7 +361,7 @@ def lemmon2000_air_d3A0_dtau3(tau, delta):
     return d3A0_dtau3
 
 def lemmon2000_air_d4A0_dtau4(tau, delta):
-    r'''Calculates the fourth temperature derivative of ideal gas Helmholtz
+    r"""Calculates the fourth temperature derivative of ideal gas Helmholtz
     energy of air according to Lemmon (2000).
 
     Parameters
@@ -366,7 +384,7 @@ def lemmon2000_air_d4A0_dtau4(tau, delta):
     --------
     >>> lemmon2000_air_d4A0_dtau4(126.192/200.0, 13000/10447.7)
     -94.815532727
-    '''
+    """
     tau_inv = 1.0/tau
     tau_inv2 = tau_inv*tau_inv
     d4A0_dtau4 = (-tau_inv2*(0.00010989192375*sqrt(tau_inv) - tau_inv2*(tau_inv*(
@@ -399,7 +417,7 @@ def lemmon2000_air_d4A0_dtau4(tau, delta):
 
 
 def lemmon2000_air_Ar(tau, delta):
-    r'''Calculates the residual Helmholtz energy of air according to Lemmon
+    r"""Calculates the residual Helmholtz energy of air according to Lemmon
     (2000).
 
     Parameters
@@ -424,7 +442,7 @@ def lemmon2000_air_Ar(tau, delta):
     -0.34683017661
     >>> lemmon2000_air_Ar(0.36842, 0.15880050154579475)
     0.0047988122806
-    '''
+    """
     delta2 = delta*delta
     delta3 = delta*delta2
     delta4 = delta2*delta2
@@ -470,7 +488,7 @@ def lemmon2000_air_Ar(tau, delta):
 
 
 def lemmon2000_air_dAr_dtau(tau, delta):
-    r'''Calculates the first derivative of residual Helmholtz energy of air
+    r"""Calculates the first derivative of residual Helmholtz energy of air
     with respect to tau according to Lemmon (2000).
 
     Parameters
@@ -495,7 +513,7 @@ def lemmon2000_air_dAr_dtau(tau, delta):
     --------
     >>> lemmon2000_air_dAr_dtau(132.6312/200.0, 13000/10447.7)
     -1.8112257495223263
-    '''
+    """
     delta2 = delta*delta
     delta3 = delta*delta2
     delta4 = delta2*delta2
@@ -544,7 +562,7 @@ def lemmon2000_air_dAr_dtau(tau, delta):
 
 
 def lemmon2000_air_d2Ar_dtau2(tau, delta):
-    r'''Calculates the second derivative of residual Helmholtz energy of air
+    r"""Calculates the second derivative of residual Helmholtz energy of air
     with respect to tau according to Lemmon (2000).
 
     Parameters
@@ -569,7 +587,7 @@ def lemmon2000_air_d2Ar_dtau2(tau, delta):
     --------
     >>> lemmon2000_air_d2Ar_dtau2(132.6312/200.0, 13000/10447.7)
     -0.7632109061747
-    '''
+    """
     delta2 = delta*delta
     delta3 = delta*delta2
     delta4 = delta2*delta2
@@ -611,7 +629,7 @@ def lemmon2000_air_d2Ar_dtau2(tau, delta):
             - 0.129751905480749996*taurt2*x3 + 0.0973104363955200058*x1))
 
 def lemmon2000_air_d3Ar_dtau3(tau, delta):
-    r'''Calculates the third derivative of residual Helmholtz energy of air
+    r"""Calculates the third derivative of residual Helmholtz energy of air
     with respect to tau according to Lemmon (2000).
 
     Parameters
@@ -636,7 +654,7 @@ def lemmon2000_air_d3Ar_dtau3(tau, delta):
     --------
     >>> lemmon2000_air_d3Ar_dtau3(132.6312/200.0, 13000/10447.7)
     0.27922007457420
-    '''
+    """
     delta2 = delta*delta
     delta3 = delta*delta2
     delta4 = delta2*delta2
@@ -684,7 +702,7 @@ def lemmon2000_air_d3Ar_dtau3(tau, delta):
 
 
 def lemmon2000_air_d4Ar_dtau4(tau, delta):
-    r'''Calculates the fourth derivative of residual Helmholtz energy of air
+    r"""Calculates the fourth derivative of residual Helmholtz energy of air
     with respect to tau according to Lemmon (2000).
 
     Parameters
@@ -709,7 +727,7 @@ def lemmon2000_air_d4Ar_dtau4(tau, delta):
     --------
     >>> lemmon2000_air_d4Ar_dtau4(132.6312/200.0, 13000/10447.7)
     -8.197368061417
-    '''
+    """
     delta2 = delta*delta
     delta3 = delta*delta2
     delta4 = delta2*delta2
@@ -764,7 +782,7 @@ def lemmon2000_air_d4Ar_dtau4(tau, delta):
             - 0.000533800631222929685*x1*x3*delta5))
 
 def lemmon2000_air_dAr_ddelta(tau, delta):
-    r'''Calculates the first derivative of residual Helmholtz energy of air
+    r"""Calculates the first derivative of residual Helmholtz energy of air
     with respect to delta according to Lemmon (2000).
 
     Parameters
@@ -789,7 +807,7 @@ def lemmon2000_air_dAr_ddelta(tau, delta):
     --------
     >>> lemmon2000_air_dAr_ddelta(132.6312/200.0, 13000/10447.7)
     -0.1367917666005
-    '''
+    """
     delta2 = delta*delta
     delta3 = delta*delta2
     delta4 = delta2*delta2
@@ -851,7 +869,7 @@ def lemmon2000_air_dAr_ddelta(tau, delta):
 
 
 def lemmon2000_air_d2Ar_ddelta2(tau, delta):
-    r'''Calculates the second derivative of residual Helmholtz energy of air
+    r"""Calculates the second derivative of residual Helmholtz energy of air
     with respect to delta according to Lemmon (2000).
 
     Parameters
@@ -876,7 +894,7 @@ def lemmon2000_air_d2Ar_ddelta2(tau, delta):
     --------
     >>> lemmon2000_air_d2Ar_ddelta2(132.6312/200.0, 13000/10447.7)
     0.27027259528316
-    '''
+    """
     delta2 = delta*delta
     delta3 = delta*delta2
     delta4 = delta2*delta2
@@ -932,7 +950,7 @@ def lemmon2000_air_d2Ar_ddelta2(tau, delta):
             - 0.0107453610825320005*x15*x16 + 0.0256954286756199968*x15*delta5 + 0.142828035794200003)
 
 def lemmon2000_air_d3Ar_ddelta3(tau, delta):
-    r'''Calculates the third derivative of residual Helmholtz energy of air
+    r"""Calculates the third derivative of residual Helmholtz energy of air
     with respect to delta according to Lemmon (2000).
 
     Parameters
@@ -957,7 +975,7 @@ def lemmon2000_air_d3Ar_ddelta3(tau, delta):
     --------
     >>> lemmon2000_air_d3Ar_ddelta3(132.6312/200.0, 13000/10447.7)
     0.1849386546766
-    '''
+    """
     delta2 = delta*delta
     delta3 = delta*delta2
     delta4 = delta2*delta2
@@ -1015,7 +1033,7 @@ def lemmon2000_air_d3Ar_ddelta3(tau, delta):
             - 0.304095113735999956*x4 - 0.189633527892600018*x6 + 0.879777658277999919*x7 - 0.519252837987600024)
 
 def lemmon2000_air_d4Ar_ddelta4(tau, delta):
-    r'''Calculates the fourth derivative of residual Helmholtz energy of air
+    r"""Calculates the fourth derivative of residual Helmholtz energy of air
     with respect to delta according to Lemmon (2000).
 
     Parameters
@@ -1040,7 +1058,7 @@ def lemmon2000_air_d4Ar_ddelta4(tau, delta):
     --------
     >>> lemmon2000_air_d4Ar_ddelta4(132.6312/200.0, 13000/10447.7)
     0.37902213262258
-    '''
+    """
     delta2 = delta*delta
     delta3 = delta*delta2
     delta4 = delta2*delta2
@@ -1102,7 +1120,7 @@ def lemmon2000_air_d4Ar_ddelta4(tau, delta):
             - 2.20542397655400002*x13*x15 + 0.405460151647999978*x2 + 0.270304090123200003)
 
 def lemmon2000_air_d2Ar_ddeltadtau(tau, delta):
-    r'''Calculates the second derivative of residual Helmholtz energy of air
+    r"""Calculates the second derivative of residual Helmholtz energy of air
     with respect to `delta` and `tau` according to Lemmon (2000).
 
     Parameters
@@ -1127,7 +1145,7 @@ def lemmon2000_air_d2Ar_ddeltadtau(tau, delta):
     --------
     >>> lemmon2000_air_d2Ar_ddeltadtau(132.6312/200.0, 13000/10447.7)
     -1.359976184125
-    '''
+    """
     delta2 = delta*delta
     delta3 = delta*delta2
     delta4 = delta2*delta2
@@ -1189,7 +1207,7 @@ def lemmon2000_air_d2Ar_ddeltadtau(tau, delta):
             - 0.527866594966799996*x1 + 0.0519007621922999984*x10 - x3)
 
 def lemmon2000_air_d3Ar_ddeltadtau2(tau, delta):
-    r'''Calculates the third derivative of residual Helmholtz energy of air
+    r"""Calculates the third derivative of residual Helmholtz energy of air
     with respect to `delta` once and `tau` twice according to Lemmon (2000).
 
     Parameters
@@ -1214,7 +1232,7 @@ def lemmon2000_air_d3Ar_ddeltadtau2(tau, delta):
     --------
     >>> lemmon2000_air_d3Ar_ddeltadtau2(132.6312/200.0, 13000/10447.7)
     -0.19089212184849
-    '''
+    """
     delta2 = delta*delta
     delta3 = delta*delta2
     delta4 = delta2*delta2
@@ -1270,7 +1288,7 @@ def lemmon2000_air_d3Ar_ddeltadtau2(tau, delta):
             - x1 + 0.129751905480749996*x8 - 1.37245314691368003*x9)
 
 def lemmon2000_air_d3Ar_ddelta2dtau(tau, delta):
-    r'''Calculates the third derivative of residual Helmholtz energy of air
+    r"""Calculates the third derivative of residual Helmholtz energy of air
     with respect to `delta` twice and `tau` once according to Lemmon (2000).
 
     Parameters
@@ -1295,7 +1313,7 @@ def lemmon2000_air_d3Ar_ddelta2dtau(tau, delta):
     --------
     >>> lemmon2000_air_d3Ar_ddelta2dtau(132.6312/200.0, 13000/10447.7)
     0.01441788198940
-    '''
+    """
     delta2 = delta*delta
     delta3 = delta*delta2
     delta4 = delta2*delta2
@@ -1353,7 +1371,7 @@ def lemmon2000_air_d3Ar_ddelta2dtau(tau, delta):
 
 
 def lemmon2000_air_d4Ar_ddelta2dtau2(tau, delta):
-    r'''Calculates the fourth derivative of residual Helmholtz energy of air
+    r"""Calculates the fourth derivative of residual Helmholtz energy of air
     with respect to `delta` twice and `tau` twice according to Lemmon (2000).
 
     Parameters
@@ -1378,7 +1396,7 @@ def lemmon2000_air_d4Ar_ddelta2dtau2(tau, delta):
     --------
     >>> lemmon2000_air_d4Ar_ddelta2dtau2(132.6312/200.0, 13000/10447.7)
     0.1196873112730
-    '''
+    """
     delta2 = delta*delta
     delta3 = delta*delta2
     delta4 = delta2*delta2
@@ -1431,7 +1449,7 @@ def lemmon2000_air_d4Ar_ddelta2dtau2(tau, delta):
             + 0.187897822190471242*x13*delta5)
 
 def lemmon2000_air_d4Ar_ddeltadtau3(tau, delta):
-    r'''Calculates the fourth derivative of residual Helmholtz energy of air
+    r"""Calculates the fourth derivative of residual Helmholtz energy of air
     with respect to `delta` once and `tau` thrice according to Lemmon (2000).
 
     Parameters
@@ -1456,7 +1474,7 @@ def lemmon2000_air_d4Ar_ddeltadtau3(tau, delta):
     --------
     >>> lemmon2000_air_d4Ar_ddeltadtau3(132.6312/200.0, 13000/10447.7)
     2.077739387492
-    '''
+    """
     delta2 = delta*delta
     delta3 = delta*delta2
     delta4 = delta2*delta2
@@ -1519,7 +1537,7 @@ def lemmon2000_air_d4Ar_ddeltadtau3(tau, delta):
 
 
 def lemmon2000_air_d4Ar_ddelta3dtau(tau, delta):
-    r'''Calculates the fourth derivative of residual Helmholtz energy of air
+    r"""Calculates the fourth derivative of residual Helmholtz energy of air
     with respect to `delta` thrice and `tau` once according to Lemmon (2000).
 
     Parameters
@@ -1544,7 +1562,7 @@ def lemmon2000_air_d4Ar_ddelta3dtau(tau, delta):
     --------
     >>> lemmon2000_air_d4Ar_ddelta3dtau(132.6312/200.0, 13000/10447.7)
     -0.26039336747
-    '''
+    """
     delta2 = delta*delta
     delta3 = delta*delta2
     delta4 = delta2*delta2
@@ -1605,7 +1623,7 @@ def lemmon2000_air_d4Ar_ddelta3dtau(tau, delta):
 
 
 def lemmon2000_air_rho_dew(T):
-    r'''Calculates the dew molar density of standard dry air according to Lemmon
+    r"""Calculates the dew molar density of standard dry air according to Lemmon
     (2000).
 
     .. math::
@@ -1630,7 +1648,7 @@ def lemmon2000_air_rho_dew(T):
     --------
     >>> lemmon2000_air_rho_dew(100.0)
     785.7863223794999
-    '''
+    """
     if T < 59.75 or T > 132.6312:
         raise ValueError("Outside limits")
     Tj = 132.6312
@@ -1647,7 +1665,7 @@ def lemmon2000_air_rho_dew(T):
     return exp(tot)*rhoj
 
 def lemmon2000_air_rho_bubble(T):
-    r'''Calculates the bubble molar density of standard dry air according to Lemmon
+    r"""Calculates the bubble molar density of standard dry air according to Lemmon
     (2000).
 
     .. math::
@@ -1673,7 +1691,7 @@ def lemmon2000_air_rho_bubble(T):
     --------
     >>> lemmon2000_air_rho_bubble(100.0)
     26530.979020427476
-    '''
+    """
     if T < 59.75 or T > 132.6312:
         raise ValueError("Outside limits")
     Tj = 132.6312
@@ -1694,7 +1712,7 @@ def lemmon2000_air_rho_bubble(T):
     return tot
 
 def lemmon2000_air_P_dew(T):
-    r'''Calculates the dew pressure of standard dry air according to Lemmon
+    r"""Calculates the dew pressure of standard dry air according to Lemmon
     (2000).
 
     .. math::
@@ -1719,7 +1737,7 @@ def lemmon2000_air_P_dew(T):
     --------
     >>> lemmon2000_air_P_dew(100.0)
     567424.1338937
-    '''
+    """
     if T < 59.75 or T > 132.6312:
         raise ValueError("Outside limits")
     Tj = 132.6312
@@ -1735,7 +1753,7 @@ def lemmon2000_air_P_dew(T):
     return exp(tot)*Pj
 
 def lemmon2000_air_P_bubble(T):
-    r'''Calculates the bubble pressure of standard dry air according to Lemmon
+    r"""Calculates the bubble pressure of standard dry air according to Lemmon
     (2000).
 
     .. math::
@@ -1760,7 +1778,7 @@ def lemmon2000_air_P_bubble(T):
     --------
     >>> lemmon2000_air_P_bubble(100.0)
     663128.589440
-    '''
+    """
     if T < 59.75 or T > 132.6312:
         raise ValueError("Outside limits")
     Tj = 132.6312
@@ -1780,7 +1798,7 @@ def lemmon2000_air_P_bubble(T):
 
 
 def lemmon2000_P(T, rho):
-    r'''Calculate the pressure of air according to the (2000)
+    r"""Calculate the pressure of air according to the (2000)
     given a temperature `T` and molar density `rho`.
 
     Parameters
@@ -1814,7 +1832,7 @@ def lemmon2000_P(T, rho):
        Nitrogen, Argon, and Oxygen From 60 to 2000 K at Pressures to 2000 MPa."
        Journal of Physical and Chemical Reference Data 29, no. 3 (May 1, 2000):
        331-85. https://doi.org/10.1063/1.1285884.
-    '''
+    """
     tau = lemmon2000_air_T_reducing/T
     delta = rho*lemmon2000_air_rho_reducing_inv
     dAddelta_res_val = lemmon2000_air_dAr_ddelta(tau, delta)
@@ -1837,7 +1855,7 @@ def lemmon2000_rho_err(rho, T, P_spec):
 
 
 def lemmon2000_rho(T, P):
-    r'''Calculate the density of air according to the Lemmon (2000) [1]_
+    r"""Calculate the density of air according to the Lemmon (2000) [1]_
     given a temperature `T` and pressure `P`.
 
     Parameters
@@ -1875,7 +1893,7 @@ def lemmon2000_rho(T, P):
        Nitrogen, Argon, and Oxygen From 60 to 2000 K at Pressures to 2000 MPa."
        Journal of Physical and Chemical Reference Data 29, no. 3 (May 1, 2000):
        331-85. https://doi.org/10.1063/1.1285884.
-    '''
+    """
     a = 1e-20 # Value where error is always negative
     b = 500000.0 # value where error is always positive
 
@@ -1912,7 +1930,7 @@ def lemmon2000_T_err(T, rho, P_spec):
     return err, dP_dT
 
 def lemmon2000_T(P, rho):
-    r'''Calculate the temperature of air according to the Lemmon (2000) [1]_
+    r"""Calculate the temperature of air according to the Lemmon (2000) [1]_
     given a pressure `P` and molar density `rho` .
 
     Parameters
@@ -1944,7 +1962,7 @@ def lemmon2000_T(P, rho):
        Nitrogen, Argon, and Oxygen From 60 to 2000 K at Pressures to 2000 MPa."
        Journal of Physical and Chemical Reference Data 29, no. 3 (May 1, 2000):
        331-85. https://doi.org/10.1063/1.1285884.
-    '''
+    """
     # Estimate the initial temperature by fitting a second virial coefficient
     # to a quadratic. Choose 1 atm as the pressure instead of using the theoretical
     # virial coefficient as that pressure range is more common
@@ -1988,7 +2006,7 @@ def lemmon2000_T(P, rho):
 TEOS10_CAAW_coeffs = [0.482737E-9, 1.05678E-7, -6.56394E-5,  0.294442E-1, -3.19317][::-1]
 
 def TEOS10_CAAW_derivatives(T):
-    r'''Calculates the third molar virial cross coefficient between
+    r"""Calculates the third molar virial cross coefficient between
     air and air-water according to [1]_.
 
     .. math::
@@ -2033,7 +2051,7 @@ def TEOS10_CAAW_derivatives(T):
        "Thermodynamic Properties of Real Moist Air, Dry Air, Steam, Water, and
        Ice (RP-1485)." HVAC&R Research 15, no. 5 (September 1, 2009): 961-986.
        https://doi.org/10.1080/10789669.2009.10390874.
-    '''
+    """
     T_inv = 1.0/T
     d0, d1, d2, d3 = horner_and_der3(TEOS10_CAAW_coeffs, T_inv)
     T_inv2 = T_inv*T_inv
@@ -2043,7 +2061,7 @@ def TEOS10_CAAW_derivatives(T):
             -(6.0*(d1 + d2*T_inv) + d3*T_inv2)*T_inv2*T_inv2)
 
 def TEOS10_CAWW_derivatives(T):
-    r'''Calculates the third molar virial cross coefficient between
+    r"""Calculates the third molar virial cross coefficient between
     air and water-water according to [1]_.
 
     .. math::
@@ -2089,7 +2107,7 @@ def TEOS10_CAWW_derivatives(T):
        "Thermodynamic Properties of Real Moist Air, Dry Air, Steam, Water, and
        Ice (RP-1485)." HVAC&R Research 15, no. 5 (September 1, 2009): 961-986.
        https://doi.org/10.1080/10789669.2009.10390874.
-    '''
+    """
     T_inv = 1.0/T
     expt = exp(T_inv*(T_inv*(33406000.0*T_inv - 383383.0) + 3478.02))
     d0 = -2.190323971261093e-11*expt
@@ -2110,7 +2128,7 @@ def TEOS10_CAWW_derivatives(T):
     return (d0, d1, d2, d3)
 
 def TEOS10_BAW_derivatives(T):
-    r'''Calculates the second molar virial cross coefficient between
+    r"""Calculates the second molar virial cross coefficient between
     air and water according to [1]_.
 
     .. math::
@@ -2158,7 +2176,7 @@ def TEOS10_BAW_derivatives(T):
        "Thermodynamic Properties of Real Moist Air, Dry Air, Steam, Water, and
        Ice (RP-1485)." HVAC&R Research 15, no. 5 (September 1, 2009): 961-986.
        https://doi.org/10.1080/10789669.2009.10390874.
-    '''
+    """
     T_inv = 1.0/T
     T_inv3_1000 = T_inv**0.003
     T_inv12_1000 = T_inv3_1000*T_inv3_1000
@@ -2182,7 +2200,7 @@ def TEOS10_BAW_derivatives(T):
 
 ### Henry
 def iapws04_Henry_air(T):
-    r'''Calculate the Henry's law constant of air in water according to the
+    r"""Calculate the Henry's law constant of air in water according to the
     IAPWS-04 standard.
 
     Parameters
@@ -2212,7 +2230,7 @@ def iapws04_Henry_air(T):
        Solutes in H2O and D2O at High Temperatures." Journal of Physical and
        Chemical Reference Data 32, no. 2 (June 2003): 903-16.
        https://doi.org/10.1063/1.1564818.
-    '''
+    """
     # result has units of 1/Pa
     Tr = T*iapws95_Tc_inv
     Tr_inv = 1.0/Tr
@@ -2227,7 +2245,7 @@ def iapws04_Henry_air(T):
     return (0.7812*kH_N2 + 0.2095*kH_O2 + 0.0093*kH_Ar)/(1.01325*Psat)
 
 def iapws04_dHenry_air_dT(T):
-    r'''Calculate the temperature derivative of Henry's law constant of air in
+    r"""Calculate the temperature derivative of Henry's law constant of air in
     water according to the IAPWS-04 standard. As the actual Henry's law
     constant must be calculated as well, it is also returned.
 
@@ -2260,7 +2278,7 @@ def iapws04_dHenry_air_dT(T):
        Solutes in H2O and D2O at High Temperatures." Journal of Physical and
        Chemical Reference Data 32, no. 2 (June 2003): 903-16.
        https://doi.org/10.1063/1.1564818.
-    '''
+    """
     dPsat_dT, Psat = iapws92_dPsat_dT(T)
     x1 = 1.0/Psat
     Tr = T*iapws95_Tc_inv

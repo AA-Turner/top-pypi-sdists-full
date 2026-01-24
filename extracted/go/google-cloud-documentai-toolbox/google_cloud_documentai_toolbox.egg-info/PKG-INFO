@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: google-cloud-documentai-toolbox
-Version: 0.14.2a0
+Version: 0.15.0a0
 Home-page: https://github.com/googleapis/python-documentai-toolbox
 Author: Google LLC
 Author-email: googleapis-packages@google.com
@@ -14,6 +14,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.8
@@ -21,7 +23,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: google-api-core<3.0.0,>=2.15.0
 Requires-Dist: pandas[gcp,performance]<3.0.0,>=2.0.0
-Requires-Dist: pyarrow<16.0.0,>=15.0.0
+Requires-Dist: pyarrow<23.0.0,>=15.0.0
 Requires-Dist: tabulate<1.0.0,>=0.9.0
 Requires-Dist: proto-plus<2.0.0,>=1.22.3
 Requires-Dist: proto-plus<2.0.0,>=1.25.0; python_version >= "3.13"
@@ -30,11 +32,11 @@ Requires-Dist: google-cloud-bigquery<4.0.0,>=3.5.0
 Requires-Dist: google-cloud-documentai<4.0.0,>=2.29.2
 Requires-Dist: google-cloud-storage<4.0.0,>=1.31.0
 Requires-Dist: google-cloud-vision<4.0.0,>=2.7.0
-Requires-Dist: numpy<2.0.0,>=1.23.5
+Requires-Dist: numpy<3.0.0,>=1.23.5
 Requires-Dist: intervaltree>=3.0.0
-Requires-Dist: pikepdf<9.0.0,>=8.0.0
+Requires-Dist: pikepdf<11.0.0,>=8.0.0
 Requires-Dist: immutabledict<5.0.0,>=2.0.0
-Requires-Dist: Pillow<11.0.0,>=10.0.0
+Requires-Dist: Pillow<12.0.0,>=10.0.0
 Requires-Dist: Jinja2<4.0.0,>=3.1.0
 
 Document AI Toolbox

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, List, Literal, Optional, Union
+from typing import Any, List, Literal, Optional, Union, Dict
 from .computer_action import ComputerActionParams, ComputerActionResponse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -13,6 +13,7 @@ from hyperbrowser.models.consts import (
     RecordingStatus,
     State,
     SessionRegion,
+    SessionEventLogType,
 )
 
 SessionStatus = Literal["active", "closed", "error"]
@@ -24,6 +25,91 @@ class BasicResponse(BaseModel):
     """
 
     success: bool
+
+
+class ScreenConfig(BaseModel):
+    """
+    Screen configuration parameters for browser session.
+    """
+
+    width: int = Field(default=1280, serialization_alias="width")
+    height: int = Field(default=720, serialization_alias="height")
+
+
+class SessionProfile(BaseModel):
+    model_config = ConfigDict(
+        populate_by_alias=True,
+    )
+
+    id: str = Field(alias="id")
+    persist_changes: Optional[bool] = Field(
+        default=None, alias="persistChanges", serialization_alias="persistChanges"
+    )
+    persist_network_cache: Optional[bool] = Field(
+        default=None,
+        alias="persistNetworkCache",
+        serialization_alias="persistNetworkCache",
+    )
+
+
+class UpdateSessionProfileParams(BaseModel):
+    """
+    Parameters for updating session profile persistence settings.
+    """
+
+    model_config = ConfigDict(
+        populate_by_alias=True,
+    )
+
+    persist_changes: Optional[bool] = Field(
+        default=None, serialization_alias="persistChanges"
+    )
+    persist_network_cache: Optional[bool] = Field(
+        default=None,
+        serialization_alias="persistNetworkCache",
+    )
+
+
+class SessionLaunchState(BaseModel):
+    model_config = ConfigDict(
+        populate_by_alias=True,
+    )
+
+    use_ultra_stealth: Optional[bool] = Field(default=None, alias="useUltraStealth")
+    use_stealth: Optional[bool] = Field(default=None, alias="useStealth")
+    use_proxy: Optional[bool] = Field(default=None, alias="useProxy")
+    solve_captchas: Optional[bool] = Field(default=None, alias="solveCaptchas")
+    adblock: Optional[bool] = Field(default=None, alias="adblock")
+    trackers: Optional[bool] = Field(default=None, alias="trackers")
+    annoyances: Optional[bool] = Field(default=None, alias="annoyances")
+    screen: Optional[ScreenConfig] = Field(default=None, alias="screen")
+    enable_web_recording: Optional[bool] = Field(
+        default=None, alias="enableWebRecording"
+    )
+    enable_video_web_recording: Optional[bool] = Field(
+        default=None, alias="enableVideoWebRecording"
+    )
+    enable_log_capture: Optional[bool] = Field(default=None, alias="enableLogCapture")
+    accept_cookies: Optional[bool] = Field(default=None, alias="acceptCookies")
+    profile: Optional[SessionProfile] = Field(default=None, alias="profile")
+    static_ip_id: Optional[str] = Field(default=None, alias="staticIpId")
+    save_downloads: Optional[bool] = Field(default=None, alias="saveDownloads")
+    enable_window_manager: Optional[bool] = Field(
+        default=None, alias="enableWindowManager"
+    )
+    enable_window_manager_taskbar: Optional[bool] = Field(
+        default=None, alias="enableWindowManagerTaskbar"
+    )
+    view_only_live_view: Optional[bool] = Field(default=None, alias="viewOnlyLiveView")
+    disable_password_manager: Optional[bool] = Field(
+        default=None, alias="disablePasswordManager"
+    )
+    enable_always_open_pdf_externally: Optional[bool] = Field(
+        default=None, alias="enableAlwaysOpenPdfExternally"
+    )
+    append_timestamp_to_downloads: Optional[bool] = Field(
+        default=None, alias="appendTimestampToDownloads"
+    )
 
 
 class Session(BaseModel):
@@ -45,6 +131,10 @@ class Session(BaseModel):
     duration: Optional[int] = None
     session_url: str = Field(alias="sessionUrl")
     proxy_data_consumed: str = Field(alias="proxyDataConsumed")
+    launch_state: Optional[SessionLaunchState] = Field(
+        default=None, alias="launchState"
+    )
+    credits_used: Optional[float] = Field(default=None, alias="creditsUsed")
 
     @field_validator("start_time", "end_time", mode="before")
     @classmethod
@@ -70,8 +160,19 @@ class SessionDetail(Session):
     computer_action_endpoint: Optional[str] = Field(
         alias="computerActionEndpoint", default=None
     )
+    webdriver_endpoint: Optional[str] = Field(alias="webdriverEndpoint", default=None)
     live_url: str = Field(alias="liveUrl")
     token: str = Field(alias="token")
+
+
+class SessionGetParams(BaseModel):
+    model_config = ConfigDict(
+        populate_by_alias=True,
+    )
+
+    live_view_ttl_seconds: Optional[int] = Field(
+        default=None, serialization_alias="liveViewTtlSeconds"
+    )
 
 
 class SessionListParams(BaseModel):
@@ -113,15 +214,6 @@ class SessionListResponse(BaseModel):
         return -(-self.total_count // self.per_page)
 
 
-class ScreenConfig(BaseModel):
-    """
-    Screen configuration parameters for browser session.
-    """
-
-    width: int = Field(default=1280, serialization_alias="width")
-    height: int = Field(default=720, serialization_alias="height")
-
-
 class CreateSessionProfile(BaseModel):
     """
     Profile configuration parameters for browser session.
@@ -130,6 +222,9 @@ class CreateSessionProfile(BaseModel):
     id: Optional[str] = Field(default=None, serialization_alias="id")
     persist_changes: Optional[bool] = Field(
         default=None, serialization_alias="persistChanges"
+    )
+    persist_network_cache: Optional[bool] = Field(
+        default=None, serialization_alias="persistNetworkCache"
     )
 
 
@@ -147,7 +242,9 @@ class CreateSessionParams(BaseModel):
         populate_by_alias=True,
     )
 
-    use_ultra_stealth: bool = Field(default=False, serialization_alias="useUltraStealth")
+    use_ultra_stealth: bool = Field(
+        default=False, serialization_alias="useUltraStealth"
+    )
     use_stealth: bool = Field(default=False, serialization_alias="useStealth")
     use_proxy: bool = Field(default=False, serialization_alias="useProxy")
     proxy_server: Optional[str] = Field(default=None, serialization_alias="proxyServer")
@@ -215,6 +312,28 @@ class CreateSessionParams(BaseModel):
     view_only_live_view: Optional[bool] = Field(
         default=None, serialization_alias="viewOnlyLiveView"
     )
+    disable_password_manager: Optional[bool] = Field(
+        default=None, serialization_alias="disablePasswordManager"
+    )
+    enable_always_open_pdf_externally: Optional[bool] = Field(
+        default=None, serialization_alias="enableAlwaysOpenPdfExternally"
+    )
+    append_timestamp_to_downloads: Optional[bool] = Field(
+        default=None, serialization_alias="appendTimestampToDownloads"
+    )
+    show_scrollbars: Optional[bool] = Field(
+        default=None, serialization_alias="showScrollbars"
+    )
+    live_view_ttl_seconds: Optional[int] = Field(
+        default=None, serialization_alias="liveViewTtlSeconds"
+    )
+    replace_native_elements: Optional[bool] = Field(
+        default=None,
+        serialization_alias="replaceNativeElements",
+    )
+    """This option replaces native elements (say for dropdowns) with a custom dropdown.
+    Use this option with caution, as this may cause unusual behavior in the browser.
+    """
 
 
 class SessionRecording(BaseModel):
@@ -280,3 +399,51 @@ class UploadFileResponse(BaseModel):
     )
 
     message: str = Field(alias="message")
+    file_path: Optional[str] = Field(default=None, alias="filePath")
+    file_name: Optional[str] = Field(default=None, alias="fileName")
+    original_name: Optional[str] = Field(default=None, alias="originalName")
+
+
+class SessionEventLog(BaseModel):
+    model_config = ConfigDict(
+        populate_by_alias=True,
+    )
+
+    id: str = Field(alias="id")
+    session_id: str = Field(alias="sessionId")
+    target_id: Optional[str] = Field(alias="targetId")
+    page_url: Optional[str] = Field(alias="pageUrl")
+    team_id: str = Field(alias="teamId")
+    type: SessionEventLogType = Field(alias="type")
+    metadata: Dict[str, Any] = Field(alias="metadata")
+    timestamp: int = Field(alias="timestamp")
+
+
+class SessionEventLogListParams(BaseModel):
+    model_config = ConfigDict(
+        populate_by_alias=True,
+    )
+
+    page: Optional[int] = Field(default=None, serialization_alias="page")
+    limit: Optional[int] = Field(default=None, serialization_alias="limit")
+    start_timestamp: Optional[int] = Field(
+        default=None, serialization_alias="startTimestamp"
+    )
+    end_timestamp: Optional[int] = Field(
+        default=None, serialization_alias="endTimestamp"
+    )
+    target_id: Optional[str] = Field(default=None, serialization_alias="targetId")
+    types: Optional[List[SessionEventLogType]] = Field(
+        default=None, serialization_alias="types"
+    )
+
+
+class SessionEventLogListResponse(BaseModel):
+    model_config = ConfigDict(
+        populate_by_alias=True,
+    )
+
+    data: List[SessionEventLog] = Field(alias="data")
+    total_count: int = Field(alias="totalCount")
+    page: int = Field(alias="page")
+    per_page: int = Field(alias="perPage")

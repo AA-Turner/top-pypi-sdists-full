@@ -11,7 +11,6 @@ import pandas as pd
 from seeq import spy
 from seeq.base import util
 from seeq.spy import _common
-from seeq.spy import _login
 from seeq.spy._errors import *
 from seeq.spy._session import Session
 from seeq.spy._status import Status
@@ -26,7 +25,7 @@ from seeq.spy.workbooks.job import _pull
 def push(job_folder, *, resume: bool = True, path: str = None, owner: str = None, label: str = None, datasource=None,
          use_full_path: bool = False, access_control: str = None, override_max_interp: bool = False,
          global_inventory: Optional[str] = None, create_dummy_items: bool = False,
-         errors: Optional[str] = None, quiet: Optional[bool] = None,
+         dry_run: bool = False, verbose: bool = False, errors: Optional[str] = None, quiet: Optional[bool] = None,
          status: Optional[Status] = None, session: Optional[Session] = None,
          scope_globals_to_workbook: Optional[bool] = None) -> pd.DataFrame:
     """
@@ -142,6 +141,16 @@ def push(job_folder, *, resume: bool = True, path: str = None, owner: str = None
         item, and no data. They will be scoped to a workbook under a
         "SPy Workbook Jobs" folder and named after the job folder.
 
+    dry_run : bool, default False
+        If True, then no actual push will be performed. Instead, the function
+        will simulate the push. Verbose logs will be printed as the operation
+        proceeds.
+
+    verbose : bool
+        If True, outputs verbose logs to "pull_log.txt" within the job folder.
+        Note that when status is provided, the verbose setting of the Status
+        object that is passed in takes precedence.
+
     errors : {'raise', 'catalog'}, default 'raise'
         If 'raise', any errors encountered will cause an exception. If
         'catalog', errors will be added to a 'Result' column in the status.df
@@ -170,26 +179,31 @@ def push(job_folder, *, resume: bool = True, path: str = None, owner: str = None
         equivalent of False, 'copy local' is the equivalent of True.
 
     """
-    input_args = _common.validate_argument_types([
-        (job_folder, 'job_folder', str),
-        (resume, 'resume', bool),
-        (path, 'path', str),
-        (owner, 'owner', str),
-        (label, 'label', str),
-        (datasource, 'datasource', str),
-        (use_full_path, 'use_full_path', bool),
-        (access_control, 'access_control', str),
-        (override_max_interp, 'override_max_interp', bool),
-        (global_inventory, 'global_inventory', str),
-        (create_dummy_items, 'create_dummy_items', bool),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session),
-        (scope_globals_to_workbook, 'scope_globals_to_workbook', bool)
-    ])
+    # Jobs always write the log file, even if the user doesn't want verbose
+    default_log_file = os.path.join(job_folder, 'push_log.txt')
 
-    _login.validate_login(session, status)
+    function_name = 'spy.workbooks.job.push'
+    input_args = Status.function_prologue(
+        session, status, function_name, [
+            (job_folder, 'job_folder', str),
+            (resume, 'resume', bool),
+            (path, 'path', str),
+            (owner, 'owner', str),
+            (label, 'label', str),
+            (datasource, 'datasource', str),
+            (use_full_path, 'use_full_path', bool),
+            (access_control, 'access_control', str),
+            (override_max_interp, 'override_max_interp', bool),
+            (global_inventory, 'global_inventory', str),
+            (create_dummy_items, 'create_dummy_items', bool),
+            (dry_run, 'dry_run', bool),
+            (errors, 'errors', str),
+            (quiet, 'quiet', bool),
+            (verbose, 'verbose', bool),
+            (status, 'status', Status),
+            (session, 'session', Session),
+            (scope_globals_to_workbook, 'scope_globals_to_workbook', bool)
+        ], default_log_file=default_log_file)
 
     if not util.safe_exists(job_folder):
         raise SPyValueError(f'Job folder "{job_folder}" does not exist.')
@@ -219,7 +233,7 @@ def push(job_folder, *, resume: bool = True, path: str = None, owner: str = None
                        override_max_interp=override_max_interp, global_inventory=global_inventory,
                        datasource_map_folder=job_datasource_maps_folder, refresh=False,
                        create_dummy_items_in_workbook=create_dummy_items_in_workbook,
-                       status=status, session=session, item_map=item_map,
+                       dry_run=dry_run, status=status, session=session, item_map=item_map,
                        scope_globals_to_workbook=scope_globals_to_workbook)
 
     results_df = status.df.copy()
@@ -259,7 +273,7 @@ def get_dummy_workbook_name(job_folder):
     return f'SPy Dummy Workbooks >> Dummy Workbook for {job_folder}'
 
 
-def redo(job_folder: str, status: Status):
+def redo(job_folder: str, hard: bool, status: Status):
     job_workbooks_folder = _pull.get_workbooks_folder(job_folder)
     workbook_folders = {i: f for f, i in _pull.walk_workbook_folders(job_workbooks_folder)}
     workbook_ids: pd.Series = status.df['ID']
@@ -269,7 +283,11 @@ def redo(job_folder: str, status: Status):
                 job_workbooks_folder, workbook_folders[workbook_id], 'Completely Pushed')
             if util.safe_exists(completely_pushed_filename):
                 util.safe_remove(completely_pushed_filename)
-            status.df.at[index, 'Result'] = 'Push will be redone'
+
+            item_map_file = get_item_map_filename(job_folder)
+            if hard and util.safe_exists(item_map_file):
+                util.safe_remove(item_map_file)
+            status.df.at[index, 'Result'] = 'Push will be redone' + (', including all inventory' if hard else '')
         else:
             status.df.at[index, 'Result'] = 'Not found'
 
@@ -305,8 +323,8 @@ class WorkbookFolderRef(Workbook):
         self._real_workbook = Workbook.load(self.workbook_folder)
         self._real_workbook.datasource_maps = self.datasource_maps
 
-    def push_containing_folders(self, session: Session, item_map: ItemMap, datasource_output, use_full_path,
-                                parent_folder_id, owner, label, access_control, status: Status):
+    def push_containing_folders(self, context: WorkbookPushContext, item_map: ItemMap, datasource_output, use_full_path,
+                                parent_folder_id, owner, label, access_control):
         if self.already_pushed:
             with util.safe_open(self._already_pushed_filename(), 'r') as f:
                 d = json.load(f)
@@ -315,7 +333,7 @@ class WorkbookFolderRef(Workbook):
 
         self._ensure_loaded()
         self._parent_folder_id = self._real_workbook.push_containing_folders(
-            session, item_map, datasource_output, use_full_path, parent_folder_id, owner, label, access_control, status)
+            context, item_map, datasource_output, use_full_path, parent_folder_id, owner, label, access_control)
 
         return self._parent_folder_id
 
@@ -335,8 +353,12 @@ class WorkbookFolderRef(Workbook):
         self._real_workbook.push(context=context, folder_id=folder_id, item_map=item_map, label=label,
                                  include_inventory=include_inventory)
 
-        save_item_map(self.job_folder, item_map)
         self._push_errors = self._real_workbook.push_errors
+
+        if context.dry_run:
+            return
+
+        save_item_map(self.job_folder, item_map)
         Workbook.save_push_errors(self.workbook_folder, self._push_errors)
         if context.status.errors == 'catalog' or len(self._real_workbook.push_errors) == 0:
             with util.safe_open(self._already_pushed_filename(), 'w') as f:

@@ -11876,6 +11876,8 @@ class CreateAssetImageRegistryScanTaskOneKeyRequest(AbstractModel):
         :type ScanType: list of str
         :param _Id: 扫描的镜像列表Id
         :type Id: list of int non-negative
+        :param _ExcludeIDs: 剔除扫描的镜像id列表
+        :type ExcludeIDs: list of int non-negative
         :param _IsLatest: 是否最新镜像
         :type IsLatest: bool
         :param _ScanScope: 扫描范围 0全部镜像，1自选镜像，2推荐扫描镜像
@@ -11893,6 +11895,7 @@ class CreateAssetImageRegistryScanTaskOneKeyRequest(AbstractModel):
         self._Images = None
         self._ScanType = None
         self._Id = None
+        self._ExcludeIDs = None
         self._IsLatest = None
         self._ScanScope = None
         self._RegistryType = None
@@ -11947,6 +11950,17 @@ class CreateAssetImageRegistryScanTaskOneKeyRequest(AbstractModel):
     @Id.setter
     def Id(self, Id):
         self._Id = Id
+
+    @property
+    def ExcludeIDs(self):
+        r"""剔除扫描的镜像id列表
+        :rtype: list of int non-negative
+        """
+        return self._ExcludeIDs
+
+    @ExcludeIDs.setter
+    def ExcludeIDs(self, ExcludeIDs):
+        self._ExcludeIDs = ExcludeIDs
 
     @property
     def IsLatest(self):
@@ -12025,6 +12039,7 @@ class CreateAssetImageRegistryScanTaskOneKeyRequest(AbstractModel):
                 self._Images.append(obj)
         self._ScanType = params.get("ScanType")
         self._Id = params.get("Id")
+        self._ExcludeIDs = params.get("ExcludeIDs")
         self._IsLatest = params.get("IsLatest")
         self._ScanScope = params.get("ScanScope")
         self._RegistryType = params.get("RegistryType")
@@ -12993,6 +13008,70 @@ class CreateCheckComponentResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._InstallResult = params.get("InstallResult")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateClusterAccessRequest(AbstractModel):
+    r"""CreateClusterAccess请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterIDs: 集群ID
+        :type ClusterIDs: list of str
+        """
+        self._ClusterIDs = None
+
+    @property
+    def ClusterIDs(self):
+        r"""集群ID
+        :rtype: list of str
+        """
+        return self._ClusterIDs
+
+    @ClusterIDs.setter
+    def ClusterIDs(self, ClusterIDs):
+        self._ClusterIDs = ClusterIDs
+
+
+    def _deserialize(self, params):
+        self._ClusterIDs = params.get("ClusterIDs")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateClusterAccessResponse(AbstractModel):
+    r"""CreateClusterAccess返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
         self._RequestId = params.get("RequestId")
 
 
@@ -14045,11 +14124,14 @@ class CreateExportComplianceStatusListJobRequest(AbstractModel):
         :type ExportAll: bool
         :param _IdList: 要导出的资产ID列表或检测项ID列表，由ExportByAsset的取值决定。
         :type IdList: list of int non-negative
+        :param _Filters: 筛选
+        :type Filters: list of RunTimeFilters
         """
         self._AssetType = None
         self._ExportByAsset = None
         self._ExportAll = None
         self._IdList = None
+        self._Filters = None
 
     @property
     def AssetType(self):
@@ -14095,12 +14177,29 @@ class CreateExportComplianceStatusListJobRequest(AbstractModel):
     def IdList(self, IdList):
         self._IdList = IdList
 
+    @property
+    def Filters(self):
+        r"""筛选
+        :rtype: list of RunTimeFilters
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
 
     def _deserialize(self, params):
         self._AssetType = params.get("AssetType")
         self._ExportByAsset = params.get("ExportByAsset")
         self._ExportAll = params.get("ExportAll")
         self._IdList = params.get("IdList")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = RunTimeFilters()
+                obj._deserialize(item)
+                self._Filters.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -23651,6 +23750,10 @@ class DescribeAssetImageDetailResponse(AbstractModel):
         :type RemainScanTime: int
         :param _IsAuthorized: 授权为：1，未授权为：0
         :type IsAuthorized: int
+        :param _Solution: 解决方案
+        :type Solution: str
+        :param _Reason: 原因
+        :type Reason: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
@@ -23684,6 +23787,8 @@ class DescribeAssetImageDetailResponse(AbstractModel):
         self._Status = None
         self._RemainScanTime = None
         self._IsAuthorized = None
+        self._Solution = None
+        self._Reason = None
         self._RequestId = None
 
     @property
@@ -24017,6 +24122,28 @@ class DescribeAssetImageDetailResponse(AbstractModel):
         self._IsAuthorized = IsAuthorized
 
     @property
+    def Solution(self):
+        r"""解决方案
+        :rtype: str
+        """
+        return self._Solution
+
+    @Solution.setter
+    def Solution(self, Solution):
+        self._Solution = Solution
+
+    @property
+    def Reason(self):
+        r"""原因
+        :rtype: str
+        """
+        return self._Reason
+
+    @Reason.setter
+    def Reason(self, Reason):
+        self._Reason = Reason
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -24059,6 +24186,8 @@ class DescribeAssetImageDetailResponse(AbstractModel):
         self._Status = params.get("Status")
         self._RemainScanTime = params.get("RemainScanTime")
         self._IsAuthorized = params.get("IsAuthorized")
+        self._Solution = params.get("Solution")
+        self._Reason = params.get("Reason")
         self._RequestId = params.get("RequestId")
 
 
@@ -24543,6 +24672,10 @@ class DescribeAssetImageRegistryDetailResponse(AbstractModel):
         :type SensitiveInfoCnt: int
         :param _Id: Id
         :type Id: int
+        :param _Solution: 解决方案
+        :type Solution: str
+        :param _Reason: 原因
+        :type Reason: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
@@ -24580,6 +24713,8 @@ class DescribeAssetImageRegistryDetailResponse(AbstractModel):
         self._ImageCreateTime = None
         self._SensitiveInfoCnt = None
         self._Id = None
+        self._Solution = None
+        self._Reason = None
         self._RequestId = None
 
     @property
@@ -24961,6 +25096,28 @@ class DescribeAssetImageRegistryDetailResponse(AbstractModel):
         self._Id = Id
 
     @property
+    def Solution(self):
+        r"""解决方案
+        :rtype: str
+        """
+        return self._Solution
+
+    @Solution.setter
+    def Solution(self, Solution):
+        self._Solution = Solution
+
+    @property
+    def Reason(self):
+        r"""原因
+        :rtype: str
+        """
+        return self._Reason
+
+    @Reason.setter
+    def Reason(self, Reason):
+        self._Reason = Reason
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -25007,6 +25164,8 @@ class DescribeAssetImageRegistryDetailResponse(AbstractModel):
         self._ImageCreateTime = params.get("ImageCreateTime")
         self._SensitiveInfoCnt = params.get("SensitiveInfoCnt")
         self._Id = params.get("Id")
+        self._Solution = params.get("Solution")
+        self._Reason = params.get("Reason")
         self._RequestId = params.get("RequestId")
 
 
@@ -26201,10 +26360,13 @@ class DescribeAssetImageRegistryRiskListExportResponse(AbstractModel):
         r"""
         :param _DownloadUrl: excel文件下载地址
         :type DownloadUrl: str
+        :param _JobId: 导出任务id
+        :type JobId: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._DownloadUrl = None
+        self._JobId = None
         self._RequestId = None
 
     @property
@@ -26217,6 +26379,17 @@ class DescribeAssetImageRegistryRiskListExportResponse(AbstractModel):
     @DownloadUrl.setter
     def DownloadUrl(self, DownloadUrl):
         self._DownloadUrl = DownloadUrl
+
+    @property
+    def JobId(self):
+        r"""导出任务id
+        :rtype: str
+        """
+        return self._JobId
+
+    @JobId.setter
+    def JobId(self, JobId):
+        self._JobId = JobId
 
     @property
     def RequestId(self):
@@ -26232,6 +26405,7 @@ class DescribeAssetImageRegistryRiskListExportResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._DownloadUrl = params.get("DownloadUrl")
+        self._JobId = params.get("JobId")
         self._RequestId = params.get("RequestId")
 
 
@@ -26927,7 +27101,7 @@ class DescribeAssetImageRegistryVulListExportRequest(AbstractModel):
         :type Filters: list of AssetFilters
         :param _ImageInfo: 镜像信息
         :type ImageInfo: :class:`tencentcloud.tcss.v20201101.models.ImageInfo`
-        :param _Id: 必填参数，镜像唯一ID，可通过DescribeAssetImageRegistryList接口获取
+        :param _Id: 镜像唯一ID，可通过DescribeAssetImageRegistryList接口获取
         :type Id: int
         """
         self._ExportField = None
@@ -26996,7 +27170,7 @@ class DescribeAssetImageRegistryVulListExportRequest(AbstractModel):
 
     @property
     def Id(self):
-        r"""必填参数，镜像唯一ID，可通过DescribeAssetImageRegistryList接口获取
+        r"""镜像唯一ID，可通过DescribeAssetImageRegistryList接口获取
         :rtype: int
         """
         return self._Id
@@ -27105,7 +27279,7 @@ class DescribeAssetImageRegistryVulListRequest(AbstractModel):
         :type Filters: list of AssetFilters
         :param _ImageInfo: 镜像信息
         :type ImageInfo: :class:`tencentcloud.tcss.v20201101.models.ImageInfo`
-        :param _Id: 必填参数，镜像唯一ID，可通过DescribeAssetImageRegistryList接口获取
+        :param _Id: 镜像唯一ID，可通过DescribeAssetImageRegistryList接口获取
         :type Id: int
         """
         self._Limit = None
@@ -27162,7 +27336,7 @@ class DescribeAssetImageRegistryVulListRequest(AbstractModel):
 
     @property
     def Id(self):
-        r"""必填参数，镜像唯一ID，可通过DescribeAssetImageRegistryList接口获取
+        r"""镜像唯一ID，可通过DescribeAssetImageRegistryList接口获取
         :rtype: int
         """
         return self._Id
@@ -55345,6 +55519,8 @@ class HostInfo(AbstractModel):
         :type DefendStatus: str
         :param _CoresCnt: 核数
         :type CoresCnt: int
+        :param _LastOnlineTime: 最近在线时间
+        :type LastOnlineTime: str
         """
         self._HostID = None
         self._HostIP = None
@@ -55369,6 +55545,7 @@ class HostInfo(AbstractModel):
         self._ChargeCoresCnt = None
         self._DefendStatus = None
         self._CoresCnt = None
+        self._LastOnlineTime = None
 
     @property
     def HostID(self):
@@ -55625,6 +55802,17 @@ class HostInfo(AbstractModel):
     def CoresCnt(self, CoresCnt):
         self._CoresCnt = CoresCnt
 
+    @property
+    def LastOnlineTime(self):
+        r"""最近在线时间
+        :rtype: str
+        """
+        return self._LastOnlineTime
+
+    @LastOnlineTime.setter
+    def LastOnlineTime(self, LastOnlineTime):
+        self._LastOnlineTime = LastOnlineTime
+
 
     def _deserialize(self, params):
         self._HostID = params.get("HostID")
@@ -55657,6 +55845,7 @@ class HostInfo(AbstractModel):
         self._ChargeCoresCnt = params.get("ChargeCoresCnt")
         self._DefendStatus = params.get("DefendStatus")
         self._CoresCnt = params.get("CoresCnt")
+        self._LastOnlineTime = params.get("LastOnlineTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -56502,6 +56691,10 @@ class ImageRepoInfo(AbstractModel):
         :type SensitiveInfoCnt: int
         :param _RecommendedFix: 是否推荐处置
         :type RecommendedFix: bool
+        :param _Solution: 解决方案
+        :type Solution: str
+        :param _Reason: 原因
+        :type Reason: str
         """
         self._ImageDigest = None
         self._ImageRepoAddress = None
@@ -56547,6 +56740,8 @@ class ImageRepoInfo(AbstractModel):
         self._HasNeedFixVul = None
         self._SensitiveInfoCnt = None
         self._RecommendedFix = None
+        self._Solution = None
+        self._Reason = None
 
     @property
     def ImageDigest(self):
@@ -57036,6 +57231,28 @@ class ImageRepoInfo(AbstractModel):
     def RecommendedFix(self, RecommendedFix):
         self._RecommendedFix = RecommendedFix
 
+    @property
+    def Solution(self):
+        r"""解决方案
+        :rtype: str
+        """
+        return self._Solution
+
+    @Solution.setter
+    def Solution(self, Solution):
+        self._Solution = Solution
+
+    @property
+    def Reason(self):
+        r"""原因
+        :rtype: str
+        """
+        return self._Reason
+
+    @Reason.setter
+    def Reason(self, Reason):
+        self._Reason = Reason
+
 
     def _deserialize(self, params):
         self._ImageDigest = params.get("ImageDigest")
@@ -57082,6 +57299,8 @@ class ImageRepoInfo(AbstractModel):
         self._HasNeedFixVul = params.get("HasNeedFixVul")
         self._SensitiveInfoCnt = params.get("SensitiveInfoCnt")
         self._RecommendedFix = params.get("RecommendedFix")
+        self._Solution = params.get("Solution")
+        self._Reason = params.get("Reason")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -58943,6 +59162,11 @@ class ImagesInfo(AbstractModel):
         :type IsLatestImage: bool
         :param _RecommendedFix: 是否推荐处置
         :type RecommendedFix: bool
+        :param _Solution: 解决方案
+        :type Solution: str
+        :param _Reason: 原因
+
+        :type Reason: str
         """
         self._ImageID = None
         self._ImageName = None
@@ -58972,6 +59196,8 @@ class ImagesInfo(AbstractModel):
         self._LowLevelVulCnt = None
         self._IsLatestImage = None
         self._RecommendedFix = None
+        self._Solution = None
+        self._Reason = None
 
     @property
     def ImageID(self):
@@ -59281,6 +59507,29 @@ class ImagesInfo(AbstractModel):
     def RecommendedFix(self, RecommendedFix):
         self._RecommendedFix = RecommendedFix
 
+    @property
+    def Solution(self):
+        r"""解决方案
+        :rtype: str
+        """
+        return self._Solution
+
+    @Solution.setter
+    def Solution(self, Solution):
+        self._Solution = Solution
+
+    @property
+    def Reason(self):
+        r"""原因
+
+        :rtype: str
+        """
+        return self._Reason
+
+    @Reason.setter
+    def Reason(self, Reason):
+        self._Reason = Reason
+
 
     def _deserialize(self, params):
         self._ImageID = params.get("ImageID")
@@ -59311,6 +59560,8 @@ class ImagesInfo(AbstractModel):
         self._LowLevelVulCnt = params.get("LowLevelVulCnt")
         self._IsLatestImage = params.get("IsLatestImage")
         self._RecommendedFix = params.get("RecommendedFix")
+        self._Solution = params.get("Solution")
+        self._Reason = params.get("Reason")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -61881,6 +62132,115 @@ class ModifyContainerNetStatusRequest(AbstractModel):
 
 class ModifyContainerNetStatusResponse(AbstractModel):
     r"""ModifyContainerNetStatus返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ModifyDefendStatusRequest(AbstractModel):
+    r"""ModifyDefendStatus请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SwitchOn: 开关是否开启
+        :type SwitchOn: bool
+        :param _InstanceType: 实例类型 <li> Cluster: 集群</li> <li> Node: 节点</li>
+        :type InstanceType: str
+        :param _IsAll: 是否是全部实例
+        :type IsAll: bool
+        :param _InstanceIDs: 实例id列表
+        :type InstanceIDs: list of str
+        """
+        self._SwitchOn = None
+        self._InstanceType = None
+        self._IsAll = None
+        self._InstanceIDs = None
+
+    @property
+    def SwitchOn(self):
+        r"""开关是否开启
+        :rtype: bool
+        """
+        return self._SwitchOn
+
+    @SwitchOn.setter
+    def SwitchOn(self, SwitchOn):
+        self._SwitchOn = SwitchOn
+
+    @property
+    def InstanceType(self):
+        r"""实例类型 <li> Cluster: 集群</li> <li> Node: 节点</li>
+        :rtype: str
+        """
+        return self._InstanceType
+
+    @InstanceType.setter
+    def InstanceType(self, InstanceType):
+        self._InstanceType = InstanceType
+
+    @property
+    def IsAll(self):
+        r"""是否是全部实例
+        :rtype: bool
+        """
+        return self._IsAll
+
+    @IsAll.setter
+    def IsAll(self, IsAll):
+        self._IsAll = IsAll
+
+    @property
+    def InstanceIDs(self):
+        r"""实例id列表
+        :rtype: list of str
+        """
+        return self._InstanceIDs
+
+    @InstanceIDs.setter
+    def InstanceIDs(self, InstanceIDs):
+        self._InstanceIDs = InstanceIDs
+
+
+    def _deserialize(self, params):
+        self._SwitchOn = params.get("SwitchOn")
+        self._InstanceType = params.get("InstanceType")
+        self._IsAll = params.get("IsAll")
+        self._InstanceIDs = params.get("InstanceIDs")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyDefendStatusResponse(AbstractModel):
+    r"""ModifyDefendStatus返回参数结构体
 
     """
 
@@ -74081,6 +74441,70 @@ class UnauthorizedCoresTendency(AbstractModel):
         
 
 
+class UninstallClusterContainerSecurityRequest(AbstractModel):
+    r"""UninstallClusterContainerSecurity请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterIDs: 集群ID
+        :type ClusterIDs: list of str
+        """
+        self._ClusterIDs = None
+
+    @property
+    def ClusterIDs(self):
+        r"""集群ID
+        :rtype: list of str
+        """
+        return self._ClusterIDs
+
+    @ClusterIDs.setter
+    def ClusterIDs(self, ClusterIDs):
+        self._ClusterIDs = ClusterIDs
+
+
+    def _deserialize(self, params):
+        self._ClusterIDs = params.get("ClusterIDs")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class UninstallClusterContainerSecurityResponse(AbstractModel):
+    r"""UninstallClusterContainerSecurity返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class UpdateAndPublishNetworkFirewallPolicyDetailRequest(AbstractModel):
     r"""UpdateAndPublishNetworkFirewallPolicyDetail请求参数结构体
 
@@ -79519,6 +79943,10 @@ class VulInfo(AbstractModel):
         :type DefenceHostCount: int
         :param _DefendedCount: 已防御攻击次数
         :type DefendedCount: int
+        :param _RaspOpenNodeCount: 漏洞对应机器的应用防护开启数量
+        :type RaspOpenNodeCount: int
+        :param _RaspClosedNodeCount: 漏洞对应机器的应用防护关闭数量
+        :type RaspClosedNodeCount: int
         """
         self._Name = None
         self._Tags = None
@@ -79537,6 +79965,8 @@ class VulInfo(AbstractModel):
         self._DefenceScope = None
         self._DefenceHostCount = None
         self._DefendedCount = None
+        self._RaspOpenNodeCount = None
+        self._RaspClosedNodeCount = None
 
     @property
     def Name(self):
@@ -79725,6 +80155,28 @@ class VulInfo(AbstractModel):
     def DefendedCount(self, DefendedCount):
         self._DefendedCount = DefendedCount
 
+    @property
+    def RaspOpenNodeCount(self):
+        r"""漏洞对应机器的应用防护开启数量
+        :rtype: int
+        """
+        return self._RaspOpenNodeCount
+
+    @RaspOpenNodeCount.setter
+    def RaspOpenNodeCount(self, RaspOpenNodeCount):
+        self._RaspOpenNodeCount = RaspOpenNodeCount
+
+    @property
+    def RaspClosedNodeCount(self):
+        r"""漏洞对应机器的应用防护关闭数量
+        :rtype: int
+        """
+        return self._RaspClosedNodeCount
+
+    @RaspClosedNodeCount.setter
+    def RaspClosedNodeCount(self, RaspClosedNodeCount):
+        self._RaspClosedNodeCount = RaspClosedNodeCount
+
 
     def _deserialize(self, params):
         self._Name = params.get("Name")
@@ -79744,6 +80196,8 @@ class VulInfo(AbstractModel):
         self._DefenceScope = params.get("DefenceScope")
         self._DefenceHostCount = params.get("DefenceHostCount")
         self._DefendedCount = params.get("DefendedCount")
+        self._RaspOpenNodeCount = params.get("RaspOpenNodeCount")
+        self._RaspClosedNodeCount = params.get("RaspClosedNodeCount")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

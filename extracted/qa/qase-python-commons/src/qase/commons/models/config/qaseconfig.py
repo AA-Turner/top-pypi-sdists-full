@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List
+from typing import List, Dict, Optional
 
 from .framework import Framework
 from .report import ReportConfig
@@ -12,6 +12,21 @@ class Mode(Enum):
     testops = "testops"
     report = "report"
     off = "off"
+
+
+class LoggingConfig(BaseModel):
+    console: Optional[bool] = None
+    file: Optional[bool] = None
+
+    def __init__(self):
+        self.console = None
+        self.file = None
+
+    def set_console(self, console: bool):
+        self.console = console
+
+    def set_file(self, file: bool):
+        self.file = file
 
 
 class ExecutionPlan(BaseModel):
@@ -36,6 +51,8 @@ class QaseConfig(BaseModel):
     profilers: list = None
     framework: Framework = None
     exclude_params: list = None
+    status_mapping: Dict[str, str] = None
+    logging: LoggingConfig = None
 
     def __init__(self):
         self.mode = Mode.off
@@ -47,6 +64,8 @@ class QaseConfig(BaseModel):
         self.framework = Framework()
         self.profilers = []
         self.exclude_params = []
+        self.status_mapping = {}
+        self.logging = LoggingConfig()
 
     def set_mode(self, mode: str):
         if any(mode == e.value for e in Mode.__members__.values()):
@@ -70,3 +89,12 @@ class QaseConfig(BaseModel):
 
     def set_exclude_params(self, exclude_params: List[str]):
         self.exclude_params = exclude_params
+
+    def set_status_mapping(self, status_mapping: Dict[str, str]):
+        self.status_mapping = status_mapping
+
+    def set_logging(self, logging_config: dict):
+        if logging_config.get("console") is not None:
+            self.logging.set_console(QaseUtils.parse_bool(logging_config.get("console")))
+        if logging_config.get("file") is not None:
+            self.logging.set_file(QaseUtils.parse_bool(logging_config.get("file")))

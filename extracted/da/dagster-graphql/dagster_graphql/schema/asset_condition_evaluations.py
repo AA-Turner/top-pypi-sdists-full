@@ -1,14 +1,16 @@
 import enum
-import itertools
 from collections.abc import Sequence
-from typing import Optional, Union
+from typing import Optional
 
 import graphene
 from dagster._core.asset_graph_view.serializable_entity_subset import SerializableEntitySubset
 from dagster._core.definitions.asset_key import AssetKey
+from dagster._core.definitions.declarative_automation.operators.since_operator import (
+    SinceConditionData,
+)
 from dagster._core.definitions.declarative_automation.serialized_objects import (
     AutomationConditionEvaluation,
-    AutomationConditionSnapshot,
+    get_expanded_label,
 )
 from dagster._core.scheduler.instigation import AutoMaterializeAssetEvaluationRecord
 
@@ -216,6 +218,25 @@ class GrapheneAssetConditionEvaluation(graphene.ObjectType):
         )
 
 
+class GrapheneSinceConditionMetadata(graphene.ObjectType):
+    triggerEvaluationId = graphene.Field(graphene.ID)
+    triggerTimestamp = graphene.Field(graphene.Float)
+    resetEvaluationId = graphene.Field(graphene.ID)
+    resetTimestamp = graphene.Field(graphene.Float)
+
+    class Meta:
+        name = "SinceConditionMetadata"
+
+    def __init__(self, since_condition_data: SinceConditionData):
+        self._since_condition_data = since_condition_data
+        super().__init__(
+            triggerEvaluationId=since_condition_data.trigger_evaluation_id,
+            triggerTimestamp=since_condition_data.trigger_timestamp,
+            resetEvaluationId=since_condition_data.reset_evaluation_id,
+            resetTimestamp=since_condition_data.reset_timestamp,
+        )
+
+
 class GrapheneAutomationConditionEvaluationNode(graphene.ObjectType):
     uniqueId = graphene.NonNull(graphene.String)
     userLabel = graphene.Field(graphene.String)
@@ -232,6 +253,7 @@ class GrapheneAutomationConditionEvaluationNode(graphene.ObjectType):
 
     childUniqueIds = non_null_list(graphene.String)
     operatorType = graphene.NonNull(graphene.String)
+    sinceMetadata = graphene.Field(GrapheneSinceConditionMetadata)
 
     class Meta:
         name = "AutomationConditionEvaluationNode"
@@ -254,6 +276,16 @@ class GrapheneAutomationConditionEvaluationNode(graphene.ObjectType):
                 child.condition_snapshot.unique_id for child in evaluation.child_evaluations
             ],
             operatorType=evaluation.condition_snapshot.operator_type,
+        )
+
+    def resolve_sinceMetadata(
+        self, graphene_info: ResolveInfo
+    ) -> Optional[GrapheneSinceConditionMetadata]:
+        if self._evaluation.condition_snapshot.class_name != "SinceCondition":
+            return None
+
+        return GrapheneSinceConditionMetadata(
+            since_condition_data=SinceConditionData.from_metadata(self._evaluation.metadata)
         )
 
 
@@ -338,39 +370,6 @@ def _flatten_evaluation(
     e: AutomationConditionEvaluation,
 ) -> Sequence[AutomationConditionEvaluation]:
     # flattens the evaluation tree into a list of nodes
+    import itertools
+
     return list(itertools.chain([e], *(_flatten_evaluation(ce) for ce in e.child_evaluations)))
-
-
-def get_expanded_label(
-    item: Union[AutomationConditionEvaluation, AutomationConditionSnapshot],
-    use_label=False,
-) -> Sequence[str]:
-    if isinstance(item, AutomationConditionSnapshot):
-        label, name, description, children = (
-            item.node_snapshot.label,
-            item.node_snapshot.name,
-            item.node_snapshot.description,
-            item.children,
-        )
-    else:
-        snapshot = item.condition_snapshot
-        label, name, description, children = (
-            snapshot.label,
-            snapshot.name,
-            snapshot.description,
-            item.child_evaluations,
-        )
-
-    if use_label and label is not None:
-        return [label]
-    node_text = name or description
-    child_labels = [f"({' '.join(get_expanded_label(c, use_label=True))})" for c in children]
-    if len(child_labels) == 0:
-        return [node_text]
-    elif len(child_labels) == 1:
-        return [node_text, f"{child_labels[0]}"]
-    else:
-        # intersperses node_text (e.g. AND) between each child label
-        return list(itertools.chain(*itertools.zip_longest(child_labels, [], fillvalue=node_text)))[
-            :-1
-        ]

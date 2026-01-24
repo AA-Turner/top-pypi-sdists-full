@@ -1,4 +1,4 @@
-# distutils: language=c++
+#cython: freethreading_compatible = True
 
 from . import metrics_py
 from ._initialize_cpp import Editops

@@ -111,7 +111,7 @@ QueryPlan.model_rebuild()
 
 def query_planner(question: str, plan=False) -> QueryPlan:
     PLANNING_MODEL = "gpt-4"
-    ANSWERING_MODEL = "gpt-3.5-turbo-0613"
+    ANSWERING_MODEL = "gpt-4o-mini"
 
     messages = [
         {

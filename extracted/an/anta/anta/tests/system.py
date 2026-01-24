@@ -3,8 +3,8 @@
 # that can be found in the LICENSE file.
 """Module related to system-level features and protocols tests."""
 
-# Mypy does not understand AntaTest.Input typing
-# mypy: disable-error-code=attr-defined
+# Pyright does not understand AntaTest.Input typing
+# pyright: reportAttributeAccessIssue=false
 from __future__ import annotations
 
 import re
@@ -71,6 +71,15 @@ class VerifyUptime(AntaTest):
 class VerifyReloadCause(AntaTest):
     """Verifies the last reload cause of the device.
 
+    User Input to Reload Cause Mapping:
+
+    | Input Value   | Mapped To                                     |
+    |---------------|-----------------------------------------------|
+    | USER          | Reload requested by the user.                 |
+    | FPGA          | Reload requested after FPGA upgrade           |
+    | ZTP           | System reloaded due to Zero Touch Provisioning|
+    | USER_HITLESS  | Hitless reload requested by the user.         |
+
     Expected Results
     ----------------
     * Success: The test passes if there is no reload cause, or if the last reload cause was one of the provided inputs.
@@ -86,6 +95,7 @@ class VerifyReloadCause(AntaTest):
           - USER
           - FPGA
           - ZTP
+          - USER_HITLESS
     ```
     """
 

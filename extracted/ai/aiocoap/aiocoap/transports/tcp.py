@@ -11,10 +11,11 @@ from aiocoap.transports import rfc8323common
 from aiocoap import interfaces, error, util
 from aiocoap import COAP_PORT, Message
 from aiocoap import defaults
+from aiocoap.message import Direction
 
 
 def _extract_message_size(data: bytes):
-    """Read out the full length of a CoAP messsage represented by data.
+    """Read out the full length of a CoAP message represented by data.
 
     Returns None if data is too short to read the (full) length.
 
@@ -53,9 +54,10 @@ def _decode_message(data: bytes) -> Message:
     code = data[tokenoffset - 1]
     token = data[tokenoffset : tokenoffset + tkl]
 
-    msg = Message(code=code, token=token)
+    msg = Message(code=code, _token=token)
 
     msg.payload = msg.opt.decode(data[tokenoffset + tkl :])
+    msg.direction = Direction.INCOMING
 
     return msg
 

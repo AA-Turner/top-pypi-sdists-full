@@ -2,7 +2,15 @@
 # Element factories
 #
 
-from typing import Any, Literal, Protocol, TypeVar, overload
+from typing import (
+    Any,
+    Literal,
+    Protocol,
+    TypeVar,
+    overload,
+    type_check_only,
+)
+from typing_extensions import disjoint_base
 
 from .._types import (
     _AttrMapping,
@@ -256,6 +264,7 @@ def DataElement(
         XSI data type is not involved in type determination.
     """
 
+@type_check_only
 class _OEMakerCallProtocol(Protocol):
     """Callback Protocol for Objectified ElementMaker
 
@@ -281,6 +290,7 @@ class _OEMakerCallProtocol(Protocol):
         **_attrib: _AttrVal,
     ) -> _e.ObjectifiedElement: ...
 
+@disjoint_base
 class ElementMaker:
     """Used for constructing trees
 

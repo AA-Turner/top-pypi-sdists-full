@@ -60,6 +60,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_comment, False, False, "json", shared.TaskComment
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -76,7 +77,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createTaskComment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -152,6 +153,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_comment, False, False, "json", shared.TaskComment
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -168,7 +170,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createTaskComment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -244,6 +246,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_project, False, False, "json", shared.TaskProject
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -260,7 +263,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createTaskProject",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -336,6 +339,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_project, False, False, "json", shared.TaskProject
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -352,7 +356,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createTaskProject",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -427,6 +431,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_task, False, False, "json", shared.TaskTask
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -443,7 +448,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createTaskTask",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -516,6 +521,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_task, False, False, "json", shared.TaskTask
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -532,7 +538,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createTaskTask",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -602,6 +608,7 @@ class Task(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -618,7 +625,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getTaskChange",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -690,6 +697,7 @@ class Task(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -706,7 +714,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getTaskChange",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -778,6 +786,7 @@ class Task(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -794,7 +803,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getTaskComment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -866,6 +875,7 @@ class Task(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -882,7 +892,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getTaskComment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -954,6 +964,7 @@ class Task(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -970,7 +981,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getTaskProject",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1042,6 +1053,7 @@ class Task(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1058,7 +1070,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getTaskProject",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1130,6 +1142,7 @@ class Task(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1146,7 +1159,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getTaskTask",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1216,6 +1229,7 @@ class Task(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1232,7 +1246,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getTaskTask",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1303,6 +1317,7 @@ class Task(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1319,7 +1334,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listTaskChanges",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1392,6 +1407,7 @@ class Task(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1408,7 +1424,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listTaskChanges",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1481,6 +1497,7 @@ class Task(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1497,7 +1514,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listTaskComments",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1570,6 +1587,7 @@ class Task(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1586,7 +1604,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listTaskComments",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1659,6 +1677,7 @@ class Task(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1675,7 +1694,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listTaskProjects",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1748,6 +1767,7 @@ class Task(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1764,7 +1784,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listTaskProjects",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1836,6 +1856,7 @@ class Task(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1852,7 +1873,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listTaskTasks",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1924,6 +1945,7 @@ class Task(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1940,7 +1962,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listTaskTasks",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2016,6 +2038,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_comment, False, False, "json", shared.TaskComment
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2032,7 +2055,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchTaskComment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2108,6 +2131,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_comment, False, False, "json", shared.TaskComment
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2124,7 +2148,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchTaskComment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2200,6 +2224,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_project, False, False, "json", shared.TaskProject
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2216,7 +2241,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchTaskProject",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2292,6 +2317,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_project, False, False, "json", shared.TaskProject
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2308,7 +2334,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchTaskProject",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2383,6 +2409,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_task, False, False, "json", shared.TaskTask
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2399,7 +2426,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchTaskTask",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2472,6 +2499,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_task, False, False, "json", shared.TaskTask
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2488,7 +2516,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchTaskTask",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2559,6 +2587,7 @@ class Task(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2575,7 +2604,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeTaskComment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2653,6 +2682,7 @@ class Task(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2669,7 +2699,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeTaskComment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2747,6 +2777,7 @@ class Task(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2763,7 +2794,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeTaskProject",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2841,6 +2872,7 @@ class Task(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2857,7 +2889,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeTaskProject",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2934,6 +2966,7 @@ class Task(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2950,7 +2983,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeTaskTask",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3027,6 +3060,7 @@ class Task(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3043,7 +3077,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeTaskTask",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3124,6 +3158,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_comment, False, False, "json", shared.TaskComment
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3140,7 +3175,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateTaskComment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3216,6 +3251,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_comment, False, False, "json", shared.TaskComment
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3232,7 +3268,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateTaskComment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3308,6 +3344,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_project, False, False, "json", shared.TaskProject
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3324,7 +3361,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateTaskProject",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3400,6 +3437,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_project, False, False, "json", shared.TaskProject
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3416,7 +3454,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateTaskProject",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3491,6 +3529,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_task, False, False, "json", shared.TaskTask
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3507,7 +3546,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateTaskTask",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3580,6 +3619,7 @@ class Task(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.task_task, False, False, "json", shared.TaskTask
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3596,7 +3636,7 @@ class Task(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateTaskTask",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,

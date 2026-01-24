@@ -8,27 +8,17 @@ static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-use chrono::Local;
 use clap::{Args, Parser, Subcommand};
 use colored::*;
-use ignore::WalkBuilder;
-use ignore::overrides::OverrideBuilder;
+use core::error::Error;
 use memmap2::Mmap;
-use notify::{Config as NotifyConfig, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use rayon::prelude::*;
-use std::collections::HashSet;
-use std::error::Error;
 use std::fs;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::path::Path;
 use std::str::FromStr;
-use std::sync::Arc;
-use std::sync::mpsc::channel;
-use std::time::{Duration, Instant};
 
 use rumdl_lib::config as rumdl_config;
 use rumdl_lib::exit_codes::exit;
-use rumdl_lib::lint_context::LintContext;
 use rumdl_lib::rule::Rule;
 use rumdl_lib::rules::code_block_utils::CodeBlockStyle;
 use rumdl_lib::rules::code_fence_utils::CodeFenceStyle;
@@ -37,11 +27,151 @@ use rumdl_lib::rules::strong_style::StrongStyle;
 use rumdl_config::ConfigSource;
 use rumdl_config::normalize_key;
 
+mod cache;
+mod file_processor;
+mod formatter;
+mod stdin_processor;
+mod watch;
+
+/// Apply CLI argument overrides to a sourced config.
+/// This centralizes the logic for CLI args overriding config values,
+/// ensuring consistency between regular check and watch mode.
+pub fn apply_cli_overrides(sourced: &mut rumdl_config::SourcedConfig, args: &CheckArgs) {
+    // Apply --flavor override if provided
+    if let Some(ref flavor_str) = args.flavor
+        && let Ok(flavor) = rumdl_config::MarkdownFlavor::from_str(flavor_str)
+    {
+        sourced.global.flavor = rumdl_config::SourcedValue::new(flavor, rumdl_config::ConfigSource::Cli);
+    }
+
+    // Apply --respect-gitignore override if provided
+    // This allows CLI to override config file setting
+    if let Some(respect_gitignore) = args.respect_gitignore {
+        sourced.global.respect_gitignore =
+            rumdl_config::SourcedValue::new(respect_gitignore, rumdl_config::ConfigSource::Cli);
+    }
+}
+
 /// Threshold for using memory-mapped I/O (1MB)
 const MMAP_THRESHOLD: u64 = 1024 * 1024;
 
+/// Prompt user for input and read their response
+/// Returns None if I/O errors occur (stdin closed, pipe broken, etc.)
+fn prompt_user(prompt: &str) -> Option<String> {
+    print!("{prompt}");
+    if io::stdout().flush().is_err() {
+        return None;
+    }
+
+    let mut answer = String::new();
+    if io::stdin().read_line(&mut answer).is_err() {
+        return None;
+    }
+
+    Some(answer)
+}
+
+/// Handle the schema subcommand
+fn handle_schema_command(action: SchemaAction) {
+    use schemars::schema_for;
+
+    // Generate the schema
+    let schema = schema_for!(rumdl_config::Config);
+
+    // Post-process the schema to add additionalProperties for flattened rules
+    // This allows [MD###] sections at the root level alongside [global] and [per-file-ignores]
+    let mut schema_value: serde_json::Value = serde_json::to_value(&schema).unwrap_or_else(|e| {
+        eprintln!("{}: Failed to convert schema to Value: {}", "Error".red().bold(), e);
+        exit::tool_error();
+    });
+
+    if let Some(schema_obj) = schema_value.as_object_mut() {
+        // Add additionalProperties that reference the RuleConfig definition
+        // This allows any additional properties (rule names like MD013, MD007, etc.)
+        // to be validated as RuleConfig objects
+        schema_obj.insert(
+            "additionalProperties".to_string(),
+            serde_json::json!({
+                "$ref": "#/$defs/RuleConfig"
+            }),
+        );
+    }
+
+    let schema_json = serde_json::to_string_pretty(&schema_value).unwrap_or_else(|e| {
+        eprintln!("{}: Failed to serialize schema: {}", "Error".red().bold(), e);
+        exit::tool_error();
+    });
+
+    match action {
+        SchemaAction::Print => {
+            // Print to stdout
+            println!("{schema_json}");
+        }
+        SchemaAction::Generate => {
+            // Find the schema file path (project root)
+            let schema_path = get_project_schema_path();
+
+            // Read existing schema if it exists
+            let existing_schema = fs::read_to_string(&schema_path).ok();
+
+            if existing_schema.as_ref() == Some(&schema_json) {
+                println!("Schema is already up-to-date: {}", schema_path.display());
+            } else {
+                fs::write(&schema_path, &schema_json).unwrap_or_else(|e| {
+                    eprintln!("{}: Failed to write schema file: {}", "Error".red().bold(), e);
+                    exit::tool_error();
+                });
+                println!("Schema updated: {}", schema_path.display());
+            }
+        }
+        SchemaAction::Check => {
+            let schema_path = get_project_schema_path();
+            let existing_schema = fs::read_to_string(&schema_path).unwrap_or_else(|_| {
+                eprintln!("Error: Schema file not found: {}", schema_path.display());
+                eprintln!("Run 'rumdl schema generate' to create it.");
+                exit::tool_error();
+            });
+
+            if existing_schema != schema_json {
+                eprintln!("Error: Schema is out of date: {}", schema_path.display());
+                eprintln!("Run 'rumdl schema generate' to update it.");
+                exit::tool_error();
+            } else {
+                println!("Schema is up-to-date: {}", schema_path.display());
+            }
+        }
+    }
+}
+
+/// Get the path to the project's schema file
+fn get_project_schema_path() -> std::path::PathBuf {
+    // Try to find the project root by looking for Cargo.toml
+    let mut current_dir = std::env::current_dir().unwrap_or_else(|e| {
+        eprintln!("{}: Failed to get current directory: {}", "Error".red().bold(), e);
+        exit::tool_error();
+    });
+
+    loop {
+        let cargo_toml = current_dir.join("Cargo.toml");
+        if cargo_toml.exists() {
+            return current_dir.join("rumdl.schema.json");
+        }
+
+        if !current_dir.pop() {
+            // Reached filesystem root without finding Cargo.toml
+            // Fall back to current directory
+            return std::env::current_dir()
+                .unwrap_or_else(|e| {
+                    eprintln!("{}: Failed to get current directory: {}", "Error".red().bold(), e);
+                    exit::tool_error();
+                })
+                .join("rumdl.schema.json");
+        }
+    }
+}
+
 /// Efficiently read file content using memory mapping for large files
-fn read_file_efficiently(path: &Path) -> Result<String, Box<dyn Error>> {
+pub fn read_file_efficiently(path: &Path) -> Result<String, Box<dyn Error>> {
     // Get file metadata first
     let metadata = fs::metadata(path)?;
     let file_size = metadata.len();
@@ -61,16 +191,109 @@ fn read_file_efficiently(path: &Path) -> Result<String, Box<dyn Error>> {
 
 /// Utility function to load configuration with standard CLI error handling.
 /// This eliminates duplication between different CLI commands that load configuration.
+/// Filter a SourcedConfig to only include non-default values
+fn filter_sourced_config_to_non_defaults(
+    sourced: &rumdl_config::SourcedConfig<rumdl_config::ConfigLoaded>,
+) -> rumdl_config::SourcedConfig<rumdl_config::ConfigLoaded> {
+    let mut filtered = rumdl_config::SourcedConfig::default();
+
+    // Filter global config - only include fields with non-default sources
+    if sourced.global.enable.source != rumdl_config::ConfigSource::Default {
+        filtered.global.enable = sourced.global.enable.clone();
+    }
+    if sourced.global.disable.source != rumdl_config::ConfigSource::Default {
+        filtered.global.disable = sourced.global.disable.clone();
+    }
+    if sourced.global.exclude.source != rumdl_config::ConfigSource::Default {
+        filtered.global.exclude = sourced.global.exclude.clone();
+    }
+    if sourced.global.include.source != rumdl_config::ConfigSource::Default {
+        filtered.global.include = sourced.global.include.clone();
+    }
+    if sourced.global.respect_gitignore.source != rumdl_config::ConfigSource::Default {
+        filtered.global.respect_gitignore = sourced.global.respect_gitignore.clone();
+    }
+    if sourced.global.line_length.source != rumdl_config::ConfigSource::Default {
+        filtered.global.line_length = sourced.global.line_length.clone();
+    }
+    if sourced.global.flavor.source != rumdl_config::ConfigSource::Default {
+        filtered.global.flavor = sourced.global.flavor.clone();
+    }
+    if sourced.global.force_exclude.source != rumdl_config::ConfigSource::Default {
+        filtered.global.force_exclude = sourced.global.force_exclude.clone();
+    }
+    if sourced.global.cache.source != rumdl_config::ConfigSource::Default {
+        filtered.global.cache = sourced.global.cache.clone();
+    }
+    if sourced.global.fixable.source != rumdl_config::ConfigSource::Default {
+        filtered.global.fixable = sourced.global.fixable.clone();
+    }
+    if sourced.global.unfixable.source != rumdl_config::ConfigSource::Default {
+        filtered.global.unfixable = sourced.global.unfixable.clone();
+    }
+    if let Some(ref output_format) = sourced.global.output_format
+        && output_format.source != rumdl_config::ConfigSource::Default
+    {
+        filtered.global.output_format = Some(output_format.clone());
+    }
+    if let Some(ref cache_dir) = sourced.global.cache_dir
+        && cache_dir.source != rumdl_config::ConfigSource::Default
+    {
+        filtered.global.cache_dir = Some(cache_dir.clone());
+    }
+
+    // Filter per-file ignores
+    if sourced.per_file_ignores.source != rumdl_config::ConfigSource::Default {
+        filtered.per_file_ignores = sourced.per_file_ignores.clone();
+    }
+
+    // Filter rules - only include rules with at least one non-default value
+    for (rule_name, rule_cfg) in &sourced.rules {
+        let mut filtered_rule = rumdl_config::SourcedRuleConfig::default();
+        for (key, sv) in &rule_cfg.values {
+            if sv.source != rumdl_config::ConfigSource::Default {
+                filtered_rule.values.insert(key.clone(), sv.clone());
+            }
+        }
+        if !filtered_rule.values.is_empty() {
+            filtered.rules.insert(rule_name.clone(), filtered_rule);
+        }
+    }
+
+    // Preserve metadata
+    filtered.loaded_files = sourced.loaded_files.clone();
+    filtered.unknown_keys = sourced.unknown_keys.clone();
+    filtered.project_root = sourced.project_root.clone();
+
+    filtered
+}
+
 fn load_config_with_cli_error_handling(config_path: Option<&str>, isolated: bool) -> rumdl_config::SourcedConfig {
     load_config_with_cli_error_handling_with_dir(config_path, isolated, None)
 }
 
-fn load_config_with_cli_error_handling_with_dir(
+pub fn load_config_with_cli_error_handling_with_dir(
     config_path: Option<&str>,
     isolated: bool,
     discovery_dir: Option<&std::path::Path>,
 ) -> rumdl_config::SourcedConfig {
     let result = if let Some(dir) = discovery_dir {
+        // Canonicalize config path before changing directory
+        // Otherwise relative paths will be resolved from the wrong directory
+        let absolute_config_path = config_path.map(|p| {
+            let path = std::path::Path::new(p);
+            if path.is_absolute() {
+                p.to_string()
+            } else if let Ok(canonical) = std::fs::canonicalize(path) {
+                canonical.to_string_lossy().to_string()
+            } else {
+                // If file doesn't exist yet, make it absolute relative to current dir
+                std::env::current_dir()
+                    .map(|cwd| cwd.join(p).to_string_lossy().to_string())
+                    .unwrap_or_else(|_| p.to_string())
+            }
+        });
+
         // Temporarily change working directory for config discovery
         let original_dir = std::env::current_dir().ok();
 
@@ -81,7 +304,8 @@ fn load_config_with_cli_error_handling_with_dir(
             let _ = std::env::set_current_dir(parent);
         }
 
-        let config_result = rumdl_config::SourcedConfig::load_with_discovery(config_path, None, isolated);
+        let config_result =
+            rumdl_config::SourcedConfig::load_with_discovery(absolute_config_path.as_deref(), None, isolated);
 
         // Restore original directory
         if let Some(orig) = original_dir {
@@ -113,7 +337,12 @@ struct Cli {
     color: String,
 
     /// Path to configuration file
-    #[arg(long, global = true, help = "Path to configuration file")]
+    #[arg(
+        long,
+        global = true,
+        help = "Path to configuration file",
+        conflicts_with_all = ["no_config", "isolated"]
+    )]
     config: Option<String>,
 
     /// Ignore all configuration files and use built-in defaults
@@ -132,6 +361,16 @@ struct Cli {
         conflicts_with = "no_config"
     )]
     isolated: bool,
+}
+
+#[derive(Subcommand)]
+enum SchemaAction {
+    /// Generate/update the JSON schema file
+    Generate,
+    /// Check if the schema is up-to-date
+    Check,
+    /// Print the schema to stdout
+    Print,
 }
 
 #[derive(Subcommand)]
@@ -163,6 +402,9 @@ enum Commands {
         /// Show only the default configuration values
         #[arg(long, help = "Show only the default configuration values")]
         defaults: bool,
+        /// Show only non-default configuration values (exclude defaults)
+        #[arg(long, help = "Show only non-default configuration values (exclude defaults)")]
+        no_defaults: bool,
         #[arg(long, help = "Output format (e.g. toml, json)")]
         output: Option<String>,
     },
@@ -177,6 +419,14 @@ enum Commands {
         /// Enable verbose logging
         #[arg(short, long)]
         verbose: bool,
+        /// Path to rumdl configuration file
+        #[arg(short, long)]
+        config: Option<String>,
+    },
+    /// Generate or check JSON schema for rumdl.toml
+    Schema {
+        #[command(subcommand)]
+        action: SchemaAction,
     },
     /// Import and convert markdownlint configuration files
     Import {
@@ -204,6 +454,8 @@ enum Commands {
         #[arg(long)]
         status: bool,
     },
+    /// Clear the cache
+    Clean,
     /// Show version information
     Version,
 }
@@ -216,19 +468,42 @@ enum ConfigSubcommand {
     File,
 }
 
+/// Fix mode determines exit code behavior: Check/CheckFix exit 1 on violations, Format exits 0
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FixMode {
+    #[default]
+    Check,
+    CheckFix,
+    Format,
+}
+
+/// Fail-on mode determines which severity triggers exit code 1
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FailOn {
+    #[default]
+    Any, // Exit 1 on any violation (info, warning, or error)
+    Warning, // Exit 1 on warning or error severity violations
+    Error,   // Exit 1 only on error-severity violations
+    Never,   // Always exit 0
+}
+
 #[derive(Args, Debug)]
-struct CheckArgs {
+pub struct CheckArgs {
     /// Files or directories to lint (use '-' for stdin)
     #[arg(required = false)]
     paths: Vec<String>,
 
     /// Fix issues automatically where possible
     #[arg(short, long, default_value = "false")]
-    _fix: bool,
+    fix: bool,
 
     /// Show diff of what would be fixed instead of fixing files
     #[arg(long, help = "Show diff of what would be fixed instead of fixing files")]
     diff: bool,
+
+    /// Exit with code 1 if any formatting changes would be made (like rustfmt --check)
+    #[arg(long, help = "Exit with code 1 if any formatting changes would be made (for CI)")]
+    check: bool,
 
     /// List all available rules
     #[arg(short, long, default_value = "false")]
@@ -239,7 +514,7 @@ struct CheckArgs {
     disable: Option<String>,
 
     /// Enable only specific rules (comma-separated)
-    #[arg(short, long)]
+    #[arg(short, long, visible_alias = "rules")]
     enable: Option<String>,
 
     /// Extend the list of enabled rules (additive with config)
@@ -254,17 +529,24 @@ struct CheckArgs {
     #[arg(long)]
     exclude: Option<String>,
 
+    /// Disable all exclude patterns (lint all files regardless of exclude configuration)
+    #[arg(long, help = "Disable all exclude patterns")]
+    no_exclude: bool,
+
     /// Include only specific files or directories (comma-separated glob patterns).
     #[arg(long)]
     include: Option<String>,
 
     /// Respect .gitignore files when scanning directories
+    /// When not specified, uses config file value (default: true)
     #[arg(
         long,
-        default_value = "true",
+        num_args(0..=1),
+        require_equals(true),
+        default_missing_value = "true",
         help = "Respect .gitignore files when scanning directories (does not apply to explicitly provided paths)"
     )]
-    respect_gitignore: bool,
+    respect_gitignore: Option<bool>,
 
     /// Show detailed output
     #[arg(short, long)]
@@ -278,8 +560,8 @@ struct CheckArgs {
     #[arg(long)]
     statistics: bool,
 
-    /// Quiet mode
-    #[arg(short, long)]
+    /// Print diagnostics, but nothing else
+    #[arg(short, long, help = "Print diagnostics, but nothing else")]
     quiet: bool,
 
     /// Output format: text (default) or json
@@ -288,8 +570,17 @@ struct CheckArgs {
 
     /// Output format for linting results
     #[arg(long, value_parser = ["text", "full", "concise", "grouped", "json", "json-lines", "github", "gitlab", "pylint", "azure", "sarif", "junit"],
-          help = "Output format for linting results (text, full, concise, grouped, json, json-lines, github, gitlab, pylint, azure, sarif, junit)")]
+          help = "Output format (default: text, or $RUMDL_OUTPUT_FORMAT, or output-format in config)")]
     output_format: Option<String>,
+
+    /// Show absolute file paths instead of project-relative paths
+    #[arg(long, help = "Show absolute file paths in output instead of relative paths")]
+    show_full_path: bool,
+
+    /// Markdown flavor to use for linting
+    #[arg(long, value_parser = ["standard", "mkdocs", "mdx", "quarto"],
+          help = "Markdown flavor: standard (default), mkdocs, mdx, or quarto")]
+    flavor: Option<String>,
 
     /// Read from stdin instead of files
     #[arg(long, help = "Read from stdin instead of files")]
@@ -303,8 +594,12 @@ struct CheckArgs {
     #[arg(long, help = "Output diagnostics to stderr instead of stdout")]
     stderr: bool,
 
-    /// Disable all output except linting results (implies --quiet)
-    #[arg(short, long, help = "Disable all output except diagnostics")]
+    /// Disable all logging (but still exit with status code upon detecting diagnostics)
+    #[arg(
+        short,
+        long,
+        help = "Disable all logging (but still exit with status code upon detecting diagnostics)"
+    )]
     silent: bool,
 
     /// Run in watch mode by re-running whenever files change
@@ -317,661 +612,28 @@ struct CheckArgs {
     /// This is useful for pre-commit, which explicitly passes all changed files.
     #[arg(long, help = "Enforce exclude patterns even for explicitly specified files")]
     force_exclude: bool,
-}
 
-// Get a complete set of enabled rules based on CLI options and config
-fn get_enabled_rules_from_checkargs(args: &CheckArgs, config: &rumdl_config::Config) -> Vec<Box<dyn Rule>> {
-    // 1. Initialize all available rules using from_config only
-    let all_rules: Vec<Box<dyn Rule>> = rumdl_lib::rules::all_rules(config);
+    /// Disable caching of lint results
+    #[arg(long, help = "Disable caching (re-check all files)")]
+    no_cache: bool,
 
-    // 2. Determine the final list of enabled rules based on precedence
-    let final_rules: Vec<Box<dyn Rule>>;
+    /// Directory to store cache files
+    #[arg(
+        long,
+        help = "Directory to store cache files (default: .rumdl_cache, or $RUMDL_CACHE_DIR, or cache-dir in config)"
+    )]
+    cache_dir: Option<String>,
 
-    // Rule names provided via CLI flags
-    let cli_enable_set: Option<HashSet<&str>> = args
-        .enable
-        .as_deref()
-        .map(|s| s.split(',').map(|r| r.trim()).filter(|r| !r.is_empty()).collect());
-    let cli_disable_set: Option<HashSet<&str>> = args
-        .disable
-        .as_deref()
-        .map(|s| s.split(',').map(|r| r.trim()).filter(|r| !r.is_empty()).collect());
-    let cli_extend_enable_set: Option<HashSet<&str>> = args
-        .extend_enable
-        .as_deref()
-        .map(|s| s.split(',').map(|r| r.trim()).filter(|r| !r.is_empty()).collect());
-    let cli_extend_disable_set: Option<HashSet<&str>> = args
-        .extend_disable
-        .as_deref()
-        .map(|s| s.split(',').map(|r| r.trim()).filter(|r| !r.is_empty()).collect());
+    /// Control when to exit with code 1: any (default), warning, error, or never
+    #[arg(long, value_parser = ["any", "warning", "error", "never"], default_value = "any",
+          help = "Exit code behavior: 'any' (default) exits 1 on any violation, 'warning' on warning+error, 'error' only on errors, 'never' always exits 0")]
+    fail_on: String,
 
-    // Rule names provided via config file
-    let config_enable_set: HashSet<&str> = config.global.enable.iter().map(|s| s.as_str()).collect();
+    #[arg(skip)]
+    pub fix_mode: FixMode,
 
-    let config_disable_set: HashSet<&str> = config.global.disable.iter().map(|s| s.as_str()).collect();
-
-    if let Some(enabled_cli) = &cli_enable_set {
-        // CLI --enable completely overrides config (ruff --select behavior)
-        let enabled_cli_normalized: HashSet<String> = enabled_cli.iter().map(|s| normalize_key(s)).collect();
-        let _all_rule_names: Vec<String> = all_rules.iter().map(|r| normalize_key(r.name())).collect();
-        let mut filtered_rules = all_rules
-            .into_iter()
-            .filter(|rule| enabled_cli_normalized.contains(&normalize_key(rule.name())))
-            .collect::<Vec<_>>();
-
-        // Apply CLI --disable to remove rules from the enabled set (ruff-like behavior)
-        if let Some(disabled_cli) = &cli_disable_set {
-            filtered_rules.retain(|rule| {
-                let rule_name_upper = rule.name();
-                let rule_name_lower = normalize_key(rule_name_upper);
-                !disabled_cli.contains(rule_name_upper) && !disabled_cli.contains(rule_name_lower.as_str())
-            });
-        }
-
-        final_rules = filtered_rules;
-    } else if cli_extend_enable_set.is_some() || cli_extend_disable_set.is_some() {
-        // Handle extend flags (additive with config)
-        let mut current_rules = all_rules;
-
-        // Start with config enable if present
-        if !config_enable_set.is_empty() {
-            current_rules.retain(|rule| {
-                let normalized_rule_name = normalize_key(rule.name());
-                config_enable_set.contains(normalized_rule_name.as_str())
-            });
-        }
-
-        // Add CLI extend-enable rules
-        if let Some(extend_enabled_cli) = &cli_extend_enable_set {
-            // If we started with all rules (no config enable), keep all rules
-            // If we started with config enable, we need to re-filter with extended set
-            if !config_enable_set.is_empty() {
-                let mut extended_enable_set = config_enable_set.clone();
-                for rule in extend_enabled_cli {
-                    extended_enable_set.insert(rule);
-                }
-
-                // Re-filter with extended set
-                current_rules = rumdl_lib::rules::all_rules(config)
-                    .into_iter()
-                    .filter(|rule| {
-                        let normalized_rule_name = normalize_key(rule.name());
-                        extended_enable_set.contains(normalized_rule_name.as_str())
-                    })
-                    .collect();
-            }
-        }
-
-        // Apply config disable
-        if !config_disable_set.is_empty() {
-            current_rules.retain(|rule| {
-                let normalized_rule_name = normalize_key(rule.name());
-                !config_disable_set.contains(normalized_rule_name.as_str())
-            });
-        }
-
-        // Apply CLI extend-disable
-        if let Some(extend_disabled_cli) = &cli_extend_disable_set {
-            current_rules.retain(|rule| {
-                let rule_name_upper = rule.name();
-                let rule_name_lower = normalize_key(rule_name_upper);
-                !extend_disabled_cli.contains(rule_name_upper)
-                    && !extend_disabled_cli.contains(rule_name_lower.as_str())
-            });
-        }
-
-        // Apply CLI disable
-        if let Some(disabled_cli) = &cli_disable_set {
-            current_rules.retain(|rule| {
-                let rule_name_upper = rule.name();
-                let rule_name_lower = normalize_key(rule_name_upper);
-                !disabled_cli.contains(rule_name_upper) && !disabled_cli.contains(rule_name_lower.as_str())
-            });
-        }
-
-        final_rules = current_rules;
-    } else {
-        // --- Case 2: No CLI --enable ---
-        // Start with the configured rules.
-        let mut current_rules = all_rules;
-
-        // Step 2a: Apply config `enable` (if specified).
-        // If config.enable is not empty, it acts as an *exclusive* list.
-        if !config_enable_set.is_empty() {
-            current_rules.retain(|rule| {
-                let normalized_rule_name = normalize_key(rule.name());
-                config_enable_set.contains(normalized_rule_name.as_str())
-            });
-        }
-
-        // Step 2b: Apply config `disable`.
-        // Remove rules specified in config.disable from the current set.
-        if !config_disable_set.is_empty() {
-            current_rules.retain(|rule| {
-                let normalized_rule_name = normalize_key(rule.name());
-                let is_disabled = config_disable_set.contains(normalized_rule_name.as_str());
-                !is_disabled // Keep if NOT disabled
-            });
-        }
-
-        // Step 2c: Apply CLI `disable`.
-        // Remove rules specified in cli.disable from the result of steps 2a & 2b.
-        if let Some(disabled_cli) = &cli_disable_set {
-            current_rules.retain(|rule| {
-                let rule_name_upper = rule.name();
-                let rule_name_lower = normalize_key(rule_name_upper);
-                !disabled_cli.contains(rule_name_upper) && !disabled_cli.contains(rule_name_lower.as_str())
-            });
-        }
-
-        final_rules = current_rules; // Assign the final filtered vector
-    }
-
-    // 4. Print enabled rules if verbose
-    if args.verbose {
-        println!("Enabled rules:");
-        for rule in &final_rules {
-            println!("  - {} ({})", rule.name(), rule.description());
-        }
-        println!();
-    }
-
-    final_rules
-}
-
-// Find all markdown files using the `ignore` crate, returning Result
-fn find_markdown_files(
-    paths: &[String],
-    args: &CheckArgs,
-    config: &rumdl_config::Config,
-) -> Result<Vec<String>, Box<dyn Error>> {
-    let mut file_paths = Vec::new();
-
-    // --- Configure ignore::WalkBuilder ---
-    // Start with the first path, add others later
-    let first_path = paths.first().cloned().unwrap_or_else(|| ".".to_string());
-    let mut walk_builder = WalkBuilder::new(first_path);
-
-    // Add remaining paths
-    for path in paths.iter().skip(1) {
-        walk_builder.add(path);
-    }
-
-    // --- Add Markdown File Type Definition ---
-    let mut types_builder = ignore::types::TypesBuilder::new();
-    types_builder.add_defaults(); // Add standard types
-    types_builder.add("markdown", "*.md").unwrap();
-    types_builder.add("markdown", "*.markdown").unwrap();
-    types_builder.select("markdown"); // Select ONLY markdown for processing
-    let types = types_builder.build().unwrap();
-    walk_builder.types(types);
-    // -----------------------------------------
-
-    // Determine if running in discovery mode (e.g., "rumdl ." or "rumdl check ." or "rumdl check")
-    // Adjusted to handle both legacy and subcommand paths
-    let is_discovery_mode = paths.is_empty() || paths == ["."];
-
-    // --- Determine Effective Include/Exclude Patterns ---
-
-    // Include patterns: CLI > Config (only in discovery mode) > Default (only in discovery mode)
-    let final_include_patterns: Vec<String> = if let Some(cli_include) = args.include.as_deref() {
-        // 1. CLI --include always wins
-        cli_include
-            .split(',')
-            .map(|p| p.trim().to_string())
-            .filter(|p| !p.is_empty())
-            .collect()
-    } else if is_discovery_mode && !config.global.include.is_empty() {
-        // 2. Config include is used ONLY in discovery mode if specified
-        config.global.include.clone()
-    } else if is_discovery_mode {
-        // 3. Default include (*.md, *.markdown) ONLY in discovery mode if no CLI/Config include
-        vec!["*.md".to_string(), "*.markdown".to_string()]
-    } else {
-        // 4. Explicit path mode: No includes applied by default. Walk starts from explicit paths.
-        Vec::new()
-    };
-
-    // Exclude patterns: CLI > Config
-    let final_exclude_patterns: Vec<String> = if let Some(cli_exclude) = args.exclude.as_deref() {
-        cli_exclude
-            .split(',')
-            .map(|p| p.trim().to_string())
-            .filter(|p| !p.is_empty())
-            .collect()
-    } else {
-        config.global.exclude.clone()
-    };
-
-    // Debug: Log exclude patterns
-    if args.verbose {
-        eprintln!("Exclude patterns: {final_exclude_patterns:?}");
-    }
-    // --- End Pattern Determination ---
-
-    // Apply overrides using the determined patterns
-    if !final_include_patterns.is_empty() || !final_exclude_patterns.is_empty() {
-        let mut override_builder = OverrideBuilder::new("."); // Root context
-
-        // Add includes (these act as positive filters)
-        for pattern in &final_include_patterns {
-            // Important: In ignore crate, bare patterns act as includes if no exclude (!) is present.
-            // If we add excludes later, these includes ensure *only* matching files are considered.
-            // If no excludes are added, these effectively define the set of files to walk.
-            if let Err(e) = override_builder.add(pattern) {
-                eprintln!("Warning: Invalid include pattern '{pattern}': {e}");
-            }
-        }
-
-        // Add excludes (these filter *out* files) - MUST start with '!'
-        for pattern in &final_exclude_patterns {
-            // Ensure exclude patterns start with '!' for ignore crate overrides
-            let exclude_rule = if pattern.starts_with('!') {
-                pattern.clone() // Already formatted
-            } else {
-                format!("!{pattern}")
-            };
-            if let Err(e) = override_builder.add(&exclude_rule) {
-                eprintln!("Warning: Invalid exclude pattern '{pattern}': {e}");
-            }
-        }
-
-        // Build and apply the overrides
-        match override_builder.build() {
-            Ok(overrides) => {
-                walk_builder.overrides(overrides);
-            }
-            Err(e) => {
-                eprintln!("Error building path overrides: {e}");
-            }
-        };
-    }
-
-    // Configure gitignore handling *SECOND*
-    let use_gitignore = if args.respect_gitignore {
-        true // If respect is true, always include gitignore
-    } else {
-        false // If respect is false, always exclude gitignore
-    };
-
-    walk_builder.ignore(use_gitignore); // Enable/disable .ignore
-    walk_builder.git_ignore(use_gitignore); // Enable/disable .gitignore
-    walk_builder.git_global(use_gitignore); // Enable/disable global gitignore
-    walk_builder.git_exclude(use_gitignore); // Enable/disable .git/info/exclude
-    walk_builder.parents(use_gitignore); // Enable/disable parent ignores
-    walk_builder.hidden(true); // Keep hidden files ignored unconditionally
-    walk_builder.require_git(false); // Process git ignores even if no repo detected
-
-    // Add support for .markdownlintignore file
-    walk_builder.add_custom_ignore_filename(".markdownlintignore");
-
-    // --- Pre-check for explicit file paths ---
-    // If not in discovery mode, validate that specified paths exist
-    if !is_discovery_mode {
-        // Check if we should apply excludes to explicitly provided files
-        let should_force_exclude = args.force_exclude || config.global.force_exclude;
-
-        for path_str in paths {
-            let path = Path::new(path_str);
-            if !path.exists() {
-                return Err(format!("File not found: {path_str}").into());
-            }
-            // If it's a file, check if it's a markdown file
-            if path.is_file()
-                && let Some(ext) = path.extension()
-                && (ext == "md" || ext == "markdown")
-            {
-                let cleaned_path = if let Some(stripped) = path_str.strip_prefix("./") {
-                    stripped.to_string()
-                } else {
-                    path_str.clone()
-                };
-
-                // If force_exclude is enabled, check if this file should be excluded
-                if should_force_exclude && !final_exclude_patterns.is_empty() {
-                    let mut should_exclude = false;
-                    for pattern in &final_exclude_patterns {
-                        // Use globset for pattern matching
-                        if let Ok(glob) = globset::Glob::new(pattern) {
-                            let matcher = glob.compile_matcher();
-                            if matcher.is_match(&cleaned_path) {
-                                should_exclude = true;
-                                if args.verbose {
-                                    eprintln!(
-                                        "Excluding explicitly provided file due to force_exclude: {cleaned_path}"
-                                    );
-                                }
-                                break;
-                            }
-                        }
-                    }
-                    if !should_exclude {
-                        file_paths.push(cleaned_path);
-                    }
-                } else {
-                    // Default behavior: add all explicitly provided files
-                    file_paths.push(cleaned_path);
-                }
-            }
-        }
-
-        // If we found files directly, skip the walker
-        if !file_paths.is_empty() || should_force_exclude {
-            file_paths.sort();
-            file_paths.dedup();
-            return Ok(file_paths);
-        }
-    }
-
-    // --- Execute Walk ---
-
-    for result in walk_builder.build() {
-        match result {
-            Ok(entry) => {
-                let path = entry.path();
-                // We are primarily interested in files. ignore crate handles dir traversal.
-                // Check if it's a file and if it wasn't explicitly excluded by overrides
-                if path.is_file() {
-                    let file_path = path.to_string_lossy().to_string();
-                    // Clean the path before pushing
-                    let cleaned_path = if let Some(stripped) = file_path.strip_prefix("./") {
-                        stripped.to_string()
-                    } else {
-                        file_path
-                    };
-                    file_paths.push(cleaned_path);
-                }
-            }
-            Err(err) => {
-                // Only show generic walking errors for directories, not for missing files
-                if is_discovery_mode {
-                    eprintln!("Error walking directory: {err}");
-                }
-            }
-        }
-    }
-
-    // Remove duplicate paths if WalkBuilder might yield them (e.g. multiple input paths)
-    file_paths.sort();
-    file_paths.dedup();
-
-    // --- Final Explicit Markdown Filter ---
-    // Ensure only files with .md or .markdown extensions are returned,
-    // regardless of how ignore crate overrides interacted with type filters.
-    file_paths.retain(|path_str| {
-        let path = Path::new(path_str);
-        path.extension().is_some_and(|ext| ext == "md" || ext == "markdown")
-    });
-    // -------------------------------------
-
-    Ok(file_paths) // Ensure the function returns the result
-}
-
-// Define a struct to hold the print results arguments
-pub(crate) struct PrintResultsArgs<'a> {
-    pub args: &'a CheckArgs,
-    pub has_issues: bool,
-    pub files_with_issues: usize,
-    pub total_issues: usize,
-    pub total_issues_fixed: usize,
-    pub total_fixable_issues: usize,
-    pub total_files_processed: usize,
-    pub duration_ms: u64,
-}
-
-fn print_results_from_checkargs(params: PrintResultsArgs) {
-    let PrintResultsArgs {
-        args,
-        has_issues,
-        files_with_issues,
-        total_issues,
-        total_issues_fixed,
-        total_fixable_issues,
-        total_files_processed,
-        duration_ms,
-    } = params;
-    // Choose singular or plural form of "file" based on count
-    let file_text = if total_files_processed == 1 { "file" } else { "files" };
-    let file_with_issues_text = if files_with_issues == 1 { "file" } else { "files" };
-
-    // Show results summary
-    if has_issues {
-        // If fix mode is enabled, only show the fixed summary
-        if args._fix && total_issues_fixed > 0 {
-            println!(
-                "\n{} Fixed {}/{} issues in {} {} ({}ms)",
-                "Fixed:".green().bold(),
-                total_issues_fixed,
-                total_issues,
-                files_with_issues,
-                file_with_issues_text,
-                duration_ms
-            );
-        } else {
-            // In non-fix mode, show issues summary with simplified count when appropriate
-            let files_display = if files_with_issues == total_files_processed {
-                // Just show the number if all files have issues
-                format!("{files_with_issues}")
-            } else {
-                // Show the fraction if only some files have issues
-                format!("{files_with_issues}/{total_files_processed}")
-            };
-
-            println!(
-                "\n{} Found {} issues in {} {} ({}ms)",
-                "Issues:".yellow(),
-                total_issues,
-                files_display,
-                file_text,
-                duration_ms
-            );
-
-            if !args._fix && total_fixable_issues > 0 {
-                // Display the exact count of fixable issues
-                println!("Run `rumdl fmt` to automatically fix {total_fixable_issues} of the {total_issues} issues");
-            }
-        }
-    } else {
-        println!(
-            "\n{} No issues found in {} {} ({}ms)",
-            "Success:".green().bold(),
-            total_files_processed,
-            file_text,
-            duration_ms
-        );
-    }
-}
-
-fn format_provenance(src: rumdl_config::ConfigSource) -> &'static str {
-    match src {
-        rumdl_config::ConfigSource::Cli => "CLI",
-        rumdl_config::ConfigSource::RumdlToml => ".rumdl.toml",
-        rumdl_config::ConfigSource::PyprojectToml => "pyproject.toml",
-        rumdl_config::ConfigSource::Default => "default",
-        rumdl_config::ConfigSource::Markdownlint => "markdownlint",
-    }
-}
-
-fn print_config_with_provenance(sourced: &rumdl_config::SourcedConfig) {
-    use colored::*;
-    use rumdl_lib::rule::Rule;
-    use rumdl_lib::rules::*;
-    let g = &sourced.global;
-    let mut all_lines = Vec::new();
-    // [global] section
-    let global_lines = vec![
-        ("[global]".to_string(), String::new()),
-        (
-            format!("enable = {:?}", g.enable.value),
-            format!("[from {}]", format_provenance(g.enable.source)),
-        ),
-        (
-            format!("disable = {:?}", g.disable.value),
-            format!("[from {}]", format_provenance(g.disable.source)),
-        ),
-        (
-            format!("exclude = {:?}", g.exclude.value),
-            format!("[from {}]", format_provenance(g.exclude.source)),
-        ),
-        (
-            format!("include = {:?}", g.include.value),
-            format!("[from {}]", format_provenance(g.include.source)),
-        ),
-        (
-            format!("respect_gitignore = {}", g.respect_gitignore.value),
-            format!("[from {}]", format_provenance(g.respect_gitignore.source)),
-        ),
-    ];
-
-    // Add flavor if it's set
-    let mut global_lines = global_lines;
-    global_lines.push((
-        format!("flavor = {:?}", g.flavor.value),
-        format!("[from {}]", format_provenance(g.flavor.source)),
-    ));
-    global_lines.push((String::new(), String::new()));
-    all_lines.extend(global_lines);
-    // All rules, but only if they have config items
-    let all_rules: Vec<Box<dyn Rule>> = vec![
-        Box::new(MD001HeadingIncrement),
-        Box::new(MD002FirstHeadingH1::default()),
-        Box::new(MD003HeadingStyle::default()),
-        Box::new(MD004UnorderedListStyle::new(UnorderedListStyle::Consistent)),
-        Box::new(MD005ListIndent::default()),
-        Box::new(MD006StartBullets),
-        Box::new(MD007ULIndent::default()),
-        Box::new(MD009TrailingSpaces::default()),
-        Box::new(MD010NoHardTabs::default()),
-        Box::new(MD011NoReversedLinks {}),
-        Box::new(MD012NoMultipleBlanks::default()),
-        Box::new(MD013LineLength::default()),
-        Box::new(MD018NoMissingSpaceAtx {}),
-        Box::new(MD019NoMultipleSpaceAtx {}),
-        Box::new(MD020NoMissingSpaceClosedAtx {}),
-        Box::new(MD021NoMultipleSpaceClosedAtx {}),
-        Box::new(MD022BlanksAroundHeadings::default()),
-        Box::new(MD023HeadingStartLeft {}),
-        Box::new(MD024NoDuplicateHeading::default()),
-        Box::new(MD025SingleTitle::default()),
-        Box::new(MD026NoTrailingPunctuation::default()),
-        Box::new(MD027MultipleSpacesBlockquote {}),
-        Box::new(MD028NoBlanksBlockquote {}),
-        Box::new(MD029OrderedListPrefix::default()),
-        Box::new(MD030ListMarkerSpace::default()),
-        Box::new(MD031BlanksAroundFences::default()),
-        Box::new(MD032BlanksAroundLists::default()),
-        Box::new(MD033NoInlineHtml::default()),
-        Box::new(MD034NoBareUrls {}),
-        Box::new(MD035HRStyle::default()),
-        Box::new(MD036NoEmphasisAsHeading::new(".,;:!?".to_string())),
-        Box::new(MD037NoSpaceInEmphasis),
-        Box::new(MD038NoSpaceInCode::default()),
-        Box::new(MD039NoSpaceInLinks),
-        Box::new(MD040FencedCodeLanguage {}),
-        Box::new(MD041FirstLineHeading::default()),
-        Box::new(MD042NoEmptyLinks::new()),
-        Box::new(MD043RequiredHeadings::new(Vec::new())),
-        Box::new(MD044ProperNames::new(Vec::new(), true)),
-        Box::new(MD045NoAltText::new()),
-        Box::new(MD046CodeBlockStyle::new(CodeBlockStyle::Consistent)),
-        Box::new(MD047SingleTrailingNewline),
-        Box::new(MD048CodeFenceStyle::new(CodeFenceStyle::Consistent)),
-        Box::new(MD049EmphasisStyle::default()),
-        Box::new(MD050StrongStyle::new(StrongStyle::Consistent)),
-        Box::new(MD051LinkFragments::new()),
-        Box::new(MD052ReferenceLinkImages::new()),
-        Box::new(MD053LinkImageReferenceDefinitions::default()),
-        Box::new(MD054LinkImageStyle::default()),
-        Box::new(MD055TablePipeStyle::default()),
-        Box::new(MD056TableColumnCount),
-        Box::new(MD058BlanksAroundTables::default()),
-    ];
-    let mut rule_names: Vec<_> = all_rules.iter().map(|r| r.name().to_string()).collect();
-    rule_names.sort();
-    for rule_name in rule_names {
-        let mut lines = Vec::new();
-        let norm_rule_name = rule_name.to_ascii_uppercase(); // Use uppercase for lookup
-        if let Some(rule_cfg) = sourced.rules.get(&norm_rule_name) {
-            let mut keys: Vec<_> = rule_cfg.values.keys().collect();
-            keys.sort();
-            for key in keys {
-                let sv = &rule_cfg.values[key];
-                let value_str = match &sv.value {
-                    toml::Value::Array(arr) => {
-                        let vals: Vec<String> = arr.iter().map(|v| v.to_string()).collect();
-                        format!("[{}]", vals.join(", "))
-                    }
-                    toml::Value::String(s) => format!("\"{s}\""),
-                    toml::Value::Boolean(b) => b.to_string(),
-                    toml::Value::Integer(i) => i.to_string(),
-                    toml::Value::Float(f) => f.to_string(),
-                    _ => sv.value.to_string(),
-                };
-                lines.push((
-                    format!("{key} = {value_str}"),
-                    format!("[from {}]", format_provenance(sv.source)),
-                ));
-            }
-        } else {
-            // Print default config for this rule, if available
-            if let Some((_, toml::Value::Table(table))) = all_rules
-                .iter()
-                .find(|r| r.name() == rule_name)
-                .and_then(|r| r.default_config_section())
-            {
-                let mut keys: Vec<_> = table.keys().collect();
-                keys.sort();
-                for key in keys {
-                    let v = &table[key];
-                    let value_str = match v {
-                        toml::Value::Array(arr) => {
-                            let vals: Vec<String> = arr.iter().map(|v| v.to_string()).collect();
-                            format!("[{}]", vals.join(", "))
-                        }
-                        toml::Value::String(s) => format!("\"{s}\""),
-                        toml::Value::Boolean(b) => b.to_string(),
-                        toml::Value::Integer(i) => i.to_string(),
-                        toml::Value::Float(f) => f.to_string(),
-                        _ => v.to_string(),
-                    };
-                    lines.push((
-                        format!("{key} = {value_str}"),
-                        format!("[from {}]", format_provenance(rumdl_config::ConfigSource::Default)),
-                    ));
-                }
-            }
-        }
-        if !lines.is_empty() {
-            all_lines.push((format!("[{rule_name}]"), String::new()));
-            all_lines.extend(lines);
-            all_lines.push((String::new(), String::new()));
-        }
-    }
-    let max_left = all_lines.iter().map(|(l, _)| l.len()).max().unwrap_or(0);
-    for (left, right) in &all_lines {
-        if left.is_empty() && right.is_empty() {
-            println!();
-        } else if !right.is_empty() {
-            println!("{:<width$} {}", left, right.dimmed(), width = max_left);
-        } else {
-            println!("{left:<max_left$} {right}");
-        }
-    }
-}
-
-fn format_toml_value(val: &toml::Value) -> String {
-    match val {
-        toml::Value::String(s) => format!("\"{s}\""),
-        toml::Value::Integer(i) => i.to_string(),
-        toml::Value::Float(f) => f.to_string(),
-        toml::Value::Boolean(b) => b.to_string(),
-        toml::Value::Array(arr) => {
-            let vals: Vec<String> = arr.iter().map(format_toml_value).collect();
-            format!("[{}]", vals.join(", "))
-        }
-        toml::Value::Table(_) => "<table>".to_string(),
-        toml::Value::Datetime(dt) => dt.to_string(),
-    }
+    #[arg(skip)]
+    pub fail_on_mode: FailOn,
 }
 
 /// Offer to install the VS Code extension during init
@@ -982,11 +644,10 @@ fn offer_vscode_extension_install() {
     if let Some((cmd, editor_name)) = VsCodeExtension::current_editor_from_env() {
         println!("\nDetected you're using {}.", editor_name.green());
         println!("Would you like to install the rumdl extension? [Y/n]");
-        print!("> ");
-        io::stdout().flush().unwrap();
 
-        let mut answer = String::new();
-        io::stdin().read_line(&mut answer).unwrap();
+        let Some(answer) = prompt_user("> ") else {
+            return; // I/O error, exit gracefully
+        };
 
         if answer.trim().is_empty() || answer.trim().eq_ignore_ascii_case("y") {
             match VsCodeExtension::with_command(cmd) {
@@ -1013,11 +674,10 @@ fn offer_vscode_extension_install() {
                 let (cmd, editor_name) = available_editors[0];
                 println!("\n{} detected.", editor_name.green());
                 println!("Would you like to install the rumdl extension for real-time linting? [y/N]");
-                print!("> ");
-                io::stdout().flush().unwrap();
 
-                let mut answer = String::new();
-                io::stdin().read_line(&mut answer).unwrap();
+                let Some(answer) = prompt_user("> ") else {
+                    return; // I/O error, exit gracefully
+                };
 
                 if answer.trim().eq_ignore_ascii_case("y") {
                     match VsCodeExtension::with_command(cmd) {
@@ -1042,12 +702,11 @@ fn offer_vscode_extension_install() {
                     "\nInstall the rumdl extension? [1-{}/a=all/n=none]:",
                     available_editors.len()
                 );
-                print!("> ");
-                io::stdout().flush().unwrap();
 
-                let mut answer = String::new();
-                io::stdin().read_line(&mut answer).unwrap();
-                let answer = answer.trim().to_lowercase();
+                let Some(response) = prompt_user("> ") else {
+                    return; // I/O error, exit gracefully
+                };
+                let answer = response.trim().to_lowercase();
 
                 if answer == "a" || answer == "all" {
                     // Install in all editors
@@ -1090,7 +749,169 @@ fn offer_vscode_extension_install() {
     println!("  • Open your editor to see real-time linting");
 }
 
+/// Calculate total size and count of files in a directory recursively
+fn calculate_directory_stats(path: &Path) -> io::Result<(u64, usize)> {
+    let mut total_size = 0u64;
+    let mut file_count = 0usize;
+
+    fn visit_dir(path: &Path, total_size: &mut u64, file_count: &mut usize) -> io::Result<()> {
+        if path.is_dir() {
+            for entry in fs::read_dir(path)? {
+                let entry = entry?;
+                let path = entry.path();
+                if path.is_dir() {
+                    visit_dir(&path, total_size, file_count)?;
+                } else if let Ok(metadata) = entry.metadata() {
+                    *total_size += metadata.len();
+                    *file_count += 1;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    visit_dir(path, &mut total_size, &mut file_count)?;
+    Ok((total_size, file_count))
+}
+
+/// Format bytes into human-readable size
+fn format_size(bytes: u64) -> String {
+    const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
+    let mut size = bytes as f64;
+    let mut unit_index = 0;
+
+    while size >= 1024.0 && unit_index < UNITS.len() - 1 {
+        size /= 1024.0;
+        unit_index += 1;
+    }
+
+    if unit_index == 0 {
+        format!("{} {}", bytes, UNITS[0])
+    } else {
+        format!("{:.2} {}", size, UNITS[unit_index])
+    }
+}
+
+/// Resolve cache directory with same logic as check command
+fn resolve_cache_directory(cli: &Cli) -> std::path::PathBuf {
+    // Load config to get cache_dir setting
+    let sourced = match rumdl_config::SourcedConfig::load_with_discovery(
+        cli.config.as_deref(),
+        None,
+        cli.no_config || cli.isolated,
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("{}: {}", "Config error".red().bold(), e);
+            exit::tool_error();
+        }
+    };
+
+    // Get cache_dir from config
+    let cache_dir_from_config = sourced
+        .global
+        .cache_dir
+        .as_ref()
+        .map(|sv| std::path::PathBuf::from(&sv.value));
+
+    let project_root = sourced.project_root.clone();
+
+    // Resolve cache directory with precedence: env var → config → default
+    let mut cache_dir = std::env::var("RUMDL_CACHE_DIR")
+        .ok()
+        .map(std::path::PathBuf::from)
+        .or(cache_dir_from_config)
+        .unwrap_or_else(|| std::path::PathBuf::from(".rumdl_cache"));
+
+    // If cache_dir is relative and we have a project root, resolve relative to project root
+    if cache_dir.is_relative()
+        && let Some(root) = project_root
+    {
+        cache_dir = root.join(&cache_dir);
+    }
+
+    cache_dir
+}
+
+/// Handle the clean command
+fn handle_clean_command(cli: &Cli) {
+    let cache_dir = resolve_cache_directory(cli);
+
+    // Check if cache directory exists
+    if !cache_dir.exists() {
+        println!(
+            "{} {} ({})",
+            "No cache found at".yellow().bold(),
+            cache_dir.display(),
+            "nothing to clean".dimmed()
+        );
+        return;
+    }
+
+    // Calculate cache stats before deletion
+    match calculate_directory_stats(&cache_dir) {
+        Ok((size, file_count)) => {
+            if size == 0 && file_count == 0 {
+                println!(
+                    "{} {} ({})",
+                    "Cache is empty at".yellow().bold(),
+                    cache_dir.display(),
+                    "nothing to clean".dimmed()
+                );
+                // Still remove the directory structure
+                let cache_instance = cache::LintCache::new(cache_dir.clone(), true);
+                let _ = cache_instance.clear();
+                return;
+            }
+
+            // Create cache instance and clear
+            let cache_instance = cache::LintCache::new(cache_dir.clone(), true);
+
+            match cache_instance.clear() {
+                Ok(_) => {
+                    println!("{} {}", "Cleared cache:".green().bold(), cache_dir.display());
+                    println!(
+                        "  {} {} {} {}",
+                        "Removed".dimmed(),
+                        format_size(size).cyan(),
+                        "across".dimmed(),
+                        format!("{file_count} files").cyan()
+                    );
+                }
+                Err(e) => {
+                    eprintln!("{}: {}", "Error clearing cache".red().bold(), e);
+                    eprintln!("  Cache location: {}", cache_dir.display());
+                    exit::tool_error();
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("{}: {}", "Error reading cache directory".red().bold(), e);
+            eprintln!("  Cache location: {}", cache_dir.display());
+            exit::tool_error();
+        }
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
+    // Reset SIGPIPE to default behavior on Unix so piping to `head` etc. works correctly.
+    // Without this, Rust ignores SIGPIPE and `println!` panics on broken pipe.
+    #[cfg(unix)]
+    {
+        // SAFETY: Setting SIGPIPE to SIG_DFL is standard practice for CLI tools
+        // that produce output meant to be piped. This is safe and idiomatic.
+        unsafe {
+            libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+        }
+    }
+
+    // Initialize logging from RUST_LOG environment variable
+    // This allows users to debug config discovery with: RUST_LOG=debug rumdl check ...
+    env_logger::Builder::from_default_env()
+        .format_timestamp(None)
+        .format_target(false)
+        .init();
+
     let cli = Cli::parse();
 
     // Set color override globally based on --color flag
@@ -1112,11 +933,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                     if Path::new("pyproject.toml").exists() {
                         // pyproject.toml exists, ask to append
                         println!("pyproject.toml already exists. Would you like to append rumdl configuration? [y/N]");
-                        print!("> ");
-                        io::stdout().flush().unwrap();
 
-                        let mut answer = String::new();
-                        io::stdin().read_line(&mut answer).unwrap();
+                        let Some(answer) = prompt_user("> ") else {
+                            eprintln!("Error: Failed to read user input");
+                            exit::tool_error();
+                        };
 
                         if answer.trim().eq_ignore_ascii_case("y") {
                             // Append to existing file
@@ -1128,6 +949,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                         println!(
                                             "Please edit the file manually to avoid overwriting existing configuration."
                                         );
+                                        return;
                                     }
 
                                     // Append with a blank line for separation
@@ -1157,8 +979,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                     } else {
                         // Create new pyproject.toml with basic structure
                         let basic_content = r#"[build-system]
-requires = [\"setuptools>=42\", \"wheel\"]
-build-backend = \"setuptools.build_meta\"
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
 
 "#;
                         let content = basic_content.to_owned() + &config_content;
@@ -1173,24 +995,31 @@ build-backend = \"setuptools.build_meta\"
                             }
                         }
                     }
-                }
+                } else {
+                    // Create default .rumdl.toml config file
+                    match rumdl_config::create_default_config(".rumdl.toml") {
+                        Ok(_) => {
+                            println!("Created default configuration file: .rumdl.toml");
 
-                // Create default config file
-                match rumdl_config::create_default_config(".rumdl.toml") {
-                    Ok(_) => {
-                        println!("Created default configuration file: .rumdl.toml");
-
-                        // Offer to install VS Code extension
-                        offer_vscode_extension_install();
-                    }
-                    Err(e) => {
-                        eprintln!("{}: Failed to create config file: {}", "Error".red().bold(), e);
-                        exit::tool_error();
+                            // Offer to install VS Code extension
+                            offer_vscode_extension_install();
+                        }
+                        Err(e) => {
+                            eprintln!("{}: Failed to create config file: {}", "Error".red().bold(), e);
+                            exit::tool_error();
+                        }
                     }
                 }
             }
-            Commands::Check(args) => {
-                // If --no-config or --isolated is set, skip config loading
+            Commands::Check(mut args) => {
+                args.fix_mode = if args.fix { FixMode::CheckFix } else { FixMode::Check };
+                args.fail_on_mode = match args.fail_on.as_str() {
+                    "error" => FailOn::Error,
+                    "warning" => FailOn::Warning,
+                    "never" => FailOn::Never,
+                    _ => FailOn::Any,
+                };
+
                 if cli.no_config || cli.isolated {
                     run_check(&args, None, cli.no_config || cli.isolated);
                 } else {
@@ -1198,9 +1027,19 @@ build-backend = \"setuptools.build_meta\"
                 }
             }
             Commands::Fmt(mut args) => {
-                // fmt is an alias for check --fix
-                args._fix = true;
-                // If --no-config or --isolated is set, skip config loading
+                args.fix_mode = FixMode::Format;
+                args.fail_on_mode = match args.fail_on.as_str() {
+                    "error" => FailOn::Error,
+                    "warning" => FailOn::Warning,
+                    "never" => FailOn::Never,
+                    _ => FailOn::Any,
+                };
+
+                // --check mode enables diff (don't write files) and will exit 1 if changes needed
+                if args.check {
+                    args.diff = true;
+                }
+
                 if cli.no_config || cli.isolated {
                     run_check(&args, None, cli.no_config || cli.isolated);
                 } else {
@@ -1208,61 +1047,9 @@ build-backend = \"setuptools.build_meta\"
                 }
             }
             Commands::Rule { rule } => {
-                use rumdl_lib::rules::*;
-                let all_rules: Vec<Box<dyn Rule>> = vec![
-                    Box::new(MD001HeadingIncrement),
-                    Box::new(MD002FirstHeadingH1::default()),
-                    Box::new(MD003HeadingStyle::default()),
-                    Box::new(MD004UnorderedListStyle::new(UnorderedListStyle::Consistent)),
-                    Box::new(MD005ListIndent::default()),
-                    Box::new(MD006StartBullets),
-                    Box::new(MD007ULIndent::default()),
-                    Box::new(MD009TrailingSpaces::default()),
-                    Box::new(MD010NoHardTabs::default()),
-                    Box::new(MD011NoReversedLinks {}),
-                    Box::new(MD012NoMultipleBlanks::default()),
-                    Box::new(MD013LineLength::default()),
-                    Box::new(MD018NoMissingSpaceAtx {}),
-                    Box::new(MD019NoMultipleSpaceAtx {}),
-                    Box::new(MD020NoMissingSpaceClosedAtx {}),
-                    Box::new(MD021NoMultipleSpaceClosedAtx {}),
-                    Box::new(MD022BlanksAroundHeadings::default()),
-                    Box::new(MD023HeadingStartLeft {}),
-                    Box::new(MD024NoDuplicateHeading::default()),
-                    Box::new(MD025SingleTitle::default()),
-                    Box::new(MD026NoTrailingPunctuation::default()),
-                    Box::new(MD027MultipleSpacesBlockquote {}),
-                    Box::new(MD028NoBlanksBlockquote {}),
-                    Box::new(MD029OrderedListPrefix::default()),
-                    Box::new(MD030ListMarkerSpace::default()),
-                    Box::new(MD031BlanksAroundFences::default()),
-                    Box::new(MD032BlanksAroundLists::default()),
-                    Box::new(MD033NoInlineHtml::default()),
-                    Box::new(MD034NoBareUrls {}),
-                    Box::new(MD035HRStyle::default()),
-                    Box::new(MD036NoEmphasisAsHeading::new(".,;:!?".to_string())),
-                    Box::new(MD037NoSpaceInEmphasis),
-                    Box::new(MD038NoSpaceInCode::default()),
-                    Box::new(MD039NoSpaceInLinks),
-                    Box::new(MD040FencedCodeLanguage {}),
-                    Box::new(MD041FirstLineHeading::default()),
-                    Box::new(MD042NoEmptyLinks::new()),
-                    Box::new(MD043RequiredHeadings::new(Vec::new())),
-                    Box::new(MD044ProperNames::new(Vec::new(), true)),
-                    Box::new(MD045NoAltText::new()),
-                    Box::new(MD046CodeBlockStyle::new(CodeBlockStyle::Consistent)),
-                    Box::new(MD047SingleTrailingNewline),
-                    Box::new(MD048CodeFenceStyle::new(CodeFenceStyle::Consistent)),
-                    Box::new(MD049EmphasisStyle::default()),
-                    Box::new(MD050StrongStyle::new(StrongStyle::Consistent)),
-                    Box::new(MD051LinkFragments::new()),
-                    Box::new(MD052ReferenceLinkImages::new()),
-                    Box::new(MD053LinkImageReferenceDefinitions::default()),
-                    Box::new(MD054LinkImageStyle::default()),
-                    Box::new(MD055TablePipeStyle::default()),
-                    Box::new(MD056TableColumnCount),
-                    Box::new(MD058BlanksAroundTables::default()),
-                ];
+                // Use the canonical all_rules function to avoid drift between CLI and library
+                let default_config = rumdl_lib::config::Config::default();
+                let all_rules = rumdl_lib::rules::all_rules(&default_config);
                 if let Some(rule_query) = rule {
                     let rule_query = rule_query.to_ascii_uppercase();
                     let found = all_rules.iter().find(|r| {
@@ -1293,8 +1080,18 @@ build-backend = \"setuptools.build_meta\"
             Commands::Config {
                 subcmd,
                 defaults,
+                no_defaults,
                 output,
             } => {
+                // Validate mutual exclusivity of --defaults and --no-defaults
+                if defaults && no_defaults {
+                    eprintln!(
+                        "{}: Cannot use both --defaults and --no-defaults flags together",
+                        "Error".red().bold()
+                    );
+                    exit::tool_error();
+                }
+
                 // Handle config subcommands
                 if let Some(ConfigSubcommand::Get { key }) = subcmd {
                     if let Some((section_part, field_part)) = key.split_once('.') {
@@ -1310,8 +1107,8 @@ build-backend = \"setuptools.build_meta\"
                                 exit::tool_error();
                             }
                         };
-                        // 2. Convert to final Config once
-                        let final_config: rumdl_config::Config = sourced.clone().into();
+                        // 2. Convert to final Config once (config-get doesn't need validation warnings)
+                        let final_config: rumdl_config::Config = sourced.clone().into_validated_unchecked().into();
 
                         let normalized_field = normalize_key(field_part);
 
@@ -1393,8 +1190,8 @@ build-backend = \"setuptools.build_meta\"
                                 println!(
                                     "{} = {} [from {}]",
                                     key,
-                                    format_toml_value(&value),
-                                    format_provenance(source)
+                                    formatter::format_toml_value(&value),
+                                    formatter::format_provenance(source)
                                 );
                                 // Successfully handled 'get', exit the command processing
                             } else {
@@ -1423,8 +1220,8 @@ build-backend = \"setuptools.build_meta\"
                                     "{}.{} = {} [from {}]",
                                     normalized_rule_name,
                                     normalized_field,
-                                    format_toml_value(value),
-                                    format_provenance(provenance)
+                                    formatter::format_toml_value(value),
+                                    formatter::format_provenance(provenance)
                                 );
                                 // Successfully handled 'get', exit the command processing
                             } else {
@@ -1433,7 +1230,7 @@ build-backend = \"setuptools.build_meta\"
                                     && let Some((_, toml::Value::Table(table))) = rule.default_config_section()
                                     && let Some(v) = table.get(&normalized_field)
                                 {
-                                    let value_str = format_toml_value(v);
+                                    let value_str = formatter::format_toml_value(v);
                                     println!("{normalized_rule_name}.{normalized_field} = {value_str} [from default]");
                                     // Successfully handled 'get', exit the command processing
                                     return;
@@ -1515,67 +1312,158 @@ build-backend = \"setuptools.build_meta\"
                     }
                     // --- END CONFIG VALIDATION ---
 
-                    // Decide which config to print based on --defaults
+                    // Decide which config to print based on --defaults and --no-defaults
                     let final_sourced_to_print = sourced_reg;
 
-                    // If --output toml is set, print as valid TOML
-                    if output.as_deref() == Some("toml") {
-                        if defaults {
-                            // For defaults with TOML output, generate a complete default config
-                            let mut default_config = rumdl_config::Config::default();
+                    // Handle output format (toml, json, or smart output)
+                    match output.as_deref() {
+                        Some("toml") => {
+                            if defaults {
+                                // For defaults with TOML output, generate a complete default config
+                                let mut default_config = rumdl_config::Config::default();
 
-                            // Add all rule default configurations
-                            for rule in &all_rules_reg {
-                                if let Some((rule_name, toml::Value::Table(table))) = rule.default_config_section() {
-                                    let rule_config = rumdl_config::RuleConfig {
-                                        values: table.into_iter().collect(),
-                                    };
-                                    default_config.rules.insert(rule_name.to_uppercase(), rule_config);
+                                // Add all rule default configurations
+                                for rule in &all_rules_reg {
+                                    if let Some((rule_name, toml::Value::Table(table))) = rule.default_config_section()
+                                    {
+                                        let rule_config = rumdl_config::RuleConfig {
+                                            severity: None,
+                                            values: table.into_iter().collect(),
+                                        };
+                                        default_config.rules.insert(rule_name.to_uppercase(), rule_config);
+                                    }
                                 }
-                            }
 
-                            match toml::to_string_pretty(&default_config) {
-                                Ok(s) => println!("{s}"),
-                                Err(e) => {
-                                    eprintln!("Failed to serialize config to TOML: {e}");
-                                    exit::tool_error();
+                                match toml::to_string_pretty(&default_config) {
+                                    Ok(s) => println!("{s}"),
+                                    Err(e) => {
+                                        eprintln!("Failed to serialize config to TOML: {e}");
+                                        exit::tool_error();
+                                    }
                                 }
-                            }
-                        } else {
-                            let config_to_print: rumdl_config::Config = final_sourced_to_print.into();
-                            match toml::to_string_pretty(&config_to_print) {
-                                Ok(s) => println!("{s}"),
-                                Err(e) => {
-                                    eprintln!("Failed to serialize config to TOML: {e}");
-                                    exit::tool_error();
+                            } else if no_defaults {
+                                // For --no-defaults with TOML output, filter to non-defaults
+                                let filtered_sourced = filter_sourced_config_to_non_defaults(&final_sourced_to_print);
+                                let config_to_print: rumdl_config::Config =
+                                    filtered_sourced.into_validated_unchecked().into();
+                                match toml::to_string_pretty(&config_to_print) {
+                                    Ok(s) => println!("{s}"),
+                                    Err(e) => {
+                                        eprintln!("Failed to serialize config to TOML: {e}");
+                                        exit::tool_error();
+                                    }
+                                }
+                            } else {
+                                let config_to_print: rumdl_config::Config =
+                                    final_sourced_to_print.into_validated_unchecked().into();
+                                match toml::to_string_pretty(&config_to_print) {
+                                    Ok(s) => println!("{s}"),
+                                    Err(e) => {
+                                        eprintln!("Failed to serialize config to TOML: {e}");
+                                        exit::tool_error();
+                                    }
                                 }
                             }
                         }
-                    } else {
-                        // Otherwise, print the smart output with provenance annotations
-                        print_config_with_provenance(&final_sourced_to_print);
+                        Some("json") => {
+                            if defaults {
+                                // For defaults with JSON output, generate a complete default config
+                                let mut default_config = rumdl_config::Config::default();
+
+                                // Add all rule default configurations
+                                for rule in &all_rules_reg {
+                                    if let Some((rule_name, toml::Value::Table(table))) = rule.default_config_section()
+                                    {
+                                        let rule_config = rumdl_config::RuleConfig {
+                                            severity: None,
+                                            values: table.into_iter().collect(),
+                                        };
+                                        default_config.rules.insert(rule_name.to_uppercase(), rule_config);
+                                    }
+                                }
+
+                                match serde_json::to_string_pretty(&default_config) {
+                                    Ok(s) => println!("{s}"),
+                                    Err(e) => {
+                                        eprintln!("Failed to serialize config to JSON: {e}");
+                                        exit::tool_error();
+                                    }
+                                }
+                            } else if no_defaults {
+                                // For --no-defaults with JSON output, filter to non-defaults
+                                let filtered_sourced = filter_sourced_config_to_non_defaults(&final_sourced_to_print);
+                                let config_to_print: rumdl_config::Config =
+                                    filtered_sourced.into_validated_unchecked().into();
+                                match serde_json::to_string_pretty(&config_to_print) {
+                                    Ok(s) => println!("{s}"),
+                                    Err(e) => {
+                                        eprintln!("Failed to serialize config to JSON: {e}");
+                                        exit::tool_error();
+                                    }
+                                }
+                            } else {
+                                let config_to_print: rumdl_config::Config =
+                                    final_sourced_to_print.into_validated_unchecked().into();
+                                match serde_json::to_string_pretty(&config_to_print) {
+                                    Ok(s) => println!("{s}"),
+                                    Err(e) => {
+                                        eprintln!("Failed to serialize config to JSON: {e}");
+                                        exit::tool_error();
+                                    }
+                                }
+                            }
+                        }
+                        _ => {
+                            // Otherwise, print the smart output with provenance annotations
+                            if no_defaults {
+                                formatter::print_config_with_provenance_no_defaults(
+                                    &final_sourced_to_print,
+                                    &all_rules_reg,
+                                );
+                            } else {
+                                formatter::print_config_with_provenance(&final_sourced_to_print, &all_rules_reg);
+                            }
+                        }
                     }
                 }
             }
-            Commands::Server { port, stdio, verbose } => {
-                // Setup logging for the LSP server
+            Commands::Schema { action } => {
+                handle_schema_command(action);
+            }
+            Commands::Server {
+                port,
+                stdio,
+                verbose,
+                config,
+            } => {
+                // If verbose flag is set, increase log level to Debug
+                // (logging is already initialized in main() via RUST_LOG)
                 if verbose {
-                    env_logger::Builder::from_default_env()
-                        .filter_level(log::LevelFilter::Debug)
-                        .init();
-                } else {
-                    env_logger::Builder::from_default_env()
-                        .filter_level(log::LevelFilter::Info)
-                        .init();
+                    log::set_max_level(log::LevelFilter::Debug);
+                }
+
+                // Validate config file exists if provided
+                if let Some(config_path) = &config
+                    && !std::path::Path::new(config_path).exists()
+                {
+                    eprintln!(
+                        "{}: Configuration file not found: {}",
+                        "Error".red().bold(),
+                        config_path
+                    );
+                    exit::tool_error();
                 }
 
                 // Start the LSP server
-                let runtime = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
+                let runtime = tokio::runtime::Runtime::new().unwrap_or_else(|e| {
+                    eprintln!("{}: Failed to create Tokio runtime: {}", "Error".red().bold(), e);
+                    exit::tool_error();
+                });
 
                 runtime.block_on(async {
                     if let Some(port) = port {
                         // TCP mode for debugging
-                        if let Err(e) = rumdl_lib::lsp::start_tcp_server(port).await {
+                        if let Err(e) = rumdl_lib::lsp::start_tcp_server(port, config.as_deref()).await {
                             eprintln!("Failed to start LSP server on port {port}: {e}");
                             exit::tool_error();
                         }
@@ -1583,7 +1471,7 @@ build-backend = \"setuptools.build_meta\"
                         // Standard LSP mode over stdio (default behavior)
                         // Note: stdio flag is for explicit documentation, behavior is the same
                         let _ = stdio; // Suppress unused variable warning
-                        if let Err(e) = rumdl_lib::lsp::start_server().await {
+                        if let Err(e) = rumdl_lib::lsp::start_server(config.as_deref()).await {
                             eprintln!("Failed to start LSP server: {e}");
                             exit::tool_error();
                         }
@@ -1610,20 +1498,28 @@ build-backend = \"setuptools.build_meta\"
                 // Convert to rumdl config format
                 let fragment = ml_config.map_to_sourced_rumdl_config_fragment(Some(&file));
 
+                // Determine if we're outputting to pyproject.toml
+                let is_pyproject = output
+                    .as_ref()
+                    .is_some_and(|p| p.ends_with("pyproject.toml") || p == "pyproject.toml");
+
                 // Generate the output
                 let output_content = match format.as_str() {
                     "toml" => {
                         // Convert to TOML format
                         let mut output = String::new();
 
+                        // For pyproject.toml, wrap everything in [tool.rumdl]
+                        let section_prefix = if is_pyproject { "tool.rumdl." } else { "" };
+
                         // Add global settings if any
                         if !fragment.global.enable.value.is_empty()
                             || !fragment.global.disable.value.is_empty()
                             || !fragment.global.exclude.value.is_empty()
                             || !fragment.global.include.value.is_empty()
-                            || fragment.global.line_length.value != 80
+                            || fragment.global.line_length.value.get() != 80
                         {
-                            output.push_str("[global]\n");
+                            output.push_str(&format!("[{section_prefix}global]\n"));
                             if !fragment.global.enable.value.is_empty() {
                                 output.push_str(&format!("enable = {:?}\n", fragment.global.enable.value));
                             }
@@ -1636,8 +1532,9 @@ build-backend = \"setuptools.build_meta\"
                             if !fragment.global.include.value.is_empty() {
                                 output.push_str(&format!("include = {:?}\n", fragment.global.include.value));
                             }
-                            if fragment.global.line_length.value != 80 {
-                                output.push_str(&format!("line_length = {}\n", fragment.global.line_length.value));
+                            if fragment.global.line_length.value.get() != 80 {
+                                output
+                                    .push_str(&format!("line_length = {}\n", fragment.global.line_length.value.get()));
                             }
                             output.push('\n');
                         }
@@ -1645,7 +1542,7 @@ build-backend = \"setuptools.build_meta\"
                         // Add rule-specific settings
                         for (rule_name, rule_config) in &fragment.rules {
                             if !rule_config.values.is_empty() {
-                                output.push_str(&format!("[{rule_name}]\n"));
+                                output.push_str(&format!("[{section_prefix}{rule_name}]\n"));
                                 for (key, sourced_value) in &rule_config.values {
                                     // Skip the generic "value" key if we have more specific keys
                                     if key == "value" && rule_config.values.len() > 1 {
@@ -1699,7 +1596,7 @@ build-backend = \"setuptools.build_meta\"
                             || !fragment.global.disable.value.is_empty()
                             || !fragment.global.exclude.value.is_empty()
                             || !fragment.global.include.value.is_empty()
-                            || fragment.global.line_length.value != 80
+                            || fragment.global.line_length.value.get() != 80
                         {
                             let mut global = serde_json::Map::new();
                             if !fragment.global.enable.value.is_empty() {
@@ -1758,11 +1655,11 @@ build-backend = \"setuptools.build_meta\"
                                     ),
                                 );
                             }
-                            if fragment.global.line_length.value != 80 {
+                            if fragment.global.line_length.value.get() != 80 {
                                 global.insert(
                                     "line_length".to_string(),
                                     serde_json::Value::Number(serde_json::Number::from(
-                                        fragment.global.line_length.value,
+                                        fragment.global.line_length.value.get(),
                                     )),
                                 );
                             }
@@ -1835,6 +1732,9 @@ build-backend = \"setuptools.build_meta\"
                     }
                 }
             }
+            Commands::Clean => {
+                handle_clean_command(&cli);
+            }
             Commands::Version => {
                 // Use clap's version info
                 println!("rumdl {}", env!("CARGO_PKG_VERSION"));
@@ -1849,688 +1749,36 @@ build-backend = \"setuptools.build_meta\"
     }
 }
 
-/// Process markdown content from stdin
-fn process_stdin(rules: &[Box<dyn Rule>], args: &CheckArgs, config: &rumdl_config::Config) {
-    use rumdl_lib::output::{OutputFormat, OutputWriter};
-
-    // If silent mode is enabled, also enable quiet mode
-    let quiet = args.quiet || args.silent;
-
-    // In check mode without --fix, diagnostics should go to stderr by default
-    // In fix mode, fixed content goes to stdout, so diagnostics also go to stdout unless --stderr is specified
-    let use_stderr = if args._fix {
-        args.stderr
-    } else {
-        true // Check mode: diagnostics to stderr by default
-    };
-    // Create output writer for linting results
-    let output_writer = OutputWriter::new(use_stderr, quiet, args.silent);
-
-    // Determine output format
-    let output_format_str = args
-        .output_format
-        .as_deref()
-        .or(config.global.output_format.as_deref())
-        .or_else(|| {
-            // Legacy support: map --output json to --output-format json
-            if args.output == "json" { Some("json") } else { None }
-        })
-        .unwrap_or("text");
-
-    let output_format = match OutputFormat::from_str(output_format_str) {
-        Ok(fmt) => fmt,
-        Err(e) => {
-            eprintln!("{}: {}", "Error".red().bold(), e);
-            exit::tool_error();
-        }
-    };
-
-    // Read all content from stdin
-    let mut content = String::new();
-    if let Err(e) = io::stdin().read_to_string(&mut content) {
-        if !args.silent {
-            eprintln!("Error reading from stdin: {e}");
-        }
-        exit::violations_found();
-    }
-
-    // Determine the filename to use for display and context
-    let display_filename = args.stdin_filename.as_deref().unwrap_or("<stdin>");
-
-    // Set RUMDL_FILE_PATH if stdin-filename is provided
-    // This allows rules like MD057 to know the file location for relative path checking
-    if let Some(ref filename) = args.stdin_filename {
-        unsafe {
-            std::env::set_var("RUMDL_FILE_PATH", filename);
-        }
-    }
-
-    // Create a lint context for the stdin content
-    let ctx = LintContext::new(&content, config.markdown_flavor());
-    let mut all_warnings = Vec::new();
-
-    // Run all enabled rules on the content
-    for rule in rules {
-        match rule.check(&ctx) {
-            Ok(warnings) => {
-                all_warnings.extend(warnings);
-            }
-            Err(e) => {
-                if !args.silent {
-                    eprintln!("Error running rule {}: {}", rule.name(), e);
-                }
-            }
-        }
-    }
-
-    // Sort warnings by line/column
-    all_warnings.sort_by(|a, b| {
-        if a.line == b.line {
-            a.column.cmp(&b.column)
-        } else {
-            a.line.cmp(&b.line)
-        }
-    });
-
-    let has_issues = !all_warnings.is_empty();
-
-    // Apply fixes if requested
-    if args._fix {
-        if has_issues {
-            let mut fixed_content = content.clone();
-            let warnings_fixed = apply_fixes_stdin(rules, &all_warnings, &mut fixed_content, quiet, config);
-
-            // Output the fixed content to stdout
-            print!("{fixed_content}");
-
-            // Re-check the fixed content to see if any issues remain
-            let fixed_ctx = LintContext::new(&fixed_content, config.markdown_flavor());
-            let mut remaining_warnings = Vec::new();
-            for rule in rules {
-                if let Ok(warnings) = rule.check(&fixed_ctx) {
-                    remaining_warnings.extend(warnings);
-                }
-            }
-
-            // Only show diagnostics to stderr if not in quiet mode
-            if !quiet && !remaining_warnings.is_empty() {
-                let formatter = output_format.create_formatter();
-                let formatted = formatter.format_warnings(&remaining_warnings, display_filename);
-                eprintln!("{formatted}");
-                eprintln!(
-                    "\n{} issue(s) fixed, {} issue(s) remaining",
-                    warnings_fixed,
-                    remaining_warnings.len()
-                );
-            }
-
-            // Exit with success if all issues were fixed, error if issues remain
-            if !remaining_warnings.is_empty() {
-                exit::violations_found();
-            }
-        } else {
-            // No issues found, output the original content unchanged
-            print!("{content}");
-        }
-
-        // Clean up environment variable
-        if args.stdin_filename.is_some() {
-            unsafe {
-                std::env::remove_var("RUMDL_FILE_PATH");
-            }
-        }
-        return;
-    }
-
-    // Normal check mode (no fix) - output diagnostics
-    // For formats that need collection
-    if matches!(
-        output_format,
-        OutputFormat::Json | OutputFormat::GitLab | OutputFormat::Sarif | OutputFormat::Junit
-    ) {
-        let file_warnings = vec![(display_filename.to_string(), all_warnings)];
-        let output = match output_format {
-            OutputFormat::Json => rumdl_lib::output::formatters::json::format_all_warnings_as_json(&file_warnings),
-            OutputFormat::GitLab => rumdl_lib::output::formatters::gitlab::format_gitlab_report(&file_warnings),
-            OutputFormat::Sarif => rumdl_lib::output::formatters::sarif::format_sarif_report(&file_warnings),
-            OutputFormat::Junit => rumdl_lib::output::formatters::junit::format_junit_report(&file_warnings, 0),
-            _ => unreachable!(),
-        };
-
-        output_writer.writeln(&output).unwrap_or_else(|e| {
-            eprintln!("Error writing output: {e}");
-        });
-    } else {
-        // Use formatter for line-by-line output
-        let formatter = output_format.create_formatter();
-        if !all_warnings.is_empty() {
-            let formatted = formatter.format_warnings(&all_warnings, display_filename);
-            output_writer.writeln(&formatted).unwrap_or_else(|e| {
-                eprintln!("Error writing output: {e}");
-            });
-        }
-
-        // Print summary if not quiet
-        if !quiet {
-            if has_issues {
-                output_writer
-                    .writeln(&format!(
-                        "\nFound {} issue(s) in {}",
-                        all_warnings.len(),
-                        display_filename
-                    ))
-                    .ok();
-            } else {
-                output_writer
-                    .writeln(&format!("No issues found in {display_filename}"))
-                    .ok();
-            }
-        }
-    }
-
-    // Clean up environment variable
-    if args.stdin_filename.is_some() {
-        unsafe {
-            std::env::remove_var("RUMDL_FILE_PATH");
-        }
-    }
-
-    // Exit with error code if issues found
-    if has_issues {
-        exit::violations_found();
-    }
-}
-
-/// Represents a change type detected in watch mode
-#[derive(Debug, Clone, Copy)]
-enum ChangeKind {
-    Configuration,
-    SourceFile,
-}
-
-/// Detects what kind of change occurred based on the file extension
-fn change_detected(event: &Event) -> Option<ChangeKind> {
-    // Skip access and other non-modification events
-    if !matches!(
-        event.kind,
-        EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
-    ) {
-        return None;
-    }
-
-    let mut source_file = false;
-    for path in &event.paths {
-        // Check if this is a configuration file
-        if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-            // Check for rumdl-specific config files
-            if matches!(
-                file_name,
-                ".rumdl.toml"
-                    | "rumdl.toml"
-                    | "pyproject.toml"
-                    | ".markdownlint.json"
-                    | ".markdownlint.jsonc"
-                    | ".markdownlint.yaml"
-                    | ".markdownlint.yml"
-                    | "markdownlint.json"
-                    | "markdownlint.jsonc"
-                    | "markdownlint.yaml"
-                    | "markdownlint.yml"
-            ) {
-                return Some(ChangeKind::Configuration);
-            }
-        }
-
-        // Check for markdown files
-        if let Some(extension) = path.extension()
-            && matches!(extension.to_str(), Some("md" | "markdown" | "mdown" | "mkd" | "mdx"))
-        {
-            source_file = true;
-        }
-    }
-
-    if source_file {
-        Some(ChangeKind::SourceFile)
-    } else {
-        None
-    }
-}
-
-/// Clear the terminal screen
-fn clear_screen() {
-    // ANSI escape sequence to clear screen and move cursor to top-left
-    print!("\x1B[2J\x1B[1;1H");
-    let _ = io::stdout().flush();
-}
-
-/// Perform a single check run (extracted from run_check for reuse in watch mode)
-fn perform_check_run(args: &CheckArgs, config: &rumdl_config::Config, quiet: bool) -> bool {
-    use rumdl_lib::output::{OutputFormat, OutputWriter};
-
-    // Create output writer for linting results
-    let output_writer = OutputWriter::new(args.stderr, quiet, args.silent);
-
-    // Determine output format
-    let output_format_str = args
-        .output_format
-        .as_deref()
-        .or(config.global.output_format.as_deref())
-        .or_else(|| {
-            // Legacy support: map --output json to --output-format json
-            if args.output == "json" { Some("json") } else { None }
-        })
-        .unwrap_or("text");
-
-    let output_format = match OutputFormat::from_str(output_format_str) {
-        Ok(fmt) => fmt,
-        Err(e) => {
-            eprintln!("{}: {}", "Error".red().bold(), e);
-            return true; // Has errors
-        }
-    };
-
-    // Initialize rules with configuration
-    let enabled_rules = get_enabled_rules_from_checkargs(args, config);
-
-    // Handle stdin input - either explicit --stdin flag or "-" as file argument
-    if args.stdin || (args.paths.len() == 1 && args.paths[0] == "-") {
-        process_stdin(&enabled_rules, args, config);
-        return false; // stdin processing handles its own exit codes
-    }
-
-    // Find all markdown files to check
-    let file_paths = match find_markdown_files(&args.paths, args, config) {
-        Ok(paths) => paths,
-        Err(e) => {
-            if !args.silent {
-                eprintln!("{}: Failed to find markdown files: {}", "Error".red().bold(), e);
-            }
-            return true; // Has errors
-        }
-    };
-    if file_paths.is_empty() {
-        if !quiet {
-            println!("No markdown files found to check.");
-        }
-        return false;
-    }
-
-    // For formats that need to collect all warnings first
-    let needs_collection = matches!(
-        output_format,
-        OutputFormat::Json | OutputFormat::GitLab | OutputFormat::Sarif | OutputFormat::Junit
-    );
-
-    if needs_collection {
-        let start_time = Instant::now();
-        let mut all_file_warnings = Vec::new();
-        let mut has_issues = false;
-        let mut _files_with_issues = 0;
-        let mut _total_issues = 0;
-
-        for file_path in &file_paths {
-            let warnings = process_file_collect_warnings(
-                file_path,
-                &enabled_rules,
-                args._fix,
-                args.verbose && !args.silent,
-                quiet,
-                config.global.flavor,
-            );
-
-            if !warnings.is_empty() {
-                has_issues = true;
-                _files_with_issues += 1;
-                _total_issues += warnings.len();
-                all_file_warnings.push((file_path.clone(), warnings));
-            }
-        }
-
-        let duration_ms = start_time.elapsed().as_millis() as u64;
-
-        // Format output based on type
-        let output = match output_format {
-            OutputFormat::Json => rumdl_lib::output::formatters::json::format_all_warnings_as_json(&all_file_warnings),
-            OutputFormat::GitLab => rumdl_lib::output::formatters::gitlab::format_gitlab_report(&all_file_warnings),
-            OutputFormat::Sarif => rumdl_lib::output::formatters::sarif::format_sarif_report(&all_file_warnings),
-            OutputFormat::Junit => {
-                rumdl_lib::output::formatters::junit::format_junit_report(&all_file_warnings, duration_ms)
-            }
-            _ => unreachable!(),
-        };
-
-        output_writer.writeln(&output).unwrap_or_else(|e| {
-            eprintln!("Error writing output: {e}");
-        });
-
-        return has_issues;
-    }
-
-    let start_time = Instant::now();
-
-    // Choose processing strategy based on file count and fix mode
-    // Also check if it's a single small file to avoid parallel overhead
-    let single_small_file = if file_paths.len() == 1 {
-        if let Ok(metadata) = fs::metadata(&file_paths[0]) {
-            metadata.len() < 10_000 // 10KB threshold
-        } else {
-            false
-        }
-    } else {
-        false
-    };
-
-    let use_parallel = file_paths.len() > 1 && !args._fix && !single_small_file; // Don't parallelize fixes or small files
-
-    // Collect all warnings for statistics if requested
-    let mut all_warnings_for_stats = Vec::new();
-
-    let (has_issues, files_with_issues, total_issues, total_issues_fixed, total_fixable_issues, total_files_processed) =
-        if use_parallel {
-            // Parallel processing for multiple files without fixes
-            let enabled_rules_arc = Arc::new(enabled_rules);
-
-            let results: Vec<_> = file_paths
-                .par_iter()
-                .map(|file_path| {
-                    process_file_with_formatter(
-                        file_path,
-                        &enabled_rules_arc,
-                        args._fix,
-                        args.diff,
-                        args.verbose && !args.silent,
-                        quiet,
-                        &output_format,
-                        &output_writer,
-                        config,
-                    )
-                })
-                .collect();
-
-            // Aggregate results
-            let mut has_issues = false;
-            let mut files_with_issues = 0;
-            let mut total_issues = 0;
-            let mut total_issues_fixed = 0;
-            let mut total_fixable_issues = 0;
-            let total_files_processed = results.len();
-
-            for (file_has_issues, issues_found, issues_fixed, fixable_issues, warnings) in results {
-                total_issues_fixed += issues_fixed;
-                total_fixable_issues += fixable_issues;
-
-                if file_has_issues {
-                    has_issues = true;
-                    files_with_issues += 1;
-                    total_issues += issues_found;
-                }
-
-                if args.statistics {
-                    all_warnings_for_stats.extend(warnings);
-                }
-            }
-
-            (
-                has_issues,
-                files_with_issues,
-                total_issues,
-                total_issues_fixed,
-                total_fixable_issues,
-                total_files_processed,
-            )
-        } else {
-            // Sequential processing for single files or when fixing
-            let mut has_issues = false;
-            let mut files_with_issues = 0;
-            let mut total_issues = 0;
-            let mut total_issues_fixed = 0;
-            let mut total_fixable_issues = 0;
-            let mut total_files_processed = 0;
-
-            for file_path in &file_paths {
-                let (file_has_issues, issues_found, issues_fixed, fixable_issues, warnings) =
-                    process_file_with_formatter(
-                        file_path,
-                        &enabled_rules,
-                        args._fix,
-                        args.diff,
-                        args.verbose && !args.silent,
-                        quiet,
-                        &output_format,
-                        &output_writer,
-                        config,
-                    );
-
-                total_files_processed += 1;
-                total_issues_fixed += issues_fixed;
-                total_fixable_issues += fixable_issues;
-
-                if file_has_issues {
-                    has_issues = true;
-                    files_with_issues += 1;
-                    total_issues += issues_found;
-                }
-
-                if args.statistics {
-                    all_warnings_for_stats.extend(warnings);
-                }
-            }
-
-            (
-                has_issues,
-                files_with_issues,
-                total_issues,
-                total_issues_fixed,
-                total_fixable_issues,
-                total_files_processed,
-            )
-        };
-
-    let duration = start_time.elapsed();
-    let duration_ms = duration.as_secs() * 1000 + duration.subsec_millis() as u64;
-
-    // Print results summary if not in quiet mode
-    if !quiet {
-        print_results_from_checkargs(PrintResultsArgs {
-            args,
-            has_issues,
-            files_with_issues,
-            total_issues,
-            total_issues_fixed,
-            total_fixable_issues,
-            total_files_processed,
-            duration_ms,
-        });
-    }
-
-    // Print statistics if enabled and not in quiet mode
-    if args.statistics && !quiet && !all_warnings_for_stats.is_empty() {
-        print_statistics(&all_warnings_for_stats);
-    }
-
-    // Print profiling information if enabled and not in quiet mode
-    if args.profile && !quiet {
-        match std::panic::catch_unwind(rumdl_lib::profiling::get_report) {
-            Ok(report) => {
-                output_writer.writeln(&format!("\n{report}")).ok();
-            }
-            Err(_) => {
-                output_writer.writeln("\nProfiling information not available").ok();
-            }
-        }
-    }
-
-    has_issues
-}
-
-/// Run the linter in watch mode, re-running on file changes
-fn run_watch_mode(args: &CheckArgs, global_config_path: Option<&str>, isolated: bool, quiet: bool) {
-    // Always use current directory for config discovery to ensure config files are found
-    // when pre-commit or other tools pass relative file paths
-    let discovery_dir = None;
-
-    // Load initial configuration
-    let mut sourced = load_config_with_cli_error_handling_with_dir(global_config_path, isolated, discovery_dir);
-
-    // Validate configuration
-    let all_rules = rumdl_lib::rules::all_rules(&rumdl_config::Config::default());
-    let registry = rumdl_config::RuleRegistry::from_rules(&all_rules);
-    let validation_warnings = rumdl_config::validate_config_sourced(&sourced, &registry);
-    if !validation_warnings.is_empty() && !args.silent {
-        for warn in &validation_warnings {
-            eprintln!("\x1b[33m[config warning]\x1b[0m {}", warn.message);
-        }
-    }
-
-    let mut config: rumdl_config::Config = sourced.clone().into();
-
-    // Configure the file watcher
-    let (tx, rx) = channel();
-
-    let mut watcher = match RecommendedWatcher::new(
-        tx,
-        NotifyConfig::default().with_poll_interval(Duration::from_millis(500)),
-    ) {
-        Ok(w) => w,
-        Err(e) => {
-            eprintln!("{}: Failed to create file watcher: {}", "Error".red().bold(), e);
-            exit::tool_error();
-        }
-    };
-
-    // Watch directories for markdown and config files
-    let watch_paths = if args.paths.is_empty() {
-        vec![".".to_string()]
-    } else {
-        args.paths.clone()
-    };
-
-    for path_str in &watch_paths {
-        let path = Path::new(path_str);
-        if let Err(e) = watcher.watch(path, RecursiveMode::Recursive) {
-            eprintln!("{}: Failed to watch {}: {}", "Warning".yellow().bold(), path_str, e);
-        }
-    }
-
-    // Also watch configuration files
-    if let Some(config_path) = global_config_path
-        && let Err(e) = watcher.watch(Path::new(config_path), RecursiveMode::NonRecursive)
-    {
-        eprintln!("{}: Failed to watch config file: {}", "Warning".yellow().bold(), e);
-    }
-
-    // Perform initial run
-    clear_screen();
-    let timestamp = Local::now().format("%H:%M:%S");
-    println!("[{}] {}...", timestamp, "Starting linter in watch mode".green().bold());
-    println!("{}", "Press Ctrl-C to exit".cyan());
-    println!();
-
-    let _has_issues = perform_check_run(args, &config, quiet);
-    if !quiet {
-        println!("\n{}", "Watching for file changes...".cyan());
-    }
-
-    // Main watch loop with improved debouncing
-    let debounce_duration = Duration::from_millis(100); // 100ms debounce - responsive while catching most duplicate events
-
-    loop {
-        match rx.recv() {
-            Ok(event_result) => {
-                match event_result {
-                    Ok(first_event) => {
-                        // Check what kind of change occurred
-                        let Some(mut change_kind) = change_detected(&first_event) else {
-                            continue;
-                        };
-
-                        // Collect all events that occur within the debounce window
-                        let start = Instant::now();
-                        while start.elapsed() < debounce_duration {
-                            // Try to receive more events with a short timeout
-                            if let Ok(Ok(event)) = rx.recv_timeout(Duration::from_millis(10)) {
-                                // If we get a config change, that takes priority
-                                if let Some(kind) = change_detected(&event)
-                                    && matches!(kind, ChangeKind::Configuration)
-                                {
-                                    change_kind = ChangeKind::Configuration;
-                                }
-                            }
-                        }
-
-                        // Handle configuration changes if needed
-                        if matches!(change_kind, ChangeKind::Configuration) {
-                            // Reload configuration
-                            sourced = load_config_with_cli_error_handling_with_dir(
-                                global_config_path,
-                                isolated,
-                                discovery_dir,
-                            );
-
-                            // Re-validate configuration
-                            let validation_warnings = rumdl_config::validate_config_sourced(&sourced, &registry);
-                            if !validation_warnings.is_empty() && !args.silent {
-                                for warn in &validation_warnings {
-                                    eprintln!("\x1b[33m[config warning]\x1b[0m {}", warn.message);
-                                }
-                            }
-
-                            config = sourced.clone().into();
-                        }
-
-                        // Build the header message before clearing
-                        let timestamp = chrono::Local::now().format("%H:%M:%S");
-                        let header = match change_kind {
-                            ChangeKind::Configuration => {
-                                format!(
-                                    "[{}] {}...\n\n",
-                                    timestamp,
-                                    "Configuration change detected".yellow().bold()
-                                )
-                            }
-                            ChangeKind::SourceFile => {
-                                format!("[{}] {}...\n\n", timestamp, "File change detected".cyan().bold())
-                            }
-                        };
-
-                        // Clear and immediately print header
-                        clear_screen();
-                        print!("{header}");
-                        let _ = io::stdout().flush();
-
-                        // Re-run the check
-                        let _has_issues = perform_check_run(args, &config, quiet);
-                        if !quiet {
-                            println!("\n{}", "Watching for file changes...".cyan());
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("{}: Watch error: {}", "Error".red().bold(), e);
-                    }
-                }
-            }
-            Err(e) => {
-                eprintln!("{}: Failed to receive watch event: {}", "Error".red().bold(), e);
-                exit::tool_error();
-            }
-        }
-    }
-}
-
 fn run_check(args: &CheckArgs, global_config_path: Option<&str>, isolated: bool) {
-    // If silent mode is enabled, also enable quiet mode
-    let quiet = args.quiet || args.silent;
+    let quiet = args.quiet;
+    let silent = args.silent;
 
     // Validate mutually exclusive options
-    if args.diff && args._fix {
+    if args.diff && args.fix {
         eprintln!("{}: --diff and --fix cannot be used together", "Error".red().bold());
         eprintln!("Use --diff to preview changes, or --fix to apply them");
         exit::tool_error();
     }
 
+    if args.check && args.fix {
+        eprintln!("{}: --check and --fix cannot be used together", "Error".red().bold());
+        eprintln!("Use --check to verify formatting without changes, or --fix to apply them");
+        exit::tool_error();
+    }
+
+    // Warn about deprecated --force-exclude flag
+    if args.force_exclude {
+        eprintln!(
+            "{}: --force-exclude is deprecated and has no effect",
+            "warning".yellow().bold()
+        );
+        eprintln!("Exclude patterns are now always respected by default (as of v0.0.156)");
+        eprintln!("Use --no-exclude if you want to disable exclusions");
+    }
+
     // Check for watch mode
     if args.watch {
-        run_watch_mode(args, global_config_path, isolated, quiet);
+        watch::run_watch_mode(args, global_config_path, isolated, quiet);
         return;
     }
 
@@ -2550,7 +1798,7 @@ fn run_check(args: &CheckArgs, global_config_path: Option<&str>, isolated: bool)
     };
 
     // 2. Load sourced config (for provenance and validation)
-    let sourced = load_config_with_cli_error_handling_with_dir(global_config_path, isolated, discovery_dir);
+    let mut sourced = load_config_with_cli_error_handling_with_dir(global_config_path, isolated, discovery_dir);
 
     // 3. Validate configuration
     let all_rules = rumdl_lib::rules::all_rules(&rumdl_config::Config::default());
@@ -2563,12 +1811,100 @@ fn run_check(args: &CheckArgs, global_config_path: Option<&str>, isolated: bool)
         // Do NOT exit; continue with valid config
     }
 
-    // 4. Convert to Config for the rest of the linter
-    let config: rumdl_config::Config = sourced.into();
+    // 3b. Validate CLI rule names
+    let cli_warnings = rumdl_config::validate_cli_rule_names(
+        args.enable.as_deref(),
+        args.disable.as_deref(),
+        args.extend_enable.as_deref(),
+        args.extend_disable.as_deref(),
+    );
+    if !cli_warnings.is_empty() && !args.silent {
+        for warn in &cli_warnings {
+            eprintln!("\x1b[33m[cli warning]\x1b[0m {}", warn.message);
+        }
+    }
 
-    // Perform the check and exit if issues were found
-    let has_issues = perform_check_run(args, &config, quiet);
-    if has_issues {
+    // 3c. Apply CLI argument overrides (e.g., --flavor)
+    apply_cli_overrides(&mut sourced, args);
+
+    // 4. Extract cache_dir and project_root before converting sourced
+    let cache_dir_from_config = sourced
+        .global
+        .cache_dir
+        .as_ref()
+        .map(|sv| std::path::PathBuf::from(&sv.value));
+
+    let project_root = sourced.project_root.clone();
+
+    // 5. Convert to Config for the rest of the linter
+    // Validation warnings are already printed above, so we use into_validated_unchecked
+    let config: rumdl_config::Config = sourced.into_validated_unchecked().into();
+
+    // 6. Initialize cache if enabled
+    // CLI --no-cache flag takes precedence over config
+    let cache_enabled = !args.no_cache && config.global.cache;
+
+    // Resolve cache directory with precedence: CLI → env var → config → default
+    let mut cache_dir = args
+        .cache_dir
+        .as_ref()
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::var("RUMDL_CACHE_DIR").ok().map(std::path::PathBuf::from))
+        .or(cache_dir_from_config)
+        .unwrap_or_else(|| std::path::PathBuf::from(".rumdl_cache"));
+
+    // If cache_dir is relative and we have a project root, resolve relative to project root
+    // This ensures cache is created at project root, not CWD (fixes issue #159)
+    if cache_dir.is_relative()
+        && let Some(ref root) = project_root
+    {
+        cache_dir = root.join(&cache_dir);
+    }
+
+    let cache = if cache_enabled {
+        let cache_instance = cache::LintCache::new(cache_dir.clone(), cache_enabled);
+
+        // Initialize cache directory structure
+        if let Err(e) = cache_instance.init() {
+            if !silent {
+                eprintln!("Warning: Failed to initialize cache: {e}");
+            }
+            // Continue without cache
+            None
+        } else {
+            // Wrap in Arc<Mutex<>> for thread-safe sharing across parallel workers
+            Some(std::sync::Arc::new(std::sync::Mutex::new(cache_instance)))
+        }
+    } else {
+        None
+    };
+
+    // Use the same cache directory for workspace index cache (when cache is enabled)
+    let workspace_cache_dir = if cache_enabled { Some(cache_dir.as_path()) } else { None };
+
+    let (has_issues, has_warnings, has_errors, total_issues_fixed) = watch::perform_check_run(
+        args,
+        &config,
+        quiet,
+        cache,
+        workspace_cache_dir,
+        project_root.as_deref(),
+    );
+
+    // In --check mode (for fmt), exit with code 1 if any formatting changes would be made
+    if args.check && total_issues_fixed > 0 {
+        exit::violations_found();
+    }
+
+    // Determine if we should fail based on --fail-on setting
+    let should_fail = match args.fail_on_mode {
+        FailOn::Never => false,
+        FailOn::Error => has_errors,
+        FailOn::Warning => has_warnings,
+        FailOn::Any => has_issues,
+    };
+
+    if should_fail && args.fix_mode != FixMode::Format {
         exit::violations_found();
     }
 }
@@ -2579,18 +1915,17 @@ fn handle_explain_command(rule_query: &str) {
 
     // Get all rules
     let all_rules: Vec<Box<dyn Rule>> = vec![
-        Box::new(MD001HeadingIncrement),
-        Box::new(MD002FirstHeadingH1::default()),
+        Box::new(MD001HeadingIncrement::default()),
         Box::new(MD003HeadingStyle::default()),
         Box::new(MD004UnorderedListStyle::new(UnorderedListStyle::Consistent)),
         Box::new(MD005ListIndent::default()),
-        Box::new(MD006StartBullets),
         Box::new(MD007ULIndent::default()),
         Box::new(MD009TrailingSpaces::default()),
         Box::new(MD010NoHardTabs::default()),
         Box::new(MD011NoReversedLinks {}),
         Box::new(MD012NoMultipleBlanks::default()),
         Box::new(MD013LineLength::default()),
+        Box::new(MD014CommandsShowOutput::default()),
         Box::new(MD018NoMissingSpaceAtx {}),
         Box::new(MD019NoMultipleSpaceAtx {}),
         Box::new(MD020NoMissingSpaceClosedAtx {}),
@@ -2630,7 +1965,18 @@ fn handle_explain_command(rule_query: &str) {
         Box::new(MD054LinkImageStyle::default()),
         Box::new(MD055TablePipeStyle::default()),
         Box::new(MD056TableColumnCount),
+        Box::new(MD057ExistingRelativeLinks::default()),
         Box::new(MD058BlanksAroundTables::default()),
+        Box::new(MD059LinkText::default()),
+        Box::new(MD060TableFormat::default()),
+        Box::new(MD061ForbiddenTerms::default()),
+        Box::new(MD062LinkDestinationWhitespace::new()),
+        Box::new(MD063HeadingCapitalization::default()),
+        Box::new(MD064NoMultipleConsecutiveSpaces::new()),
+        Box::new(MD065BlanksAroundHorizontalRules),
+        Box::new(MD066FootnoteValidation),
+        Box::new(MD067FootnoteDefinitionOrder),
+        Box::new(MD068EmptyFootnoteDefinition),
     ];
 
     // Find the rule
@@ -2708,676 +2054,123 @@ fn handle_explain_command(rule_query: &str) {
     }
 }
 
-// Print statistics summary
-fn print_statistics(warnings: &[rumdl_lib::rule::LintWarning]) {
-    use std::collections::HashMap;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
 
-    // Group warnings by rule name
-    let mut rule_counts: HashMap<&str, usize> = HashMap::new();
-    let mut fixable_counts: HashMap<&str, usize> = HashMap::new();
-
-    for warning in warnings {
-        let rule_name = warning.rule_name.unwrap_or("unknown");
-        *rule_counts.entry(rule_name).or_insert(0) += 1;
-
-        if warning.fix.is_some() {
-            *fixable_counts.entry(rule_name).or_insert(0) += 1;
-        }
+    #[test]
+    fn test_calculate_directory_stats_empty() {
+        let temp_dir = TempDir::new().unwrap();
+        let (size, count) = calculate_directory_stats(temp_dir.path()).unwrap();
+        assert_eq!(size, 0);
+        assert_eq!(count, 0);
     }
 
-    // Sort rules by count (descending)
-    let mut sorted_rules: Vec<_> = rule_counts.iter().collect();
-    sorted_rules.sort_by(|a, b| b.1.cmp(a.1));
+    #[test]
+    fn test_calculate_directory_stats_with_files() {
+        let temp_dir = TempDir::new().unwrap();
 
-    println!("\n{}", "Rule Violation Statistics:".bold().underline());
-    println!("{:<8} {:<12} {:<8} Percentage", "Rule", "Violations", "Fixable");
-    println!("{}", "-".repeat(50));
+        // Create some test files
+        fs::write(temp_dir.path().join("file1.txt"), "hello").unwrap();
+        fs::write(temp_dir.path().join("file2.txt"), "world!").unwrap();
 
-    let total_warnings = warnings.len();
-    for (rule, count) in sorted_rules {
-        let fixable = fixable_counts.get(rule).unwrap_or(&0);
-        let percentage = (*count as f64 / total_warnings as f64) * 100.0;
-
-        println!(
-            "{:<8} {:<12} {:<8} {:>6.1}%",
-            rule,
-            count,
-            if *fixable > 0 {
-                format!("{fixable}")
-            } else {
-                "-".to_string()
-            },
-            percentage
-        );
+        let (size, count) = calculate_directory_stats(temp_dir.path()).unwrap();
+        assert_eq!(size, 11); // "hello" (5) + "world!" (6)
+        assert_eq!(count, 2);
     }
 
-    println!("{}", "-".repeat(50));
-    println!(
-        "{:<8} {:<12} {:<8} {:>6.1}%",
-        "Total",
-        total_warnings,
-        fixable_counts.values().sum::<usize>(),
-        100.0
-    );
-}
+    #[test]
+    fn test_calculate_directory_stats_nested() {
+        let temp_dir = TempDir::new().unwrap();
 
-// Helper function to check if a rule is actually fixable based on configuration
-fn is_rule_actually_fixable(config: &rumdl_config::Config, rule_name: &str) -> bool {
-    // Check unfixable list
-    if config
-        .global
-        .unfixable
-        .iter()
-        .any(|r| r.eq_ignore_ascii_case(rule_name))
-    {
-        return false;
+        // Create nested directories
+        let nested = temp_dir.path().join("nested");
+        fs::create_dir(&nested).unwrap();
+
+        fs::write(temp_dir.path().join("file1.txt"), "abc").unwrap();
+        fs::write(nested.join("file2.txt"), "defgh").unwrap();
+
+        let (size, count) = calculate_directory_stats(temp_dir.path()).unwrap();
+        assert_eq!(size, 8); // "abc" (3) + "defgh" (5)
+        assert_eq!(count, 2);
     }
 
-    // Check fixable list if specified
-    if !config.global.fixable.is_empty() {
-        return config.global.fixable.iter().any(|r| r.eq_ignore_ascii_case(rule_name));
+    #[test]
+    fn test_calculate_directory_stats_deeply_nested() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create deeply nested structure
+        let level1 = temp_dir.path().join("level1");
+        let level2 = level1.join("level2");
+        let level3 = level2.join("level3");
+        fs::create_dir_all(&level3).unwrap();
+
+        fs::write(temp_dir.path().join("root.txt"), "1").unwrap();
+        fs::write(level1.join("l1.txt"), "12").unwrap();
+        fs::write(level2.join("l2.txt"), "123").unwrap();
+        fs::write(level3.join("l3.txt"), "1234").unwrap();
+
+        let (size, count) = calculate_directory_stats(temp_dir.path()).unwrap();
+        assert_eq!(size, 10); // 1 + 2 + 3 + 4
+        assert_eq!(count, 4);
     }
 
-    true
-}
-
-// Process file with output formatter
-#[allow(clippy::too_many_arguments)]
-fn process_file_with_formatter(
-    file_path: &str,
-    rules: &[Box<dyn Rule>],
-    _fix: bool,
-    diff: bool,
-    verbose: bool,
-    quiet: bool,
-    output_format: &rumdl_lib::output::OutputFormat,
-    output_writer: &rumdl_lib::output::OutputWriter,
-    config: &rumdl_config::Config,
-) -> (bool, usize, usize, usize, Vec<rumdl_lib::rule::LintWarning>) {
-    let formatter = output_format.create_formatter();
-
-    // Call the original process_file_inner to get warnings
-    let (all_warnings, mut content, total_warnings, fixable_warnings) =
-        process_file_inner(file_path, rules, verbose, quiet, config);
-
-    if total_warnings == 0 {
-        return (false, 0, 0, 0, Vec::new());
+    #[test]
+    fn test_format_size_bytes() {
+        assert_eq!(format_size(0), "0 B");
+        assert_eq!(format_size(1), "1 B");
+        assert_eq!(format_size(42), "42 B");
+        assert_eq!(format_size(1023), "1023 B");
     }
 
-    // Format and output warnings
-    if !quiet && !_fix {
-        if diff {
-            // In diff mode, only show warnings for unfixable issues
-            let unfixable_warnings: Vec<_> = all_warnings.iter().filter(|w| w.fix.is_none()).cloned().collect();
-
-            if !unfixable_warnings.is_empty() {
-                let formatted = formatter.format_warnings(&unfixable_warnings, file_path);
-                if !formatted.is_empty() {
-                    output_writer.writeln(&formatted).unwrap_or_else(|e| {
-                        eprintln!("Error writing output: {e}");
-                    });
-                }
-            }
-        } else {
-            // In check mode, show all warnings with [*] for fixable issues
-            let formatted = formatter.format_warnings(&all_warnings, file_path);
-            if !formatted.is_empty() {
-                output_writer.writeln(&formatted).unwrap_or_else(|e| {
-                    eprintln!("Error writing output: {e}");
-                });
-            }
-        }
+    #[test]
+    fn test_format_size_kilobytes() {
+        assert_eq!(format_size(1024), "1.00 KB");
+        assert_eq!(format_size(1536), "1.50 KB");
+        assert_eq!(format_size(2048), "2.00 KB");
+        assert_eq!(format_size(1024 * 10), "10.00 KB");
     }
 
-    // Handle diff mode or fix mode
-    let mut warnings_fixed = 0;
-    if diff {
-        // In diff mode, apply fixes to a copy and show diff
-        let original_content = content.clone();
-        warnings_fixed = apply_fixes(rules, &all_warnings, &mut content, true, config);
-
-        if warnings_fixed > 0 {
-            let diff_output = generate_diff(&original_content, &content, file_path);
-            output_writer.writeln(&diff_output).unwrap_or_else(|e| {
-                eprintln!("Error writing diff output: {e}");
-            });
-        }
-
-        // Don't actually write the file in diff mode
-        return (total_warnings > 0, total_warnings, 0, fixable_warnings, all_warnings);
-    } else if _fix {
-        warnings_fixed = apply_fixes(rules, &all_warnings, &mut content, quiet, config);
-
-        // Write fixed content back to file
-        if warnings_fixed > 0
-            && let Err(err) = std::fs::write(file_path, &content)
-            && !quiet
-        {
-            eprintln!(
-                "{} Failed to write fixed content to file {}: {}",
-                "Error:".red().bold(),
-                file_path,
-                err
-            );
-        }
-
-        // In fix mode, show warnings with [fixed] for issues that were fixed
-        if !quiet {
-            // Re-lint the fixed content to see which warnings remain
-            let fixed_ctx = LintContext::new(&content, config.markdown_flavor());
-            let mut remaining_warnings = Vec::new();
-
-            for rule in rules {
-                if let Ok(rule_warnings) = rule.check(&fixed_ctx) {
-                    remaining_warnings.extend(rule_warnings);
-                }
-            }
-
-            // Create a custom formatter that shows [fixed] instead of [*]
-            let mut output = String::new();
-            for warning in &all_warnings {
-                let rule_name = warning.rule_name.unwrap_or("unknown");
-
-                // Check if the rule is actually fixable based on configuration
-                let is_fixable = is_rule_actually_fixable(config, rule_name);
-
-                let was_fixed = warning.fix.is_some()
-                    && is_fixable
-                    && !remaining_warnings.iter().any(|w| {
-                        w.line == warning.line && w.column == warning.column && w.rule_name == warning.rule_name
-                    });
-
-                let fix_indicator = if warning.fix.is_some() {
-                    if !is_fixable {
-                        " [unfixable]".yellow().to_string()
-                    } else if was_fixed {
-                        " [fixed]".green().to_string()
-                    } else {
-                        String::new()
-                    }
-                } else {
-                    String::new()
-                };
-
-                // Format: file:line:column: [rule] message [fixed/*/]
-                // Use colors similar to TextFormatter
-                let line = format!(
-                    "{}:{}:{}: {} {}{}",
-                    file_path.blue().underline(),
-                    warning.line.to_string().cyan(),
-                    warning.column.to_string().cyan(),
-                    format!("[{rule_name:5}]").yellow(),
-                    warning.message,
-                    fix_indicator
-                );
-
-                output.push_str(&line);
-                output.push('\n');
-            }
-
-            if !output.is_empty() {
-                output.pop(); // Remove trailing newline
-                output_writer.writeln(&output).unwrap_or_else(|e| {
-                    eprintln!("Error writing output: {e}");
-                });
-            }
-        }
+    #[test]
+    fn test_format_size_megabytes() {
+        assert_eq!(format_size(1024 * 1024), "1.00 MB");
+        assert_eq!(format_size(1024 * 1024 + 512 * 1024), "1.50 MB");
+        assert_eq!(format_size(1024 * 1024 * 5), "5.00 MB");
     }
 
-    (true, total_warnings, warnings_fixed, fixable_warnings, all_warnings)
-}
-
-// Inner processing logic that returns warnings
-fn process_file_inner(
-    file_path: &str,
-    rules: &[Box<dyn Rule>],
-    verbose: bool,
-    quiet: bool,
-    config: &rumdl_config::Config,
-) -> (Vec<rumdl_lib::rule::LintWarning>, String, usize, usize) {
-    use std::time::Instant;
-
-    let start_time = Instant::now();
-    if verbose && !quiet {
-        println!("Processing file: {file_path}");
+    #[test]
+    fn test_format_size_gigabytes() {
+        assert_eq!(format_size(1024 * 1024 * 1024), "1.00 GB");
+        assert_eq!(format_size(1024u64 * 1024 * 1024 * 2 + 512 * 1024 * 1024), "2.50 GB");
     }
 
-    // Read file content efficiently
-    let content = match read_file_efficiently(Path::new(file_path)) {
-        Ok(content) => content,
-        Err(e) => {
-            if !quiet {
-                eprintln!("Error reading file {file_path}: {e}");
-            }
-            return (Vec::new(), String::new(), 0, 0);
-        }
-    };
-
-    // Early content analysis for ultra-fast skip decisions
-    if content.is_empty() {
-        return (Vec::new(), String::new(), 0, 0);
+    #[test]
+    fn test_format_size_terabytes() {
+        assert_eq!(format_size(1024u64 * 1024 * 1024 * 1024), "1.00 TB");
+        assert_eq!(format_size(1024u64 * 1024 * 1024 * 1024 * 3), "3.00 TB");
     }
 
-    let lint_start = Instant::now();
-    // Set the environment variable for the file path
-    // This allows rules like MD057 to know which file is being processed
-    unsafe {
-        std::env::set_var("RUMDL_FILE_PATH", file_path);
+    #[test]
+    fn test_format_size_edge_cases() {
+        // Just under next unit
+        assert_eq!(format_size(1023), "1023 B");
+        assert_eq!(format_size(1024 * 1024 - 1), "1024.00 KB");
+
+        // Exact boundaries
+        assert_eq!(format_size(1024), "1.00 KB");
+        assert_eq!(format_size(1024 * 1024), "1.00 MB");
     }
 
-    // Use the standard lint function with the configured flavor
-    let warnings_result = rumdl_lib::lint(&content, rules, verbose, config.markdown_flavor());
+    #[test]
+    fn test_format_size_realistic_cache_sizes() {
+        // Small cache
+        assert_eq!(format_size(458), "458 B");
 
-    // Clear the environment variable after processing
-    unsafe {
-        std::env::remove_var("RUMDL_FILE_PATH");
+        // Medium cache
+        assert_eq!(format_size(156_234), "152.57 KB");
+
+        // Large cache (like the Ruff issue)
+        assert_eq!(format_size(1_500_000_000), "1.40 GB");
     }
-
-    // Combine all warnings
-    let mut all_warnings = warnings_result.unwrap_or_default();
-
-    // Sort warnings by line number, then column
-    all_warnings.sort_by(|a, b| {
-        if a.line == b.line {
-            a.column.cmp(&b.column)
-        } else {
-            a.line.cmp(&b.line)
-        }
-    });
-
-    let total_warnings = all_warnings.len();
-
-    // Count fixable issues (excluding unfixable rules)
-    let fixable_warnings = all_warnings
-        .iter()
-        .filter(|w| w.fix.is_some() && w.rule_name.is_some_and(|name| is_rule_actually_fixable(config, name)))
-        .count();
-
-    let lint_end_time = Instant::now();
-    let lint_time = lint_end_time.duration_since(lint_start);
-
-    if verbose && !quiet {
-        println!("Linting took: {lint_time:?}");
-    }
-
-    let total_time = start_time.elapsed();
-    if verbose && !quiet {
-        println!("Total processing time for {file_path}: {total_time:?}");
-    }
-
-    (all_warnings, content, total_warnings, fixable_warnings)
-}
-
-/// Generate a unified diff between two strings
-fn generate_diff(original: &str, modified: &str, file_path: &str) -> String {
-    let mut diff = String::new();
-
-    // Create diff header
-    diff.push_str(&format!("--- {file_path}\n"));
-    diff.push_str(&format!("+++ {file_path} (fixed)\n"));
-
-    let original_lines: Vec<&str> = original.lines().collect();
-    let modified_lines: Vec<&str> = modified.lines().collect();
-
-    // Simple line-by-line diff (could be improved with a proper diff algorithm)
-    let max_lines = original_lines.len().max(modified_lines.len());
-    let mut in_diff_block = false;
-    let mut diff_start = 0;
-    let mut changes = Vec::new();
-
-    for i in 0..max_lines {
-        let orig_line = original_lines.get(i).copied().unwrap_or("");
-        let mod_line = modified_lines.get(i).copied().unwrap_or("");
-
-        if orig_line != mod_line {
-            if !in_diff_block {
-                in_diff_block = true;
-                diff_start = i.saturating_sub(3); // Include 3 lines of context before
-            }
-        } else if in_diff_block {
-            // End of diff block, include 3 lines of context after
-            let diff_end = (i + 3).min(max_lines);
-            changes.push((diff_start, diff_end));
-            in_diff_block = false;
-        }
-    }
-
-    // Handle case where diff extends to the end of file
-    if in_diff_block {
-        changes.push((diff_start, max_lines));
-    }
-
-    // Generate unified diff format for each change block
-    if changes.is_empty() {
-        diff.push_str("No changes\n");
-    } else {
-        for (start, end) in changes {
-            diff.push_str(&format!(
-                "@@ -{},{} +{},{} @@\n",
-                start + 1,
-                end - start,
-                start + 1,
-                end - start
-            ));
-
-            for i in start..end {
-                let orig_line = original_lines.get(i).copied().unwrap_or("");
-                let mod_line = modified_lines.get(i).copied().unwrap_or("");
-
-                if i >= original_lines.len() {
-                    // Line only in modified
-                    diff.push_str(&format!("+{mod_line}\n"));
-                } else if i >= modified_lines.len() {
-                    // Line only in original
-                    diff.push_str(&format!("-{orig_line}\n"));
-                } else if orig_line == mod_line {
-                    // Context line
-                    diff.push_str(&format!(" {orig_line}\n"));
-                } else {
-                    // Changed line
-                    diff.push_str(&format!("-{orig_line}\n"));
-                    diff.push_str(&format!("+{mod_line}\n"));
-                }
-            }
-        }
-    }
-
-    diff
-}
-
-// Apply fixes to content based on warnings
-fn apply_fixes(
-    rules: &[Box<dyn Rule>],
-    all_warnings: &[rumdl_lib::rule::LintWarning],
-    content: &mut String,
-    quiet: bool,
-    config: &rumdl_config::Config,
-) -> usize {
-    use std::time::Instant;
-    // Store the original warning count by rule
-    let mut original_counts: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
-    for warning in all_warnings {
-        if let Some(rule_name) = warning.rule_name {
-            *original_counts.entry(rule_name).or_insert(0) += 1;
-        }
-    }
-
-    // Track which rules actually fixed content
-    let mut rules_that_fixed = Vec::new();
-
-    let mut total_ctx_time = std::time::Duration::ZERO;
-    let mut total_fix_time = std::time::Duration::ZERO;
-    let mut ctx_creations = 0;
-
-    // Apply fixes for rules that have warnings, regardless of whether individual warnings have fixes
-    for rule in rules {
-        let rule_warnings: Vec<_> = all_warnings
-            .iter()
-            .filter(|w| w.rule_name == Some(rule.name()))
-            .collect();
-
-        if !rule_warnings.is_empty() {
-            // Check if any warnings for this rule are in non-disabled regions
-            let has_non_disabled_warnings = rule_warnings.iter().any(|w| {
-                !rumdl_lib::rule::is_rule_disabled_at_line(
-                    content,
-                    rule.name(),
-                    w.line.saturating_sub(1), // Convert to 0-based line index
-                )
-            });
-
-            if has_non_disabled_warnings {
-                // Check fixable/unfixable configuration
-                let rule_name = rule.name();
-
-                // If unfixable list contains this rule, skip fixing
-                if config
-                    .global
-                    .unfixable
-                    .iter()
-                    .any(|r| r.eq_ignore_ascii_case(rule_name))
-                {
-                    continue;
-                }
-
-                // If fixable list is specified and doesn't contain this rule, skip fixing
-                if !config.global.fixable.is_empty()
-                    && !config.global.fixable.iter().any(|r| r.eq_ignore_ascii_case(rule_name))
-                {
-                    continue;
-                }
-
-                let ctx_start = Instant::now();
-                let ctx = LintContext::new(content, config.markdown_flavor());
-                total_ctx_time += ctx_start.elapsed();
-                ctx_creations += 1;
-
-                let fix_start = Instant::now();
-                match rule.fix(&ctx) {
-                    Ok(fixed_content) => {
-                        total_fix_time += fix_start.elapsed();
-                        if fixed_content != *content {
-                            *content = fixed_content;
-                            // Track that this rule made changes
-                            rules_that_fixed.push(rule_name);
-                        }
-                    }
-                    Err(err) => {
-                        total_fix_time += fix_start.elapsed();
-                        if !quiet {
-                            eprintln!(
-                                "{} Failed to apply fix for rule {}: {}",
-                                "Warning:".yellow(),
-                                rule.name(),
-                                err
-                            );
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // OPTIMIZATION: Only re-check rules that actually applied fixes or had warnings
-    let ctx_after_fixes = LintContext::new(content, config.markdown_flavor());
-    let mut remaining_counts: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
-
-    for rule in rules {
-        let rule_name = rule.name();
-        // Only re-check if this rule made changes OR if we have original warnings for it
-        if (rules_that_fixed.contains(&rule_name) || original_counts.contains_key(rule_name))
-            && let Ok(remaining_warnings) = rule.check(&ctx_after_fixes)
-        {
-            for warning in remaining_warnings {
-                if let Some(rule_name) = warning.rule_name {
-                    *remaining_counts.entry(rule_name).or_insert(0) += 1;
-                }
-            }
-        }
-    }
-
-    // Calculate the actual number of warnings fixed
-    let mut warnings_fixed = 0;
-    for (rule_name, original_count) in original_counts {
-        let remaining = remaining_counts.get(rule_name).copied().unwrap_or(0);
-        warnings_fixed += original_count.saturating_sub(remaining);
-    }
-
-    if std::env::var("RUMDL_DEBUG_FIX_PERF").is_ok() {
-        eprintln!("DEBUG: LintContext creations: {ctx_creations}");
-        eprintln!("DEBUG: Total LintContext time: {total_ctx_time:?}");
-        eprintln!("DEBUG: Total fix() time: {total_fix_time:?}");
-        eprintln!("DEBUG: Total time: {:?}", total_ctx_time + total_fix_time);
-    }
-
-    warnings_fixed
-}
-
-/// Apply fixes to stdin content (similar to apply_fixes but without file writing)
-fn apply_fixes_stdin(
-    rules: &[Box<dyn Rule>],
-    all_warnings: &[rumdl_lib::rule::LintWarning],
-    content: &mut String,
-    quiet: bool,
-    config: &rumdl_config::Config,
-) -> usize {
-    use std::time::Instant;
-    // Store the original warning count by rule
-    let mut original_counts: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
-    for warning in all_warnings {
-        if let Some(rule_name) = warning.rule_name {
-            *original_counts.entry(rule_name).or_insert(0) += 1;
-        }
-    }
-
-    // Track which rules actually fixed content
-    let mut rules_that_fixed = Vec::new();
-
-    let mut total_ctx_time = std::time::Duration::ZERO;
-    let mut total_fix_time = std::time::Duration::ZERO;
-    let mut ctx_creations = 0;
-
-    // Apply fixes for rules that have warnings, regardless of whether individual warnings have fixes
-    for rule in rules {
-        let rule_warnings: Vec<_> = all_warnings
-            .iter()
-            .filter(|w| w.rule_name == Some(rule.name()))
-            .collect();
-
-        if !rule_warnings.is_empty() {
-            // Check if any warnings for this rule are in non-disabled regions
-            let has_non_disabled_warnings = rule_warnings.iter().any(|w| {
-                !rumdl_lib::rule::is_rule_disabled_at_line(
-                    content,
-                    rule.name(),
-                    w.line.saturating_sub(1), // Convert to 0-based line index
-                )
-            });
-
-            if has_non_disabled_warnings {
-                // Check fixable/unfixable configuration
-                let rule_name = rule.name();
-
-                // If unfixable list contains this rule, skip fixing
-                if config
-                    .global
-                    .unfixable
-                    .iter()
-                    .any(|r| r.eq_ignore_ascii_case(rule_name))
-                {
-                    continue;
-                }
-
-                // If fixable list is specified and doesn't contain this rule, skip fixing
-                if !config.global.fixable.is_empty()
-                    && !config.global.fixable.iter().any(|r| r.eq_ignore_ascii_case(rule_name))
-                {
-                    continue;
-                }
-
-                let ctx_start = Instant::now();
-                let ctx = LintContext::new(content, config.markdown_flavor());
-                total_ctx_time += ctx_start.elapsed();
-                ctx_creations += 1;
-
-                let fix_start = Instant::now();
-                match rule.fix(&ctx) {
-                    Ok(fixed_content) => {
-                        total_fix_time += fix_start.elapsed();
-                        if fixed_content != *content {
-                            *content = fixed_content;
-                            // Track that this rule made changes
-                            rules_that_fixed.push(rule_name);
-                        }
-                    }
-                    Err(err) => {
-                        total_fix_time += fix_start.elapsed();
-                        if !quiet {
-                            eprintln!(
-                                "{} Failed to apply fix for rule {}: {}",
-                                "Warning:".yellow(),
-                                rule.name(),
-                                err
-                            );
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // OPTIMIZATION: Only re-check rules that actually applied fixes or had warnings
-    let ctx_after_fixes = LintContext::new(content, config.markdown_flavor());
-    let mut remaining_counts: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
-
-    for rule in rules {
-        let rule_name = rule.name();
-        // Only re-check if this rule made changes OR if we have original warnings for it
-        if (rules_that_fixed.contains(&rule_name) || original_counts.contains_key(rule_name))
-            && let Ok(remaining_warnings) = rule.check(&ctx_after_fixes)
-        {
-            for warning in remaining_warnings {
-                if let Some(rule_name) = warning.rule_name {
-                    *remaining_counts.entry(rule_name).or_insert(0) += 1;
-                }
-            }
-        }
-    }
-
-    // Calculate the actual number of warnings fixed
-    let mut warnings_fixed = 0;
-    for (rule_name, original_count) in original_counts {
-        let remaining = remaining_counts.get(rule_name).copied().unwrap_or(0);
-        warnings_fixed += original_count.saturating_sub(remaining);
-    }
-
-    if std::env::var("RUMDL_DEBUG_FIX_PERF").is_ok() {
-        eprintln!("DEBUG: LintContext creations: {ctx_creations}");
-        eprintln!("DEBUG: Total LintContext time: {total_ctx_time:?}");
-        eprintln!("DEBUG: Total fix() time: {total_fix_time:?}");
-        eprintln!("DEBUG: Total time: {:?}", total_ctx_time + total_fix_time);
-    }
-
-    warnings_fixed
-}
-
-fn process_file_collect_warnings(
-    file_path: &str,
-    rules: &[Box<dyn Rule>],
-    _fix: bool,
-    verbose: bool,
-    quiet: bool,
-    flavor: rumdl_lib::config::MarkdownFlavor,
-) -> Vec<rumdl_lib::rule::LintWarning> {
-    if verbose && !quiet {
-        println!("Processing file: {file_path}");
-    }
-
-    // Read file content efficiently
-    let content = match read_file_efficiently(Path::new(file_path)) {
-        Ok(content) => content,
-        Err(e) => {
-            if !quiet {
-                eprintln!("Error reading file {file_path}: {e}");
-            }
-            return Vec::new();
-        }
-    };
-
-    unsafe {
-        std::env::set_var("RUMDL_FILE_PATH", file_path);
-    }
-    let warnings_result = rumdl_lib::lint(&content, rules, verbose, flavor);
-    unsafe {
-        std::env::remove_var("RUMDL_FILE_PATH");
-    }
-    let mut all_warnings = warnings_result.unwrap_or_default();
-    all_warnings.sort_by(|a, b| {
-        if a.line == b.line {
-            a.column.cmp(&b.column)
-        } else {
-            a.line.cmp(&b.line)
-        }
-    });
-    all_warnings
 }

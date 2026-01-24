@@ -1,7 +1,7 @@
 # Copyright (c) Alibaba, Inc. and its affiliates.
 import ast
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from datasets import Dataset as HfDataset
@@ -758,13 +758,85 @@ class TextCapsPreprocessor(ResponsePreprocessor):
         return super().preprocess(row)
 
 
-class TextCapsEmbPreprocessor(ResponsePreprocessor):
+class TextCapsEmbPreprocessor(RowPreprocessor):
 
     def preprocess(self, row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        row['query'] = '<image>'
         if not os.path.exists(row['images']['path']):
             return None
-        return super().preprocess(row)
+        return {
+            'messages': [{
+                'role': 'user',
+                'content': '<image>'
+            }],
+            'positive_messages': [[{
+                'role': 'user',
+                'content': row['response'][0]
+            }]],
+            'images': row['images']
+        }
+
+
+class TextCapsReRankPreprocessor(RowPreprocessor):
+
+    def __init__(self,
+                 *,
+                 columns: Optional[Dict[str, str]] = None,
+                 negatives_per_sample: Optional[int] = None,
+                 **kwargs):
+        super().__init__(columns=columns, **kwargs)
+        self._responses_pool: Optional[List[str]] = None
+        # Keep default aligned with MAX_NEGATIVE_SAMPLES used in collator if not provided
+        self.negatives_per_sample: int = int(os.environ.get(
+            'MAX_NEGATIVE_SAMPLES', 7)) if negatives_per_sample is None else negatives_per_sample
+
+    def prepare_dataset(self, dataset):
+        # Build a pool of responses from the dataset for negative sampling
+        try:
+            # Access full column; works for map-style datasets
+            responses = dataset['response'] if 'response' in dataset.features else None
+        except Exception:
+            responses = None
+
+        pool: List[str] = []
+        if responses is not None:
+            for resp in responses:
+                if isinstance(resp, (list, tuple)):
+                    for s in resp:
+                        if isinstance(s, str):
+                            pool.append(s)
+                elif isinstance(resp, str):
+                    pool.append(resp)
+        self._responses_pool = pool if pool else None
+        return dataset
+
+    def preprocess(self, row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        if not os.path.exists(row['images']['path']):
+            return None
+        positive = row['response'][0]
+        negatives: List[str] = []
+        if self._responses_pool:
+            idxs = self.random_state.permutation(len(self._responses_pool))
+            for i in idxs:
+                s = self._responses_pool[i]
+                if s not in row['response']:
+                    negatives.append(s)
+                if len(negatives) >= self.negatives_per_sample:
+                    break
+        return {
+            'messages': [{
+                'role': 'user',
+                'content': '<image>'
+            }],
+            'positive_messages': [[{
+                'role': 'user',
+                'content': positive
+            }]],
+            'negative_messages': [[{
+                'role': 'user',
+                'content': n
+            }] for n in negatives],
+            'images': row['images']
+        }
 
 
 register_dataset(
@@ -780,6 +852,11 @@ register_dataset(
             SubsetDataset(
                 name='emb',
                 preprocess_func=TextCapsEmbPreprocessor(columns={'reference_strs': 'response'}),
+                split=['train', 'validation'],
+            ),
+            SubsetDataset(
+                name='rerank',
+                preprocess_func=TextCapsReRankPreprocessor(columns={'reference_strs': 'response'}),
                 split=['train', 'validation'],
             ),
         ],
@@ -1230,3 +1307,41 @@ register_dataset(
         hf_dataset_id='leonardPKU/clevr_cogen_a_train',
         preprocess_func=ClevrPreprocessor(),
         tags=['qa', 'math', 'vision', 'grpo']))
+
+
+class Voc2007MultilabelPreprocessor(ResponsePreprocessor):
+    CLASS_NAME = ('aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 'diningtable',
+                  'dog', 'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor')
+
+    def preprocess(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        row['query'] = f'多标签分类，类别包括：{list(self.CLASS_NAME)}'
+        row['label'] = [i for i, x in enumerate(row['npy']) if x == 1]
+        return super().preprocess(row)
+
+
+register_dataset(
+    DatasetMeta(
+        ms_dataset_id='clip-benchmark/wds_voc2007_multilabel',
+        hf_dataset_id='clip-benchmark/wds_voc2007_multilabel',
+        preprocess_func=Voc2007MultilabelPreprocessor(columns={'webp': 'images'}),
+        tags=['multilabel', 'multi-modal'],
+    ))
+
+
+class Geometry3KPreprocessor(ResponsePreprocessor):
+
+    def preprocess(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        row['solution'] = row['response']
+        return super().preprocess(row)
+
+
+register_dataset(
+    DatasetMeta(
+        hf_dataset_id='hiyouga/geometry3k',
+        subsets=[
+            SubsetDataset('train', split=['train']),
+            SubsetDataset('validation', split=['validation']),
+            SubsetDataset('test', split=['test']),
+        ],
+        preprocess_func=Geometry3KPreprocessor(),
+        tags=['multi-modal', 'en', 'math']))

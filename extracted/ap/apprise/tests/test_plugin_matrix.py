@@ -30,6 +30,7 @@ from json import dumps, loads
 # Disable logging for a cleaner testing output
 import logging
 import os
+from typing import Union
 from unittest import mock
 
 from helpers import AppriseURLTester
@@ -107,7 +108,7 @@ apprise_url_tests = (
         "matrix://user:pass@localhost/#room1/#room2/!room1",
         {
             "instance": NotifyMatrix,
-            # throw a bizzare code forcing us to fail to look it up
+            # throw a bizarre code forcing us to fail to look it up
             "response": False,
             "requests_response_code": 999,
         },
@@ -117,7 +118,7 @@ apprise_url_tests = (
         {
             "instance": NotifyMatrix,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
             # Our expected url(privacy=True) startswith() response:
             "privacy_url": "matrix://user:****@localhost:1234/",
@@ -208,7 +209,8 @@ apprise_url_tests = (
         },
     ),
     (
-        "matrixs://user:token@localhost?mode=slack&format=markdown&image=False",
+        ("matrixs://user:token@localhost?mode=slack"
+         "&format=markdown&image=False"),
         {
             # user and token specified; image set to True
             "instance": NotifyMatrix,
@@ -260,7 +262,7 @@ apprise_url_tests = (
         {
             "instance": NotifyMatrix,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
         },
     ),
@@ -291,7 +293,7 @@ apprise_url_tests = (
         "matrix://user:token@localhost/mode=matrix",
         {
             "instance": NotifyMatrix,
-            # throw a bizzare code forcing us to fail to look it up
+            # throw a bizarre code forcing us to fail to look it up
             "response": False,
             "requests_response_code": 999,
         },
@@ -301,7 +303,7 @@ apprise_url_tests = (
         {
             "instance": NotifyMatrix,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
         },
     ),
@@ -310,7 +312,7 @@ apprise_url_tests = (
         {
             "instance": NotifyMatrix,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
         },
     ),
@@ -585,8 +587,8 @@ def test_plugin_matrix_fetch(mock_post, mock_get, mock_put):
         "retry_after_ms": 1,
     })
 
-    code, response = obj._fetch("/retry/apprise/unit/test")
-    assert code is False
+    postokay, _response, _ = obj._fetch("/retry/apprise/unit/test")
+    assert postokay is False
 
     request.content = dumps(
         {
@@ -595,12 +597,12 @@ def test_plugin_matrix_fetch(mock_post, mock_get, mock_put):
             }
         }
     )
-    code, response = obj._fetch("/retry/apprise/unit/test")
-    assert code is False
+    postokay, _response, _ = obj._fetch("/retry/apprise/unit/test")
+    assert postokay is False
 
     request.content = dumps({"error": {}})
-    code, response = obj._fetch("/retry/apprise/unit/test")
-    assert code is False
+    postokay, _response, _ = obj._fetch("/retry/apprise/unit/test")
+    assert postokay is False
     del obj
 
 
@@ -911,6 +913,22 @@ def test_plugin_matrix_url_parsing():
     assert "#room1" in result["targets"]
     assert "#room2" in result["targets"]
     assert "#room3" in result["targets"]
+
+    # Mixed-case alias with underscore should parse
+    result = NotifyMatrix.parse_url(
+        "matrix://user:token@localhost?to=#Dev_Room:localhost"
+    )
+    assert isinstance(result, dict) is True
+    assert len(result["targets"]) == 1
+    assert "#Dev_Room:localhost" in result["targets"]
+
+    # Mixed-case room id with underscore should be accepted by _room_join
+    from apprise.plugins.matrix import IS_ROOM_ID  # local alias
+    nm = NotifyMatrix(host="localhost")
+    nm.access_token = "abc"   # simulate logged-in
+    nm.home_server = "localhost"
+    # this should NOT be rejected by the regex
+    assert IS_ROOM_ID.match("!Jm_LvU1nas_8KJPBmN9n:nginx.eu")
 
 
 @mock.patch("requests.put")
@@ -1743,3 +1761,223 @@ def test_plugin_matrix_transaction_ids_api_v3_w_cache(
         assert mock_get.call_count == 0
         assert mock_post.call_count == 0
         assert mock_put.call_count == 0
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_v3_url_with_port_assembly(
+    mock_post, mock_get, mock_put, tmpdir
+):
+    """NotifyMatrix() URL with Port Assembly Checks (v3)"""
+
+    # Prepare a good response
+    response = mock.Mock()
+    response.status_code = requests.codes.ok
+    response.content = MATRIX_GOOD_RESPONSE.encode("utf-8")
+
+    # Prepare Mock return object
+    mock_post.return_value = response
+    mock_get.return_value = response
+    mock_put.return_value = response
+
+    asset = AppriseAsset(
+        storage_mode=PersistentStoreMode.FLUSH,
+        storage_path=str(tmpdir),
+    )
+
+    # Instantiate our object
+    obj = Apprise.instantiate(
+        "matrixs://user1:pass123@example.ca:8080/#general?v=3", asset=asset
+    )
+    # Performs a login
+    assert (
+        obj.notify(body="body", title="title", notify_type=NotifyType.INFO)
+        is True
+    )
+
+    # Secure Connections have a bit of additional overhead to verify
+    # the authenticity of the server through discovery
+    assert mock_get.call_count == 3
+    assert (
+        mock_get.call_args_list[0][0][0]
+        == "https://example.ca:8080/.well-known/matrix/client"
+    )
+    assert (
+        mock_get.call_args_list[1][0][0]
+        == "https://matrix.example.com/_matrix/client/versions"
+    )
+    assert (
+        mock_get.call_args_list[2][0][0]
+        == "https://vector.im/_matrix/identity/v2"
+    )
+
+    assert mock_post.call_count == 2
+    # matrix.example.com comes from our MATRIX_GOOD_RESPONSE
+    # response which defines wht our .well-known returned to us
+    assert (
+        mock_post.call_args_list[0][0][0]
+        == "https://matrix.example.com/_matrix/client/v3/login"
+    )
+    assert (
+        mock_post.call_args_list[1][0][0]
+        == "https://matrix.example.com/_matrix/client/v3/"
+        "join/%23general%3Alocalhost"
+    )
+    assert mock_put.call_count == 1
+    assert (
+        mock_put.call_args_list[0][0][0]
+        == "https://matrix.example.com/_matrix/client/v3/rooms/"
+        + "%21abc123%3Alocalhost/send/m.room.message/0"
+    )
+
+    mock_post.reset_mock()
+    mock_get.reset_mock()
+    mock_put.reset_mock()
+
+    assert obj.base_url == "https://matrix.example.com"
+
+    # Cache is used under the hood; no second discover is performed
+    assert mock_put.call_count == 0
+    assert mock_get.call_count == 0
+    assert mock_post.call_count == 0
+
+    # Cleanup
+    del obj
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_no_room_create_on_non_not_found_join(
+    mock_post: mock.Mock,
+    mock_get: mock.Mock,
+    mock_put: mock.Mock,
+) -> None:
+    """No room creation when join fails with 400 (or other non-404).
+
+    A join failure can occur for many reasons, such as auth failure or invite
+    required. In these cases, attempting to create the room is incorrect and
+    produces misleading follow-up errors like M_ROOM_IN_USE.
+    """
+
+    def _resp(status_code: int, content: Union[str, bytes]) -> mock.Mock:
+        r = mock.Mock()
+        r.status_code = status_code
+        if isinstance(content, str):
+            r.content = content.encode("utf-8")
+        else:
+            r.content = content
+        return r
+
+    login = dumps(
+        {
+            "access_token": "t",
+            "home_server": "hs",
+            "user_id": "@u:hs",
+        }
+    )
+
+    # POST sequence:
+    # 1. /login succeeds
+    # 2. /join/#backup fails with 400 and an empty body
+    # 3. /logout succeeds during object cleanup remembering token
+    mock_post.side_effect = [
+        _resp(requests.codes.ok, login),
+        _resp(requests.codes.bad_request, b""),
+        _resp(requests.codes.ok, dumps({})),
+    ]
+
+    # No other requests should be needed (no createRoom, no directory lookup)
+    mock_get.return_value = _resp(requests.codes.internal_server_error, b"")
+    mock_put.return_value = _resp(requests.codes.ok, dumps({}))
+
+    ap = Apprise()
+    ap.add("matrixs://user:pass@matrix.vip/#backup?discovery=no")
+
+    assert ap.notify(title="t", body="b") is False
+
+    # Cleanup explicitly to ensure __del__ executes while mocks are active.
+    import gc
+
+    del ap
+    gc.collect()
+
+    # login + join + logout
+    assert mock_post.call_count == 3
+    assert mock_get.call_count == 0
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_room_create_on_not_found_join(
+    mock_post: mock.Mock,
+    mock_get: mock.Mock,
+    mock_put: mock.Mock,
+) -> None:
+    """Attempt room creation only when join reports 404 / M_NOT_FOUND."""
+
+    def _resp(status_code: int, content: Union[str, bytes]) -> mock.Mock:
+        r = mock.Mock()
+        r.status_code = status_code
+        if isinstance(content, str):
+            r.content = content.encode("utf-8")
+        else:
+            r.content = content
+        return r
+
+    login = dumps(
+        {
+            "access_token": "t",
+            "home_server": "hs",
+            "user_id": "@u:hs",
+        }
+    )
+
+    # POST sequence:
+    # 1. /login succeeds
+    # 2. /join/#backup returns 404 not found
+    # 3. /createRoom returns alias in use, triggering alias resolution
+    # 4. /logout succeeds during object cleanup
+    mock_post.side_effect = [
+        _resp(requests.codes.ok, login),
+        _resp(
+            requests.codes.not_found,
+            dumps({"errcode": "M_NOT_FOUND", "error": "Not found"}),
+        ),
+        _resp(
+            requests.codes.bad_request,
+            dumps(
+                {
+                    "errcode": "M_ROOM_IN_USE",
+                    "error": "Room alias already taken",
+                }
+            ),
+        ),
+        _resp(requests.codes.ok, dumps({})),
+    ]
+
+    # Directory lookup returns the room id
+    mock_get.return_value = _resp(
+        requests.codes.ok,
+        dumps({"room_id": "!abc123:matrix.vip"}),
+    )
+
+    # Sending the message succeeds (v3 uses PUT)
+    mock_put.return_value = _resp(requests.codes.ok, dumps({}))
+
+    ap = Apprise()
+    ap.add("matrixs://user:pass@matrix.vip/#backup?discovery=no")
+
+    assert ap.notify(title="t", body="b") is True
+
+    import gc
+
+    del ap
+    gc.collect()
+
+    # login + join + createRoom + logout
+    assert mock_post.call_count == 4
+    assert mock_get.call_count == 1
+    assert mock_put.call_count == 1

@@ -1,7 +1,7 @@
 r'''
 # `github_enterprise_organization`
 
-Refer to the Terraform Registry for docs: [`github_enterprise_organization`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization).
+Refer to the Terraform Registry for docs: [`github_enterprise_organization`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EnterpriseOrganization(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.enterpriseOrganization.EnterpriseOrganization",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization github_enterprise_organization}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization github_enterprise_organization}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class EnterpriseOrganization(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization github_enterprise_organization} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization github_enterprise_organization} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param admin_logins: List of organization owner usernames. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#admin_logins EnterpriseOrganization#admin_logins}
-        :param billing_email: The billing email address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#billing_email EnterpriseOrganization#billing_email}
-        :param enterprise_id: The ID of the enterprise. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#enterprise_id EnterpriseOrganization#enterprise_id}
-        :param name: The name of the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#name EnterpriseOrganization#name}
-        :param description: The description of the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#description EnterpriseOrganization#description}
-        :param display_name: The display name of the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#display_name EnterpriseOrganization#display_name}
+        :param admin_logins: List of organization owner usernames. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#admin_logins EnterpriseOrganization#admin_logins}
+        :param billing_email: The billing email address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#billing_email EnterpriseOrganization#billing_email}
+        :param enterprise_id: The ID of the enterprise. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#enterprise_id EnterpriseOrganization#enterprise_id}
+        :param name: The name of the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#name EnterpriseOrganization#name}
+        :param description: The description of the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#description EnterpriseOrganization#description}
+        :param display_name: The display name of the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#display_name EnterpriseOrganization#display_name}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class EnterpriseOrganization(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EnterpriseOrganization to import.
-        :param import_from_id: The id of the existing EnterpriseOrganization that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EnterpriseOrganization that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EnterpriseOrganization to import is found.
         '''
         if __debug__:
@@ -308,12 +308,12 @@ class EnterpriseOrganizationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param admin_logins: List of organization owner usernames. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#admin_logins EnterpriseOrganization#admin_logins}
-        :param billing_email: The billing email address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#billing_email EnterpriseOrganization#billing_email}
-        :param enterprise_id: The ID of the enterprise. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#enterprise_id EnterpriseOrganization#enterprise_id}
-        :param name: The name of the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#name EnterpriseOrganization#name}
-        :param description: The description of the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#description EnterpriseOrganization#description}
-        :param display_name: The display name of the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#display_name EnterpriseOrganization#display_name}
+        :param admin_logins: List of organization owner usernames. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#admin_logins EnterpriseOrganization#admin_logins}
+        :param billing_email: The billing email address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#billing_email EnterpriseOrganization#billing_email}
+        :param enterprise_id: The ID of the enterprise. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#enterprise_id EnterpriseOrganization#enterprise_id}
+        :param name: The name of the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#name EnterpriseOrganization#name}
+        :param description: The description of the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#description EnterpriseOrganization#description}
+        :param display_name: The display name of the organization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#display_name EnterpriseOrganization#display_name}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -425,7 +425,7 @@ class EnterpriseOrganizationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def admin_logins(self) -> typing.List[builtins.str]:
         '''List of organization owner usernames.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#admin_logins EnterpriseOrganization#admin_logins}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#admin_logins EnterpriseOrganization#admin_logins}
         '''
         result = self._values.get("admin_logins")
         assert result is not None, "Required property 'admin_logins' is missing"
@@ -435,7 +435,7 @@ class EnterpriseOrganizationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def billing_email(self) -> builtins.str:
         '''The billing email address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#billing_email EnterpriseOrganization#billing_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#billing_email EnterpriseOrganization#billing_email}
         '''
         result = self._values.get("billing_email")
         assert result is not None, "Required property 'billing_email' is missing"
@@ -445,7 +445,7 @@ class EnterpriseOrganizationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enterprise_id(self) -> builtins.str:
         '''The ID of the enterprise.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#enterprise_id EnterpriseOrganization#enterprise_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#enterprise_id EnterpriseOrganization#enterprise_id}
         '''
         result = self._values.get("enterprise_id")
         assert result is not None, "Required property 'enterprise_id' is missing"
@@ -455,7 +455,7 @@ class EnterpriseOrganizationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#name EnterpriseOrganization#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#name EnterpriseOrganization#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -465,7 +465,7 @@ class EnterpriseOrganizationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#description EnterpriseOrganization#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#description EnterpriseOrganization#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -474,7 +474,7 @@ class EnterpriseOrganizationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The display name of the organization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/enterprise_organization#display_name EnterpriseOrganization#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/enterprise_organization#display_name EnterpriseOrganization#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)

@@ -977,7 +977,7 @@ releases:
       - kustomize - kustomize plugin fails with deprecation warnings (https://github.com/ansible-collections/kubernetes.core/issues/639).
       - waiter - Fix waiting for daemonset when desired number of pods is 0. (https://github.com/ansible-collections/kubernetes.core/pull/756).
       minor_changes:
-      - Bump version of ansible-lint to minimum 24.7.0 (https://github.com/ansible-collections/kubernetes.core/pull/765).
+      - Bump version of ``ansible-lint`` to minimum 24.7.0 (https://github.com/ansible-collections/kubernetes.core/pull/765).
       - Parameter insecure_registry added to helm_template as equivalent of insecure-skip-tls-verify
         (https://github.com/ansible-collections/kubernetes.core/pull/805).
       - k8s_drain - Improve error message for pod disruption budget when draining
@@ -1044,6 +1044,33 @@ releases:
     - 898-k8s-dont-delete-in-check-mode.yaml
     - 919-update-ansible-lint-version.yaml
     release_date: '2025-05-16'
+  5.4.0:
+    changes:
+      minor_changes:
+      - Module ``helm_registry_auth`` does not support idempotency with ``helm >= 3.18.0``
+        (https://github.com/ansible-collections/kubernetes.core/pull/946).
+      release_summary: This release updates the ``helm_registry_auth`` module to match the behavior of ``helm >= 3.18.0`` which reports a successful logout regardless of the current state (i.e., no idempotency).
+    fragments:
+    - 20250411-kubeconfig-no_log-revert.yaml
+    - 20250503-fix-unit-tests.yml
+    - 20250605-fix-helm_registry_auth-integration_test.yaml
+    - 5.4.0.yml
+    release_date: '2025-08-12'
+  5.4.1:
+    changes:
+      bugfixes:
+      - Remove ``ansible.module_utils.six`` imports to avoid warnings (https://github.com/ansible-collections/kubernetes.core/pull/998).
+      - Update the `k8s_cp` module to also work for init containers (https://github.com/ansible-collections/kubernetes.core/pull/971).
+      - module_utils/k8s/service - hide fields first before creating diffs (https://github.com/ansible-collections/kubernetes.core/pull/915).
+      release_summary: This release includes bugfixes for k8s service field handling,
+        k8s_cp init containers support, and removes deprecated ansible.module_utils.six
+        imports.
+    fragments:
+    - 20250428-k8s-service-hide-fields-first.yaml
+    - 20250731-fix-k8s_cp-initcontainers.yaml
+    - 20250922-remove-ansible-six-imports.yaml
+    - 5.4.1.yml
+    release_date: '2025-10-07'
   6.0.0:
     changes:
       breaking_changes:
@@ -1067,10 +1094,10 @@ releases:
         (https://github.com/ansible-collections/kubernetes.core/pull/934).
       - helm_template - Parameter plain_http added for working with insecure OCI registries
         (https://github.com/ansible-collections/kubernetes.core/pull/934).
-      release_summary: "This release includes a fix for kubeconfig output, added ``plain_http``
-        and ``take_ownership`` parameters for helm modules, support for ``hidden_fields``
-        in ``k8s_json_patch``, documented lack of idempotency support in ``helm_registry_auth``
-        with ``helm \u2265 3.18.0``, and improved ``k8s_rollback`` test coverage."
+      release_summary: "This release adds ``plain_http`` and ``take_ownership`` parameters
+        for helm modules, support for ``hidden_fields`` in ``k8s_json_patch``, documented
+        lack of idempotency support in ``helm_registry_auth`` with ``helm \u2265 3.18.0``,
+        and improved ``k8s_rollback`` test coverage."
     fragments:
     - 20250411-kubeconfig-no_log-revert.yaml
     - 20250428-k8s-service-hide-fields-first.yaml
@@ -1081,3 +1108,22 @@ releases:
     - 20250911-add-support-helm-take-ownership.yaml
     - release_summary.yml
     release_date: '2025-08-12'
+  6.2.0:
+    changes:
+      bugfixes:
+      - Remove ``ansible.module_utils.six`` imports to avoid warnings (https://github.com/ansible-collections/kubernetes.core/pull/998).
+      - Update the `k8s_cp` module to also work for init containers (https://github.com/ansible-collections/kubernetes.core/pull/971).
+      minor_changes:
+      - Add support of skip-schema-validation in ``helm`` module (https://github.com/ansible-collections/kubernetes.core/pull/995)
+      - kustomize - Add support of local environ (https://github.com/ansible-collections/kubernetes.core/pull/786).
+      release_summary: This release adds minor changes and bugfixes, including support
+        of skip-schema-validation in ``helm`` module and removing deprecated
+        ``ansible.module_utils.six`` imports.
+
+    fragments:
+    - 20241030-support-of-evrion-for-kustomize-lookup-plugin.yaml
+    - 20250731-fix-k8s_cp-initcontainers.yaml
+    - 20250916-skip-schema-validation.yaml
+    - 20250922-remove-ansible-six-imports.yaml
+    - 6_2_0.yml
+    release_date: '2025-10-07'

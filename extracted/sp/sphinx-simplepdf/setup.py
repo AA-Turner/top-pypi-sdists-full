@@ -11,7 +11,7 @@ README_PATH = os.path.join(directory, 'README.rst')
 
 setup(
     name='sphinx-simplepdf',
-    version='1.6.0',
+    version='1.7.0',
     url='https://sphinx-simplepdf.readthedocs.io',
     download_url='https://github.com/useblocks/sphinx-simplepdf',
     license='MIT',
@@ -24,6 +24,7 @@ setup(
               'sphinx_simplepdf.builders',
               'sphinx_simplepdf.directives',
               'sphinx_simplepdf.themes/simplepdf_theme',
+              'sphinx_simplepdf.writers',
               ],
     package_data={'sphinx_simplepdf/themes/simplepdf_theme': [
         'theme.conf',
@@ -50,7 +51,7 @@ setup(
     ],
     classifiers=[
         'Framework :: Sphinx',
-        'Framework :: Sphinx :: Theme',
+        'Framework :: Sphinx :: Extension',
         'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: MIT License',
         'Intended Audience :: Developers',

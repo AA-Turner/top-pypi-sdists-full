@@ -3,6 +3,7 @@ Advanced table processing strategy.
 """
 
 import re
+from functools import lru_cache
 from typing import List, Optional
 
 from lxml.html import HtmlElement
@@ -44,7 +45,9 @@ class TableProcessor:
         'revenue', 'income', 'expense', 'asset', 'liability',
         'cash', 'equity', 'profit', 'loss', 'margin',
         'earnings', 'cost', 'sales', 'operating', 'net',
-        'gross', 'total', 'balance', 'statement', 'consolidated'
+        'gross', 'total', 'balance', 'statement', 'consolidated',
+        'provision', 'tax', 'taxes', 'compensation', 'stock',
+        'share', 'shares', 'rsu', 'option', 'grant', 'vest'
     }
 
     # Metrics keywords
@@ -62,10 +65,10 @@ class TableProcessor:
     def process(self, element: HtmlElement) -> TableNode:
         """
         Process table element into TableNode.
-
+        
         Args:
             element: HTML table element
-
+            
         Returns:
             Processed TableNode
         """
@@ -76,6 +79,9 @@ class TableProcessor:
 
         # Create table node
         table = TableNode(style=table_style)
+
+        # Set config for rendering decisions
+        table._config = self.config
 
         # Add metadata
         if table_id:
@@ -120,8 +126,10 @@ class TableProcessor:
         tbody = element.find('.//tbody')
         rows_container = tbody if tbody is not None else element
 
-        # Track if we've seen headers
+        # Track if we've seen headers and data rows
         headers_found = bool(table.headers)
+        consecutive_header_rows = 0
+        data_rows_started = False
 
         for tr in rows_container.findall('.//tr'):
             # Skip if already processed in thead
@@ -130,17 +138,73 @@ class TableProcessor:
 
             # Check if this might be a header row
             is_header_row = False
-            if not headers_found:
+
+            # Continue checking for headers if:
+            # 1. We haven't found any headers yet, OR
+            # 2. We've found headers but haven't seen data rows yet (multi-row headers)
+            if not data_rows_started:
                 is_header_row = self._is_header_row(tr)
+
+                # Additional check for multi-row headers in financial tables
+                # If the previous row was a header and this row has years or units,
+                # it's likely part of the header
+                if headers_found and not is_header_row:
+                    row_text = tr.text_content().strip()
+                    # Check for units like "(in millions)" or "(in thousands)"
+                    if '(in millions)' in row_text or '(in thousands)' in row_text or '(in billions)' in row_text:
+                        is_header_row = True
+                    # Check for year rows that follow "Year Ended" headers
+                    elif len(table.headers) > 0:
+                        last_header_text = ' '.join(cell.text() for cell in table.headers[-1])
+                        if 'year ended' in last_header_text.lower() or 'years ended' in last_header_text.lower():
+                            # Check if this row has years
+                            year_pattern = r'\b(19\d{2}|20\d{2})\b'
+                            years_found = re.findall(year_pattern, row_text)
+                            if years_found:
+                                is_header_row = True
 
             cells = self._process_row(tr, is_header=is_header_row)
             if cells:
                 if is_header_row:
                     table.headers.append(cells)
                     headers_found = True
+                    consecutive_header_rows += 1
                 else:
+                    # Only mark data_rows_started if this row has actual content
+                    # Empty rows at the beginning shouldn't stop header detection
                     row = Row(cells=cells, is_header=False)
                     table.rows.append(row)
+
+                    # Check if row has significant content that indicates data rows have started
+                    # But be smart about it - descriptive rows like "(in millions)" or pure spacing
+                    # shouldn't stop header detection
+                    has_content = any(cell.text().strip() for cell in cells)
+                    if has_content:
+                        # Get the row text for smarter analysis
+                        row_text = ' '.join(cell.text().strip() for cell in cells).strip()
+                        row_text_lower = row_text.lower()
+
+                        # Don't consider this as "data started" if it's likely a header-related row
+                        is_header_related = (
+                            # Unit descriptions
+                            '(in millions)' in row_text_lower or 
+                            '(in thousands)' in row_text_lower or 
+                            '(in billions)' in row_text_lower or
+                            'except per share' in row_text_lower or
+                            # Financial period descriptions  
+                            'year ended' in row_text_lower or
+                            'months ended' in row_text_lower or
+                            # Mostly just spacing/formatting
+                            len(row_text.strip()) < 5 or
+                            # Contains years (might be misclassified header)
+                            bool(re.search(r'\b(19\d{2}|20\d{2})\b', row_text))
+                        )
+
+                        # Only mark data_rows_started if this seems like actual data, not header-related
+                        if not is_header_related:
+                            data_rows_started = True
+
+                    consecutive_header_rows = 0
 
         # Process tfoot
         tfoot = element.find('.//tfoot')
@@ -166,8 +230,11 @@ class TableProcessor:
     def _process_cell(self, elem: HtmlElement, is_header: bool) -> Optional[Cell]:
         """Process table cell."""
         # Extract cell properties
-        colspan = int(elem.get('colspan', '1'))
-        rowspan = int(elem.get('rowspan', '1'))
+        # Handle empty string attributes (colspan="" or rowspan="")
+        colspan_str = elem.get('colspan', '1').strip()
+        rowspan_str = elem.get('rowspan', '1').strip()
+        colspan = int(colspan_str) if colspan_str and colspan_str.isdigit() else 1
+        rowspan = int(rowspan_str) if rowspan_str and rowspan_str.isdigit() else 1
         align = elem.get('align')
 
         # Extract style
@@ -213,8 +280,35 @@ class TableProcessor:
 
     def _extract_text(self, elem: HtmlElement) -> str:
         """Extract and clean text from element."""
-        # Get text content
-        text = elem.text_content()
+        # Use itertext() to get all text fragments
+        # This preserves spaces better than text_content()
+        text_parts = []
+        for text in elem.itertext():
+            if text:
+                text_parts.append(text)
+
+        # Join parts, ensuring we don't lose spaces
+        # If a part doesn't end with whitespace and the next doesn't start with whitespace,
+        # we need to add a space between them
+        if not text_parts:
+            return ''
+
+        result = []
+        for i, part in enumerate(text_parts):
+            if i == 0:
+                result.append(part)
+            else:
+                prev_part = text_parts[i-1]
+                # Check if we need to add a space between parts
+                # Don't add space if previous ends with space or current starts with space
+                if prev_part and part:
+                    if not prev_part[-1].isspace() and not part[0].isspace():
+                        # Check for punctuation that shouldn't have space before it
+                        if part[0] not in ',.;:!?%)]':
+                            result.append(' ')
+                result.append(part)
+
+        text = ''.join(result)
 
         # Replace entities
         for entity, replacement in self.ENTITY_REPLACEMENTS.items():
@@ -233,17 +327,178 @@ class TableProcessor:
 
         return '\n'.join(cleaned_lines)
 
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def _get_period_header_pattern():
+        """
+        Compile comprehensive regex for financial period headers.
+        Adapted from old parser's proven patterns.
+
+        Returns:
+            Compiled regex pattern matching financial period headers
+        """
+        # Base components
+        periods = r'(?:three|six|nine|twelve|[1-4]|first|second|third|fourth)'
+        timeframes = r'(?:month|quarter|year|week)'
+        ended_variants = r'(?:ended|ending|end|period)'
+        as_of_variants = r'(?:as\s+of|at|as\s+at)'
+
+        # Date pattern
+        months = r'(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)'
+        day = r'\d{1,2}'
+        year = r'(?:19|20)\d{2}'
+        date = f'{months}\\s*\\.?\\s*{day}\\s*,?\\s*{year}'
+
+        # Combined patterns
+        patterns = [
+            # Standard period headers
+            f'{periods}\\s+{timeframes}\\s+{ended_variants}(?:\\s+{date})?',
+            f'(?:fiscal\\s+)?{timeframes}\\s+{ended_variants}',
+            f'{timeframes}\\s+{ended_variants}(?:\\s+{date})?',
+
+            # Balance sheet date headers
+            f'{as_of_variants}\\s+{date}',
+
+            # Multiple date sequences
+            f'{date}(?:\\s*(?:and|,)\\s*{date})*',
+
+            # Single dates
+            f'(?:{ended_variants}\\s+)?{date}'
+        ]
+
+        pattern = '|'.join(f'(?:{p})' for p in patterns)
+        return re.compile(pattern, re.IGNORECASE)
+
     def _is_header_row(self, tr: HtmlElement) -> bool:
-        """Detect if row is likely a header row."""
-        # Check if contains th elements
+        """Detect if row is likely a header row in SEC filings."""
+        # Check if contains th elements (most reliable indicator)
         if tr.find('.//th') is not None:
             return True
 
-        # Check if all cells are bold
         cells = tr.findall('.//td')
         if not cells:
             return False
 
+        # Get row text for analysis
+        row_text = tr.text_content()
+        row_text_lower = row_text.lower()
+
+        # Check for date ranges with financial data (Oracle Table 6 pattern)
+        # Date ranges like "March 1, 2024—March 31, 2024" should be data rows, not headers
+        date_range_pattern = r'(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},\s*\d{4}\s*[—–-]\s*(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},\s*\d{4}'
+        has_date_range = bool(re.search(date_range_pattern, row_text_lower))
+
+        # Check for financial data indicators
+        has_currency = bool(re.search(r'\$[\s]*[\d,\.]+', row_text))
+        has_decimals = bool(re.search(r'\b\d+\.\d+\b', row_text))
+        has_large_numbers = bool(re.search(r'\b\d{1,3}(,\d{3})+\b', row_text))
+
+        # If row has date range + financial data, it's definitely a data row
+        if has_date_range and (has_currency or has_decimals or has_large_numbers):
+            return False
+
+        # Check for year patterns (very common in financial headers)
+        year_pattern = r'\b(19\d{2}|20\d{2})\b'
+        years_found = re.findall(year_pattern, row_text)
+        if len(years_found) >= 2:  # Multiple years suggest header row
+            # IMPORTANT: Check for date ranges and same-year repetition
+            # Date ranges like "March 1, 2024—March 31, 2024" contain the same year twice
+            # but are data rows, not multi-year comparison headers
+
+            # If all years are the same (date range pattern)
+            if len(set(years_found)) == 1:
+                # Same year repeated - likely a date range like "Jan 1, 2024 - Mar 31, 2024"
+                # Not a multi-year comparison header
+                pass  # Don't return True
+            # Multiple different years suggest multi-year comparison header
+            elif 'total' not in row_text_lower[:20]:  # Check first 20 chars
+                return True
+
+        # Enhanced year detection - check individual cells for year patterns
+        # This handles cases where years are in separate cells
+        year_cells = 0
+        date_phrases = 0
+        for cell in cells:
+            cell_text = cell.text_content().strip()
+            if cell_text:
+                # Check for individual years
+                if re.match(r'^\s*(19\d{2}|20\d{2})\s*$', cell_text):
+                    year_cells += 1
+                # Check for date phrases like "June 30, 2025"
+                elif 'june 30' in cell_text.lower() or 'december 31' in cell_text.lower():
+                    date_phrases += 1
+
+        # If we have multiple year cells or year + date phrases, likely a header
+        if year_cells >= 2 or (year_cells >= 1 and date_phrases >= 1):
+            if 'total' not in row_text_lower[:20]:
+                return True
+
+        # Check for comprehensive financial period patterns (from old parser)
+        period_pattern = self._get_period_header_pattern()
+        if period_pattern.search(row_text_lower):
+            # Additional validation: ensure it's not a data row with period text
+            # Check for absence of strong data indicators
+            data_pattern = r'(?:\$\s*\d|\d+(?:,\d{3})+|\d+\s*[+\-*/]\s*\d+|\(\s*\d+(?:,\d{3})*\s*\))'
+            if not re.search(data_pattern, row_text):
+                return True
+
+        # Check for units notation (in millions, thousands, billions)
+        units_pattern = r'\(in\s+(?:millions|thousands|billions)\)'
+        if re.search(units_pattern, row_text_lower):
+            return True
+
+        # Check for period indicators (quarters, months)
+        # But be careful with "fiscal" - it could be data like "Fiscal 2025"
+        period_keywords = ['quarter', 'q1', 'q2', 'q3', 'q4', 'month', 
+                          'january', 'february', 'march', 'april', 'may', 'june',
+                          'july', 'august', 'september', 'october', 'november', 'december',
+                          'ended', 'three months', 'six months', 'nine months']
+
+        # Special handling for "fiscal" - only treat as header if it's part of a phrase like "fiscal year ended"
+        if 'fiscal' in row_text_lower:
+            # Check if row has numeric values (suggests it's data, not header)
+            # Look for patterns like "Fiscal 2025 $10,612" 
+            has_currency_values = bool(re.search(r'\$[\s]*[\d,]+', row_text))
+            has_large_numbers = bool(re.search(r'\b\d{1,3}(,\d{3})+\b', row_text))
+
+            # If it has currency or large numbers, it's likely data
+            if has_currency_values or has_large_numbers:
+                return False
+
+            # Check if it's just "Fiscal YYYY" which is likely data, not a header
+            fiscal_year_only = re.match(r'^\s*fiscal\s+\d{4}\s*$', row_text_lower.strip())
+            if fiscal_year_only:
+                return False  # This is data, not a header
+
+            # Check for header-like phrases with fiscal
+            if 'fiscal year' in row_text_lower and ('ended' in row_text_lower or 'ending' in row_text_lower):
+                return True
+
+        if any(keyword in row_text_lower for keyword in period_keywords):
+            # Validate it's not a data row with period keywords
+            # Check for strong data indicators
+            data_pattern = r'(?:\$\s*\d|\d+(?:,\d{3})+|\d+\.\d+|[(]\s*\d+(?:,\d{3})*\s*[)])'
+            if not re.search(data_pattern, row_text):
+                return True
+
+        # Check for column descriptors (but NOT total)
+        # These are words commonly found in headers but not data rows
+        header_keywords = ['description', 'item', 'category', 'type', 'classification',
+                          'change', 'percent', 'increase', 'decrease', 'variance']
+        if any(keyword in row_text_lower for keyword in header_keywords):
+            # Make sure it's not a total row
+            if 'total' not in row_text_lower[:30]:
+                # Additional validation: long narrative text is not a header
+                # Headers are typically concise (< 150 chars)
+                if len(row_text) > 150:
+                    return False
+                # Check for data indicators (would indicate data row, not header)
+                data_pattern = r'(?:\$\s*\d|\d+(?:,\d{3})+|\d+\.\d+|[(]\s*\d+(?:,\d{3})*\s*[)])'
+                if re.search(data_pattern, row_text):
+                    return False
+                return True
+
+        # Check if all cells are bold (common header formatting)
         bold_count = 0
         for cell in cells:
             style = cell.get('style', '')
@@ -252,14 +507,43 @@ class TableProcessor:
             elif cell.find('.//b') is not None or cell.find('.//strong') is not None:
                 bold_count += 1
 
-        if bold_count == len(cells):
+        # Only consider it a header if ALL cells are bold (not just some)
+        if bold_count == len(cells) and bold_count > 0:
             return True
 
-        # Check if row contains typical header keywords
-        text = tr.text_content().lower()
-        header_keywords = ['total', 'description', 'amount', 'date', 'period', 'year']
-        if any(keyword in text for keyword in header_keywords):
-            return True
+        # Check content type ratio - headers usually have more text than numbers
+        # Count cells with primarily text vs primarily numbers
+        text_cells = 0
+        number_cells = 0
+        for cell in cells:
+            cell_text = cell.text_content().strip()
+            if cell_text:
+                # Remove common symbols for analysis
+                clean_text = cell_text.replace('$', '').replace('%', '').replace(',', '').replace('(', '').replace(')', '')
+                if clean_text.replace('.', '').replace('-', '').strip().isdigit():
+                    number_cells += 1
+                else:
+                    text_cells += 1
+
+        # Be very careful about treating text-heavy rows as headers
+        # Many data rows start with text labels (e.g., "Impact of...", "Effect of...")
+        # Only consider it a header if it has mostly text AND doesn't look like a data label
+        if text_cells > number_cells * 2 and text_cells >= 3:
+            # Check for common data row patterns
+            data_row_indicators = [
+                'impact of', 'effect of', 'adjustment', 'provision for', 'benefit',
+                'expense', 'income from', 'loss on', 'gain on', 'charge', 'credit',
+                'earnings', 'computed', 'state taxes', 'research', 'excess tax'
+            ]
+
+            # If it starts with any of these, it's likely a data row, not a header
+            for indicator in data_row_indicators:
+                if row_text_lower.startswith(indicator) or indicator in row_text_lower[:50]:
+                    return False
+
+            # Also not a header if it starts with "total"
+            if not row_text_lower.startswith('total'):
+                return True
 
         return False
 
@@ -286,17 +570,18 @@ class TableProcessor:
 
         # Check for financial table
         financial_count = sum(1 for keyword in self.FINANCIAL_KEYWORDS if keyword in combined_text)
-        if financial_count >= 3:
+        if financial_count >= 2:  # Lowered threshold for better detection
             return TableType.FINANCIAL
 
-        # Check for metrics table
+        # Check for metrics table  
         metrics_count = sum(1 for keyword in self.METRICS_KEYWORDS if keyword in combined_text)
         numeric_cells = sum(1 for row in table.rows for cell in row.cells if cell.is_numeric)
         total_cells = sum(len(row.cells) for row in table.rows)
 
         if total_cells > 0:
             numeric_ratio = numeric_cells / total_cells
-            if metrics_count >= 2 or numeric_ratio > 0.5:
+            # More lenient metrics detection
+            if metrics_count >= 1 or numeric_ratio > 0.3:
                 return TableType.METRICS
 
         # Check for table of contents

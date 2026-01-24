@@ -1,3 +1,4 @@
+from threading import Event as ThreadingEvent
 from typing import TYPE_CHECKING, Any, ClassVar, Dict, Generic, Iterator, Optional, Set, Tuple, Type, TypeVar, Union
 
 from vellum.workflows.constants import undefined
@@ -13,7 +14,6 @@ from vellum.workflows.state.base import BaseState
 from vellum.workflows.state.context import WorkflowContext
 from vellum.workflows.types.core import EntityInputsInterface
 from vellum.workflows.types.generics import InputsType, StateType
-from vellum.workflows.utils.uuids import uuid4_from_hash
 from vellum.workflows.workflows.event_filters import all_workflow_event_filter
 
 if TYPE_CHECKING:
@@ -72,6 +72,8 @@ class InlineSubworkflowNode(
     subworkflow_inputs: ClassVar[Union[EntityInputsInterface, BaseInputs, Type[undefined]]] = undefined
 
     def run(self) -> Iterator[BaseOutput]:
+        self._child_cancel_signal = ThreadingEvent()
+
         with execution_context(parent_context=get_parent_context()):
             subworkflow = self.subworkflow(
                 parent_state=self.state,
@@ -81,6 +83,8 @@ class InlineSubworkflowNode(
                 inputs=self._compile_subworkflow_inputs(),
                 event_filter=all_workflow_event_filter,
                 node_output_mocks=self._context._get_all_node_output_mocks(),
+                cancel_signal=self._child_cancel_signal,
+                event_max_size=self._context.event_max_size,
             )
 
         outputs: Optional[BaseOutputs] = None
@@ -129,6 +133,13 @@ class InlineSubworkflowNode(
                     value=output_value,
                 )
 
+    def __cancel__(self, message: str) -> None:
+        """
+        Propagate cancellation to the nested workflow by setting its cancel signal.
+        """
+        if hasattr(self, "_child_cancel_signal"):
+            self._child_cancel_signal.set()
+
     def _compile_subworkflow_inputs(self) -> InputsType:
         if self.subworkflow is None:
             raise NodeException(
@@ -161,4 +172,4 @@ class InlineSubworkflowNode(
         if cls.__output_ids__ is None:
             cls.__output_ids__ = {}
 
-        cls.__output_ids__[reference.name] = uuid4_from_hash(f"{cls.__id__}|{reference.name}")
+        cls.__output_ids__[reference.name] = reference.id

@@ -15,16 +15,14 @@ import collections.abc
 from tango._tango import (
     Connection,
     DeviceData,
-    __CallBackAutoDie,
     ExtractAs,
 )
-from tango.utils import document_method as __document_method
-from tango.utils import document_static_method as __document_static_method
 from tango.utils import _trace_client, _get_command_inout_param
+from tango.utils import _get_new_CallbackAutoDie
 from tango.green import green
 
 
-def __CallBackAutoDie__cmd_ended_aux(self, fn):
+def __CallBack__cmd_ended_aux(self, fn):
     def __new_fn(cmd_done_event):
         try:
             cmd_done_event.argout = cmd_done_event.argout_raw.extract(
@@ -37,33 +35,30 @@ def __CallBackAutoDie__cmd_ended_aux(self, fn):
     return __new_fn
 
 
-def __Connection__command_inout(self, name, *args, **kwds):
+def __Connection__command_inout(self, name, cmd_param=None):
     """
-    command_inout( self, cmd_name, cmd_param=None, green_mode=None, wait=True, timeout=None) -> any
+    command_inout( self, cmd_name, cmd_param=None, __GREEN_KWARGS__) -> any
 
-            Execute a command on a device.
+        Execute a command on a device.
 
-        Parameters :
-                - cmd_name  : (str) Command name.
-                - cmd_param : (any) It should be a value of the type expected by the
-                              command or a DeviceData object with this value inserted.
-                              It can be omitted if the command should not get any argument.
-                - green_mode : (GreenMode) Defaults to the current DeviceProxy GreenMode.
-                               (see :meth:`~tango.DeviceProxy.get_green_mode` and
-                               :meth:`~tango.DeviceProxy.set_green_mode`).
-                - wait       : (bool) whether or not to wait for result. If green_mode
-                               is *Synchronous*, this parameter is ignored as it always
-                               waits for the result.
-                               Ignored when green_mode is Synchronous (always waits).
-                - timeout    : (float) The number of seconds to wait for the result.
-                               If None, then there is no limit on the wait time.
-                               Ignored when green_mode is Synchronous or wait is False.
-        Return     : The result of the command. The type depends on the command. It may be None.
+    :param cmd_name: Command name
+    :type value: str
 
-        Throws     : ConnectionFailed, CommunicationFailed, DeviceUnlocked, DevFailed from device
-                     TimeoutError (green_mode == Futures) If the future didn't finish executing before the given timeout.
-                     Timeout (green_mode == Gevent) If the async result didn't finish executing before the given timeout.
-                     TypeError if cmd_param's type is not compatible with the command.
+    :param cmd_param: It should be a value of the type expected by the command or a DeviceData object with this value inserted.
+                      It can be omitted if the command should not get any argument.
+    :type cmd_param: Any
+
+    __GREEN_KWARGS_DESCRIPTION__
+
+    :returns: The result of the command. The type depends on the command. It may be None
+    :rtype: Any
+
+    :throws: TypeError: if cmd_param's type is not compatible with the command
+    :throws: :obj:`tango.ConnectionFailed`: Raised in case of a connection failure.
+    :throws: :obj:`tango.CommunicationFailed`: Raised in case of a communication failure.
+    :throws: :obj:`tango.DevFailed`: Raised in case of a device failure.
+    :throws: :obj:`tango.DeviceUnlocked`: Raised in case of a device failure.
+    __GREEN_RAISES__
 
     .. versionadded:: 8.1.0
         *green_mode* parameter.
@@ -74,7 +69,7 @@ def __Connection__command_inout(self, name, *args, **kwds):
         TypeError's for invalid command input arguments are now more detailed.
         For commands with a DEV_STRING input argument, invalid data will now raise TypeError instead of SystemError.
     """
-    r = Connection.command_inout_raw(self, name, *args, **kwds)
+    r = Connection.command_inout_raw(self, name, cmd_param)
     if isinstance(r, DeviceData):
         try:
             return r.extract(self.defaultCommandExtractAs)
@@ -91,17 +86,23 @@ def __Connection__command_inout_raw(self, cmd_name, cmd_param=None):
     """
     command_inout_raw( self, cmd_name, cmd_param=None) -> DeviceData
 
-            Execute a command on a device.
+        Execute a command on a device. Does not convert result.
 
-        Parameters :
-                - cmd_name  : (str) Command name.
-                - cmd_param : (any) It should be a value of the type expected by the
-                              command or a DeviceData object with this value inserted.
-                              It can be omitted if the command should not get any argument.
-        Return     : A DeviceData object.
+    :param cmd_name: Command name
+    :type value: str
 
-        Throws     : ConnectionFailed, CommunicationFailed, DeviceUnlocked, DevFailed from device.
-                     TypeError if cmd_param's type is not compatible with the command.
+    :param cmd_param: It should be a value of the type expected by the command or a DeviceData object with this value inserted.
+                      It can be omitted if the command should not get any argument.
+    :type cmd_param: Any
+
+    :returns: The result of the command. The type depends on the command. It may be None
+    :rtype: Any
+
+    :throws: TypeError: if cmd_param's type is not compatible with the command
+    :throws: :obj:`tango.ConnectionFailed`: Raised in case of a connection failure.
+    :throws: :obj:`tango.CommunicationFailed`: Raised in case of a communication failure.
+    :throws: :obj:`tango.DevFailed`: Raised in case of a device failure.
+    :throws: :obj:`tango.DeviceUnlocked`: Raised in case of a device failure.
 
     .. versionchanged:: 10.0.0
         TypeError's for invalid command input arguments are now more detailed.
@@ -179,13 +180,13 @@ def __Connection__command_inout_asynch(self, cmd_name, *args):
         if isinstance(
             args[0], collections.abc.Callable
         ):  # command_inout_asynch(lambda)
-            cb = __CallBackAutoDie()
-            cb.cmd_ended = __CallBackAutoDie__cmd_ended_aux(self, args[0])
+            cb = _get_new_CallbackAutoDie()
+            cb.cmd_ended = args[0]
             argin = _get_command_inout_param(self, cmd_name)
             return self.__command_inout_asynch_cb(cmd_name, argin, cb)
         elif hasattr(args[0], "cmd_ended"):  # command_inout_asynch(Cbclass)
-            cb = __CallBackAutoDie()
-            cb.cmd_ended = __CallBackAutoDie__cmd_ended_aux(self, args[0].cmd_ended)
+            cb = _get_new_CallbackAutoDie()
+            cb.cmd_ended = args[0].cmd_ended
             argin = _get_command_inout_param(self, cmd_name)
             return self.__command_inout_asynch_cb(cmd_name, argin, cb)
         else:  # command_inout_asynch(value)
@@ -196,13 +197,13 @@ def __Connection__command_inout_asynch(self, cmd_name, *args):
         if isinstance(
             args[1], collections.abc.Callable
         ):  # command_inout_asynch( value, lambda)
-            cb = __CallBackAutoDie()
-            cb.cmd_ended = __CallBackAutoDie__cmd_ended_aux(self, args[1])
+            cb = _get_new_CallbackAutoDie()
+            cb.cmd_ended = args[1]
             argin = _get_command_inout_param(self, cmd_name, args[0])
             return self.__command_inout_asynch_cb(cmd_name, argin, cb)
         elif hasattr(args[1], "cmd_ended"):  # command_inout_asynch(value, cbClass)
-            cb = __CallBackAutoDie()
-            cb.cmd_ended = __CallBackAutoDie__cmd_ended_aux(self, args[1].cmd_ended)
+            cb = _get_new_CallbackAutoDie()
+            cb.cmd_ended = args[1].cmd_ended
             argin = _get_command_inout_param(self, cmd_name, args[0])
             return self.__command_inout_asynch_cb(cmd_name, argin, cb)
         else:  # command_inout_asynch(value, forget)
@@ -254,447 +255,11 @@ def __Connection__command_inout_reply(self, idx, timeout=None):
 __Connection__command_inout_reply.__name__ = "command_inout_reply"
 
 
-def __init_Connection():
+def connection_init():
     Connection.defaultCommandExtractAs = ExtractAs.Numpy
     Connection.command_inout_raw = __Connection__command_inout_raw
-    Connection.command_inout = green(_trace_client(__Connection__command_inout))
+    Connection.command_inout = green(
+        _trace_client(__Connection__command_inout), update_signature_and_docstring=True
+    )
     Connection.command_inout_asynch = _trace_client(__Connection__command_inout_asynch)
     Connection.command_inout_reply = _trace_client(__Connection__command_inout_reply)
-
-
-def __doc_Connection():
-    def document_method(method_name, desc, append=True):
-        return __document_method(Connection, method_name, desc, append)
-
-    def document_static_method(method_name, desc, append=True):
-        return __document_static_method(Connection, method_name, desc, append)
-
-    Connection.__doc__ = """
-        The abstract Connection class for DeviceProxy. Not to be initialized directly.
-    """
-
-    document_method(
-        "dev_name",
-        """
-    dev_name(self) -> str
-
-            Return the device name as it is stored locally
-
-        Parameters : None
-        Return     : (str)
-    """,
-    )
-
-    document_method(
-        "get_db_host",
-        """
-    get_db_host(self) -> str
-
-            Returns a string with the database host.
-
-        Parameters : None
-        Return     : (str)
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "get_db_port",
-        """
-    get_db_port(self) -> str
-
-            Returns a string with the database port.
-
-        Parameters : None
-        Return     : (str)
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "get_db_port_num",
-        """
-    get_db_port_num(self) -> int
-
-            Returns an integer with the database port.
-
-        Parameters : None
-        Return     : (int)
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "get_from_env_var",
-        """
-    get_from_env_var(self) -> bool
-
-            Returns True if determined by environment variable or
-            False otherwise
-
-        Parameters : None
-        Return     : (bool)
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "connect",
-        """
-    connect(self, corba_name) -> None
-
-            Creates a connection to a TANGO device using it's stringified
-            CORBA reference i.e. IOR or corbaloc.
-
-        Parameters :
-            - corba_name : (str) Name of the CORBA object
-        Return     : None
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "reconnect",
-        """
-    reconnect(self, db_used) -> None
-
-            Reconnecto to a CORBA object.
-
-        Parameters :
-            - db_used : (bool) Use thatabase
-        Return     : None
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "get_idl_version",
-        """
-    get_idl_version(self) -> int
-
-            Get the version of the Tango Device interface implemented
-            by the device
-
-        Parameters : None
-        Return     : (int)
-    """,
-    )
-
-    document_method(
-        "set_timeout_millis",
-        """
-    set_timeout_millis(self, timeout) -> None
-
-            Set client side timeout for device in milliseconds. Any method
-            which takes longer than this time to execute will throw an
-            exception
-
-        Parameters :
-            - timeout : integer value of timeout in milliseconds
-        Return     : None
-        Example    :
-                    dev.set_timeout_millis(1000)
-    """,
-    )
-
-    document_method(
-        "get_timeout_millis",
-        """
-    get_timeout_millis(self) -> int
-
-            Get the client side timeout in milliseconds
-
-        Parameters : None
-        Return     : (int)
-    """,
-    )
-
-    document_method(
-        "get_source",
-        """
-    get_source(self) -> DevSource
-
-            Get the data source(device, polling buffer, polling buffer
-            then device) used by command_inout or read_attribute methods
-
-        Parameters : None
-        Return     : (DevSource)
-        Example    :
-                    source = dev.get_source()
-                    if source == DevSource.CACHE_DEV : ...
-    """,
-    )
-
-    document_method(
-        "set_source",
-        """
-    set_source(self, source) -> None
-
-            Set the data source(device, polling buffer, polling buffer
-            then device) for command_inout and read_attribute methods.
-
-        Parameters :
-            - source: (DevSource) constant.
-        Return     : None
-        Example    :
-                    dev.set_source(DevSource.CACHE_DEV)
-    """,
-    )
-
-    document_method(
-        "get_transparency_reconnection",
-        """
-    get_transparency_reconnection(self) -> bool
-
-            Returns the device transparency reconnection flag.
-
-        Parameters : None
-        Return     : (bool) True if transparency reconnection is set
-                            or False otherwise
-    """,
-    )
-
-    document_method(
-        "set_transparency_reconnection",
-        """
-    set_transparency_reconnection(self, yesno) -> None
-
-            Set the device transparency reconnection flag
-
-        Parameters :
-            "    - val : (bool) True to set transparency reconnection
-            "                   or False otherwise
-        Return     : None
-    """,
-    )
-
-    document_method(
-        "command_inout_reply_raw",
-        """
-    command_inout_reply_raw(self, id) -> DeviceData
-
-            Check if the answer of an asynchronous command_inout is arrived
-            (polling model). If the reply is arrived and if it is a valid
-            reply, it is returned to the caller in a DeviceData object. If
-            the reply is an exception, it is re-thrown by this call. An
-            exception is also thrown in case of the reply is not yet arrived.
-
-        Parameters :
-            - id      : (int) Asynchronous call identifier.
-        Return     : (DeviceData)
-        Throws     : AsynCall, AsynReplyNotArrived, CommunicationFailed, DevFailed from device
-    """,
-    )
-
-    document_method(
-        "command_inout_reply_raw",
-        """
-    command_inout_reply_raw(self, id, timeout) -> DeviceData
-
-            Check if the answer of an asynchronous command_inout is arrived
-            (polling model). id is the asynchronous call identifier. If the
-            reply is arrived and if it is a valid reply, it is returned to
-            the caller in a DeviceData object. If the reply is an exception,
-            it is re-thrown by this call. If the reply is not yet arrived,
-            the call will wait (blocking the process) for the time specified
-            in timeout. If after timeout milliseconds, the reply is still
-            not there, an exception is thrown. If timeout is set to 0, the
-            call waits until the reply arrived.
-
-        Parameters :
-            - id      : (int) Asynchronous call identifier.
-            - timeout : (int)
-        Return     : (DeviceData)
-        Throws     : AsynCall, AsynReplyNotArrived, CommunicationFailed, DevFailed from device
-    """,
-    )
-
-    # //
-    # // Asynchronous methods
-    # //
-
-    document_method(
-        "get_asynch_replies",
-        """
-    get_asynch_replies(self) -> None
-
-            Try to obtain data returned by a command asynchronously
-            requested. This method does not block if the reply has not yet
-            arrived. It fires callback for already arrived replies.
-
-        Parameters : None
-        Return     : None
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "get_asynch_replies",
-        """
-    get_asynch_replies(self, call_timeout) -> None
-
-            Try to obtain data returned by a command asynchronously
-            requested. This method blocks for the specified timeout if the
-            reply is not yet arrived. This method fires callback when the
-            reply arrived. If the timeout is set to 0, the call waits
-            undefinitely for the reply
-
-        Parameters :
-            - call_timeout : (int) timeout in miliseconds
-        Return     : None
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "cancel_asynch_request",
-        """
-    cancel_asynch_request(self, id ) -> None
-
-            Cancel a running asynchronous request
-
-            This is a client side call. Obviously, the call cannot be
-            aborted while it is running in the device.
-
-        Parameters :
-            - id : The asynchronous call identifier
-        Return     : None
-
-            New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "cancel_all_polling_asynch_request",
-        """
-    cancel_all_polling_asynch_request(self) -> None
-
-            Cancel all running asynchronous request
-
-            This is a client side call. Obviously, the calls cannot be
-            aborted while it is running in the device.
-
-        Parameters : None
-        Return     : None
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    # //
-    # // Control access related methods
-    # //
-
-    document_method(
-        "get_access_control",
-        """
-    get_access_control(self) -> AccessControlType
-
-            Returns the current access control type
-
-        Parameters : None
-        Return     : (AccessControlType) The current access control type
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "set_access_control",
-        """
-    set_access_control(self, acc) -> None
-
-            Sets the current access control type
-
-        Parameters :
-            - acc: (AccessControlType) the type of access
-                   control to set
-        Return     : None
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "get_access_right",
-        """
-    get_access_right(self) -> AccessControlType
-
-            Returns the current access control type
-
-        Parameters : None
-        Return     : (AccessControlType) The current access control type
-
-        New in PyTango 8.0.0
-    """,
-    )
-
-    document_static_method(
-        "get_fqdn",
-        """
-    get_fqdn(self) -> str
-
-            Returns the fully qualified domain name
-
-        Parameters : None
-        Return     : (str) the fully qualified domain name
-
-        New in PyTango 7.2.0
-    """,
-    )
-
-    document_method(
-        "is_dbase_used",
-        """
-    is_dbase_used(self) -> bool
-
-            Returns if the database is being used
-
-        Parameters : None
-        Return     : (bool) True if the database is being used
-
-        New in PyTango 7.2.0
-    """,
-    )
-
-    document_method(
-        "get_dev_host",
-        """
-    get_dev_host(self) -> str
-
-            Returns the current host
-
-        Parameters : None
-        Return     : (str) the current host
-
-        New in PyTango 7.2.0
-    """,
-    )
-
-    document_method(
-        "get_dev_port",
-        """
-    get_dev_port(self) -> str
-
-            Returns the current port
-
-        Parameters : None
-        Return     : (str) the current port
-
-        New in PyTango 7.2.0
-    """,
-    )
-
-
-def connection_init(doc=True):
-    __init_Connection()
-    if doc:
-        __doc_Connection()

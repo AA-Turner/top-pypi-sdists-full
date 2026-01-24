@@ -1,4 +1,5 @@
 use crate::http::TensorzeroHttpClient;
+use async_trait::async_trait;
 /// TGI integration for TensorZero
 ///
 /// Here, we list known limitations of TGI in our experience
@@ -7,9 +8,9 @@ use crate::http::TensorzeroHttpClient;
 /// Second, TGI doesn't handle multiple tools in a single request, because it doesn't return correct tool names. See the docs [here](https://huggingface.co/docs/text-generation-inference/main/en/basic_tutorials/using_guidance#the-tools-parameter)
 /// for an example.
 /// Third, TGI doesn't support tool responses being sent back at all.
-/// Fourth, TGI only supports JSON mode through a tool call. Luckily, we do this out of the box with `implicit_tool` as the json mode
+/// Fourth, TGI only supports JSON mode through a tool call. Luckily, we do this out of the box with `tool` as the json mode
 ///
-/// In light of this, we have decided to not explicitly support tool calling for TGI and only support JSON mode via `implicit_tool`.
+/// In light of this, we have decided to not explicitly support tool calling for TGI and only support JSON mode via `tool`.
 /// Our implementation currently allows you to use a tool in TGI (nonstreaming), but YMMV.
 use futures::{Stream, StreamExt, TryStreamExt};
 use reqwest::StatusCode;
@@ -19,73 +20,66 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::borrow::Cow;
 use std::pin::Pin;
-use std::sync::OnceLock;
 use std::time::Duration;
 use tokio::time::Instant;
 use url::Url;
 
+use super::helpers::convert_stream_error;
 use super::openai::{
-    convert_stream_error, get_chat_url, prepare_openai_messages, prepare_openai_tools,
-    OpenAIRequestMessage, OpenAITool, OpenAIToolChoice, OpenAIToolType, StreamOptions,
-    SystemOrDeveloper,
+    OpenAIRequestMessage, OpenAIToolType, StreamOptions, SystemOrDeveloper, get_chat_url,
+    prepare_openai_messages,
 };
 use crate::cache::ModelProviderRequest;
 use crate::endpoints::inference::InferenceCredentials;
 use crate::error::DisplayOrDebugGateway;
-use crate::error::{Error, ErrorDetails};
+use crate::error::{DelayedError, Error, ErrorDetails};
+use crate::inference::InferenceProvider;
+use crate::inference::TensorZeroEventError;
+use crate::inference::WrappedProvider;
 use crate::inference::types::batch::{
     BatchRequestRow, PollBatchInferenceResponse, StartBatchProviderInferenceResponse,
 };
+use crate::inference::types::chat_completion_inference_params::{
+    ChatCompletionInferenceParamsV2, warn_inference_parameter_not_supported,
+};
+use crate::inference::types::usage::raw_usage_entries_from_value;
 use crate::inference::types::{
-    ContentBlockChunk, ContentBlockOutput, FinishReason, Latency, ModelInferenceRequest,
+    ApiType, ContentBlockChunk, ContentBlockOutput, FinishReason, Latency, ModelInferenceRequest,
     ModelInferenceRequestJsonMode, PeekableProviderInferenceResponseStream,
     ProviderInferenceResponse, ProviderInferenceResponseArgs, ProviderInferenceResponseChunk,
     ProviderInferenceResponseStreamInner, TextChunk, Usage,
 };
-use crate::inference::InferenceProvider;
-use crate::inference::TensorZeroEventError;
-use crate::inference::WrappedProvider;
-use crate::model::{build_creds_caching_default, Credential, CredentialLocation, ModelProvider};
+use crate::model::{Credential, ModelProvider};
+use crate::providers::chat_completions::prepare_chat_completion_tools;
+use crate::providers::chat_completions::{ChatCompletionTool, ChatCompletionToolChoice};
 use crate::providers::helpers::{
     inject_extra_request_data_and_send, inject_extra_request_data_and_send_eventsource,
 };
-use crate::providers::openai::check_api_base_suffix;
+use crate::providers::openai::{OpenAIMessagesConfig, check_api_base_suffix};
 use crate::tool::ToolCall;
+use uuid::Uuid;
 
 const PROVIDER_NAME: &str = "TGI";
 pub const PROVIDER_TYPE: &str = "tgi";
 
-fn default_api_key_location() -> CredentialLocation {
-    CredentialLocation::Env("TGI_API_KEY".to_string())
-}
-
+#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Debug, Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS))]
-#[cfg_attr(test, ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export))]
 pub struct TGIProvider {
     api_base: Url,
     #[serde(skip)]
     credentials: TGICredentials,
 }
 
-static DEFAULT_CREDENTIALS: OnceLock<TGICredentials> = OnceLock::new();
-
 impl TGIProvider {
-    pub fn new(api_base: Url, api_key_location: Option<CredentialLocation>) -> Result<Self, Error> {
-        let credentials = build_creds_caching_default(
-            api_key_location,
-            default_api_key_location(),
-            PROVIDER_TYPE,
-            &DEFAULT_CREDENTIALS,
-        )?;
-
+    pub fn new(api_base: Url, credentials: TGICredentials) -> Self {
         // Check if the api_base has the `/chat/completions` suffix and warn if it does
         check_api_base_suffix(&api_base);
 
-        Ok(TGIProvider {
+        TGIProvider {
             api_base,
             credentials,
-        })
+        }
     }
 }
 
@@ -94,6 +88,10 @@ pub enum TGICredentials {
     Static(SecretString),
     Dynamic(String),
     None,
+    WithFallback {
+        default: Box<TGICredentials>,
+        fallback: Box<TGICredentials>,
+    },
 }
 
 impl TryFrom<Credential> for TGICredentials {
@@ -105,6 +103,10 @@ impl TryFrom<Credential> for TGICredentials {
             Credential::Dynamic(key_name) => Ok(TGICredentials::Dynamic(key_name)),
             Credential::None => Ok(TGICredentials::None),
             Credential::Missing => Ok(TGICredentials::None),
+            Credential::WithFallback { default, fallback } => Ok(TGICredentials::WithFallback {
+                default: Box::new((*default).try_into()?),
+                fallback: Box::new((*fallback).try_into()?),
+            }),
             _ => Err(Error::new(ErrorDetails::Config {
                 message: "Invalid api_key_location for TGI provider".to_string(),
             })),
@@ -116,40 +118,55 @@ impl TGICredentials {
     pub fn get_api_key<'a>(
         &'a self,
         dynamic_api_keys: &'a InferenceCredentials,
-    ) -> Result<Option<&'a SecretString>, Error> {
+    ) -> Result<Option<&'a SecretString>, DelayedError> {
         match self {
             TGICredentials::Static(api_key) => Ok(Some(api_key)),
             TGICredentials::Dynamic(key_name) => {
                 Some(dynamic_api_keys.get(key_name).ok_or_else(|| {
-                    ErrorDetails::ApiKeyMissing {
+                    DelayedError::new(ErrorDetails::ApiKeyMissing {
                         provider_name: PROVIDER_NAME.to_string(),
                         message: format!("Dynamic api key `{key_name}` is missing"),
-                    }
-                    .into()
+                    })
                 }))
                 .transpose()
+            }
+            TGICredentials::WithFallback { default, fallback } => {
+                // Try default first, fall back to fallback if it fails
+                match default.get_api_key(dynamic_api_keys) {
+                    Ok(key) => Ok(key),
+                    Err(e) => {
+                        e.log_at_level(
+                            "Using fallback credential, as default credential is unavailable: ",
+                            tracing::Level::WARN,
+                        );
+                        fallback.get_api_key(dynamic_api_keys)
+                    }
+                }
             }
             TGICredentials::None => Ok(None),
         }
     }
 }
 
+#[async_trait]
 impl WrappedProvider for TGIProvider {
     fn thought_block_provider_type_suffix(&self) -> Cow<'static, str> {
         Cow::Borrowed("tgi")
     }
 
-    fn make_body<'a>(
+    async fn make_body<'a>(
         &'a self,
         ModelProviderRequest {
             request,
             provider_name: _,
             model_name: _,
+            otlp_config: _,
+            model_inference_id: _,
         }: ModelProviderRequest<'a>,
     ) -> Result<serde_json::Value, Error> {
         // TGI doesn't care about the `model_name` field, so we can hardcode it to "tgi"
 
-        serde_json::to_value(TGIRequest::new(PROVIDER_TYPE, request)?).map_err(|e| {
+        serde_json::to_value(TGIRequest::new(PROVIDER_TYPE, request).await?).map_err(|e| {
             Error::new(ErrorDetails::Serialization {
                 message: format!(
                     "Error serializing TGI request: {}",
@@ -165,6 +182,9 @@ impl WrappedProvider for TGIProvider {
         raw_request: String,
         raw_response: String,
         latency: Latency,
+        _model_name: &str,
+        _provider_name: &str,
+        model_inference_id: Uuid,
     ) -> Result<ProviderInferenceResponse, Error> {
         let response = serde_json::from_str(&raw_response).map_err(|e| {
             Error::new(ErrorDetails::InferenceServer {
@@ -184,6 +204,7 @@ impl WrappedProvider for TGIProvider {
             raw_response,
             raw_request,
             generic_request: request,
+            model_inference_id,
         }
         .try_into()
     }
@@ -194,8 +215,10 @@ impl WrappedProvider for TGIProvider {
             Box<dyn Stream<Item = Result<Event, TensorZeroEventError>> + Send + 'static>,
         >,
         start_time: Instant,
+        raw_request: &str,
+        model_inference_id: Uuid,
     ) -> ProviderInferenceResponseStreamInner {
-        stream_tgi(event_source, start_time)
+        stream_tgi(event_source, start_time, raw_request, model_inference_id)
     }
 }
 
@@ -207,9 +230,12 @@ impl InferenceProvider for TGIProvider {
         dynamic_api_keys: &'a InferenceCredentials,
         model_provider: &'a ModelProvider,
     ) -> Result<ProviderInferenceResponse, Error> {
-        let request_body = self.make_body(model_provider_request)?;
+        let request_body = self.make_body(model_provider_request).await?;
         let request_url = get_chat_url(&self.api_base)?;
-        let api_key = self.credentials.get_api_key(dynamic_api_keys)?;
+        let api_key = self
+            .credentials
+            .get_api_key(dynamic_api_keys)
+            .map_err(|e| e.log())?;
         let start_time = Instant::now();
 
         let mut request_builder = http_client.post(request_url);
@@ -250,6 +276,9 @@ impl InferenceProvider for TGIProvider {
                 raw_request,
                 raw_response,
                 latency,
+                model_provider_request.model_name,
+                model_provider_request.provider_name,
+                model_provider_request.model_inference_id,
             )
         } else {
             Err(handle_tgi_error(
@@ -275,13 +304,15 @@ impl InferenceProvider for TGIProvider {
             request,
             provider_name: _,
             model_name,
+            otlp_config: _,
+            model_inference_id,
         }: ModelProviderRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
         model_provider: &'a ModelProvider,
     ) -> Result<(PeekableProviderInferenceResponseStream, String), Error> {
-        let request_body =
-            serde_json::to_value(TGIRequest::new(PROVIDER_NAME, request)?).map_err(|e| {
+        let request_body = serde_json::to_value(TGIRequest::new(PROVIDER_NAME, request).await?)
+            .map_err(|e| {
                 Error::new(ErrorDetails::Serialization {
                     message: format!(
                         "Error serializing TGI request: {}",
@@ -298,7 +329,10 @@ impl InferenceProvider for TGIProvider {
             .into());
         }
         let request_url = get_chat_url(&self.api_base)?;
-        let api_key = self.credentials.get_api_key(dynamic_api_keys)?;
+        let api_key = self
+            .credentials
+            .get_api_key(dynamic_api_keys)
+            .map_err(|e| e.log())?;
         let start_time = Instant::now();
         let mut request_builder = http_client.post(request_url);
         if let Some(api_key) = api_key {
@@ -318,6 +352,8 @@ impl InferenceProvider for TGIProvider {
         let stream = stream_tgi(
             event_source.map_err(TensorZeroEventError::EventSource),
             start_time,
+            &raw_request,
+            model_inference_id,
         )
         .peekable();
         Ok((stream, raw_request))
@@ -351,7 +387,10 @@ impl InferenceProvider for TGIProvider {
 fn stream_tgi(
     event_source: impl Stream<Item = Result<Event, TensorZeroEventError>> + Send + 'static,
     start_time: Instant,
+    raw_request: &str,
+    model_inference_id: Uuid,
 ) -> ProviderInferenceResponseStreamInner {
+    let raw_request = raw_request.to_string();
     Box::pin(async_stream::stream! {
         futures::pin_mut!(event_source);
         while let Some(ev) = event_source.next().await {
@@ -362,7 +401,7 @@ fn stream_tgi(
                             yield Err(e);
                         }
                         TensorZeroEventError::EventSource(e) => {
-                            yield Err(convert_stream_error(PROVIDER_TYPE.to_string(), e).await);
+                            yield Err(convert_stream_error(raw_request.clone(), PROVIDER_TYPE.to_string(), *e, None).await);
                         }
                     }
                 }
@@ -377,14 +416,14 @@ fn stream_tgi(
                                 message: format!(
                                     "Error parsing chunk. Error: {e}",
                                 ),
-                                raw_request: None,
+                                raw_request: Some(raw_request.clone()),
                                 raw_response: Some(message.data.clone()),
                                 provider_type: PROVIDER_TYPE.to_string(),
                             }));
 
                         let latency = start_time.elapsed();
                         let stream_message = data.and_then(|d| {
-                            tgi_to_tensorzero_chunk(message.data, d, latency)
+                            tgi_to_tensorzero_chunk(message.data, d, latency, model_inference_id)
                         });
                         yield stream_message;
                     }
@@ -401,8 +440,10 @@ fn stream_tgi(
 /// presence_penalty, seed, service_tier, stop, user,
 /// or the deprecated function_call and functions arguments.
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(Default))]
 struct TGIRequest<'a> {
     messages: Vec<OpenAIRequestMessage<'a>>,
+    #[cfg_attr(test, serde(default))]
     model: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     temperature: Option<f32>,
@@ -420,25 +461,55 @@ struct TGIRequest<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     stream_options: Option<StreamOptions>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    tools: Option<Vec<OpenAITool<'a>>>,
+    tools: Option<Vec<ChatCompletionTool<'a>>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    tool_choice: Option<OpenAIToolChoice<'a>>,
+    tool_choice: Option<ChatCompletionToolChoice<'a>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     parallel_tool_calls: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     stop: Option<Cow<'a, [String]>>,
 }
 
+fn apply_inference_params(
+    _request: &mut TGIRequest,
+    inference_params: &ChatCompletionInferenceParamsV2,
+) {
+    let ChatCompletionInferenceParamsV2 {
+        reasoning_effort,
+        service_tier,
+        thinking_budget_tokens,
+        verbosity,
+    } = inference_params;
+
+    if reasoning_effort.is_some() {
+        warn_inference_parameter_not_supported(PROVIDER_NAME, "reasoning_effort", None);
+    }
+
+    if service_tier.is_some() {
+        warn_inference_parameter_not_supported(PROVIDER_NAME, "service_tier", None);
+    }
+
+    if thinking_budget_tokens.is_some() {
+        warn_inference_parameter_not_supported(PROVIDER_NAME, "thinking_budget_tokens", None);
+    }
+
+    if verbosity.is_some() {
+        warn_inference_parameter_not_supported(PROVIDER_NAME, "verbosity", None);
+    }
+}
+
 impl<'a> TGIRequest<'a> {
-    pub fn new(
+    pub async fn new(
         model: &'a str,
         request: &'a ModelInferenceRequest<'_>,
     ) -> Result<TGIRequest<'a>, Error> {
         // TGI doesn't support JSON mode at all (only through tools [https://huggingface.co/docs/text-generation-inference/en/conceptual/guidance])
         // So we log a warning and ignore the JSON mode
-        // You can get JSON mode through `implicit_tool` instead.
+        // You can get JSON mode through `tool` instead.
         if request.json_mode != ModelInferenceRequestJsonMode::Off {
-            tracing::warn!("TGI does not support JSON mode. Ignoring JSON mode. Consider using `json_mode = \"implicit_tool\"` instead.");
+            tracing::warn!(
+                "TGI does not support JSON mode. Ignoring JSON mode. Consider using `json_mode = \"tool\"` instead."
+            );
         }
 
         let stream_options = if request.stream {
@@ -450,15 +521,24 @@ impl<'a> TGIRequest<'a> {
         };
 
         let messages = prepare_openai_messages(
-            request.system.as_deref().map(SystemOrDeveloper::System),
+            request
+                .system
+                .as_deref()
+                .map(|m| SystemOrDeveloper::System(Cow::Borrowed(m))),
             &request.messages,
-            Some(&request.json_mode),
-            PROVIDER_TYPE,
-        )?;
+            OpenAIMessagesConfig {
+                json_mode: Some(&request.json_mode),
+                provider_type: PROVIDER_TYPE,
+                fetch_and_encode_input_files_before_inference: request
+                    .fetch_and_encode_input_files_before_inference,
+            },
+        )
+        .await?;
 
-        let (tools, tool_choice, parallel_tool_calls) = prepare_openai_tools(request);
+        let (tools, tool_choice, parallel_tool_calls) =
+            prepare_chat_completion_tools(request, false)?;
 
-        Ok(TGIRequest {
+        let mut tgi_request = TGIRequest {
             messages,
             model,
             temperature: request.temperature,
@@ -473,21 +553,12 @@ impl<'a> TGIRequest<'a> {
             tool_choice,
             parallel_tool_calls,
             stop: request.borrow_stop_sequences(),
-        })
+        };
+
+        apply_inference_params(&mut tgi_request, &request.inference_params_v2);
+
+        Ok(tgi_request)
     }
-}
-
-#[derive(Serialize, Debug, Clone, PartialEq, Deserialize)]
-struct OpenAIRequestToolCall<'a> {
-    id: &'a str,
-    r#type: OpenAIToolType,
-    function: OpenAIRequestFunctionCall<'a>,
-}
-
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-struct OpenAIRequestFunctionCall<'a> {
-    name: &'a str,
-    arguments: &'a str,
 }
 
 struct TGIResponseWithMetadata<'a> {
@@ -496,6 +567,7 @@ struct TGIResponseWithMetadata<'a> {
     raw_response: String,
     raw_request: String,
     generic_request: &'a ModelInferenceRequest<'a>,
+    model_inference_id: Uuid,
 }
 
 impl<'a> TryFrom<TGIResponseWithMetadata<'a>> for ProviderInferenceResponse {
@@ -507,6 +579,7 @@ impl<'a> TryFrom<TGIResponseWithMetadata<'a>> for ProviderInferenceResponse {
             raw_response,
             raw_request,
             generic_request,
+            model_inference_id,
         } = value;
         if response.choices.len() != 1 {
             return Err(ErrorDetails::InferenceServer {
@@ -520,7 +593,6 @@ impl<'a> TryFrom<TGIResponseWithMetadata<'a>> for ProviderInferenceResponse {
             }
             .into());
         }
-        let usage = response.usage.into();
         let TGIResponseChoice {
             message,
             finish_reason,
@@ -543,6 +615,15 @@ impl<'a> TryFrom<TGIResponseWithMetadata<'a>> for ProviderInferenceResponse {
                 content.push(ContentBlockOutput::ToolCall(tool_call.into()));
             }
         }
+        let raw_usage = tgi_usage_from_raw_response(&raw_response).map(|usage| {
+            raw_usage_entries_from_value(
+                model_inference_id,
+                PROVIDER_TYPE,
+                ApiType::ChatCompletions,
+                usage,
+            )
+        });
+        let usage = response.usage.into();
         let system = generic_request.system.clone();
         let input_messages = generic_request.messages.clone();
         Ok(ProviderInferenceResponse::new(
@@ -553,8 +634,11 @@ impl<'a> TryFrom<TGIResponseWithMetadata<'a>> for ProviderInferenceResponse {
                 raw_request,
                 raw_response: raw_response.clone(),
                 usage,
-                latency,
+                raw_usage,
+                relay_raw_response: None,
+                provider_latency: latency,
                 finish_reason: finish_reason.map(Into::into),
+                id: model_inference_id,
             },
         ))
     }
@@ -588,14 +672,13 @@ struct TGIUsage {
     prompt_tokens: u32,
     #[serde(default)]
     completion_tokens: u32,
-    total_tokens: u32,
 }
 
 impl From<TGIUsage> for Usage {
     fn from(usage: TGIUsage) -> Self {
         Usage {
-            input_tokens: usage.prompt_tokens,
-            output_tokens: usage.completion_tokens,
+            input_tokens: Some(usage.prompt_tokens),
+            output_tokens: Some(usage.completion_tokens),
         }
     }
 }
@@ -720,6 +803,7 @@ fn tgi_to_tensorzero_chunk(
     raw_message: String,
     mut chunk: TGIChatChunk,
     latency: Duration,
+    model_inference_id: Uuid,
 ) -> Result<ProviderInferenceResponseChunk, Error> {
     if chunk.choices.len() > 1 {
         return Err(ErrorDetails::InferenceServer {
@@ -730,6 +814,14 @@ fn tgi_to_tensorzero_chunk(
         }
         .into());
     }
+    let raw_usage = tgi_usage_from_raw_response(&raw_message).map(|usage| {
+        raw_usage_entries_from_value(
+            model_inference_id,
+            PROVIDER_TYPE,
+            ApiType::ChatCompletions,
+            usage,
+        )
+    });
     let usage = chunk.usage.map(Into::into);
     let mut content = vec![];
     let mut finish_reason = None;
@@ -755,13 +847,20 @@ fn tgi_to_tensorzero_chunk(
         }
     }
 
-    Ok(ProviderInferenceResponseChunk::new(
+    Ok(ProviderInferenceResponseChunk::new_with_raw_usage(
         content,
         usage,
         raw_message,
         latency,
         finish_reason,
+        raw_usage,
     ))
+}
+
+fn tgi_usage_from_raw_response(raw_response: &str) -> Option<Value> {
+    serde_json::from_str::<Value>(raw_response)
+        .ok()
+        .and_then(|value| value.get("usage").filter(|v| !v.is_null()).cloned())
 }
 
 #[cfg(test)]
@@ -769,21 +868,23 @@ mod tests {
     use std::borrow::Cow;
 
     use serde_json::json;
-    use tracing_test::traced_test;
     use uuid::Uuid;
 
     use crate::{
         inference::types::{FunctionType, ModelInferenceRequestJsonMode, RequestMessage, Role},
         providers::{
-            openai::{OpenAIToolType, SpecificToolChoice, SpecificToolFunction},
+            chat_completions::{
+                ChatCompletionSpecificToolChoice, ChatCompletionSpecificToolFunction,
+                ChatCompletionToolChoice, ChatCompletionToolType,
+            },
             test_helpers::{WEATHER_TOOL, WEATHER_TOOL_CONFIG},
         },
     };
 
     use super::*;
 
-    #[test]
-    fn test_tgi_request_new() {
+    #[tokio::test]
+    async fn test_tgi_request_new() {
         let model_name = PROVIDER_TYPE.to_string();
         let basic_request = ModelInferenceRequest {
             inference_id: Uuid::now_v7(),
@@ -812,7 +913,7 @@ mod tests {
             extra_body: Default::default(),
             ..Default::default()
         };
-        let tgi_request = TGIRequest::new(&model_name, &basic_request).unwrap();
+        let tgi_request = TGIRequest::new(&model_name, &basic_request).await.unwrap();
 
         assert_eq!(tgi_request.model, &model_name);
         assert_eq!(tgi_request.messages.len(), 2);
@@ -850,7 +951,9 @@ mod tests {
             ..Default::default()
         };
 
-        let tgi_request = TGIRequest::new(&model_name, &request_with_tools).unwrap();
+        let tgi_request = TGIRequest::new(&model_name, &request_with_tools)
+            .await
+            .unwrap();
 
         assert_eq!(tgi_request.model, &model_name);
         assert_eq!(tgi_request.messages.len(), 2);
@@ -863,16 +966,19 @@ mod tests {
         assert!(!tgi_request.stream);
         assert!(tgi_request.tools.is_some());
         let tools = tgi_request.tools.as_ref().unwrap();
-        assert_eq!(tools[0].function.name, WEATHER_TOOL.name());
-        assert_eq!(tools[0].function.parameters, WEATHER_TOOL.parameters());
+        let tool = &tools[0];
+        assert_eq!(tool.function.name, WEATHER_TOOL.name());
+        assert_eq!(tool.function.parameters, WEATHER_TOOL.parameters());
         assert_eq!(
             tgi_request.tool_choice,
-            Some(OpenAIToolChoice::Specific(SpecificToolChoice {
-                r#type: OpenAIToolType::Function,
-                function: SpecificToolFunction {
-                    name: WEATHER_TOOL.name(),
+            Some(ChatCompletionToolChoice::Specific(
+                ChatCompletionSpecificToolChoice {
+                    r#type: ChatCompletionToolType::Function,
+                    function: ChatCompletionSpecificToolFunction {
+                        name: WEATHER_TOOL.name(),
+                    }
                 }
-            }))
+            ))
         );
 
         // Test request with strict JSON mode with no output schema
@@ -898,7 +1004,9 @@ mod tests {
             ..Default::default()
         };
 
-        let tgi_request = TGIRequest::new(&model_name, &request_with_tools).unwrap();
+        let tgi_request = TGIRequest::new(&model_name, &request_with_tools)
+            .await
+            .unwrap();
 
         assert_eq!(tgi_request.model, &model_name);
         assert_eq!(tgi_request.messages.len(), 1);
@@ -934,7 +1042,9 @@ mod tests {
             ..Default::default()
         };
 
-        let tgi_request = TGIRequest::new(&model_name, &request_with_tools).unwrap();
+        let tgi_request = TGIRequest::new(&model_name, &request_with_tools)
+            .await
+            .unwrap();
 
         assert_eq!(tgi_request.model, &model_name);
         assert_eq!(tgi_request.messages.len(), 1);
@@ -963,6 +1073,7 @@ mod tests {
             "my_raw_chunk".to_string(),
             chunk.clone(),
             Duration::from_millis(50),
+            Uuid::now_v7(),
         )
         .unwrap();
         assert_eq!(
@@ -974,8 +1085,8 @@ mod tests {
         );
         assert_eq!(message.finish_reason, Some(FinishReason::Stop));
     }
-    #[test]
-    fn test_tgi_response_with_metadata_try_into() {
+    #[tokio::test]
+    async fn test_tgi_response_with_metadata_try_into() {
         let valid_response = TGIResponse {
             choices: vec![TGIResponseChoice {
                 index: 0,
@@ -988,7 +1099,6 @@ mod tests {
             usage: TGIUsage {
                 prompt_tokens: 10,
                 completion_tokens: 20,
-                total_tokens: 30,
             },
         };
         let generic_request = ModelInferenceRequest {
@@ -1019,11 +1129,14 @@ mod tests {
                 response_time: Duration::from_secs(0),
             },
             raw_request: serde_json::to_value(
-                TGIRequest::new("test-model", &generic_request).unwrap(),
+                TGIRequest::new("test-model", &generic_request)
+                    .await
+                    .unwrap(),
             )
             .unwrap()
             .to_string(),
             generic_request: &generic_request,
+            model_inference_id: Uuid::now_v7(),
         };
         let inference_response: ProviderInferenceResponse =
             tgi_response_with_metadata.try_into().unwrap();
@@ -1034,11 +1147,11 @@ mod tests {
             "Hello, world!".to_string().into()
         );
         assert_eq!(inference_response.raw_response, "test_response");
-        assert_eq!(inference_response.usage.input_tokens, 10);
-        assert_eq!(inference_response.usage.output_tokens, 20);
+        assert_eq!(inference_response.usage.input_tokens, Some(10));
+        assert_eq!(inference_response.usage.output_tokens, Some(20));
         assert_eq!(inference_response.finish_reason, Some(FinishReason::Stop));
         assert_eq!(
-            inference_response.latency,
+            inference_response.provider_latency,
             Latency::NonStreaming {
                 response_time: Duration::from_secs(0)
             }
@@ -1046,32 +1159,57 @@ mod tests {
     }
 
     #[test]
-    #[traced_test]
     fn test_tgi_provider_new_api_base_check() {
-        let api_key_location = Some(CredentialLocation::None);
-
+        let logs_contain = crate::utils::testing::capture_logs();
         // Valid cases (should not warn)
         let _ = TGIProvider::new(
             Url::parse("http://localhost:1234/v1/").unwrap(),
-            api_key_location.clone(),
-        )
-        .unwrap();
+            TGICredentials::None,
+        );
 
         let _ = TGIProvider::new(
             Url::parse("http://localhost:1234/v1").unwrap(),
-            api_key_location.clone(),
-        )
-        .unwrap();
+            TGICredentials::None,
+        );
 
         // Invalid cases (should warn)
         let invalid_url_1 = Url::parse("http://localhost:1234/chat/completions").unwrap();
-        let _ = TGIProvider::new(invalid_url_1.clone(), api_key_location.clone()).unwrap();
+        let _ = TGIProvider::new(invalid_url_1.clone(), TGICredentials::None);
         assert!(logs_contain("automatically appends `/chat/completions`"));
         assert!(logs_contain(invalid_url_1.as_ref()));
 
         let invalid_url_2 = Url::parse("http://localhost:1234/v1/chat/completions/").unwrap();
-        let _ = TGIProvider::new(invalid_url_2.clone(), api_key_location.clone()).unwrap();
+        let _ = TGIProvider::new(invalid_url_2.clone(), TGICredentials::None);
         assert!(logs_contain("automatically appends `/chat/completions`"));
         assert!(logs_contain(invalid_url_2.as_ref()));
+    }
+
+    #[test]
+    fn test_tgi_apply_inference_params_called() {
+        let logs_contain = crate::utils::testing::capture_logs();
+        let inference_params = ChatCompletionInferenceParamsV2 {
+            reasoning_effort: Some("high".to_string()),
+            service_tier: None,
+            thinking_budget_tokens: Some(1024),
+            verbosity: Some("low".to_string()),
+        };
+        let mut request = TGIRequest::default();
+
+        apply_inference_params(&mut request, &inference_params);
+
+        // Test that reasoning_effort warns
+        assert!(logs_contain(
+            "TGI does not support the inference parameter `reasoning_effort`"
+        ));
+
+        // Test that thinking_budget_tokens warns
+        assert!(logs_contain(
+            "TGI does not support the inference parameter `thinking_budget_tokens`"
+        ));
+
+        // Test that verbosity warns
+        assert!(logs_contain(
+            "TGI does not support the inference parameter `verbosity`"
+        ));
     }
 }

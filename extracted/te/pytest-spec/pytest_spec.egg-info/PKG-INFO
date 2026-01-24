@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-spec
-Version: 5.1.0
+Version: 5.2.0
 Summary: Library pytest-spec is a pytest plugin to display test execution output like a SPECIFICATION.
 Author-email: Pawel Chomicki <pawel.chomicki@gmail.com>
 License: GPL-2.0-or-later
@@ -359,6 +359,7 @@ Please feel free to present your idea by code example (pull request) or reported
 -   [@paxcodes](https://github.com/paxcodes)
 -   [@s-t-e-v-e-n-k](https://github.com/s-t-e-v-e-n-k)
 -   [@yk-kd](https://github.com/yk-kd)
+-   [@benfairless](https://github.com/benfairless)
 
 ## License
 

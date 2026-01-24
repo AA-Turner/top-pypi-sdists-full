@@ -68,7 +68,7 @@ def _check_cves(dev, cves, data, clean, error):
                     dev.hostname,
                     dev.site_name,
                     dev.sn_hw,
-                    str(dev.login_ip.ip),
+                    str(dev.login_ip),
                     str(dev.login_ipv6),
                     dev.vendor,
                     dev.family,
@@ -115,7 +115,7 @@ def _check_cves(dev, cves, data, clean, error):
 
 
 def parse_cve(devices: Devices, cves):
-    data, clean, error = list(), list(), list()
+    data, clean, error = [], [], []
     for dev in devices.all:
         if (
             dev.vendor
@@ -245,7 +245,7 @@ def main():  # NOSONAR
     if args.filename:
         args.filename = Path(args.filename).resolve().with_suffix(".json" if args.json else ".xlsx").absolute()
 
-    ipf = IPFClient(snapshot_id=args.snapshot, base_url=args.base_url, auth=args.auth)
+    ipf = IPFClient(snapshot_id=args.snapshot, base_url=args.base_url, auth=args.auth, verify=(not args.insecure))
 
     if args.site_name:
         site = ipf.inventory.sites.all(filters={"siteName": ["ieq", args.site_name]})

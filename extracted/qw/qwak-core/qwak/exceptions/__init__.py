@@ -1,6 +1,7 @@
 from .quiet_error import QuietError
 from .qwak_exception import QwakException
 from .qwak_general_build_exception import QwakGeneralBuildException
+from .qwak_grpc_address_exception import QwakGrpcAddressException
 from .qwak_http_exception import QwakHTTPException
 from .qwak_inference_exception import QwakInferenceException
 from .qwak_load_configuration_exception import LoadConfigurationException

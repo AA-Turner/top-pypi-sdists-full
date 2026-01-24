@@ -12,10 +12,13 @@ T = TypeVar("T", bound="ListCompletedJobsResponse200ItemRawFlowFailureModuleTime
 
 @_attrs_define
 class ListCompletedJobsResponse200ItemRawFlowFailureModuleTimeoutType1:
-    """
-    Attributes:
-        expr (str):
-        type (ListCompletedJobsResponse200ItemRawFlowFailureModuleTimeoutType1Type):
+    """JavaScript expression evaluated at runtime. Can reference previous step results via 'results.step_id' or flow inputs
+    via 'flow_input.property'. Inside loops, use 'flow_input.iter.value' for the current iteration value
+
+        Attributes:
+            expr (str): JavaScript expression returning the value. Available variables - results (object with all previous
+                step results), flow_input (flow inputs), flow_input.iter (in loops)
+            type (ListCompletedJobsResponse200ItemRawFlowFailureModuleTimeoutType1Type):
     """
 
     expr: str

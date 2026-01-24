@@ -3,7 +3,7 @@ Type annotations for keyspaces service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_keyspaces/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -68,12 +69,6 @@ from .type_defs import (
     UpdateTableResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -84,13 +79,13 @@ __all__ = ("KeyspacesClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class KeyspacesClient(BaseClient):
@@ -158,7 +153,7 @@ class KeyspacesClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_keyspaces/client/#create_type)
         """
 
-    def delete_keyspace(self, **kwargs: Unpack[DeleteKeyspaceRequestTypeDef]) -> Dict[str, Any]:
+    def delete_keyspace(self, **kwargs: Unpack[DeleteKeyspaceRequestTypeDef]) -> dict[str, Any]:
         """
         The <code>DeleteKeyspace</code> operation deletes a keyspace and all of its
         tables.
@@ -167,7 +162,7 @@ class KeyspacesClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_keyspaces/client/#delete_keyspace)
         """
 
-    def delete_table(self, **kwargs: Unpack[DeleteTableRequestTypeDef]) -> Dict[str, Any]:
+    def delete_table(self, **kwargs: Unpack[DeleteTableRequestTypeDef]) -> dict[str, Any]:
         """
         The <code>DeleteTable</code> operation deletes a table and all of its data.
 
@@ -276,7 +271,7 @@ class KeyspacesClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_keyspaces/client/#restore_table)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Associates a set of tags with a Amazon Keyspaces resource.
 
@@ -284,7 +279,7 @@ class KeyspacesClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_keyspaces/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the association of tags from a Amazon Keyspaces resource.
 

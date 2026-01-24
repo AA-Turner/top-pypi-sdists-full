@@ -1,43 +1,37 @@
-import json
-import os
-import re
-import uuid
-from typing import List, Optional, Union
+import traceback
+import warnings
+from typing import Any, List, Optional, Union
 
-import pandasai.pandas as pd
-from pandasai.agent.base_security import BaseSecurity
-from pandasai.llm.bamboo_llm import BambooLLM
-from pandasai.pipelines.chat.chat_pipeline_input import ChatPipelineInput
-from pandasai.pipelines.chat.code_execution_pipeline_input import (
-    CodeExecutionPipelineInput,
+import pandas as pd
+
+from pandasai.core.code_execution.code_executor import CodeExecutor
+from pandasai.core.code_generation.base import CodeGenerator
+from pandasai.core.prompts import (
+    get_chat_prompt_for_sql,
+    get_correct_error_prompt_for_sql,
+    get_correct_output_type_error_prompt,
 )
-from pandasai.vectorstores.vectorstore import VectorStore
-
-from ..config import load_config_from_json
-from ..connectors import BaseConnector, PandasConnector
-from ..constants import DEFAULT_CACHE_DIRECTORY, DEFAULT_CHART_DIRECTORY
-from ..exceptions import (
+from pandasai.core.response.error import ErrorResponse
+from pandasai.core.response.parser import ResponseParser
+from pandasai.core.user_query import UserQuery
+from pandasai.dataframe.base import DataFrame
+from pandasai.dataframe.virtual_dataframe import VirtualDataFrame
+from pandasai.exceptions import (
+    CodeExecutionError,
     InvalidLLMOutputType,
-    MaliciousQueryError,
     MissingVectorStoreError,
 )
-from ..helpers.df_info import df_type
-from ..helpers.folder import Folder
-from ..helpers.logger import Logger
-from ..helpers.memory import Memory
-from ..llm.base import LLM
-from ..llm.langchain import LangchainLLM, is_langchain_llm
-from ..pipelines.pipeline_context import PipelineContext
-from ..prompts.base import BasePrompt
-from ..prompts.clarification_questions_prompt import ClarificationQuestionPrompt
-from ..prompts.explain_prompt import ExplainPrompt
-from ..prompts.rephase_query_prompt import RephraseQueryPrompt
-from ..schemas.df_config import Config
-from ..skills import Skill
-from .callbacks import Callbacks
+from pandasai.sandbox import Sandbox
+from pandasai.vectorstores.vectorstore import VectorStore
+
+from ..config import Config
+from ..data_loader.duck_db_connection_manager import DuckDBConnectionManager
+from ..query_builders.base_query_builder import BaseQueryBuilder
+from ..query_builders.sql_parser import SQLParser
+from .state import AgentState
 
 
-class BaseAgent:
+class Agent:
     """
     Base Agent class to improve the conversational experience in PandasAI
     """
@@ -45,302 +39,181 @@ class BaseAgent:
     def __init__(
         self,
         dfs: Union[
-            pd.DataFrame, BaseConnector, List[Union[pd.DataFrame, BaseConnector]]
+            Union[DataFrame, VirtualDataFrame], List[Union[DataFrame, VirtualDataFrame]]
         ],
         config: Optional[Union[Config, dict]] = None,
         memory_size: Optional[int] = 10,
         vectorstore: Optional[VectorStore] = None,
         description: str = None,
-        security: BaseSecurity = None,
+        sandbox: Sandbox = None,
     ):
         """
         Args:
-            df (Union[pd.DataFrame, List[pd.DataFrame]]): Pandas or Modin dataframe
-            Polars or Database connectors
-            memory_size (int, optional): Conversation history to use during chat.
-            Defaults to 1.
-        """
-        self.last_prompt = None
-        self.last_prompt_id = None
-        self.last_result = None
-        self.last_code_generated = None
-        self.last_code_executed = None
-        self.agent_info = description
-
-        self.conversation_id = uuid.uuid4()
-
-        self.dfs = self.get_dfs(dfs)
-
-        # Instantiate the context
-        self.config = self.get_config(config)
-        self.context = PipelineContext(
-            dfs=self.dfs,
-            config=self.config,
-            memory=Memory(memory_size, agent_info=description),
-            vectorstore=vectorstore,
-        )
-
-        # Instantiate the logger
-        self.logger = Logger(
-            save_logs=self.config.save_logs, verbose=self.config.verbose
-        )
-
-        # Instantiate the vectorstore
-        self._vectorstore = vectorstore
-
-        if self._vectorstore is None and os.environ.get("PANDASAI_API_KEY"):
-            try:
-                from pandasai.vectorstores.bamboo_vectorstore import BambooVectorStore
-            except ImportError as e:
-                raise ImportError(
-                    "Could not import BambooVectorStore. Please install the required dependencies."
-                ) from e
-
-            self._vectorstore = BambooVectorStore(logger=self.logger)
-            self.context.vectorstore = self._vectorstore
-
-        self._callbacks = Callbacks(self)
-
-        self.configure()
-
-        self.pipeline = None
-        self.security = security
-
-    def configure(self):
-        # Add project root path if save_charts_path is default
-        if (
-            self.config.save_charts
-            and self.config.save_charts_path == DEFAULT_CHART_DIRECTORY
-        ):
-            Folder.create(self.config.save_charts_path)
-
-        # Add project root path if cache_path is default
-        if self.config.enable_cache:
-            Folder.create(DEFAULT_CACHE_DIRECTORY)
-
-    def get_config(self, config: Union[Config, dict]):
-        """
-        Load a config to be used to run the queries.
-
-        Args:
-            config (Union[Config, dict]): Config to be used
+            dfs (Union[Union[DataFrame, VirtualDataFrame], List[Union[DataFrame, VirtualDataFrame]]]): The dataframe(s) to be used for the conversation.
+            config (Optional[Union[Config, dict]]): The configuration for the agent.
+            memory_size (Optional[int]): The size of the memory.
+            vectorstore (Optional[VectorStore]): The vectorstore to be used for the conversation.
+            description (str): The description of the agent.
         """
 
-        config = load_config_from_json(config)
+        # Deprecation warnings
+        if config is not None:
+            warnings.warn(
+                "The 'config' parameter is deprecated and will be removed in a future version. "
+                "Please use the global configuration instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
-        if isinstance(config, dict) and config.get("llm") is not None:
-            config["llm"] = self.get_llm(config["llm"])
+        # Transition pd dataframe to pandasai dataframe
+        if isinstance(dfs, list):
+            dfs = [DataFrame(df) if self.is_pd_dataframe(df) else df for df in dfs]
+        elif self.is_pd_dataframe(dfs):
+            dfs = DataFrame(dfs)
 
-        config = Config(**config)
+        if isinstance(dfs, list):
+            sources = [df.schema.source or df._loader.source for df in dfs]
+            if not BaseQueryBuilder.check_compatible_sources(sources):
+                raise ValueError(
+                    f"The sources of these datasets: {dfs} are not compatibles"
+                )
 
-        if config.llm is None:
-            config.llm = BambooLLM()
+        self.description = description
+        self._state = AgentState()
+        self._state.initialize(dfs, config, memory_size, vectorstore, description)
 
-        return config
+        self._code_generator = CodeGenerator(self._state)
+        self._response_parser = ResponseParser()
+        self._sandbox = sandbox
 
-    def get_llm(self, llm: LLM) -> LLM:
-        """
-        Load a LLM to be used to run the queries.
-        Check if it is a PandasAI LLM or a Langchain LLM.
-        If it is a Langchain LLM, wrap it in a PandasAI LLM.
-
-        Args:
-            llm (object): LLMs option to be used for API access
-
-        Raises:
-            BadImportError: If the LLM is a Langchain LLM but the langchain package
-            is not installed
-        """
-        if is_langchain_llm(llm):
-            llm = LangchainLLM(llm)
-
-        return llm
-
-    def get_dfs(
-        self,
-        dfs: Union[
-            pd.DataFrame, BaseConnector, List[Union[pd.DataFrame, BaseConnector]]
-        ],
-    ):
-        """
-        Load all the dataframes to be used in the agent.
-
-        Args:
-            dfs (List[Union[pd.DataFrame, Any]]): Pandas dataframe
-        """
-        # Inline import to avoid circular import
-        from pandasai.smart_dataframe import SmartDataframe
-
-        # If only one dataframe is passed, convert it to a list
-        if not isinstance(dfs, list):
-            dfs = [dfs]
-
-        connectors = []
-        for df in dfs:
-            if isinstance(df, BaseConnector):
-                connectors.append(df)
-            elif isinstance(df, (pd.DataFrame, pd.Series, list, dict, str)):
-                connectors.append(PandasConnector({"original_df": df}))
-            elif df_type(df) == "modin":
-                connectors.append(PandasConnector({"original_df": df}))
-            elif isinstance(df, SmartDataframe) and isinstance(
-                df.dataframe, BaseConnector
-            ):
-                connectors.append(df.dataframe)
-            else:
-                try:
-                    import polars as pl
-
-                    if isinstance(df, pl.DataFrame):
-                        from ..connectors.polars import PolarsConnector
-
-                        connectors.append(PolarsConnector({"original_df": df}))
-
-                    else:
-                        raise ValueError(
-                            "Invalid input data. We cannot convert it to a dataframe."
-                        )
-                except ImportError as e:
-                    raise ValueError(
-                        "Invalid input data. We cannot convert it to a dataframe."
-                    ) from e
-        return connectors
-
-    def add_skills(self, *skills: Skill):
-        """
-        Add Skills to PandasAI
-        """
-        self.context.skills_manager.add_skills(*skills)
-
-    def call_llm_with_prompt(self, prompt: BasePrompt):
-        """
-        Call LLM with prompt using error handling to retry based on config
-        Args:
-            prompt (BasePrompt): BasePrompt to pass to LLM's
-        """
-        retry_count = 0
-        while retry_count < self.context.config.max_retries:
-            try:
-                result: str = self.context.config.llm.call(prompt)
-                if prompt.validate(result):
-                    return result
-                else:
-                    raise InvalidLLMOutputType("Response validation failed!")
-            except Exception:
-                if (
-                    not self.context.config.use_error_correction_framework
-                    or retry_count >= self.context.config.max_retries - 1
-                ):
-                    raise
-                retry_count += 1
-
-    def check_malicious_keywords_in_query(self, query):
-        dangerous_pattern = re.compile(
-            r"\b(os|io|chr|b64decode)\b|"
-            r"(\.os|\.io|'os'|'io'|\"os\"|\"io\"|chr\(|chr\)|chr |\(chr)"
-        )
-        return bool(dangerous_pattern.search(query))
+    def is_pd_dataframe(self, df: Union[DataFrame, VirtualDataFrame]) -> bool:
+        return not isinstance(df, DataFrame) and isinstance(df, pd.DataFrame)
 
     def chat(self, query: str, output_type: Optional[str] = None):
         """
-        Simulate a chat interaction with the assistant on Dataframe.
+        Start a new chat interaction with the assistant on Dataframe.
         """
-        if not self.pipeline:
-            return (
-                "Unfortunately, I was not able to get your answers, "
-                "because of the following error: No pipeline exists"
+        if self._state.config.llm is None:
+            raise ValueError(
+                "PandasAI API key does not include LLM credits. Please configure an OpenAI or LiteLLM key. "
+                "Learn more at: https://docs.pandas-ai.com/v3/large-language-models#how-to-set-up-any-llm%3F"
             )
 
+        self.start_new_conversation()
+        return self._process_query(query, output_type)
+
+    def follow_up(self, query: str, output_type: Optional[str] = None):
+        """
+        Continue the existing chat interaction with the assistant on Dataframe.
+        """
+        return self._process_query(query, output_type)
+
+    def generate_code(self, query: Union[UserQuery, str]) -> str:
+        """Generate code using the LLM."""
+
+        self._state.memory.add(str(query), is_user=True)
+
+        self._state.logger.log("Generating new code...")
+        prompt = get_chat_prompt_for_sql(self._state)
+
+        code = self._code_generator.generate_code(prompt)
+        self._state.last_prompt_used = prompt
+        return code
+
+    def execute_code(self, code: str) -> dict:
+        """Execute the generated code."""
+        self._state.logger.log(f"Executing code: {code}")
+
+        code_executor = CodeExecutor(self._state.config)
+        code_executor.add_to_env("execute_sql_query", self._execute_sql_query)
+        for skill in self._state.skills:
+            code_executor.add_to_env(skill.name, skill.func)
+
+        if self._sandbox:
+            return self._sandbox.execute(code, code_executor.environment)
+
+        return code_executor.execute_and_return_result(code)
+
+    def _execute_sql_query(self, query: str) -> pd.DataFrame:
+        """
+        Executes an SQL query on registered DataFrames.
+
+        Args:
+            query (str): The SQL query to execute.
+
+        Returns:
+            pd.DataFrame: The result of the SQL query as a pandas DataFrame.
+        """
+        if not self._state.dfs:
+            raise ValueError("No DataFrames available to register for query execution.")
+
+        db_manager = DuckDBConnectionManager()
+
+        table_mapping = {}
+        df_executor = None
+
+        for df in self._state.dfs:
+            if hasattr(df, "query_builder"):
+                # df is a valid dataset with query builder, loader and execute_sql_query method
+                table_mapping[df.schema.name] = df.query_builder._get_table_expression()
+                df_executor = df.execute_sql_query
+            else:
+                # dataset created from loading a csv, no query builder available
+                db_manager.register(df.schema.name, df)
+
+        final_query = SQLParser.replace_table_and_column_names(query, table_mapping)
+
+        if not df_executor:
+            return db_manager.sql(final_query).df()
+        else:
+            return df_executor(final_query)
+
+    def generate_code_with_retries(self, query: str) -> Any:
+        """Execute the code with retry logic."""
+        max_retries = self._state.config.max_retries
+        attempts = 0
         try:
-            self.logger.log(f"Question: {query}")
-            self.logger.log(
-                f"Running PandasAI with {self.context.config.llm.type} LLM..."
-            )
+            return self.generate_code(query)
+        except Exception as e:
+            exception = e
+            while attempts <= max_retries:
+                try:
+                    return self._regenerate_code_after_error(
+                        self._state.last_code_generated, exception
+                    )
+                except Exception as e:
+                    exception = e
+                    attempts += 1
+                    if attempts > max_retries:
+                        self._state.logger.log(
+                            f"Maximum retry attempts exceeded. Last error: {e}"
+                        )
+                        raise
+                    self._state.logger.log(
+                        f"Retrying Code Generation ({attempts}/{max_retries})..."
+                    )
+            return None
 
-            self.assign_prompt_id()
+    def execute_with_retries(self, code: str) -> Any:
+        """Execute the code with retry logic."""
+        max_retries = self._state.config.max_retries
+        attempts = 0
 
-            if self.check_malicious_keywords_in_query(query):
-                raise MaliciousQueryError(
-                    "The query contains references to io or os modules or b64decode method which can be used to execute or access system resources in unsafe ways."
+        while attempts <= max_retries:
+            try:
+                result = self.execute_code(code)
+                return self._response_parser.parse(result, code)
+            except Exception as e:
+                attempts += 1
+                if attempts > max_retries:
+                    self._state.logger.log(f"Max retries reached. Error: {e}")
+                    raise
+                self._state.logger.log(
+                    f"Retrying execution ({attempts}/{max_retries})..."
                 )
+                code = self._regenerate_code_after_error(code, e)
 
-            if self.security and self.security.evaluate(query):
-                raise MaliciousQueryError("Query can result in a malicious code")
-
-            pipeline_input = ChatPipelineInput(
-                query, output_type, self.conversation_id, self.last_prompt_id
-            )
-
-            return self.pipeline.run(pipeline_input)
-
-        except Exception as exception:
-            return (
-                "Unfortunately, I was not able to get your answers, "
-                "because of the following error:\n"
-                f"\n{exception}\n"
-            )
-
-    def generate_code(self, query: str, output_type: Optional[str] = None):
-        """
-        Simulate code generation with the assistant on Dataframe.
-        """
-        if not self.pipeline:
-            return (
-                "Unfortunately, I was not able to get your answers, "
-                "because of the following error: No pipeline exists"
-            )
-        try:
-            self.logger.log(f"Question: {query}")
-            self.logger.log(
-                f"Running PandasAI with {self.context.config.llm.type} LLM..."
-            )
-
-            self.assign_prompt_id()
-
-            pipeline_input = ChatPipelineInput(
-                query, output_type, self.conversation_id, self.last_prompt_id
-            )
-
-            return self.pipeline.run_generate_code(pipeline_input)
-        except Exception as exception:
-            return (
-                "Unfortunately, I was not able to get your answers, "
-                "because of the following error:\n"
-                f"\n{exception}\n"
-            )
-
-    def execute_code(
-        self, code: Optional[str] = None, output_type: Optional[str] = None
-    ):
-        """
-        Execute code Generated with the assistant on Dataframe.
-        """
-        if not self.pipeline:
-            return (
-                "Unfortunately, I was not able to get your answers, "
-                "because of the following error: No pipeline exists to execute try Agent class"
-            )
-        try:
-            if code is None:
-                code = self.last_code_generated
-            self.logger.log(f"Code: {code}")
-            self.logger.log(
-                f"Running PandasAI with {self.context.config.llm.type} LLM..."
-            )
-
-            self.assign_prompt_id()
-
-            pipeline_input = CodeExecutionPipelineInput(
-                code, output_type, self.conversation_id, self.last_prompt_id
-            )
-
-            return self.pipeline.run_execute_code(pipeline_input)
-        except Exception as exception:
-            return (
-                "Unfortunately, I was not able to get your answers, "
-                "because of the following error:\n"
-                f"\n{exception}\n"
-            )
+        return None
 
     def train(
         self,
@@ -357,7 +230,7 @@ class BaseAgent:
         Raises:
             ImportError: if default vector db lib is not installed it raises an error
         """
-        if self._vectorstore is None:
+        if self._state.vectorstore is None:
             raise MissingVectorStoreError(
                 "No vector store provided. Please provide a vector store to train the agent."
             )
@@ -368,19 +241,18 @@ class BaseAgent:
             )
 
         if docs is not None:
-            self._vectorstore.add_docs(docs)
+            self._state.vectorstore.add_docs(docs)
 
         if queries and codes:
-            self._vectorstore.add_question_answer(queries, codes)
+            self._state.vectorstore.add_question_answer(queries, codes)
 
-        self.logger.log("Agent successfully trained on the data")
+        self._state.logger.log("Agent successfully trained on the data")
 
     def clear_memory(self):
         """
         Clears the memory
         """
-        self.context.memory.clear()
-        self.conversation_id = uuid.uuid4()
+        self._state.memory.clear()
 
     def add_message(self, message, is_user=False):
         """
@@ -388,33 +260,7 @@ class BaseAgent:
         to the memory without calling the chat function (for example, when you
         need to add a message from the agent).
         """
-        self.context.memory.add(message, is_user=is_user)
-
-    def assign_prompt_id(self):
-        """Assign a prompt ID"""
-
-        self.last_prompt_id = uuid.uuid4()
-
-        if self.logger:
-            self.logger.log(f"Prompt ID: {self.last_prompt_id}")
-
-    def clarification_questions(self, query: str) -> List[str]:
-        """
-        Generate clarification questions based on the data
-        """
-        prompt = ClarificationQuestionPrompt(
-            context=self.context,
-            query=query,
-        )
-
-        result = self.call_llm_with_prompt(prompt)
-        self.logger.log(
-            f"""Clarification Questions:  {result}
-            """
-        )
-        result = result.replace("```json", "").replace("```", "")
-        questions: list[str] = json.loads(result)
-        return questions[:3]
+        self._state.memory.add(message, is_user=is_user)
 
     def start_new_conversation(self):
         """
@@ -422,55 +268,60 @@ class BaseAgent:
         """
         self.clear_memory()
 
-    def explain(self) -> str:
-        """
-        Returns the explanation of the code how it reached to the solution
-        """
+    def _process_query(self, query: str, output_type: Optional[str] = None):
+        """Process a user query and return the result."""
+        query = UserQuery(query)
+        self._state.logger.log(f"Question: {query}")
+        self._state.logger.log(
+            f"Running PandasAI with {self._state.config.llm.type} LLM..."
+        )
+
+        self._state.output_type = output_type
         try:
-            prompt = ExplainPrompt(
-                context=self.context,
-                code=self.last_code_executed,
-            )
-            response = self.call_llm_with_prompt(prompt)
-            self.logger.log(
-                f"""Explanation:  {response}
-                """
-            )
-            return response
-        except Exception as exception:
-            return (
-                "Unfortunately, I was not able to explain, "
-                "because of the following error:\n"
-                f"\n{exception}\n"
-            )
+            self._state.assign_prompt_id()
 
-    def rephrase_query(self, query: str):
-        try:
-            prompt = RephraseQueryPrompt(
-                context=self.context,
-                query=query,
-            )
-            response = self.call_llm_with_prompt(prompt)
-            self.logger.log(
-                f"""Rephrased Response:  {response}
-                """
-            )
-            return response
-        except Exception as exception:
-            return (
-                "Unfortunately, I was not able to rephrase query, "
-                "because of the following error:\n"
-                f"\n{exception}\n"
-            )
+            # Generate code
+            code = self.generate_code_with_retries(str(query))
 
-    @property
-    def logs(self):
-        return self.logger.logs
+            # Execute code with retries
+            result = self.execute_with_retries(code)
+
+            self._state.logger.log("Response generated successfully.")
+            # Generate and return the final response
+            return result
+
+        except CodeExecutionError:
+            return self._handle_exception(code)
+
+    def _regenerate_code_after_error(self, code: str, error: Exception) -> str:
+        """Generate a new code snippet based on the error."""
+        error_trace = traceback.format_exc()
+        self._state.logger.log(f"Execution failed with error: {error_trace}")
+
+        if isinstance(error, InvalidLLMOutputType):
+            prompt = get_correct_output_type_error_prompt(
+                self._state, code, error_trace
+            )
+        else:
+            prompt = get_correct_error_prompt_for_sql(self._state, code, error_trace)
+
+        return self._code_generator.generate_code(prompt)
+
+    def _handle_exception(self, code: str) -> ErrorResponse:
+        """Handle exceptions and return an error message."""
+        error_message = traceback.format_exc()
+        self._state.logger.log(f"Processing failed with error: {error_message}")
+
+        return ErrorResponse(last_code_executed=code, error=error_message)
 
     @property
-    def last_error(self):
-        raise NotImplementedError
+    def last_generated_code(self):
+        return self._state.last_code_generated
 
     @property
-    def last_query_log_id(self):
-        raise NotImplementedError
+    def last_code_executed(self):
+        return self._state.last_code_generated
+
+    @property
+    def last_prompt_used(self):
+        return self._state.last_prompt_used

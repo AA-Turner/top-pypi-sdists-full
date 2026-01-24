@@ -83,16 +83,16 @@ def calculate_reallocate_info(
             ins = None
             if dmap and idx_o in dmap:
                 idx_v = dmap[idx_o]
-                assert (
-                    len(idx_v) == 1
-                ), "Here we only support the possibility to destroy one input"
+                assert len(idx_v) == 1, (
+                    "Here we only support the possibility to destroy one input"
+                )
                 ins = node.inputs[idx_v[0]]
             if vmap and idx_o in vmap:
                 assert ins is None
                 idx_v = vmap[idx_o]
-                assert (
-                    len(idx_v) == 1
-                ), "Here we only support the possibility to view one input"
+                assert len(idx_v) == 1, (
+                    "Here we only support the possibility to view one input"
+                )
                 ins = node.inputs[idx_v[0]]
             if ins is not None:
                 assert isinstance(ins, Variable)
@@ -812,6 +812,10 @@ class VMLinker(LocalLinker):
 
     """
 
+    # We can only set these correctly after `__init__`, as it depends on `c_thunks`
+    required_rewrites: tuple[str, ...] = ("minimum_compile",)
+    incompatible_rewrites: tuple[str, ...] = ()
+
     def __init__(
         self,
         allow_gc=None,
@@ -834,6 +838,9 @@ class VMLinker(LocalLinker):
         self.lazy = lazy
         if c_thunks is None:
             c_thunks = bool(config.cxx)
+        if not c_thunks:
+            self.required_rewrites: tuple[str, ...] = ("minimum_compile", "py_only")
+            self.incompatible_rewrites: tuple[str, ...] = ("cxx_only",)
         self.c_thunks = c_thunks
         self.allow_partial_eval = allow_partial_eval
         self.updated_vars = {}

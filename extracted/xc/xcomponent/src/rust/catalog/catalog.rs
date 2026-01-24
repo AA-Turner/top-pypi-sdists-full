@@ -41,16 +41,23 @@ pub struct XTemplate {
     node: Py<XNode>,
     params: Py<PyDict>,
     defaults: Py<PyDict>,
+    namespaces: Py<PyDict>,
 }
 
 #[pymethods]
 impl XTemplate {
     #[new]
-    pub fn new(node: Py<XNode>, params: Py<PyDict>, defaults: Py<PyDict>) -> Self {
+    pub fn new(
+        node: Py<XNode>,
+        params: Py<PyDict>,
+        defaults: Py<PyDict>,
+        namespaces: Py<PyDict>,
+    ) -> Self {
         XTemplate {
             node,
             params,
             defaults,
+            namespaces,
         }
     }
 
@@ -67,6 +74,11 @@ impl XTemplate {
     #[getter]
     pub fn defaults<'py>(&self, py: Python<'py>) -> &Bound<'py, PyAny> {
         self.defaults.bind(py)
+    }
+
+    #[getter]
+    pub fn namespaces<'py>(&self, py: Python<'py>) -> &Bound<'py, PyAny> {
+        self.namespaces.bind(py)
     }
 
     pub fn __str__<'py>(&self, py: Python<'py>) -> Result<String, PyErr> {
@@ -101,10 +113,16 @@ impl XCatalog {
         template: &str,
         params: Py<PyDict>,
         defaults: Py<PyDict>,
+        namespaces: Py<PyDict>,
     ) -> PyResult<()> {
-        let node = parse_markup(template)?;
+        let node = parse_markup(template).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "Cannot parse component <{}/>:\n    {}",
+                name, e
+            ))
+        })?;
         let py_node = Py::new(py, node)?;
-        let template = XTemplate::new(py_node, params, defaults);
+        let template = XTemplate::new(py_node, params, defaults, namespaces);
         info!("Registering node {}", name);
         debug!("{:?}", template);
         let py_template = Py::new(py, template)?;

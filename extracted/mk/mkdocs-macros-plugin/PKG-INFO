@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-macros-plugin
-Version: 1.4.0
+Version: 1.5.0
 Summary: Unleash the power of MkDocs with macros and variables
 Author: Laurent Franceschetti
 License: MIT
@@ -12,7 +12,11 @@ Classifier: Intended Audience :: Information Technology
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
@@ -23,13 +27,15 @@ Requires-Dist: packaging
 Requires-Dist: pathspec
 Requires-Dist: python-dateutil
 Requires-Dist: pyyaml
-Requires-Dist: super-collections>=0.5.7
+Requires-Dist: requests
+Requires-Dist: super-collections>=0.6.2
 Requires-Dist: termcolor
 Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
 Requires-Dist: mkdocs-include-markdown-plugin; extra == "test"
 Requires-Dist: mkdocs-macros-test; extra == "test"
 Requires-Dist: mkdocs-material>=6.2; extra == "test"
-Requires-Dist: mkdocs-test; extra == "test"
+Requires-Dist: mkdocs-test>=0.6.0; extra == "test"
 Requires-Dist: mkdocs-d2-plugin; extra == "test"
 Provides-Extra: doc
 Requires-Dist: mkdocs-mermaid2-plugin; extra == "doc"
@@ -48,6 +54,7 @@ Dynamic: license-file
 ![PyPI](https://img.shields.io/pypi/v/mkdocs-macros-plugin)
 ![Github](https://img.shields.io/github/v/tag/fralau/mkdocs_macros_plugin?label=github%20tag)
 ![macros](https://img.shields.io/pypi/dm/mkdocs-macros-plugin)
+![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)
 
 :open_file_folder: [Used by > 2K repositories on Github](https://github.com/fralau/mkdocs_macros_plugin/network/dependents)<br>
 🥇 Listed as [High-Quality Plugin](https://github.com/mkdocs/catalog#-code-execution-variables--templating)

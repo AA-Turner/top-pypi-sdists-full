@@ -12,11 +12,18 @@ from typing import Generic, Literal, TypeVar, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 from livekit import rtc
+from livekit.agents.metrics.base import Metadata
 
 from .._exceptions import APIConnectionError, APIError
 from ..log import logger
 from ..metrics import STTMetrics
-from ..types import DEFAULT_API_CONNECT_OPTIONS, NOT_GIVEN, APIConnectOptions, NotGivenOr
+from ..types import (
+    DEFAULT_API_CONNECT_OPTIONS,
+    NOT_GIVEN,
+    APIConnectOptions,
+    NotGivenOr,
+    TimedString,
+)
 from ..utils import AudioBuffer, aio, is_given
 from ..utils.audio import calculate_audio_duration
 
@@ -28,6 +35,11 @@ class SpeechEventType(str, Enum):
     if the STT doesn't support this event, this will be emitted as the same time as the first INTERIM_TRANSCRIPT"""  # noqa: E501
     INTERIM_TRANSCRIPT = "interim_transcript"
     """interim transcript, useful for real-time transcription"""
+    PREFLIGHT_TRANSCRIPT = "preflight_transcript"
+    """preflight transcript, emitted when the STT is confident enough that a certain
+    portion of speech will not change. This is different from final transcript in that
+    the same transcript may still be updated; but it is stable enough to be used for
+    preemptive generation"""
     FINAL_TRANSCRIPT = "final_transcript"
     """final transcript, emitted when the STT is confident enough that a certain
     portion of speech will not change"""
@@ -46,6 +58,7 @@ class SpeechData:
     confidence: float = 0.0  # [0, 1]
     speaker_id: str | None = None
     is_primary_speaker: bool | None = None
+    words: list[TimedString] | None = None
 
 
 @dataclass
@@ -66,6 +79,9 @@ class STTCapabilities:
     streaming: bool
     interim_results: bool
     diarization: bool = False
+    aligned_transcript: Literal["word", "chunk", False] = False
+    offline_recognize: bool = True
+    """Whether the STT supports batch recognition via recognize() method"""
 
 
 class STTError(BaseModel):
@@ -89,10 +105,35 @@ class STT(
         super().__init__()
         self._capabilities = capabilities
         self._label = f"{type(self).__module__}.{type(self).__name__}"
+        self._recognize_metrics_needed = True
 
     @property
     def label(self) -> str:
         return self._label
+
+    @property
+    def model(self) -> str:
+        """Get the model name/identifier for this STT instance.
+
+        Returns:
+            The model name if available, "unknown" otherwise.
+
+        Note:
+            Plugins should override this property to provide their model information.
+        """
+        return "unknown"
+
+    @property
+    def provider(self) -> str:
+        """Get the provider name/identifier for this STT instance.
+
+        Returns:
+            The provider name if available, "unknown" otherwise.
+
+        Note:
+            Plugins should override this property to provide their provider information.
+        """
+        return "unknown"
 
     @property
     def capabilities(self) -> STTCapabilities:
@@ -120,16 +161,21 @@ class STT(
                 event = await self._recognize_impl(
                     buffer, language=language, conn_options=conn_options
                 )
-                duration = time.perf_counter() - start_time
-                stt_metrics = STTMetrics(
-                    request_id=event.request_id,
-                    timestamp=time.time(),
-                    duration=duration,
-                    label=self._label,
-                    audio_duration=calculate_audio_duration(buffer),
-                    streamed=False,
-                )
-                self.emit("metrics_collected", stt_metrics)
+                if self._recognize_metrics_needed:
+                    duration = time.perf_counter() - start_time
+                    stt_metrics = STTMetrics(
+                        request_id=event.request_id,
+                        timestamp=time.time(),
+                        duration=duration,
+                        label=self._label,
+                        audio_duration=calculate_audio_duration(buffer),
+                        streamed=False,
+                        metadata=Metadata(
+                            model_name=self.model,
+                            model_provider=self.provider,
+                        ),
+                    )
+                    self.emit("metrics_collected", stt_metrics)
                 return event
 
             except APIError as e:
@@ -229,7 +275,8 @@ class RecognizeStream(ABC):
         self._input_ch = aio.Chan[Union[rtc.AudioFrame, RecognizeStream._FlushSentinel]]()
         self._event_ch = aio.Chan[SpeechEvent]()
 
-        self._event_aiter, monitor_aiter = aio.itertools.tee(self._event_ch, 2)
+        self._tee = aio.itertools.tee(self._event_ch, 2)
+        self._event_aiter, monitor_aiter = self._tee
         self._metrics_task = asyncio.create_task(
             self._metrics_monitor_task(monitor_aiter), name="STT._metrics_task"
         )
@@ -242,14 +289,31 @@ class RecognizeStream(ABC):
         self._pushed_sr = 0
         self._resampler: rtc.AudioResampler | None = None
 
+        self._start_time_offset: float = 0.0
+
+    @property
+    def start_time_offset(self) -> float:
+        return self._start_time_offset
+
+    @start_time_offset.setter
+    def start_time_offset(self, value: float) -> None:
+        if value < 0:
+            raise ValueError("start_time_offset must be non-negative")
+        self._start_time_offset = value
+
     @abstractmethod
     async def _run(self) -> None: ...
 
     async def _main_task(self) -> None:
         max_retries = self._conn_options.max_retry
+        # we need to record last start time for each run/connection
+        # so that returned transcripts can have linear timestamps
+        last_start_time = time.time()
 
         while self._num_retries <= max_retries:
             try:
+                self._start_time_offset += time.time() - last_start_time
+                last_start_time = time.time()
                 return await self._run()
             except APIError as e:
                 if max_retries == 0:
@@ -308,6 +372,9 @@ class RecognizeStream(ABC):
                     label=self._stt._label,
                     audio_duration=ev.recognition_usage.audio_duration,
                     streamed=True,
+                    metadata=Metadata(
+                        model_name=self._stt.model, model_provider=self._stt.provider
+                    ),
                 )
 
                 self._stt.emit("metrics_collected", stt_metrics)
@@ -362,7 +429,9 @@ class RecognizeStream(ABC):
         await aio.cancel_and_wait(self._task)
 
         if self._metrics_task is not None:
-            await self._metrics_task
+            await aio.cancel_and_wait(self._metrics_task)
+
+        await self._tee.aclose()
 
     async def __anext__(self) -> SpeechEvent:
         try:

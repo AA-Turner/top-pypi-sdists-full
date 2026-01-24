@@ -4,7 +4,10 @@ from typing_extensions import override
 
 from dbt_semantic_interfaces.enum_extension import assert_values_exhausted
 from dbt_semantic_interfaces.errors import ModelTransformError
-from dbt_semantic_interfaces.implementations.metric import PydanticMetricInputMeasure
+from dbt_semantic_interfaces.implementations.metric import (
+    PydanticMetric,
+    PydanticMetricInputMeasure,
+)
 from dbt_semantic_interfaces.implementations.semantic_manifest import (
     PydanticSemanticManifest,
 )
@@ -28,25 +31,24 @@ class AddInputMetricMeasuresRule(ProtocolHint[SemanticManifestTransformRule[Pyda
     ) -> Set[PydanticMetricInputMeasure]:
         """Returns a unique set of input measures for a given metric."""
         measures: Set = set()
-        matched_metric = next(
-            iter((metric for metric in semantic_manifest.metrics if metric.name == metric_name)), None
-        )
+        matched_metric = next((metric for metric in semantic_manifest.metrics if metric.name == metric_name), None)
         if matched_metric:
             if matched_metric.type is MetricType.SIMPLE or matched_metric.type is MetricType.CUMULATIVE:
-                assert (
-                    matched_metric.type_params.measure is not None
-                ), f"{matched_metric} should have a measure defined, but it does not."
-                measures.add(matched_metric.type_params.measure)
+                if matched_metric.type_params.measure is not None:
+                    measures.add(matched_metric.type_params.measure)
             elif matched_metric.type is MetricType.DERIVED or matched_metric.type is MetricType.RATIO:
                 for input_metric in matched_metric.input_metrics:
                     measures.update(
                         AddInputMetricMeasuresRule._get_measures_for_metric(semantic_manifest, input_metric.name)
                     )
             elif matched_metric.type is MetricType.CONVERSION:
-                conversion_type_params = matched_metric.type_params.conversion_type_params
-                assert conversion_type_params, "Conversion metric should have conversion_type_params."
-                measures.add(conversion_type_params.base_measure)
-                measures.add(conversion_type_params.conversion_measure)
+                conversion_type_params = PydanticMetric.get_checked_conversion_type_params(matched_metric)
+                # TODO SL-4116: this logic will need to change when we auto-transform
+                # away measures into simple metrics.
+                if conversion_type_params.base_measure is not None:
+                    measures.add(conversion_type_params.base_measure)
+                if conversion_type_params.conversion_measure is not None:
+                    measures.add(conversion_type_params.conversion_measure)
             else:
                 assert_values_exhausted(matched_metric.type)
         else:
@@ -56,8 +58,11 @@ class AddInputMetricMeasuresRule(ProtocolHint[SemanticManifestTransformRule[Pyda
     @staticmethod
     def transform_model(semantic_manifest: PydanticSemanticManifest) -> PydanticSemanticManifest:  # noqa: D
         for metric in semantic_manifest.metrics:
+            if len(metric.type_params.input_measures) > 0:
+                # These aren't missing and have already been added by an enterprising parser or earlier
+                # transformation rule.
+                continue
             measures = AddInputMetricMeasuresRule._get_measures_for_metric(semantic_manifest, metric.name)
-            assert len(metric.type_params.input_measures) == 0, f"{metric} should not have measures predefined"
             metric.type_params.input_measures = list(measures)
 
         return semantic_manifest

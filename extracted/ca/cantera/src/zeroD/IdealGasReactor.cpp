@@ -13,17 +13,6 @@
 namespace Cantera
 {
 
-void IdealGasReactor::setThermo(ThermoPhase& thermo)
-{
-    //! @todo: Add a method to ThermoPhase that indicates whether a given
-    //! subclass is compatible with this reactor model
-    if (thermo.type() != "ideal-gas") {
-        throw CanteraError("IdealGasReactor::setThermo",
-                           "Incompatible phase type provided");
-    }
-    Reactor::setThermo(thermo);
-}
-
 void IdealGasReactor::getState(double* y)
 {
     if (m_thermo == 0) {
@@ -52,6 +41,12 @@ void IdealGasReactor::getState(double* y)
 
 void IdealGasReactor::initialize(double t0)
 {
+    //! @todo: Add a method to ThermoPhase that indicates whether a given
+    //! subclass is compatible with this reactor model
+    if (m_thermo->type() != "ideal-gas") {
+        throw CanteraError("IdealGasReactor::initialize",
+                           "Incompatible phase type '{}' provided", m_thermo->type());
+    }
     Reactor::initialize(t0);
     m_uk.resize(m_nsp, 0.0);
 }
@@ -135,19 +130,37 @@ void IdealGasReactor::eval(double time, double* LHS, double* RHS)
     }
 }
 
+vector<size_t> IdealGasReactor::steadyConstraints() const
+{
+    if (nSurfs() != 0) {
+        throw CanteraError("IdealGasReactor::steadyConstraints",
+            "Steady state solver cannot currently be used with IdealGasReactor"
+            " when reactor surfaces are present.\n"
+            "See https://github.com/Cantera/enhancements/issues/234");
+    }
+    if (energyEnabled()) {
+        return {1}; // volume
+    } else {
+        return {1, 2}; // volume and temperature
+    }
+}
+
 size_t IdealGasReactor::componentIndex(const string& nm) const
 {
-    size_t k = speciesIndex(nm);
-    if (k != npos) {
-        return k + 3;
-    } else if (nm == "mass") {
+    if (nm == "mass") {
         return 0;
-    } else if (nm == "volume") {
+    }
+    if (nm == "volume") {
         return 1;
-    } else if (nm == "temperature") {
+    }
+    if (nm == "temperature") {
         return 2;
-    } else {
-        return npos;
+    }
+    try {
+        return speciesIndex(nm) + 3;
+    } catch (const CanteraError&) {
+        throw CanteraError("IdealGasReactor::componentIndex",
+            "Component '{}' not found", nm);
     }
 }
 
@@ -159,5 +172,22 @@ string IdealGasReactor::componentName(size_t k) {
     }
 }
 
+double IdealGasReactor::upperBound(size_t k) const {
+    if (k == 2) {
+        //@todo: Revise pending resolution of https://github.com/Cantera/enhancements/issues/229
+        return 1.5 * m_thermo->maxTemp();
+    } else {
+        return Reactor::upperBound(k);
+    }
+}
+
+double IdealGasReactor::lowerBound(size_t k) const {
+    if (k == 2) {
+        //@todo: Revise pending resolution of https://github.com/Cantera/enhancements/issues/229
+        return 0.5 * m_thermo->minTemp();
+    } else {
+        return Reactor::lowerBound(k);
+    }
+}
 
 }

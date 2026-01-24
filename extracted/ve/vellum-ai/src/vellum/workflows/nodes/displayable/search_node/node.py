@@ -1,10 +1,11 @@
 import json
 from typing import ClassVar
 
+from vellum.utils.json_encoder import VellumJsonEncoder
+from vellum.workflows.constants import undefined
 from vellum.workflows.errors import WorkflowErrorCode
 from vellum.workflows.exceptions import NodeException
 from vellum.workflows.nodes.displayable.bases import BaseSearchNode as BaseSearchNode
-from vellum.workflows.state.encoder import DefaultStateEncoder
 from vellum.workflows.types import MergeBehavior
 from vellum.workflows.types.generics import StateType
 
@@ -20,6 +21,10 @@ class SearchNode(BaseSearchNode[StateType]):
     request_options: Optional[RequestOptions] = None - The request options to use for the search
     chunk_separator: str = "\n\n#####\n\n" - The separator to use when joining the text of each search result
     """
+
+    class Display(BaseSearchNode.Display):
+        icon = "vellum:icon:magnifying-glass-waveform"
+        color = "purple"
 
     chunk_separator: ClassVar[str] = "\n\n#####\n\n"
 
@@ -37,14 +42,14 @@ class SearchNode(BaseSearchNode[StateType]):
         text: str
 
     def run(self) -> Outputs:
-        if self.query is None or self.query == "":
+        if self.query is undefined or self.query is None or self.query == "":
             raise NodeException(
                 message="Search query is required but was not provided",
                 code=WorkflowErrorCode.INVALID_INPUTS,
             )
 
         if not isinstance(self.query, str):
-            self.query = json.dumps(self.query, cls=DefaultStateEncoder)
+            self.query = json.dumps(self.query, cls=VellumJsonEncoder)
 
         results = self._perform_search().results
         text = self.chunk_separator.join([r.text for r in results])

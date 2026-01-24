@@ -5,16 +5,16 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import typing as t
+import uuid
 
-from globus_sdk.config import get_service_url
-from globus_sdk.exc import warn_deprecated
+from globus_sdk._missing import MISSING, MissingType
+from globus_sdk._payload import GlobusPayload
 from globus_sdk.services.transfer import TransferData
-from globus_sdk.utils import MISSING, MissingType, PayloadWrapper, slash_join
 
 log = logging.getLogger(__name__)
 
 
-class TransferTimer(PayloadWrapper):
+class TransferTimer(GlobusPayload):
     """
     A helper for defining a payload for Transfer Timer creation.
     Use this along with :meth:`create_timer <globus_sdk.TimersClient.create_timer>` to
@@ -123,7 +123,115 @@ class TransferTimer(PayloadWrapper):
         return new_body
 
 
-class RecurringTimerSchedule(PayloadWrapper):
+class FlowTimer(GlobusPayload):
+    """
+    A helper for defining a payload for Flow Timer creation.
+    Use this along with :meth:`create_timer <globus_sdk.TimersClient.create_timer>` to
+    create a timer.
+
+    ..  note::
+
+        ``TimersClient`` has two methods for creating timers:
+        ``create_timer`` and ``create_job``.
+
+        This helper class only works with the ``create_timer`` method.
+
+    :param flow_id: The flow ID to run when the timer runs.
+    :param name: A name to identify this timer.
+    :param schedule: The schedule on which the timer runs
+    :param body: A transfer payload for the timer to use.
+
+    The ``schedule`` field determines when the timer will run.
+    Timers may be "run once" or "recurring", and "recurring" timers may specify an end
+    date or the number of executions after which the timer will stop.
+    A ``schedule`` is specified as a dict, but the SDK provides two helpers
+    for constructing these data.
+
+    **Example Schedules**
+
+    .. tab-set::
+
+        .. tab-item:: Run Once, Right Now
+
+            .. code-block:: python
+
+                schedule = OnceTimerSchedule()
+
+        .. tab-item:: Run Once, At a Specific Time
+
+            .. code-block:: python
+
+                schedule = OnceTimerSchedule(datetime="2023-09-22T00:00:00Z")
+
+        .. tab-item:: Run Every 5 Minutes, Until a Specific Time
+
+            .. code-block:: python
+
+                schedule = RecurringTimerSchedule(
+                    interval_seconds=300,
+                    end={"condition": "time", "datetime": "2023-10-01T00:00:00Z"},
+                )
+
+        .. tab-item:: Run Every 30 Minutes, 10 Times
+
+            .. code-block:: python
+
+                schedule = RecurringTimerSchedule(
+                    interval_seconds=1800,
+                    end={"condition": "iterations", "iterations": 10},
+                )
+
+        .. tab-item:: Run Every 10 Minutes, Indefinitely
+
+            .. code-block:: python
+
+                schedule = RecurringTimerSchedule(interval_seconds=600)
+
+    Using these schedules, you can create a timer:
+
+    .. code-block:: pycon
+
+        >>> from globus_sdk import FlowTimer
+        >>> schedule = ...
+        >>> timer = FlowTimer(
+        ...     name="my timer",
+        ...     flow_id="00000000-19a9-44e6-9c1a-867da59d84ab",
+        ...     schedule=schedule,
+        ...     body={
+        ...         "body": {
+        ...             "input_key": "input_value",
+        ...         },
+        ...         "run_managers": [
+        ...             "urn:globus:auth:identity:11111111-be6a-473a-a027-4cfe4ceeafe3"
+        ...         ],
+        ...     },
+        ... )
+
+    Submit the timer to the Timers service with
+    :meth:`create_timer <globus_sdk.TimersClient.create_timer>`.
+    """
+
+    def __init__(
+        self,
+        *,
+        flow_id: uuid.UUID | str,
+        name: str | MissingType = MISSING,
+        schedule: dict[str, t.Any] | RecurringTimerSchedule | OnceTimerSchedule,
+        body: dict[str, t.Any],
+    ) -> None:
+        super().__init__()
+        self["timer_type"] = "flow"
+        self["flow_id"] = flow_id
+        self["name"] = name
+        self["schedule"] = schedule
+        self["body"] = self._preprocess_body(body)
+
+    def _preprocess_body(self, body: dict[str, t.Any]) -> dict[str, t.Any]:
+        # Additional processing may be added in the future.
+        return body.copy()
+
+
+class RecurringTimerSchedule(GlobusPayload):
     """
     A helper used as part of a *timer* to define when the *timer* will run.
 
@@ -181,7 +289,7 @@ class RecurringTimerSchedule(PayloadWrapper):
             }
 
 
-class OnceTimerSchedule(PayloadWrapper):
+class OnceTimerSchedule(GlobusPayload):
     """
     A helper used as part of a *timer* to define when the *timer* will run.
 
@@ -201,7 +309,7 @@ class OnceTimerSchedule(PayloadWrapper):
         self["datetime"] = _format_date(datetime)
 
 
-class TimerJob(PayloadWrapper):
+class TimerJob(GlobusPayload):
     r"""
     .. warning::
 
@@ -263,69 +371,6 @@ class TimerJob(PayloadWrapper):
             self["stop_after_n"] = stop_after_n
         if scope is not None:
             self["scope"] = scope
-
-    @classmethod
-    def from_transfer_data(
-        cls,
-        transfer_data: TransferData | dict[str, t.Any],
-        start: dt.datetime | str,
-        interval: dt.timedelta | int | None,
-        *,
-        name: str | None = None,
-        stop_after: dt.datetime | None = None,
-        stop_after_n: int | None = None,
-        scope: str | None = None,
-        environment: str | None = None,
-    ) -> TimerJob:
-        r"""
-        Specify data to create a Timers job using the parameters for a transfer. Timers
-        will use those parameters to run the defined transfer operation, recurring at
-        the given interval.
-
-        :param transfer_data: A :class:`TransferData <globus_sdk.TransferData>` object.
-            Construct this object exactly as you would normally; Timers will use this to
-            run the recurring transfer.
-        :param start: The datetime at which to start the Timers job.
-        :param interval: The interval at which the Timers job should recur. Interpreted
-            as seconds if specified as an integer. If ``stop_after_n == 1``, i.e. the
-            job is set to run only a single time, then interval *must* be None.
-        :param name: A (not necessarily unique) name to identify this job in Timers
-        :param stop_after: A date after which the Timers job will stop running
-        :param stop_after_n: A number of executions after which the Timers job will stop
-        :param scope: Timers defaults to the Transfer 'all' scope. Use this parameter to
-            change the scope used by Timers when calling the Transfer Action Provider.
-        :param environment: For internal use: because this method needs to generate a
-            URL for the Transfer Action Provider, this argument can control which
-            environment the Timers job is sent to.
-        """
-        warn_deprecated(
-            "TimerJob.from_transfer_data(X, ...) is deprecated. "
-            "Prefer TransferTimer(body=X, ...) instead."
-        )
-
-        transfer_action_url = slash_join(
-            get_service_url("actions", environment=environment), "transfer/transfer/run"
-        )
-        log.debug(
-            "Creating TimerJob from TransferData, action_url=%s", transfer_action_url
-        )
-        for key in ("submission_id", "skip_activation_check"):
-            if key in transfer_data:
-                raise ValueError(
-                    f"cannot create TimerJob from TransferData which has {key} set"
-                )
-        # dict will either convert a `TransferData` object or leave us with a dict here
-        callback_body = {"body": dict(transfer_data)}
-        return cls(
-            transfer_action_url,
-            callback_body,
-            start,
-            interval,
-            name=name,
-            stop_after=stop_after,
-            stop_after_n=stop_after_n,
-            scope=scope,
-        )
 
 
 def _format_date(date: str | dt.datetime | MissingType) -> str | MissingType:

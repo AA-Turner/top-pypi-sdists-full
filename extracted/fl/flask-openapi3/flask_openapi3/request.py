@@ -5,7 +5,7 @@ import inspect
 import json
 from functools import wraps
 from json import JSONDecodeError
-from typing import Any, Optional, Type
+from typing import Any, Type
 
 from flask import abort, current_app, request
 from pydantic import BaseModel, ValidationError
@@ -93,6 +93,9 @@ def _validate_query(query: Type[BaseModel], func_kwargs: dict):
         model_field_schema = model_properties.get(model_field_value.alias or model_field_key)
         if model_field_schema.get("type") == "array":
             key, value = _get_list_value(query, request_args, model_field_key, model_field_value)
+        # To handle Optional[list]
+        elif any(m.get("type") == "array" for m in model_field_schema.get("anyOf", [])):
+            key, value = _get_list_value(query, request_args, model_field_key, model_field_value)
         else:
             key, value = _get_value(query, request_args, model_field_key, model_field_value)
         if value is not None and value != []:
@@ -155,14 +158,14 @@ def _validate_body(body: Type[BaseModel], func_kwargs: dict):
 
 
 def _validate_request(
-    header: Optional[Type[BaseModel]] = None,
-    cookie: Optional[Type[BaseModel]] = None,
-    path: Optional[Type[BaseModel]] = None,
-    query: Optional[Type[BaseModel]] = None,
-    form: Optional[Type[BaseModel]] = None,
-    body: Optional[Type[BaseModel]] = None,
-    raw: Optional[Type[BaseModel]] = None,
-    path_kwargs: Optional[dict[Any, Any]] = None,
+    header: Type[BaseModel] | None = None,
+    cookie: Type[BaseModel] | None = None,
+    path: Type[BaseModel] | None = None,
+    query: Type[BaseModel] | None = None,
+    form: Type[BaseModel] | None = None,
+    body: Type[BaseModel] | None = None,
+    raw: Type[BaseModel] | None = None,
+    path_kwargs: dict[Any, Any] | None = None,
 ) -> dict:
     """
     Validate requests and responses.

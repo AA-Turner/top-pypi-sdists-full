@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: structlog
-Version: 25.4.0
+Version: 25.5.0
 Summary: Structured Logging for Python
 Project-URL: Documentation, https://www.structlog.org/
 Project-URL: Changelog, https://github.com/hynek/structlog/blob/main/CHANGELOG.md
@@ -51,7 +51,7 @@ Thanks to its flexible design, *you* choose whether you want *structlog* to take
 
 The output format is just as flexible and *structlog* comes with support for JSON, [*logfmt*](https://brandur.org/logfmt), as well as pretty console output out-of-the-box:
 
-[![image](https://github.com/hynek/structlog/blob/main/docs/_static/console_renderer.png?raw=true)](https://github.com/hynek/structlog/blob/main/docs/_static/console_renderer.png?raw=true)
+[![Screenshot of colorful structlog output with ConsoleRenderer](https://github.com/hynek/structlog/blob/main/docs/_static/console_renderer.png?raw=true)](https://github.com/hynek/structlog/blob/main/docs/_static/console_renderer.png?raw=true)
 
 
 ## Sponsors
@@ -67,15 +67,13 @@ Especially those generously supporting us at the *The Organization* tier and hig
 import pathlib, tomllib
 
 for sponsor in tomllib.loads(pathlib.Path("pyproject.toml").read_text())["tool"]["sponcon"]["sponsors"]:
-      print(f'<a href="{sponsor["url"]}"><img title="{sponsor["title"]}" src="https://www.structlog.org/en/25.4.0/_static/sponsors/{sponsor["img"]}" width="190" /></a>')
+      print(f'<a href="{sponsor["url"]}"><img title="{sponsor["title"]}" src="https://www.structlog.org/en/25.5.0/_static/sponsors/{sponsor["img"]}" width="190" /></a>')
 ]]] -->
-<a href="https://www.variomedia.de/"><img title="Variomedia AG" src="https://www.structlog.org/en/25.4.0/_static/sponsors/Variomedia.svg" width="190" /></a>
-<a href="https://tidelift.com/?utm_source=lifter&utm_medium=referral&utm_campaign=hynek"><img title="Tidelift" src="https://www.structlog.org/en/25.4.0/_static/sponsors/Tidelift.svg" width="190" /></a>
-<a href="https://klaviyo.com/"><img title="Klaviyo" src="https://www.structlog.org/en/25.4.0/_static/sponsors/Klaviyo.svg" width="190" /></a>
-<a href="https://privacy-solutions.org/"><img title="Privacy Solutions" src="https://www.structlog.org/en/25.4.0/_static/sponsors/Privacy-Solutions.svg" width="190" /></a>
-<a href="https://www.emsys-renewables.com/"><img title="emsys renewables" src="https://www.structlog.org/en/25.4.0/_static/sponsors/emsys-renewables.svg" width="190" /></a>
-<a href="https://filepreviews.io/"><img title="FilePreviews" src="https://www.structlog.org/en/25.4.0/_static/sponsors/FilePreviews.svg" width="190" /></a>
-<a href="https://polar.sh/"><img title="Polar" src="https://www.structlog.org/en/25.4.0/_static/sponsors/Polar.svg" width="190" /></a>
+<a href="https://www.variomedia.de/"><img title="Variomedia AG" src="https://www.structlog.org/en/25.5.0/_static/sponsors/Variomedia.svg" width="190" /></a>
+<a href="https://tidelift.com/?utm_source=lifter&utm_medium=referral&utm_campaign=hynek"><img title="Tidelift" src="https://www.structlog.org/en/25.5.0/_static/sponsors/Tidelift.svg" width="190" /></a>
+<a href="https://privacy-solutions.org/"><img title="Privacy Solutions" src="https://www.structlog.org/en/25.5.0/_static/sponsors/Privacy-Solutions.svg" width="190" /></a>
+<a href="https://filepreviews.io/"><img title="FilePreviews" src="https://www.structlog.org/en/25.5.0/_static/sponsors/FilePreviews.svg" width="190" /></a>
+<a href="https://polar.sh/"><img title="Polar" src="https://www.structlog.org/en/25.5.0/_static/sponsors/Polar.svg" width="190" /></a>
 <!-- [[[end]]] -->
 
 </p>
@@ -111,24 +109,71 @@ Save time, reduce risk, and improve code health, while paying the maintainers of
 
 ## Release Information
 
+### Deprecated
+
+- `structlog.dev.ConsoleRenderer()`'s *pad_event* argument has been renamed to *pad_event_to* to differentiate it from the boolean *pad_level* argument.
+  *pad_event* is now deprecated.
+
+
 ### Added
 
-- Support for Python 3.14 and Python 3.13.4.
+- Added `structlog.dev.ConsoleRenderer.get_active()` that returns the currently active `structlog.dev.ConsoleRenderer()`.
+  [#749](https://github.com/hynek/structlog/pull/749)
 
-  Python 3.14 has an backwards-incompatible change to `logging.Logger.isEnabledFor()` (it now always returns False if a log entry is in flight) that has been backported to 3.13.4 (expected on 2025-06-03).
-  It mainly affects `structlog.stdlib.filter_by_level()`.
-  [#723](https://github.com/hynek/structlog/pull/723)
+- `structlog.dev.ConsoleRenderer()` now supports setting the `exception_formatter` attribute.
 
-- `structlog.tracebacks` now handles [exception groups](https://docs.python.org/3/library/exceptions.html#exception-groups).
-  `structlog.tracebacks.Stack` has two new fields, `is_group: bool` and `exceptions: list[Trace]`.
-  This works similarly to what Rich v14.0.0 does.
-  [#720](https://github.com/hynek/structlog/pull/720)
+  You can now disable the pretty-printing of exceptions by setting it to `structlog.dev.plain_traceback`:
+
+  ```python
+  cr = structlog.dev.ConsoleRenderer.get_active()
+  cr.exception_formatter = structlog.dev.plain_traceback
+  ```
+
+  Same goes for *sort_keys*, *columns*, *colors*, *force_colors*, *level_styles*, *pad_event_to*, *event_key*, *timestamp_key*, and *repr_native_str*.
+
+  [#749](https://github.com/hynek/structlog/pull/749)
+  [#756](https://github.com/hynek/structlog/pull/756)
+  [#757](https://github.com/hynek/structlog/pull/757)
+  [#759](https://github.com/hynek/structlog/pull/759)
+
+- Added `structlog.dev.ConsoleRenderer.get_default_column_styles()` for reuse the default column styles.
+  [#741](https://github.com/hynek/structlog/pull/741)
+
+- `structlog.testing.capture_logs()` now optionally accepts *processors* to apply before capture.
+  [#728](https://github.com/hynek/structlog/pull/728)
+
+- `structlog.dev.RichTracebackFormatter` now exposes the upstream *code_width* parameter.
+  Default *width* is now `None` for full terminal width.
+  Full terminal width is now handled by Rich itself, bringing support for reflow and `COLUMN` environment variable.
+  Passing `-1` for *width* is now deprecated and automatically replaced by `None`.
+  [#717](https://github.com/hynek/structlog/pull/717)
+
+- Native loggers now allow the passing of a dictionary for dictionary-based interpolation `log.info("hello %(name)s!", {"name": "world"})`.
+  [#748](https://github.com/hynek/structlog/pull/748)
+
+- On Python 3.11+, `structlog.processors.CallsiteParameterAdder` now supports `CallsiteParameter.QUAL_NAME` that adds the qualified name of the callsite, including scope and class names.
+  This is only available for *structlog*-originated events since the standard library has no equivalent.
+
+- `structlog.stdlib.LoggerFactory` now supports the *stacklevel* parameter.
+  [#763](https://github.com/hynek/structlog/pull/763)
+
+
+### Changed
+
+- `structlog.dev.rich_traceback()` now throws a more helpful error when Rich is missing.
+  [#735](https://github.com/hynek/structlog/pull/735)
 
 
 ### Fixed
 
-- `structlog.processors.ExceptionPrettyPrinter` now respects the *exception_formatter* arguments instead of always using the default formatter.
-  [#724](https://github.com/hynek/structlog/pull/724)
+- `structlog.processors.MaybeTimeStamper` now respects the *key* argument when determining whether to overwrite the timestamp field.
+  [#747](https://github.com/hynek/structlog/pull/747)
+
+- `structlog.tracebacks.extract()` no longer raises a `RecursionError` when the cause chain of an exception contains itself.
+  [#739](https://github.com/hynek/structlog/pull/739)
+
+- Default config now respects `FORCE_COLOR` on Windows.
+  [#758](https://github.com/hynek/structlog/pull/758)
 
 
 ---

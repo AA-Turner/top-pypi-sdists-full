@@ -3,14 +3,20 @@ from __future__ import annotations
 import abc
 import asyncio
 import inspect
+import sys
 from collections.abc import Awaitable
 from contextlib import AbstractAsyncContextManager, AsyncExitStack
 from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar
 
+import httpx
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup  # pyright: ignore[reportMissingImports]
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from mcp import ClientSession, StdioServerParameters, Tool as MCPTool, stdio_client
+from mcp.client.session import MessageHandlerFnT
 from mcp.client.sse import sse_client
 from mcp.client.streamable_http import GetSessionIdCallback, streamablehttp_client
 from mcp.shared.message import SessionMessage
@@ -20,7 +26,7 @@ from typing_extensions import NotRequired, TypedDict
 from ..exceptions import UserError
 from ..logger import logger
 from ..run_context import RunContextWrapper
-from .util import ToolFilter, ToolFilterContext, ToolFilterStatic
+from .util import HttpClientFactory, ToolFilter, ToolFilterContext, ToolFilterStatic
 
 T = TypeVar("T")
 
@@ -103,6 +109,7 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
         use_structured_content: bool = False,
         max_retry_attempts: int = 0,
         retry_backoff_seconds_base: float = 1.0,
+        message_handler: MessageHandlerFnT | None = None,
     ):
         """
         Args:
@@ -124,6 +131,8 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
                 Defaults to no retries.
             retry_backoff_seconds_base: The base delay, in seconds, used for exponential
                 backoff between retries.
+            message_handler: Optional handler invoked for session messages as delivered by the
+                ClientSession.
         """
         super().__init__(use_structured_content=use_structured_content)
         self.session: ClientSession | None = None
@@ -135,6 +144,7 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
         self.client_session_timeout_seconds = client_session_timeout_seconds
         self.max_retry_attempts = max_retry_attempts
         self.retry_backoff_seconds_base = retry_backoff_seconds_base
+        self.message_handler = message_handler
 
         # The cache is always dirty at startup, so that we fetch tools at least once
         self._cache_dirty = True
@@ -145,8 +155,8 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
     async def _apply_tool_filter(
         self,
         tools: list[MCPTool],
-        run_context: RunContextWrapper[Any],
-        agent: AgentBase,
+        run_context: RunContextWrapper[Any] | None = None,
+        agent: AgentBase | None = None,
     ) -> list[MCPTool]:
         """Apply the tool filter to the list of tools."""
         if self.tool_filter is None:
@@ -158,6 +168,8 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
 
         # Handle callable tool filter (dynamic filter)
         else:
+            if run_context is None or agent is None:
+                raise UserError("run_context and agent are required for dynamic tool filtering")
             return await self._apply_dynamic_tool_filter(tools, run_context, agent)
 
     def _apply_static_tool_filter(
@@ -244,6 +256,35 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
         """Invalidate the tools cache."""
         self._cache_dirty = True
 
+    def _extract_http_error_from_exception(self, e: Exception) -> Exception | None:
+        """Extract HTTP error from exception or ExceptionGroup."""
+        if isinstance(e, (httpx.HTTPStatusError, httpx.ConnectError, httpx.TimeoutException)):
+            return e
+
+        # Check if it's an ExceptionGroup containing HTTP errors
+        if isinstance(e, BaseExceptionGroup):
+            for exc in e.exceptions:
+                if isinstance(
+                    exc, (httpx.HTTPStatusError, httpx.ConnectError, httpx.TimeoutException)
+                ):
+                    return exc
+
+        return None
+
+    def _raise_user_error_for_http_error(self, http_error: Exception) -> None:
+        """Raise appropriate UserError for HTTP error."""
+        error_message = f"Failed to connect to MCP server '{self.name}': "
+        if isinstance(http_error, httpx.HTTPStatusError):
+            error_message += f"HTTP error {http_error.response.status_code} ({http_error.response.reason_phrase})"  # noqa: E501
+
+        elif isinstance(http_error, httpx.ConnectError):
+            error_message += "Could not reach the server."
+
+        elif isinstance(http_error, httpx.TimeoutException):
+            error_message += "Connection timeout."
+
+        raise UserError(error_message) from http_error
+
     async def _run_with_retries(self, func: Callable[[], Awaitable[T]]) -> T:
         attempts = 0
         while True:
@@ -258,6 +299,7 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
 
     async def connect(self):
         """Connect to the server."""
+        connection_succeeded = False
         try:
             transport = await self.exit_stack.enter_async_context(self.create_streams())
             # streamablehttp_client returns (read, write, get_session_id)
@@ -272,15 +314,55 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
                     timedelta(seconds=self.client_session_timeout_seconds)
                     if self.client_session_timeout_seconds
                     else None,
+                    message_handler=self.message_handler,
                 )
             )
             server_result = await session.initialize()
             self.server_initialize_result = server_result
             self.session = session
+            connection_succeeded = True
         except Exception as e:
-            logger.error(f"Error initializing MCP server: {e}")
-            await self.cleanup()
+            # Try to extract HTTP error from exception or ExceptionGroup
+            http_error = self._extract_http_error_from_exception(e)
+            if http_error:
+                self._raise_user_error_for_http_error(http_error)
+
+            # For CancelledError, preserve cancellation semantics - don't wrap it.
+            # If it's masking an HTTP error, cleanup() will extract and raise UserError.
+            if isinstance(e, asyncio.CancelledError):
+                raise
+
+            # For HTTP-related errors, wrap them
+            if isinstance(e, (httpx.HTTPStatusError, httpx.ConnectError, httpx.TimeoutException)):
+                self._raise_user_error_for_http_error(e)
+
+            # For other errors, re-raise as-is (don't wrap non-HTTP errors)
             raise
+        finally:
+            # Always attempt cleanup on error, but suppress cleanup errors that mask the original
+            if not connection_succeeded:
+                try:
+                    await self.cleanup()
+                except UserError:
+                    # Re-raise UserError from cleanup (contains the real HTTP error)
+                    raise
+                except Exception as cleanup_error:
+                    # Suppress RuntimeError about cancel scopes during cleanup - this is a known
+                    # issue with the MCP library's async generator cleanup and shouldn't mask the
+                    # original error
+                    if isinstance(cleanup_error, RuntimeError) and "cancel scope" in str(
+                        cleanup_error
+                    ):
+                        logger.debug(
+                            f"Ignoring cancel scope error during cleanup of MCP server "
+                            f"'{self.name}': {cleanup_error}"
+                        )
+                    else:
+                        # Log other cleanup errors but don't raise - original error is more
+                        # important
+                        logger.warning(
+                            f"Error during cleanup of MCP server '{self.name}': {cleanup_error}"
+                        )
 
     async def list_tools(
         self,
@@ -293,23 +375,32 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
         session = self.session
         assert session is not None
 
-        # Return from cache if caching is enabled, we have tools, and the cache is not dirty
-        if self.cache_tools_list and not self._cache_dirty and self._tools_list:
-            tools = self._tools_list
-        else:
-            # Fetch the tools from the server
-            result = await self._run_with_retries(lambda: session.list_tools())
-            self._tools_list = result.tools
-            self._cache_dirty = False
-            tools = self._tools_list
+        try:
+            # Return from cache if caching is enabled, we have tools, and the cache is not dirty
+            if self.cache_tools_list and not self._cache_dirty and self._tools_list:
+                tools = self._tools_list
+            else:
+                # Fetch the tools from the server
+                result = await self._run_with_retries(lambda: session.list_tools())
+                self._tools_list = result.tools
+                self._cache_dirty = False
+                tools = self._tools_list
 
-        # Filter tools based on tool_filter
-        filtered_tools = tools
-        if self.tool_filter is not None:
-            if run_context is None or agent is None:
-                raise UserError("run_context and agent are required for dynamic tool filtering")
-            filtered_tools = await self._apply_tool_filter(filtered_tools, run_context, agent)
-        return filtered_tools
+            # Filter tools based on tool_filter
+            filtered_tools = tools
+            if self.tool_filter is not None:
+                filtered_tools = await self._apply_tool_filter(filtered_tools, run_context, agent)
+            return filtered_tools
+        except httpx.HTTPStatusError as e:
+            status_code = e.response.status_code
+            raise UserError(
+                f"Failed to list tools from MCP server '{self.name}': HTTP error {status_code}"
+            ) from e
+        except httpx.ConnectError as e:
+            raise UserError(
+                f"Failed to list tools from MCP server '{self.name}': Connection lost. "
+                f"The server may have disconnected."
+            ) from e
 
     async def call_tool(self, tool_name: str, arguments: dict[str, Any] | None) -> CallToolResult:
         """Invoke a tool on the server."""
@@ -318,7 +409,19 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
         session = self.session
         assert session is not None
 
-        return await self._run_with_retries(lambda: session.call_tool(tool_name, arguments))
+        try:
+            return await self._run_with_retries(lambda: session.call_tool(tool_name, arguments))
+        except httpx.HTTPStatusError as e:
+            status_code = e.response.status_code
+            raise UserError(
+                f"Failed to call tool '{tool_name}' on MCP server '{self.name}': "
+                f"HTTP error {status_code}"
+            ) from e
+        except httpx.ConnectError as e:
+            raise UserError(
+                f"Failed to call tool '{tool_name}' on MCP server '{self.name}': Connection lost. "
+                f"The server may have disconnected."
+            ) from e
 
     async def list_prompts(
         self,
@@ -341,10 +444,76 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
     async def cleanup(self):
         """Cleanup the server."""
         async with self._cleanup_lock:
+            # Only raise HTTP errors if we're cleaning up after a failed connection.
+            # During normal teardown (via __aexit__), log but don't raise to avoid
+            # masking the original exception.
+            is_failed_connection_cleanup = self.session is None
+
             try:
                 await self.exit_stack.aclose()
+            except asyncio.CancelledError as e:
+                logger.debug(f"Cleanup cancelled for MCP server '{self.name}': {e}")
+                raise
+            except BaseExceptionGroup as eg:
+                # Extract HTTP errors from ExceptionGroup raised during cleanup
+                # This happens when background tasks fail (e.g., HTTP errors)
+                http_error = None
+                connect_error = None
+                timeout_error = None
+                error_message = f"Failed to connect to MCP server '{self.name}': "
+
+                for exc in eg.exceptions:
+                    if isinstance(exc, httpx.HTTPStatusError):
+                        http_error = exc
+                    elif isinstance(exc, httpx.ConnectError):
+                        connect_error = exc
+                    elif isinstance(exc, httpx.TimeoutException):
+                        timeout_error = exc
+
+                # Only raise HTTP errors if we're cleaning up after a failed connection.
+                # During normal teardown, log them instead.
+                if http_error:
+                    if is_failed_connection_cleanup:
+                        error_message += f"HTTP error {http_error.response.status_code} ({http_error.response.reason_phrase})"  # noqa: E501
+                        raise UserError(error_message) from http_error
+                    else:
+                        # Normal teardown - log but don't raise
+                        logger.warning(
+                            f"HTTP error during cleanup of MCP server '{self.name}': {http_error}"
+                        )
+                elif connect_error:
+                    if is_failed_connection_cleanup:
+                        error_message += "Could not reach the server."
+                        raise UserError(error_message) from connect_error
+                    else:
+                        logger.warning(
+                            f"Connection error during cleanup of MCP server '{self.name}': {connect_error}"  # noqa: E501
+                        )
+                elif timeout_error:
+                    if is_failed_connection_cleanup:
+                        error_message += "Connection timeout."
+                        raise UserError(error_message) from timeout_error
+                    else:
+                        logger.warning(
+                            f"Timeout error during cleanup of MCP server '{self.name}': {timeout_error}"  # noqa: E501
+                        )
+                else:
+                    # No HTTP error found, suppress RuntimeError about cancel scopes
+                    has_cancel_scope_error = any(
+                        isinstance(exc, RuntimeError) and "cancel scope" in str(exc)
+                        for exc in eg.exceptions
+                    )
+                    if has_cancel_scope_error:
+                        logger.debug(f"Ignoring cancel scope error during cleanup: {eg}")
+                    else:
+                        logger.error(f"Error cleaning up server: {eg}")
             except Exception as e:
-                logger.error(f"Error cleaning up server: {e}")
+                # Suppress RuntimeError about cancel scopes - this is a known issue with the MCP
+                # library when background tasks fail during async generator cleanup
+                if isinstance(e, RuntimeError) and "cancel scope" in str(e):
+                    logger.debug(f"Ignoring cancel scope error during cleanup: {e}")
+                else:
+                    logger.error(f"Error cleaning up server: {e}")
             finally:
                 self.session = None
 
@@ -394,6 +563,7 @@ class MCPServerStdio(_MCPServerWithClientSession):
         use_structured_content: bool = False,
         max_retry_attempts: int = 0,
         retry_backoff_seconds_base: float = 1.0,
+        message_handler: MessageHandlerFnT | None = None,
     ):
         """Create a new MCP server based on the stdio transport.
 
@@ -421,6 +591,8 @@ class MCPServerStdio(_MCPServerWithClientSession):
                 Defaults to no retries.
             retry_backoff_seconds_base: The base delay, in seconds, for exponential
                 backoff between retries.
+            message_handler: Optional handler invoked for session messages as delivered by the
+                ClientSession.
         """
         super().__init__(
             cache_tools_list,
@@ -429,6 +601,7 @@ class MCPServerStdio(_MCPServerWithClientSession):
             use_structured_content,
             max_retry_attempts,
             retry_backoff_seconds_base,
+            message_handler=message_handler,
         )
 
         self.params = StdioServerParameters(
@@ -492,6 +665,7 @@ class MCPServerSse(_MCPServerWithClientSession):
         use_structured_content: bool = False,
         max_retry_attempts: int = 0,
         retry_backoff_seconds_base: float = 1.0,
+        message_handler: MessageHandlerFnT | None = None,
     ):
         """Create a new MCP server based on the HTTP with SSE transport.
 
@@ -521,6 +695,8 @@ class MCPServerSse(_MCPServerWithClientSession):
                 Defaults to no retries.
             retry_backoff_seconds_base: The base delay, in seconds, for exponential
                 backoff between retries.
+            message_handler: Optional handler invoked for session messages as delivered by the
+                ClientSession.
         """
         super().__init__(
             cache_tools_list,
@@ -529,6 +705,7 @@ class MCPServerSse(_MCPServerWithClientSession):
             use_structured_content,
             max_retry_attempts,
             retry_backoff_seconds_base,
+            message_handler=message_handler,
         )
 
         self.params = params
@@ -575,6 +752,9 @@ class MCPServerStreamableHttpParams(TypedDict):
     terminate_on_close: NotRequired[bool]
     """Terminate on close"""
 
+    httpx_client_factory: NotRequired[HttpClientFactory]
+    """Custom HTTP client factory for configuring httpx.AsyncClient behavior."""
+
 
 class MCPServerStreamableHttp(_MCPServerWithClientSession):
     """MCP server implementation that uses the Streamable HTTP transport. See the [spec]
@@ -592,14 +772,15 @@ class MCPServerStreamableHttp(_MCPServerWithClientSession):
         use_structured_content: bool = False,
         max_retry_attempts: int = 0,
         retry_backoff_seconds_base: float = 1.0,
+        message_handler: MessageHandlerFnT | None = None,
     ):
         """Create a new MCP server based on the Streamable HTTP transport.
 
         Args:
             params: The params that configure the server. This includes the URL of the server,
-                the headers to send to the server, the timeout for the HTTP request, and the
-                timeout for the Streamable HTTP connection and whether we need to
-                terminate on close.
+                the headers to send to the server, the timeout for the HTTP request, the
+                timeout for the Streamable HTTP connection, whether we need to
+                terminate on close, and an optional custom HTTP client factory.
 
             cache_tools_list: Whether to cache the tools list. If `True`, the tools list will be
                 cached and only fetched from the server once. If `False`, the tools list will be
@@ -622,6 +803,8 @@ class MCPServerStreamableHttp(_MCPServerWithClientSession):
                 Defaults to no retries.
             retry_backoff_seconds_base: The base delay, in seconds, for exponential
                 backoff between retries.
+            message_handler: Optional handler invoked for session messages as delivered by the
+                ClientSession.
         """
         super().__init__(
             cache_tools_list,
@@ -630,6 +813,7 @@ class MCPServerStreamableHttp(_MCPServerWithClientSession):
             use_structured_content,
             max_retry_attempts,
             retry_backoff_seconds_base,
+            message_handler=message_handler,
         )
 
         self.params = params
@@ -645,13 +829,24 @@ class MCPServerStreamableHttp(_MCPServerWithClientSession):
         ]
     ]:
         """Create the streams for the server."""
-        return streamablehttp_client(
-            url=self.params["url"],
-            headers=self.params.get("headers", None),
-            timeout=self.params.get("timeout", 5),
-            sse_read_timeout=self.params.get("sse_read_timeout", 60 * 5),
-            terminate_on_close=self.params.get("terminate_on_close", True),
-        )
+        # Only pass httpx_client_factory if it's provided
+        if "httpx_client_factory" in self.params:
+            return streamablehttp_client(
+                url=self.params["url"],
+                headers=self.params.get("headers", None),
+                timeout=self.params.get("timeout", 5),
+                sse_read_timeout=self.params.get("sse_read_timeout", 60 * 5),
+                terminate_on_close=self.params.get("terminate_on_close", True),
+                httpx_client_factory=self.params["httpx_client_factory"],
+            )
+        else:
+            return streamablehttp_client(
+                url=self.params["url"],
+                headers=self.params.get("headers", None),
+                timeout=self.params.get("timeout", 5),
+                sse_read_timeout=self.params.get("sse_read_timeout", 60 * 5),
+                terminate_on_close=self.params.get("terminate_on_close", True),
+            )
 
     @property
     def name(self) -> str:

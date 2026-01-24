@@ -6,13 +6,13 @@ parameters and result values.
 """
 
 import calendar
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 import copy
 import datetime
 import json
 import os
 import re
-from typing import Any, Callable, Optional, Type, Union
+from typing import Any
 import warnings
 
 import google_auth_httplib2
@@ -23,6 +23,7 @@ import httplib2
 import requests
 
 from ee import ee_exception
+
 
 # The Cloud API version.
 VERSION = os.environ.get('EE_CLOUD_API_VERSION', 'v1')
@@ -35,17 +36,24 @@ ASSET_NAME_PATTERN = (r'^projects/((?:\w+(?:[\w\-]+\.[\w\-]+)*?\.\w+\:)?'
 ASSET_ROOT_PATTERN = (r'^projects/((?:\w+(?:[\w\-]+\.[\w\-]+)*?\.\w+\:)?'
                       r'[a-z][a-z0-9\-]{4,28}[a-z0-9])/assets/?$')
 
-# The default user project to use when making Cloud API calls.
-_cloud_api_user_project: Optional[str] = None
+# Conversion from task state to operation state.
+TASK_TO_OPERATION_STATE = {
+    'READY': 'PENDING',
+    'RUNNING': 'RUNNING',
+    'CANCEL_REQUESTED': 'CANCELLING',
+    'COMPLETED': 'SUCCEEDED',
+    'CANCELLED': 'CANCELLED',
+    'FAILED': 'FAILED',
+}
 
 
 class _Http:
   """A httplib2.Http-like object based on requests."""
   _session: requests.Session
-  _timeout: Optional[float]
+  _timeout: float | None
 
   def __init__(
-      self, session: requests.Session, timeout: Optional[float] = None
+      self, session: requests.Session, timeout: float | None = None
   ):
     self._timeout = timeout
     self._session = session
@@ -54,10 +62,10 @@ class _Http:
       self,
       uri: str,
       method: str = 'GET',
-      body: Optional[str] = None,
-      headers: Optional[dict[str, str]] = None,
-      redirections: Optional[int] = None,
-      connection_type: Optional[type[Any]] = None,
+      body: str | None = None,
+      headers: dict[str, str] | None = None,
+      redirections: int | None = None,
+      connection_type: type[Any] | None = None,
   ) -> tuple[httplib2.Response, Any]:
     """Makes an HTTP request using httplib2 semantics."""
     del connection_type  # Ignored
@@ -110,10 +118,10 @@ def _wrap_request(
       postproc: Callable[..., Any],
       uri: str,
       method: str = 'GET',
-      body: Optional[Any] = None,
-      headers: Optional[Any] = None,
-      methodId: Optional[Any] = None,
-      resumable: Optional[Any] = None,
+      body: Any | None = None,
+      headers: Any | None = None,
+      methodId: Any | None = None,
+      resumable: Any | None = None,
   ) -> http.HttpRequest:
     """Builds an HttpRequest, adding headers and response inspection."""
     additional_headers = headers_supplier()
@@ -136,22 +144,17 @@ def _wrap_request(
   return builder
 
 
-def set_cloud_api_user_project(cloud_api_user_project: str) -> None:
-  global _cloud_api_user_project
-  _cloud_api_user_project = cloud_api_user_project
-
-
 def build_cloud_resource(
     api_base_url: str,
     session: requests.Session,
-    api_key: Optional[str] = None,
-    credentials: Optional[Any] = None,
-    timeout: Optional[float] = None,
+    api_key: str | None = None,
+    credentials: Any | None = None,
+    timeout: float | None = None,
     num_retries: int = 1,
-    headers_supplier: Optional[Callable[[], dict[str, Any]]] = None,
-    response_inspector: Optional[Callable[[Any], None]] = None,
-    http_transport: Optional[Any] = None,
-    raw: Optional[bool] = False,
+    headers_supplier: Callable[[], dict[str, Any]] | None = None,
+    response_inspector: Callable[[Any], None] | None = None,
+    http_transport: Any | None = None,
+    raw: bool | None = False,
 ) -> Any:
   """Builds an Earth Engine Cloud API resource.
 
@@ -223,9 +226,9 @@ def build_cloud_resource(
 
 def build_cloud_resource_from_document(
     discovery_document: Any,
-    http_transport: Optional[httplib2.Http] = None,
-    headers_supplier: Optional[Callable[..., Any]] = None,
-    response_inspector: Optional[Callable[..., Any]] = None,
+    http_transport: httplib2.Http | None = None,
+    headers_supplier: Callable[..., Any] | None = None,
+    response_inspector: Callable[..., Any] | None = None,
     raw: bool = False,
 ) -> discovery.Resource:
   """Builds an Earth Engine Cloud API resource from a description of the API.
@@ -259,7 +262,7 @@ def build_cloud_resource_from_document(
 def _convert_dict(
     to_convert: dict[str, Any],
     conversions: dict[str, Any],
-    defaults: Optional[dict[str, Any]] = None,
+    defaults: dict[str, Any] | None = None,
     key_warnings: bool = False,
     retain_keys: bool = False,
 ) -> dict[str, Any]:
@@ -288,7 +291,7 @@ def _convert_dict(
       not contain these keys.
     key_warnings: Whether to print warnings for input keys that are not mapped
       to anything in the output.
-    retain_keys: Whether or not to retain the state of dict.  If false, any keys
+    retain_keys: Whether or not to retain the state of dict. If false, any keys
       that don't show up in the conversions dict will be dropped from result.
 
   Returns:
@@ -560,9 +563,9 @@ def convert_operation_name_to_task_id(operation_name: str) -> str:
   return found.group(1) if found else operation_name
 
 
-def convert_task_id_to_operation_name(task_id: str) -> str:
+def convert_task_id_to_operation_name(project: str, task_id: str) -> str:
   """Converts a task ID to an Operation name."""
-  return f'projects/{_cloud_api_user_project}/operations/{task_id}'
+  return f'projects/{project}/operations/{task_id}'
 
 
 def convert_params_to_image_manifest(params: dict[str, Any]) -> dict[str, Any]:
@@ -616,7 +619,7 @@ def convert_sources_to_one_platform_sources(sources: list[Any]) -> list[Any]:
   return converted_sources
 
 
-def encode_number_as_cloud_value(number: float) -> dict[str, Union[float, str]]:
+def encode_number_as_cloud_value(number: float) -> dict[str, float | str]:
   # Numeric values in constantValue-style nodes end up stored in doubles. If the
   # input is an integer that loses precision as a double, use the int64 slot
   # ("integerValue") in ValueNode.
@@ -697,7 +700,7 @@ def _convert_algorithm_argument(arg: dict[str, Any]) -> dict[str, Any]:
       })
 
 
-def convert_to_image_file_format(format_str: Optional[str]) -> str:
+def convert_to_image_file_format(format_str: str | None) -> str:
   """Converts a legacy file format string to an ImageFileFormat enum value.
 
   Args:
@@ -724,7 +727,7 @@ def convert_to_image_file_format(format_str: Optional[str]) -> str:
     return format_str
 
 
-def convert_to_table_file_format(format_str: Optional[str]) -> str:
+def convert_to_table_file_format(format_str: str | None) -> str:
   """Converts a legacy file format string to a TableFileFormat enum value.
 
   Args:
@@ -747,7 +750,7 @@ def convert_to_table_file_format(format_str: Optional[str]) -> str:
     return format_str
 
 
-def convert_to_band_list(bands: Union[list[str], None, str]) -> list[str]:
+def convert_to_band_list(bands: list[str] | None | str) -> list[str]:
   """Converts a band list, possibly as CSV, to a real list of bands.
 
   Args:
@@ -861,16 +864,29 @@ def convert_operation_to_task(operation: dict[str, Any]) -> dict[str, Any]:
 
 
 def _convert_operation_state_to_task_state(state: str) -> str:
-  """Converts a state string from an Operation to the Task equivalent."""
+  """Converts an Operation state to a Task state."""
   return _convert_value(
-      state, {
-          'PENDING': 'READY',
-          'RUNNING': 'RUNNING',
-          'CANCELLING': 'CANCEL_REQUESTED',
-          'SUCCEEDED': 'COMPLETED',
-          'CANCELLED': 'CANCELLED',
-          'FAILED': 'FAILED'
-      }, 'UNKNOWN')
+      state,
+      {value: key for key, value in TASK_TO_OPERATION_STATE.items()},
+      'UNKNOWN',
+  )
+
+
+def _convert_task_state_to_operation_state(state: str) -> str:
+  """Converts a Task state to an Operation state."""
+  return _convert_value(state, TASK_TO_OPERATION_STATE, 'UNKNOWN')
+
+
+def convert_to_operation_state(state: str) -> str:
+  """Converts a Task state or an Operation state to an Operation state."""
+  # First, try converting the state assuming it's a task state.
+  operation_state = _convert_task_state_to_operation_state(state)
+  if operation_state != 'UNKNOWN':
+    return operation_state
+
+  # If it wasn't a task state, check if the input is a valid operation state.
+  valid_operation_states = set(TASK_TO_OPERATION_STATE.values())
+  return state if state in valid_operation_states else 'UNKNOWN'
 
 
 def convert_iam_policy_to_acl(policy: dict[str, Any])  -> dict[str, Any]:
@@ -911,7 +927,7 @@ def convert_acl_to_iam_policy(acl: dict[str, Any]) -> dict[str, Any]:
 
 
 def convert_to_grid_dimensions(
-    dimensions: Union[float, Sequence[float]]
+    dimensions: float | Sequence[float]
 ) -> dict[str, float]:
   """Converts an input value to GridDimensions.
 

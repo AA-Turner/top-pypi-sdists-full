@@ -23,7 +23,7 @@ from datadog_api_client.exceptions import (
 logger = logging.getLogger(__name__)
 
 
-RETRY_AFTER_STATUS_CODES = frozenset([429, 500, 501, 502, 503, 504, 505, 506, 507, 509, 510, 511, 512])
+RETRY_AFTER_STATUS_CODES = frozenset([408, 429, 500, 501, 502, 503, 504, 505, 506, 507, 509, 510, 511, 512])
 RETRY_ALLOWED_METHODS = frozenset(["GET", "PUT", "DELETE", "POST", "PATCH"])
 
 
@@ -69,7 +69,9 @@ class RESTClientObject:
         if configuration.assert_hostname is not None:
             addition_pool_args["assert_hostname"] = configuration.assert_hostname
 
-        if configuration.enable_retry:
+        if configuration.retry_policy is not None:
+            addition_pool_args["retries"] = configuration.retry_policy
+        elif configuration.enable_retry:
             retries = ClientRetry(
                 total=configuration.max_retries,
                 backoff_factor=configuration.retry_backoff_factor,

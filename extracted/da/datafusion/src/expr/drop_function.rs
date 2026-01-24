@@ -15,19 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{
-    fmt::{self, Display, Formatter},
-    sync::Arc,
-};
+use std::fmt::{self, Display, Formatter};
+use std::sync::Arc;
 
 use datafusion::logical_expr::DropFunction;
-use pyo3::{prelude::*, IntoPyObjectExt};
+use pyo3::prelude::*;
+use pyo3::IntoPyObjectExt;
 
 use super::logical_node::LogicalNode;
 use crate::common::df_schema::PyDFSchema;
 use crate::sql::logical::PyLogicalPlan;
 
-#[pyclass(name = "DropFunction", module = "datafusion.expr", subclass)]
+#[pyclass(frozen, name = "DropFunction", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PyDropFunction {
     drop: DropFunction,

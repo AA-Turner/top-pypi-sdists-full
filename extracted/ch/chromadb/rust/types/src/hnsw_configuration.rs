@@ -1,9 +1,8 @@
-use crate::Metadata;
+use crate::{HnswIndexConfig, Metadata};
 use chroma_error::{ChromaError, ErrorCodes};
 use serde::{Deserialize, Serialize};
 use std::num::NonZero;
 use thiserror::Error;
-use utoipa::ToSchema;
 use validator::Validate;
 
 #[derive(Debug, Error)]
@@ -28,8 +27,9 @@ impl ChromaError for HnswParametersFromSegmentError {
     }
 }
 
-#[derive(Default, Debug, PartialEq, Serialize, Deserialize, Clone, ToSchema)]
-pub enum HnswSpace {
+#[derive(Default, Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub enum Space {
     #[default]
     #[serde(rename = "l2")]
     L2,
@@ -39,45 +39,46 @@ pub enum HnswSpace {
     Ip,
 }
 
-fn default_construction_ef() -> usize {
+pub fn default_construction_ef() -> usize {
     100
 }
 
-fn default_search_ef() -> usize {
+pub fn default_search_ef() -> usize {
     100
 }
 
-fn default_m() -> usize {
+pub fn default_m() -> usize {
     16
 }
 
-fn default_num_threads() -> usize {
+pub fn default_num_threads() -> usize {
     std::thread::available_parallelism()
         .unwrap_or(NonZero::new(1).unwrap())
         .get()
 }
 
-fn default_resize_factor() -> f64 {
+pub fn default_resize_factor() -> f64 {
     1.2
 }
 
-fn default_sync_threshold() -> usize {
+pub fn default_sync_threshold() -> usize {
     1000
 }
 
-fn default_batch_size() -> usize {
+pub fn default_batch_size() -> usize {
     100
 }
 
-fn default_space() -> HnswSpace {
-    HnswSpace::L2
+pub fn default_space() -> Space {
+    Space::L2
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Validate, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Validate)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InternalHnswConfiguration {
     #[serde(default = "default_space")]
-    pub space: HnswSpace,
+    pub space: Space,
     #[serde(default = "default_construction_ef")]
     pub ef_construction: usize,
     #[serde(default = "default_search_ef")]
@@ -104,11 +105,48 @@ impl Default for InternalHnswConfiguration {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Validate, ToSchema)]
+impl From<(Option<&Space>, Option<&HnswIndexConfig>)> for InternalHnswConfiguration {
+    fn from((space, config): (Option<&Space>, Option<&HnswIndexConfig>)) -> Self {
+        let mut internal = InternalHnswConfiguration::default();
+
+        if let Some(space) = space {
+            internal.space = space.clone();
+        }
+
+        if let Some(config) = config {
+            if let Some(ef_construction) = config.ef_construction {
+                internal.ef_construction = ef_construction;
+            }
+            if let Some(max_neighbors) = config.max_neighbors {
+                internal.max_neighbors = max_neighbors;
+            }
+            if let Some(ef_search) = config.ef_search {
+                internal.ef_search = ef_search;
+            }
+            if let Some(num_threads) = config.num_threads {
+                internal.num_threads = num_threads;
+            }
+            if let Some(batch_size) = config.batch_size {
+                internal.batch_size = batch_size;
+            }
+            if let Some(sync_threshold) = config.sync_threshold {
+                internal.sync_threshold = sync_threshold;
+            }
+            if let Some(resize_factor) = config.resize_factor {
+                internal.resize_factor = resize_factor;
+            }
+        }
+
+        internal
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Validate)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "pyo3", pyo3::pyclass)]
 pub struct HnswConfiguration {
-    pub space: Option<HnswSpace>,
+    pub space: Option<Space>,
     pub ef_construction: Option<usize>,
     pub ef_search: Option<usize>,
     pub max_neighbors: Option<usize>,
@@ -167,7 +205,7 @@ impl InternalHnswConfiguration {
             #[serde(deny_unknown_fields)]
             struct LegacyMetadataLocalHnswParameters {
                 #[serde(rename = "hnsw:space", default)]
-                pub space: HnswSpace,
+                pub space: Space,
                 #[serde(rename = "hnsw:construction_ef", default = "default_construction_ef")]
                 pub construction_ef: usize,
                 #[serde(rename = "hnsw:search_ef", default = "default_search_ef")]
@@ -210,7 +248,8 @@ impl InternalHnswConfiguration {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, Validate, ToSchema)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, Validate)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "pyo3", pyo3::pyclass)]
 pub struct UpdateHnswConfiguration {

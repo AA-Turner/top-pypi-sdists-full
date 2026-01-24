@@ -133,7 +133,7 @@ if not MYPY:
         """
         default_share_level_permission: NotRequired[pulumi.Input[_builtins.str]]
         """
-        Specifies the default share level permissions applied to all users. Possible values are `StorageFileDataSmbShareReader`, `StorageFileDataSmbShareContributor`, `StorageFileDataSmbShareElevatedContributor`, or `None`.
+        Specifies the default share level permissions applied to all users. Possible values are `StorageFileDataSmbShareReader`, `StorageFileDataSmbShareContributor`, `StorageFileDataSmbShareElevatedContributor`, or `None`. Defaults to `None`.
         """
 elif False:
     AccountAzureFilesAuthenticationArgsDict: TypeAlias = Mapping[str, Any]
@@ -147,7 +147,7 @@ class AccountAzureFilesAuthenticationArgs:
         """
         :param pulumi.Input[_builtins.str] directory_type: Specifies the directory service used. Possible values are `AADDS`, `AD` and `AADKERB`.
         :param pulumi.Input['AccountAzureFilesAuthenticationActiveDirectoryArgs'] active_directory: A `active_directory` block as defined below. Required when `directory_type` is `AD`.
-        :param pulumi.Input[_builtins.str] default_share_level_permission: Specifies the default share level permissions applied to all users. Possible values are `StorageFileDataSmbShareReader`, `StorageFileDataSmbShareContributor`, `StorageFileDataSmbShareElevatedContributor`, or `None`.
+        :param pulumi.Input[_builtins.str] default_share_level_permission: Specifies the default share level permissions applied to all users. Possible values are `StorageFileDataSmbShareReader`, `StorageFileDataSmbShareContributor`, `StorageFileDataSmbShareElevatedContributor`, or `None`. Defaults to `None`.
         """
         pulumi.set(__self__, "directory_type", directory_type)
         if active_directory is not None:
@@ -183,7 +183,7 @@ class AccountAzureFilesAuthenticationArgs:
     @pulumi.getter(name="defaultShareLevelPermission")
     def default_share_level_permission(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Specifies the default share level permissions applied to all users. Possible values are `StorageFileDataSmbShareReader`, `StorageFileDataSmbShareContributor`, `StorageFileDataSmbShareElevatedContributor`, or `None`.
+        Specifies the default share level permissions applied to all users. Possible values are `StorageFileDataSmbShareReader`, `StorageFileDataSmbShareContributor`, `StorageFileDataSmbShareElevatedContributor`, or `None`. Defaults to `None`.
         """
         return pulumi.get(self, "default_share_level_permission")
 
@@ -790,6 +790,8 @@ if not MYPY:
         use_subdomain: NotRequired[pulumi.Input[_builtins.bool]]
         """
         Should the Custom Domain Name be validated by using indirect CNAME validation?
+
+        > **Note:** [More information on Validation is available here](https://docs.microsoft.com/en-gb/azure/storage/blobs/storage-custom-domain-name)
         """
 elif False:
     AccountCustomDomainArgsDict: TypeAlias = Mapping[str, Any]
@@ -802,6 +804,8 @@ class AccountCustomDomainArgs:
         """
         :param pulumi.Input[_builtins.str] name: The Custom Domain Name to use for the Storage Account, which will be validated by Azure.
         :param pulumi.Input[_builtins.bool] use_subdomain: Should the Custom Domain Name be validated by using indirect CNAME validation?
+               
+               > **Note:** [More information on Validation is available here](https://docs.microsoft.com/en-gb/azure/storage/blobs/storage-custom-domain-name)
         """
         pulumi.set(__self__, "name", name)
         if use_subdomain is not None:
@@ -824,6 +828,8 @@ class AccountCustomDomainArgs:
     def use_subdomain(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
         Should the Custom Domain Name be validated by using indirect CNAME validation?
+
+        > **Note:** [More information on Validation is available here](https://docs.microsoft.com/en-gb/azure/storage/blobs/storage-custom-domain-name)
         """
         return pulumi.get(self, "use_subdomain")
 
@@ -1024,7 +1030,7 @@ if not MYPY:
         """
         state: pulumi.Input[_builtins.str]
         """
-        Defines the mode of the policy. `Disabled` state disables the policy, `Unlocked` state allows increase and decrease of immutability retention time and also allows toggling allowProtectedAppendWrites property, `Locked` state only allows the increase of the immutability retention time. A policy can only be created in a Disabled or Unlocked state and can be toggled between the two states. Only a policy in an Unlocked state can transition to a Locked state which cannot be reverted. Changing from `Locked` forces a new resource to be created.
+        Defines the mode of the policy. `Disabled` state disables the policy, `Unlocked` state allows increase and decrease of immutability retention time and also allows toggling allowProtectedAppendWrites property, `Locked` state only allows the increase of the immutability retention time. A policy can only be created in a Disabled or Unlocked state and can be toggled between the two states. Only a policy in an Unlocked state can transition to a Locked state which cannot be reverted.
         """
 elif False:
     AccountImmutabilityPolicyArgsDict: TypeAlias = Mapping[str, Any]
@@ -1038,7 +1044,7 @@ class AccountImmutabilityPolicyArgs:
         """
         :param pulumi.Input[_builtins.bool] allow_protected_append_writes: When enabled, new blocks can be written to an append blob while maintaining immutability protection and compliance. Only new blocks can be added and any existing blocks cannot be modified or deleted.
         :param pulumi.Input[_builtins.int] period_since_creation_in_days: The immutability period for the blobs in the container since the policy creation, in days.
-        :param pulumi.Input[_builtins.str] state: Defines the mode of the policy. `Disabled` state disables the policy, `Unlocked` state allows increase and decrease of immutability retention time and also allows toggling allowProtectedAppendWrites property, `Locked` state only allows the increase of the immutability retention time. A policy can only be created in a Disabled or Unlocked state and can be toggled between the two states. Only a policy in an Unlocked state can transition to a Locked state which cannot be reverted. Changing from `Locked` forces a new resource to be created.
+        :param pulumi.Input[_builtins.str] state: Defines the mode of the policy. `Disabled` state disables the policy, `Unlocked` state allows increase and decrease of immutability retention time and also allows toggling allowProtectedAppendWrites property, `Locked` state only allows the increase of the immutability retention time. A policy can only be created in a Disabled or Unlocked state and can be toggled between the two states. Only a policy in an Unlocked state can transition to a Locked state which cannot be reverted.
         """
         pulumi.set(__self__, "allow_protected_append_writes", allow_protected_append_writes)
         pulumi.set(__self__, "period_since_creation_in_days", period_since_creation_in_days)
@@ -1072,7 +1078,7 @@ class AccountImmutabilityPolicyArgs:
     @pulumi.getter
     def state(self) -> pulumi.Input[_builtins.str]:
         """
-        Defines the mode of the policy. `Disabled` state disables the policy, `Unlocked` state allows increase and decrease of immutability retention time and also allows toggling allowProtectedAppendWrites property, `Locked` state only allows the increase of the immutability retention time. A policy can only be created in a Disabled or Unlocked state and can be toggled between the two states. Only a policy in an Unlocked state can transition to a Locked state which cannot be reverted. Changing from `Locked` forces a new resource to be created.
+        Defines the mode of the policy. `Disabled` state disables the policy, `Unlocked` state allows increase and decrease of immutability retention time and also allows toggling allowProtectedAppendWrites property, `Locked` state only allows the increase of the immutability retention time. A policy can only be created in a Disabled or Unlocked state and can be toggled between the two states. Only a policy in an Unlocked state can transition to a Locked state which cannot be reverted.
         """
         return pulumi.get(self, "state")
 
@@ -1104,8 +1110,6 @@ if not MYPY:
         > **Note:** Network Rules can be defined either directly on the `storage.Account` resource, or using the `storage.AccountNetworkRules` resource - but the two cannot be used together. If both are used against the same Storage Account, spurious changes will occur. When managing Network Rules using this resource, to change from a `default_action` of `Deny` to `Allow` requires defining, rather than removing, the block.
 
         > **Note:** The prefix of `ip_rules` must be between 0 and 30 and only supports public IP addresses.
-
-        > **Note:** [More information on Validation is available here](https://docs.microsoft.com/en-gb/azure/storage/blobs/storage-custom-domain-name)
         """
         virtual_network_subnet_ids: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
         """
@@ -1133,8 +1137,6 @@ class AccountNetworkRulesArgs:
                > **Note:** Network Rules can be defined either directly on the `storage.Account` resource, or using the `storage.AccountNetworkRules` resource - but the two cannot be used together. If both are used against the same Storage Account, spurious changes will occur. When managing Network Rules using this resource, to change from a `default_action` of `Deny` to `Allow` requires defining, rather than removing, the block.
                
                > **Note:** The prefix of `ip_rules` must be between 0 and 30 and only supports public IP addresses.
-               
-               > **Note:** [More information on Validation is available here](https://docs.microsoft.com/en-gb/azure/storage/blobs/storage-custom-domain-name)
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] virtual_network_subnet_ids: A list of resource ids for subnets.
         """
         pulumi.set(__self__, "default_action", default_action)
@@ -1194,8 +1196,6 @@ class AccountNetworkRulesArgs:
         > **Note:** Network Rules can be defined either directly on the `storage.Account` resource, or using the `storage.AccountNetworkRules` resource - but the two cannot be used together. If both are used against the same Storage Account, spurious changes will occur. When managing Network Rules using this resource, to change from a `default_action` of `Deny` to `Allow` requires defining, rather than removing, the block.
 
         > **Note:** The prefix of `ip_rules` must be between 0 and 30 and only supports public IP addresses.
-
-        > **Note:** [More information on Validation is available here](https://docs.microsoft.com/en-gb/azure/storage/blobs/storage-custom-domain-name)
         """
         return pulumi.get(self, "private_link_accesses")
 
@@ -1418,8 +1418,7 @@ if not MYPY:
         """
         allowed_methods: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
         """
-        A list of HTTP methods that are allowed to be executed by the origin. Valid options are
-        `DELETE`, `GET`, `HEAD`, `MERGE`, `POST`, `OPTIONS`, `PUT` or `PATCH`.
+        A list of HTTP methods that are allowed to be executed by the origin. Valid options are `DELETE`, `GET`, `HEAD`, `MERGE`, `POST`, `OPTIONS`, `PUT` or `PATCH`.
         """
         allowed_origins: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
         """
@@ -1446,8 +1445,7 @@ class AccountQueuePropertiesCorsRuleArgs:
                  max_age_in_seconds: pulumi.Input[_builtins.int]):
         """
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_headers: A list of headers that are allowed to be a part of the cross-origin request.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_methods: A list of HTTP methods that are allowed to be executed by the origin. Valid options are
-               `DELETE`, `GET`, `HEAD`, `MERGE`, `POST`, `OPTIONS`, `PUT` or `PATCH`.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_methods: A list of HTTP methods that are allowed to be executed by the origin. Valid options are `DELETE`, `GET`, `HEAD`, `MERGE`, `POST`, `OPTIONS`, `PUT` or `PATCH`.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_origins: A list of origin domains that will be allowed by CORS.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] exposed_headers: A list of response headers that are exposed to CORS clients.
         :param pulumi.Input[_builtins.int] max_age_in_seconds: The number of seconds the client should cache a preflight response.
@@ -1474,8 +1472,7 @@ class AccountQueuePropertiesCorsRuleArgs:
     @pulumi.getter(name="allowedMethods")
     def allowed_methods(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]:
         """
-        A list of HTTP methods that are allowed to be executed by the origin. Valid options are
-        `DELETE`, `GET`, `HEAD`, `MERGE`, `POST`, `OPTIONS`, `PUT` or `PATCH`.
+        A list of HTTP methods that are allowed to be executed by the origin. Valid options are `DELETE`, `GET`, `HEAD`, `MERGE`, `POST`, `OPTIONS`, `PUT` or `PATCH`.
         """
         return pulumi.get(self, "allowed_methods")
 
@@ -1850,7 +1847,7 @@ if not MYPY:
         """
         expiration_action: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The SAS expiration action. The only possible value is `Log` at this moment. Defaults to `Log`.
+        The SAS expiration action. Possible values are `Log` and `Block`. Defaults to `Log`.
         """
 elif False:
     AccountSasPolicyArgsDict: TypeAlias = Mapping[str, Any]
@@ -1862,7 +1859,7 @@ class AccountSasPolicyArgs:
                  expiration_action: Optional[pulumi.Input[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.str] expiration_period: The SAS expiration period in format of `DD.HH:MM:SS`.
-        :param pulumi.Input[_builtins.str] expiration_action: The SAS expiration action. The only possible value is `Log` at this moment. Defaults to `Log`.
+        :param pulumi.Input[_builtins.str] expiration_action: The SAS expiration action. Possible values are `Log` and `Block`. Defaults to `Log`.
         """
         pulumi.set(__self__, "expiration_period", expiration_period)
         if expiration_action is not None:
@@ -1884,7 +1881,7 @@ class AccountSasPolicyArgs:
     @pulumi.getter(name="expirationAction")
     def expiration_action(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The SAS expiration action. The only possible value is `Log` at this moment. Defaults to `Log`.
+        The SAS expiration action. Possible values are `Log` and `Block`. Defaults to `Log`.
         """
         return pulumi.get(self, "expiration_action")
 

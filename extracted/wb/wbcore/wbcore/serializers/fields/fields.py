@@ -13,7 +13,7 @@ from wbcore.signals import (
 from wbcore.utils.importlib import parse_signal_received_for_module
 
 from .mixins import WBCoreSerializerFieldMixin
-from .text import TextField
+from .text import StringRelatedField
 from .types import WBCoreType
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ class DynamicButtonField(WBCoreSerializerFieldMixin, serializers.ReadOnlyField):
             )
             for prefix, btns in dynamic_buttons:
                 for btn in btns:
-                    setattr(btn, "prefix_key", prefix)
+                    btn.prefix_key = prefix
                     buttons.append(btn.serialize(request))
             if (view := self.parent.context.get("view", None)) and not (getattr(view, "action", "list") == "list"):
                 for _, button_func in getmembers(self.parent.__class__, _is_instance_dynamic_button):
@@ -155,6 +155,8 @@ class AdditionalResourcesField(WBCoreSerializerFieldMixin, serializers.ReadOnlyF
 
 
 class HyperlinkField(WBCoreSerializerFieldMixin, serializers.ReadOnlyField):
+    field_type = WBCoreType.HYPERLINK.value
+
     def __init__(self, *args, **kwargs):
         self.reverse_name = kwargs.pop("reverse_name")
         self.id_field_name = kwargs.pop("id_field_name", "id")
@@ -178,9 +180,11 @@ class SlugRelatedField(WBCoreSerializerFieldMixin, serializers.SlugRelatedField)
 
 
 class SerializerMethodField(WBCoreSerializerFieldMixin, serializers.SerializerMethodField):
-    def __init__(self, method_name=None, field_class=TextField, **kwargs):
+    def __init__(self, method_name=None, field_class=StringRelatedField, percent=None, **kwargs):
         self.field_class = field_class
-        self.initkwargs = kwargs
+        self.initkwargs = kwargs.copy()
+        if percent:
+            self.initkwargs["percent"] = percent
         super().__init__(method_name, **kwargs)
 
     def get_representation(self, request, field_name):

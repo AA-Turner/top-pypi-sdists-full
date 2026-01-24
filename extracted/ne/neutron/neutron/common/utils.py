@@ -18,6 +18,7 @@
 
 """Utilities and helper functions."""
 from collections import abc
+from concurrent import futures
 import datetime
 import functools
 import hashlib
@@ -142,8 +143,8 @@ def get_dhcp_agent_device_id(network_id, host, segmentation_id=None):
     local_hostname = host.split('.')[0]
     host_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, str(local_hostname))
     if not segmentation_id:
-        return 'dhcp{}-{}'.format(host_uuid, network_id)
-    return 'dhcp{}-{}-{}'.format(host_uuid, network_id, segmentation_id)
+        return f'dhcp{host_uuid}-{network_id}'
+    return f'dhcp{host_uuid}-{network_id}-{segmentation_id}'
 
 
 def is_dns_servers_any_address(dns_servers, ip_version):
@@ -375,7 +376,7 @@ def _hex_format(port, mask=0):
     def hex_str(num):
         return format(num, '#06x')
     if mask > 0:
-        return "{}/{}".format(hex_str(port), hex_str(0xffff & ~mask))
+        return f"{hex_str(port)}/{hex_str(0xffff & ~mask)}"
     return hex_str(port)
 
 
@@ -839,7 +840,7 @@ def bytes_to_bits(value):
 
 
 def bits_to_kilobits(
-        value: typing.Union[int, float],
+        value: int | float,
         base: int
 ) -> int:
     # NOTE(slaweq): round up that even 1 bit will give 1 kbit as a result, but
@@ -1117,8 +1118,25 @@ def stringmap(data: abc.Mapping[str, typing.Any],
     return result
 
 
+class ThreadPoolExecutorWithBlock(futures.ThreadPoolExecutor):
+    """A thread pool executor with a submit blocking method
+
+    This class implements a method that allow to submit new workers but only if
+    there are available workers. If not, the method blocks indefinitely.
+    """
+    def submit(self, fn, *args, **kwargs):
+        while self._work_queue.qsize() > 0 and not self._shutdown:
+            time.sleep(0.1)
+
+        if self._shutdown:
+            return
+
+        return super().submit(fn, *args, **kwargs)
+
+
 def is_iterable_not_string(value):
     """Return if a value is iterable but not a string type"""
     return (isinstance(value, abc.Iterable) and
-            not isinstance(value, abc.ByteString) and
+            not isinstance(value, bytes) and
+            not isinstance(value, bytearray) and
             not isinstance(value, str))

@@ -1,8 +1,15 @@
+from dataclasses import dataclass
 from typing import Any, Literal
-import pytest
 
+import pytest
 from xcomponent import Catalog, XNode
 from xcomponent.service.catalog import Component
+
+
+@dataclass
+class Person:
+    name: str
+
 
 catalog = Catalog()
 
@@ -10,6 +17,20 @@ catalog = Catalog()
 @catalog.component
 def AddOp(a: int | bool | str, b: int | bool | str) -> str:
     return """<>{a + b}</>"""
+
+
+@catalog.component
+def HelloWorld(person: Person | None) -> str:
+    return """
+        <>Hello { if person and person.name {<>{person.name}</>} else {<>World</>} }!</>
+    """
+
+
+@catalog.component
+def LazyOr(person: Person | None, person2: Person | None) -> str:
+    return """
+        <>Hello { person and person.name or person2.name }!</>
+    """
 
 
 @catalog.component
@@ -232,4 +253,18 @@ def test_precendence_op(component: str, expected: str):
     ],
 )
 def test_priority_op(component: str, expected: str):
+    assert component == expected
+
+
+@pytest.mark.parametrize(
+    "component,expected",
+    [
+        pytest.param(HelloWorld(None), "Hello World!"),
+        pytest.param(HelloWorld(Person(name="")), "Hello World!"),
+        pytest.param(HelloWorld(Person(name="Bob")), "Hello Bob!"),
+        pytest.param(LazyOr(Person(name="Alice"), None), "Hello Alice!"),
+        pytest.param(LazyOr(None, Person(name="Bob")), "Hello Bob!"),
+    ],
+)
+def test_lazy_evaluation(component: str, expected: str):
     assert component == expected

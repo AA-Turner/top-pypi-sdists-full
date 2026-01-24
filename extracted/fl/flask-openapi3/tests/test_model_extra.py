@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 # @Author  : llc
 # @Time    : 2024/11/20 14:45
-from typing import Optional
 
 import pytest
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from flask_openapi3 import OpenAPI
 
@@ -13,7 +12,7 @@ app.config["TESTING"] = True
 
 
 class BookQuery(BaseModel):
-    age: Optional[int] = Field(None, description="Age")
+    age: int | None = Field(None, description="Age")
 
     model_config = ConfigDict(extra="allow")
 
@@ -64,10 +63,7 @@ def get_book(header: BookHeader):
 
 
 def test_form(client):
-    data = {
-        "string": "a",
-        "string_list": ["a", "b", "c"]
-    }
+    data = {"string": "a", "string_list": ["a", "b", "c"]}
     r = client.post("/form", data=data, content_type="multipart/form-data")
     assert r.status_code == 422
 

@@ -2,16 +2,15 @@ import functools
 import inspect
 import logging
 from collections import defaultdict
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import ExitStack
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Optional, TypeAlias, TypeVar, Union, cast
 
 from dagster_shared.record import IHaveNew, record_custom
-from typing_extensions import TypeAlias
 
 import dagster._check as check
-from dagster._annotations import deprecated, deprecated_param, public
+from dagster._annotations import beta_param, deprecated, deprecated_param, public
 from dagster._core.decorator_utils import get_function_params
 from dagster._core.definitions.asset_checks.asset_check_evaluation import AssetCheckEvaluation
 from dagster._core.definitions.asset_selection import (
@@ -46,7 +45,7 @@ from dagster._core.definitions.target import (
     AutomationTarget,
     ExecutableDefinition,
 )
-from dagster._core.definitions.utils import check_valid_name
+from dagster._core.definitions.utils import check_valid_name, validate_definition_owner
 from dagster._core.errors import (
     DagsterInvalidDefinitionError,
     DagsterInvalidInvocationError,
@@ -555,7 +554,39 @@ def split_run_requests(
     return run_requests_for_backfill_daemon, run_requests_for_single_runs
 
 
+def resolve_jobs_from_targets_for_with_attributes(
+    sensor_def: "SensorDefinition", new_jobs: Optional[Sequence[ExecutableDefinition]]
+) -> tuple[Optional[str], Optional[ExecutableDefinition], Optional[Sequence[ExecutableDefinition]]]:
+    """Utility function to resolve job/jobs/job_name parameters for with_attributes method.
+
+    Returns a tuple of (job_name, job, jobs) to pass to dagster_internal_init.
+    """
+    if new_jobs is not None:
+        new_jobs_seq = new_jobs if len(new_jobs) > 1 else None
+        new_job = new_jobs[0] if len(new_jobs) == 1 else None
+        job_name = None
+    elif sensor_def.has_jobs:
+        new_job = sensor_def.job if len(sensor_def.jobs) == 1 else None
+        new_jobs_seq = sensor_def.jobs if len(sensor_def.jobs) > 1 else None
+        job_name = None
+    elif sensor_def._targets:  # noqa: SLF001
+        check.invariant(
+            len(sensor_def._targets) == 1 and not sensor_def._targets[0].has_job_def,  # noqa: SLF001
+            "Expected only one target by job name string.",
+        )
+        job_name = sensor_def._targets[0].job_name  # noqa: SLF001
+        new_job = None
+        new_jobs_seq = None
+    else:
+        job_name = None
+        new_job = None
+        new_jobs_seq = None
+
+    return job_name, new_job, new_jobs_seq
+
+
 @public
+@beta_param(param="owners")
 class SensorDefinition(IHasInternalInit):
     """Define a sensor that initiates a set of runs based on some external state.
 
@@ -597,27 +628,7 @@ class SensorDefinition(IHasInternalInit):
         metadata: Optional[RawMetadataMapping] = None,
     ) -> "SensorDefinition":
         """Returns a copy of this sensor with the attributes replaced."""
-        # unfortunate re-derivation of how inputs map to _targets
-        if jobs is not None:
-            new_jobs = jobs if len(jobs) > 1 else None
-            new_job = jobs[0] if len(jobs) == 1 else None
-            job_name = None
-        elif self.has_jobs:
-            new_job = self.job if len(self.jobs) == 1 else None
-            new_jobs = self.jobs if len(self.jobs) > 1 else None
-            job_name = None
-        elif self._targets:
-            check.invariant(
-                len(self._targets) == 1 and not self._targets[0].has_job_def,
-                "Expected only one target by job name string.",
-            )
-            job_name = self._targets[0].job_name
-            new_job = None
-            new_jobs = None
-        else:
-            job_name = None
-            new_job = None
-            new_jobs = None
+        job_name, new_job, new_jobs = resolve_jobs_from_targets_for_with_attributes(self, jobs)
 
         return SensorDefinition.dagster_internal_init(
             name=self.name,
@@ -633,6 +644,7 @@ class SensorDefinition(IHasInternalInit):
             tags=self._tags,
             metadata=metadata if metadata is not None else self._metadata,
             target=None,
+            owners=self._owners,
         )
 
     def with_updated_job(self, new_job: ExecutableDefinition) -> "SensorDefinition":
@@ -676,6 +688,7 @@ class SensorDefinition(IHasInternalInit):
                 "UnresolvedAssetJobDefinition",
             ]
         ] = None,
+        owners: Optional[Sequence[str]] = None,
     ):
         from dagster._config.pythonic_config import validate_resource_annotated_function
 
@@ -759,10 +772,16 @@ class SensorDefinition(IHasInternalInit):
             required_resource_keys, "required_resource_keys", of_type=str
         )
         self._required_resource_keys = self._raw_required_resource_keys or resource_arg_names
-        self._tags = normalize_tags(tags)
+        self._tags = normalize_tags(
+            tags, warning_stacklevel=5
+        )  # reset once owners is out of beta_param
         self._metadata = normalize_metadata(
             check.opt_mapping_param(metadata, "metadata", key_type=str)
         )
+        self._owners = check.opt_sequence_param(owners, "owners", of_type=str)
+        # Validate each owner string
+        for owner in self._owners:
+            validate_definition_owner(owner, "sensor", self._name)
 
     @staticmethod
     def dagster_internal_init(
@@ -787,6 +806,7 @@ class SensorDefinition(IHasInternalInit):
                 "UnresolvedAssetJobDefinition",
             ]
         ],
+        owners: Optional[Sequence[str]],
     ) -> "SensorDefinition":
         return SensorDefinition(
             name=name,
@@ -802,6 +822,7 @@ class SensorDefinition(IHasInternalInit):
             tags=tags,
             metadata=metadata,
             target=target,
+            owners=owners,
         )
 
     def __call__(self, *args, **kwargs) -> SensorReturnTypesUnion:
@@ -897,6 +918,10 @@ class SensorDefinition(IHasInternalInit):
     @property
     def sensor_type(self) -> SensorType:
         return SensorType.STANDARD
+
+    @property
+    def owners(self) -> Optional[Sequence[str]]:
+        return self._owners
 
     def evaluate_tick(self, context: "SensorEvaluationContext") -> "SensorExecutionData":
         """Evaluate sensor using the provided context.

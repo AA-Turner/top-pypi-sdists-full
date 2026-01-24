@@ -2,10 +2,8 @@ paths = ["."]
 max-complexity-allowed = 15
 quiet = false
 ignore-complexity = false
-details = "normal"
+failed = false
 sort = "asc"
 exclude = ["tests"]
-
-[output]
-csv = false
-json = false
+output-csv = false
+output-json = false

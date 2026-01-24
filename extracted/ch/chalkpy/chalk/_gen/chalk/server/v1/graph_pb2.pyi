@@ -257,3 +257,194 @@ class GetCodegenFeaturesFromGraphResponse(_message.Message):
         codegen: _Optional[str] = ...,
         errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
     ) -> None: ...
+
+class GraphMutation(_message.Message):
+    __slots__ = (
+        "add_streaming_resolver",
+        "update_streaming_resolver",
+        "delete_streaming_resolver",
+        "add_feature",
+        "update_feature",
+        "delete_feature",
+        "add_feature_set",
+        "update_feature_set",
+        "delete_feature_set",
+        "add_resolver",
+        "update_resolver",
+        "delete_resolver",
+    )
+    ADD_STREAMING_RESOLVER_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_STREAMING_RESOLVER_FIELD_NUMBER: _ClassVar[int]
+    DELETE_STREAMING_RESOLVER_FIELD_NUMBER: _ClassVar[int]
+    ADD_FEATURE_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_FEATURE_FIELD_NUMBER: _ClassVar[int]
+    DELETE_FEATURE_FIELD_NUMBER: _ClassVar[int]
+    ADD_FEATURE_SET_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_FEATURE_SET_FIELD_NUMBER: _ClassVar[int]
+    DELETE_FEATURE_SET_FIELD_NUMBER: _ClassVar[int]
+    ADD_RESOLVER_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_RESOLVER_FIELD_NUMBER: _ClassVar[int]
+    DELETE_RESOLVER_FIELD_NUMBER: _ClassVar[int]
+    add_streaming_resolver: AddStreamingResolver
+    update_streaming_resolver: UpdateStreamingResolver
+    delete_streaming_resolver: DeleteStreamingResolver
+    add_feature: AddFeature
+    update_feature: UpdateFeature
+    delete_feature: DeleteFeature
+    add_feature_set: AddFeatureSet
+    update_feature_set: UpdateFeatureSet
+    delete_feature_set: DeleteFeatureSet
+    add_resolver: AddResolver
+    update_resolver: UpdateResolver
+    delete_resolver: DeleteResolver
+    def __init__(
+        self,
+        add_streaming_resolver: _Optional[_Union[AddStreamingResolver, _Mapping]] = ...,
+        update_streaming_resolver: _Optional[_Union[UpdateStreamingResolver, _Mapping]] = ...,
+        delete_streaming_resolver: _Optional[_Union[DeleteStreamingResolver, _Mapping]] = ...,
+        add_feature: _Optional[_Union[AddFeature, _Mapping]] = ...,
+        update_feature: _Optional[_Union[UpdateFeature, _Mapping]] = ...,
+        delete_feature: _Optional[_Union[DeleteFeature, _Mapping]] = ...,
+        add_feature_set: _Optional[_Union[AddFeatureSet, _Mapping]] = ...,
+        update_feature_set: _Optional[_Union[UpdateFeatureSet, _Mapping]] = ...,
+        delete_feature_set: _Optional[_Union[DeleteFeatureSet, _Mapping]] = ...,
+        add_resolver: _Optional[_Union[AddResolver, _Mapping]] = ...,
+        update_resolver: _Optional[_Union[UpdateResolver, _Mapping]] = ...,
+        delete_resolver: _Optional[_Union[DeleteResolver, _Mapping]] = ...,
+    ) -> None: ...
+
+class AddStreamingResolver(_message.Message):
+    __slots__ = ("resolver",)
+    RESOLVER_FIELD_NUMBER: _ClassVar[int]
+    resolver: _graph_pb2.StreamResolver
+    def __init__(self, resolver: _Optional[_Union[_graph_pb2.StreamResolver, _Mapping]] = ...) -> None: ...
+
+class UpdateStreamingResolver(_message.Message):
+    __slots__ = ("resolver_name", "resolver")
+    RESOLVER_NAME_FIELD_NUMBER: _ClassVar[int]
+    RESOLVER_FIELD_NUMBER: _ClassVar[int]
+    resolver_name: str
+    resolver: _graph_pb2.StreamResolver
+    def __init__(
+        self,
+        resolver_name: _Optional[str] = ...,
+        resolver: _Optional[_Union[_graph_pb2.StreamResolver, _Mapping]] = ...,
+    ) -> None: ...
+
+class DeleteStreamingResolver(_message.Message):
+    __slots__ = ("resolver_name",)
+    RESOLVER_NAME_FIELD_NUMBER: _ClassVar[int]
+    resolver_name: str
+    def __init__(self, resolver_name: _Optional[str] = ...) -> None: ...
+
+class AddResolver(_message.Message):
+    __slots__ = ("resolver",)
+    RESOLVER_FIELD_NUMBER: _ClassVar[int]
+    resolver: _graph_pb2.Resolver
+    def __init__(self, resolver: _Optional[_Union[_graph_pb2.Resolver, _Mapping]] = ...) -> None: ...
+
+class UpdateResolver(_message.Message):
+    __slots__ = ("resolver_name", "resolver")
+    RESOLVER_NAME_FIELD_NUMBER: _ClassVar[int]
+    RESOLVER_FIELD_NUMBER: _ClassVar[int]
+    resolver_name: str
+    resolver: _graph_pb2.Resolver
+    def __init__(
+        self, resolver_name: _Optional[str] = ..., resolver: _Optional[_Union[_graph_pb2.Resolver, _Mapping]] = ...
+    ) -> None: ...
+
+class DeleteResolver(_message.Message):
+    __slots__ = ("resolver_name",)
+    RESOLVER_NAME_FIELD_NUMBER: _ClassVar[int]
+    resolver_name: str
+    def __init__(self, resolver_name: _Optional[str] = ...) -> None: ...
+
+class AddFeature(_message.Message):
+    __slots__ = ("feature_set_name", "feature")
+    FEATURE_SET_NAME_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_FIELD_NUMBER: _ClassVar[int]
+    feature_set_name: str
+    feature: _graph_pb2.FeatureType
+    def __init__(
+        self, feature_set_name: _Optional[str] = ..., feature: _Optional[_Union[_graph_pb2.FeatureType, _Mapping]] = ...
+    ) -> None: ...
+
+class UpdateFeature(_message.Message):
+    __slots__ = ("fqn", "feature")
+    FQN_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_FIELD_NUMBER: _ClassVar[int]
+    fqn: str
+    feature: _graph_pb2.FeatureType
+    def __init__(
+        self, fqn: _Optional[str] = ..., feature: _Optional[_Union[_graph_pb2.FeatureType, _Mapping]] = ...
+    ) -> None: ...
+
+class DeleteFeature(_message.Message):
+    __slots__ = ("fqn",)
+    FQN_FIELD_NUMBER: _ClassVar[int]
+    fqn: str
+    def __init__(self, fqn: _Optional[str] = ...) -> None: ...
+
+class AddFeatureSet(_message.Message):
+    __slots__ = ("feature_set",)
+    FEATURE_SET_FIELD_NUMBER: _ClassVar[int]
+    feature_set: _graph_pb2.FeatureSet
+    def __init__(self, feature_set: _Optional[_Union[_graph_pb2.FeatureSet, _Mapping]] = ...) -> None: ...
+
+class UpdateFeatureSet(_message.Message):
+    __slots__ = ("feature_set_name", "feature_set")
+    FEATURE_SET_NAME_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_SET_FIELD_NUMBER: _ClassVar[int]
+    feature_set_name: str
+    feature_set: _graph_pb2.FeatureSet
+    def __init__(
+        self,
+        feature_set_name: _Optional[str] = ...,
+        feature_set: _Optional[_Union[_graph_pb2.FeatureSet, _Mapping]] = ...,
+    ) -> None: ...
+
+class DeleteFeatureSet(_message.Message):
+    __slots__ = ("feature_set_name",)
+    FEATURE_SET_NAME_FIELD_NUMBER: _ClassVar[int]
+    feature_set_name: str
+    def __init__(self, feature_set_name: _Optional[str] = ...) -> None: ...
+
+class ApplyGraphUpdatesRequest(_message.Message):
+    __slots__ = ("deployment_id", "mutations")
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    MUTATIONS_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    mutations: _containers.RepeatedCompositeFieldContainer[GraphMutation]
+    def __init__(
+        self,
+        deployment_id: _Optional[str] = ...,
+        mutations: _Optional[_Iterable[_Union[GraphMutation, _Mapping]]] = ...,
+    ) -> None: ...
+
+class ApplyGraphUpdatesResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class TestGraphMutationsRequest(_message.Message):
+    __slots__ = ("deployment_id", "mutations")
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    MUTATIONS_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    mutations: _containers.RepeatedCompositeFieldContainer[GraphMutation]
+    def __init__(
+        self,
+        deployment_id: _Optional[str] = ...,
+        mutations: _Optional[_Iterable[_Union[GraphMutation, _Mapping]]] = ...,
+    ) -> None: ...
+
+class TestGraphMutationsResponse(_message.Message):
+    __slots__ = ("export", "errors")
+    EXPORT_FIELD_NUMBER: _ClassVar[int]
+    ERRORS_FIELD_NUMBER: _ClassVar[int]
+    export: _export_pb2.Export
+    errors: _containers.RepeatedCompositeFieldContainer[_chalk_error_pb2.ChalkError]
+    def __init__(
+        self,
+        export: _Optional[_Union[_export_pb2.Export, _Mapping]] = ...,
+        errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
+    ) -> None: ...

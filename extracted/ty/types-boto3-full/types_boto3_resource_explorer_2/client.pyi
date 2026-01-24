@@ -3,7 +3,7 @@ Type annotations for resource-explorer-2 service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -26,10 +27,14 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    GetResourceExplorerSetupPaginator,
     ListIndexesForMembersPaginator,
     ListIndexesPaginator,
     ListManagedViewsPaginator,
     ListResourcesPaginator,
+    ListServiceIndexesPaginator,
+    ListServiceViewsPaginator,
+    ListStreamingAccessForServicesPaginator,
     ListSupportedResourceTypesPaginator,
     ListViewsPaginator,
     SearchPaginator,
@@ -41,10 +46,14 @@ from .type_defs import (
     BatchGetViewOutputTypeDef,
     CreateIndexInputTypeDef,
     CreateIndexOutputTypeDef,
+    CreateResourceExplorerSetupInputTypeDef,
+    CreateResourceExplorerSetupOutputTypeDef,
     CreateViewInputTypeDef,
     CreateViewOutputTypeDef,
     DeleteIndexInputTypeDef,
     DeleteIndexOutputTypeDef,
+    DeleteResourceExplorerSetupInputTypeDef,
+    DeleteResourceExplorerSetupOutputTypeDef,
     DeleteViewInputTypeDef,
     DeleteViewOutputTypeDef,
     EmptyResponseMetadataTypeDef,
@@ -53,6 +62,11 @@ from .type_defs import (
     GetIndexOutputTypeDef,
     GetManagedViewInputTypeDef,
     GetManagedViewOutputTypeDef,
+    GetResourceExplorerSetupInputTypeDef,
+    GetResourceExplorerSetupOutputTypeDef,
+    GetServiceIndexOutputTypeDef,
+    GetServiceViewInputTypeDef,
+    GetServiceViewOutputTypeDef,
     GetViewInputTypeDef,
     GetViewOutputTypeDef,
     ListIndexesForMembersInputTypeDef,
@@ -63,6 +77,12 @@ from .type_defs import (
     ListManagedViewsOutputTypeDef,
     ListResourcesInputTypeDef,
     ListResourcesOutputTypeDef,
+    ListServiceIndexesInputTypeDef,
+    ListServiceIndexesOutputTypeDef,
+    ListServiceViewsInputTypeDef,
+    ListServiceViewsOutputTypeDef,
+    ListStreamingAccessForServicesInputTypeDef,
+    ListStreamingAccessForServicesOutputTypeDef,
     ListSupportedResourceTypesInputTypeDef,
     ListSupportedResourceTypesOutputTypeDef,
     ListTagsForResourceInputTypeDef,
@@ -79,12 +99,6 @@ from .type_defs import (
     UpdateViewOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -93,15 +107,15 @@ else:
 __all__ = ("ResourceExplorerClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class ResourceExplorerClient(BaseClient):
     """
@@ -168,6 +182,17 @@ class ResourceExplorerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#create_index)
         """
 
+    def create_resource_explorer_setup(
+        self, **kwargs: Unpack[CreateResourceExplorerSetupInputTypeDef]
+    ) -> CreateResourceExplorerSetupOutputTypeDef:
+        """
+        Creates a Resource Explorer setup configuration across multiple Amazon Web
+        Services Regions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resource-explorer-2/client/create_resource_explorer_setup.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#create_resource_explorer_setup)
+        """
+
     def create_view(self, **kwargs: Unpack[CreateViewInputTypeDef]) -> CreateViewOutputTypeDef:
         """
         Creates a view that users can query by using the <a>Search</a> operation.
@@ -183,6 +208,16 @@ class ResourceExplorerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resource-explorer-2/client/delete_index.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#delete_index)
+        """
+
+    def delete_resource_explorer_setup(
+        self, **kwargs: Unpack[DeleteResourceExplorerSetupInputTypeDef]
+    ) -> DeleteResourceExplorerSetupOutputTypeDef:
+        """
+        Deletes a Resource Explorer setup configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resource-explorer-2/client/delete_resource_explorer_setup.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#delete_resource_explorer_setup)
         """
 
     def delete_view(self, **kwargs: Unpack[DeleteViewInputTypeDef]) -> DeleteViewOutputTypeDef:
@@ -244,6 +279,35 @@ class ResourceExplorerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#get_managed_view)
         """
 
+    def get_resource_explorer_setup(
+        self, **kwargs: Unpack[GetResourceExplorerSetupInputTypeDef]
+    ) -> GetResourceExplorerSetupOutputTypeDef:
+        """
+        Retrieves the status and details of a Resource Explorer setup operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resource-explorer-2/client/get_resource_explorer_setup.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#get_resource_explorer_setup)
+        """
+
+    def get_service_index(self) -> GetServiceIndexOutputTypeDef:
+        """
+        Retrieves information about the Resource Explorer index in the current Amazon
+        Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resource-explorer-2/client/get_service_index.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#get_service_index)
+        """
+
+    def get_service_view(
+        self, **kwargs: Unpack[GetServiceViewInputTypeDef]
+    ) -> GetServiceViewOutputTypeDef:
+        """
+        Retrieves details about a specific Resource Explorer service view.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resource-explorer-2/client/get_service_view.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#get_service_view)
+        """
+
     def get_view(self, **kwargs: Unpack[GetViewInputTypeDef]) -> GetViewOutputTypeDef:
         """
         Retrieves details of the specified view.
@@ -297,6 +361,39 @@ class ResourceExplorerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#list_resources)
         """
 
+    def list_service_indexes(
+        self, **kwargs: Unpack[ListServiceIndexesInputTypeDef]
+    ) -> ListServiceIndexesOutputTypeDef:
+        """
+        Lists all Resource Explorer indexes across the specified Amazon Web Services
+        Regions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resource-explorer-2/client/list_service_indexes.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#list_service_indexes)
+        """
+
+    def list_service_views(
+        self, **kwargs: Unpack[ListServiceViewsInputTypeDef]
+    ) -> ListServiceViewsOutputTypeDef:
+        """
+        Lists all Resource Explorer service views available in the current Amazon Web
+        Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resource-explorer-2/client/list_service_views.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#list_service_views)
+        """
+
+    def list_streaming_access_for_services(
+        self, **kwargs: Unpack[ListStreamingAccessForServicesInputTypeDef]
+    ) -> ListStreamingAccessForServicesOutputTypeDef:
+        """
+        Returns a list of Amazon Web Services services that have been granted streaming
+        access to your Resource Explorer data.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resource-explorer-2/client/list_streaming_access_for_services.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#list_streaming_access_for_services)
+        """
+
     def list_supported_resource_types(
         self, **kwargs: Unpack[ListSupportedResourceTypesInputTypeDef]
     ) -> ListSupportedResourceTypesOutputTypeDef:
@@ -338,7 +435,7 @@ class ResourceExplorerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#search)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Adds one or more tag key and value pairs to an Amazon Web Services Resource
         Explorer view or index.
@@ -347,7 +444,7 @@ class ResourceExplorerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tag key and value pairs from an Amazon Web Services
         Resource Explorer view or index.
@@ -372,6 +469,17 @@ class ResourceExplorerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resource-explorer-2/client/update_view.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#update_view)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_resource_explorer_setup"]
+    ) -> GetResourceExplorerSetupPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resource-explorer-2/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]
@@ -411,6 +519,39 @@ class ResourceExplorerClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_resources"]
     ) -> ListResourcesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resource-explorer-2/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_service_indexes"]
+    ) -> ListServiceIndexesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resource-explorer-2/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_service_views"]
+    ) -> ListServiceViewsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resource-explorer-2/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resource_explorer_2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_streaming_access_for_services"]
+    ) -> ListStreamingAccessForServicesPaginator:
         """
         Create a paginator for an operation.
 

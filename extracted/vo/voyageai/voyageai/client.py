@@ -1,21 +1,26 @@
 import warnings
-from typing import Any, Callable, List, Optional, Union, Dict
+from typing import Callable, Dict, List, Optional, Union
+
+from PIL.Image import Image
 from tenacity import (
     Retrying,
+    retry_if_exception_type,
     stop_after_attempt,
     wait_exponential_jitter,
-    retry_if_exception_type,
 )
-from PIL.Image import Image
 
 import voyageai
+import voyageai.error as error
 from voyageai._base import _BaseClient
 from voyageai.chunking import apply_chunking
-import voyageai.error as error
-from voyageai.object.multimodal_embeddings import MultimodalInputRequest
 from voyageai.object import (
-    ContextualizedEmbeddingsObject, EmbeddingsObject, RerankingObject, MultimodalEmbeddingsObject
+    ContextualizedEmbeddingsObject,
+    EmbeddingsObject,
+    MultimodalEmbeddingsObject,
+    RerankingObject,
 )
+from voyageai.object.multimodal_embeddings import MultimodalInputRequest
+from voyageai.video_utils import Video
 
 
 class Client(_BaseClient):
@@ -25,6 +30,7 @@ class Client(_BaseClient):
         api_key (str): Your API key.
         max_retries (int): Maximum number of retries if API call fails.
         timeout (float): Timeout in seconds.
+        base_url (str): Base URL for the API endpoint.
     """
 
     def __init__(
@@ -32,12 +38,14 @@ class Client(_BaseClient):
         api_key: Optional[str] = None,
         max_retries: int = 0,
         timeout: Optional[float] = None,
-    ) ->None:
-        super().__init__(api_key, max_retries, timeout)
+        base_url: Optional[str] = None,
+    ) -> None:
+        super().__init__(api_key, max_retries, timeout, base_url)
 
-        self.retry_controller = Retrying(
+    def _make_retry_controller(self) -> Retrying:
+        return Retrying(
             reraise=True,
-            stop=stop_after_attempt(max_retries),
+            stop=stop_after_attempt(self.max_retries),
             wait=wait_exponential_jitter(initial=1, max=16),
             retry=(
                 retry_if_exception_type(error.RateLimitError)
@@ -55,7 +63,6 @@ class Client(_BaseClient):
         output_dtype: Optional[str] = None,
         output_dimension: Optional[int] = None,
     ) -> EmbeddingsObject:
-
         if model is None:
             model = voyageai.VOYAGE_EMBED_DEFAULT_MODEL
             warnings.warn(
@@ -66,7 +73,7 @@ class Client(_BaseClient):
             )
 
         response = None
-        for attempt in self.retry_controller:
+        for attempt in self._make_retry_controller():
             with attempt:
                 response = voyageai.Embedding.create(
                     input=texts,
@@ -93,9 +100,8 @@ class Client(_BaseClient):
         output_dimension: Optional[int] = None,
         chunk_fn: Optional[Callable[[str], List[str]]] = None,
     ) -> ContextualizedEmbeddingsObject:
-        
         response = None
-        for attempt in self.retry_controller:
+        for attempt in self._make_retry_controller():
             with attempt:
                 if chunk_fn:
                     inputs = apply_chunking(inputs, chunk_fn)
@@ -113,7 +119,8 @@ class Client(_BaseClient):
 
         if chunk_fn:
             return ContextualizedEmbeddingsObject(
-                response=response, chunk_texts=inputs,
+                response=response,
+                chunk_texts=inputs,
             )
         return ContextualizedEmbeddingsObject(response)
 
@@ -125,9 +132,8 @@ class Client(_BaseClient):
         top_k: Optional[int] = None,
         truncation: bool = True,
     ) -> RerankingObject:
-
         response = None
-        for attempt in self.retry_controller:
+        for attempt in self._make_retry_controller():
             with attempt:
                 response = voyageai.Reranking.create(
                     query=query,
@@ -146,22 +152,15 @@ class Client(_BaseClient):
 
     def multimodal_embed(
         self,
-        inputs: Union[List[Dict], List[List[Union[str, Image]]]],
+        inputs: Union[List[Dict], List[List[Union[str, Image, Video]]]],
         model: str,
         input_type: Optional[str] = None,
         truncation: bool = True,
+        output_dtype: Optional[str] = None,
+        output_dimension: Optional[int] = None,
     ) -> MultimodalEmbeddingsObject:
-        """
-        Generate multimodal embeddings for the provided inputs using the specified model.
-
-        :param inputs: Either a list of dictionaries (each with 'content') or a list of lists containing strings and/or PIL images.
-        :param model: The model identifier.
-        :param input_type: Optional input type.
-        :param truncation: Whether to apply truncation.
-        :return: An instance of MultimodalEmbeddingsObject.
-        """
         response = None
-        for attempt in self.retry_controller:
+        for attempt in self._make_retry_controller():
             with attempt:
                 response = voyageai.MultimodalEmbedding.create(
                     **MultimodalInputRequest.from_user_inputs(
@@ -169,6 +168,8 @@ class Client(_BaseClient):
                         model=model,
                         input_type=input_type,
                         truncation=truncation,
+                        output_dtype=output_dtype,
+                        output_dimension=output_dimension,
                     ).dict(),
                     **self._params,
                 )

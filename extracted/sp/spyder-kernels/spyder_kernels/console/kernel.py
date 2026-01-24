@@ -20,12 +20,14 @@ import sys
 import traceback
 import tempfile
 import threading
+import inspect
 import cloudpickle
 
 # Third-party imports
 from ipykernel.ipkernel import IPythonKernel
 from ipykernel import get_connection_info
 from IPython.core import release as ipython_release
+from packaging.version import parse as parse_version
 from traitlets.config.loader import Config, LazyConfigValue
 import zmq
 from zmq.utils.garbage import gc
@@ -39,6 +41,7 @@ from spyder_kernels.comms.decorators import (
 from spyder_kernels.utils.pythonenv import (
     get_env_dir,
     is_conda_env,
+    is_pixi_env,
     is_pyenv_env,
     PythonEnvInfo,
     PythonEnvType,
@@ -47,7 +50,7 @@ from spyder_kernels.utils.iofuncs import iofunctions
 from spyder_kernels.utils.mpl import automatic_backend, MPL_BACKENDS_TO_SPYDER
 from spyder_kernels.utils.nsview import (
     get_remote_data, make_remote_view, get_size)
-from spyder_kernels.utils.style import create_style_class
+from spyder_kernels.utils.style import create_pygments_dict, create_style_class
 from spyder_kernels.console.shell import SpyderShell
 from spyder_kernels.comms.utils import WriteContext
 
@@ -92,6 +95,11 @@ class SpyderKernel(IPythonKernel):
 
         # To save the python env info
         self.pythonenv_info: PythonEnvInfo = {}
+
+        # Store original sys.path. Kernels are started with PYTHONPATH
+        # removed from environment variables, so this will never have
+        # user paths and should be clean.
+        self._sys_path = sys.path.copy()
 
     @property
     def kernel_info(self):
@@ -368,6 +376,11 @@ class SpyderKernel(IPythonKernel):
         """Get the value of a variable"""
         ns = self.shell._get_current_namespace()
         value = ns[name]
+
+        if str(type(value)) == "<class 'polars.dataframe.frame.DataFrame'>":
+            # Convert polars dataframes to pandas
+            value = value.to_pandas()
+
         if encoded:
             # Encode with cloudpickle
             value = cloudpickle.dumps(value)
@@ -443,9 +456,21 @@ class SpyderKernel(IPythonKernel):
         return iofunctions.save(data, filename)
 
     # --- For Pdb
-    def _do_complete(self, code, cursor_pos):
+    async def _do_complete(self, code, cursor_pos):
         """Call parent class do_complete"""
-        return super(SpyderKernel, self).do_complete(code, cursor_pos)
+        super_method = super().do_complete
+
+        # handle async def do_comlpete
+        if inspect.iscoroutinefunction(super_method):
+            return await super_method(code, cursor_pos)
+
+        result = super_method(code, cursor_pos)
+
+        # handle sync do_complete, returns a Future.
+        if inspect.isawaitable(result):
+            result = await result
+
+        return result
 
     def do_complete(self, code, cursor_pos):
         """
@@ -681,15 +706,37 @@ class SpyderKernel(IPythonKernel):
 
     def set_traceback_syntax_highlighting(self, syntax_style):
         """Set the traceback syntax highlighting style."""
-        import IPython.core.ultratb
-        from IPython.core.ultratb import VerboseTB
+        if parse_version(ipython_release.version) >= parse_version("9.0"):
+            # Create spyder theme definition and set it (IPython 9.x+)
+            import IPython.utils.PyColorize
+            from IPython.utils.PyColorize import (
+                Theme,
+                linux_theme,
+                neutral_theme,
+            )
 
-        IPython.core.ultratb.get_style_by_name = create_style_class
+            base = "default"
+            extra_style = neutral_theme.extra_style
+            if self.shell.get_spyder_theme() == "dark":
+                base = "monokai"
+                extra_style = linux_theme.extra_style
 
-        if getattr(VerboseTB, 'tb_highlight_style', None) is not None:
-            VerboseTB.tb_highlight_style = syntax_style
-        elif getattr(VerboseTB, '_tb_highlight_style', None) is not None:
-            VerboseTB._tb_highlight_style = syntax_style
+            extra_style.update(create_pygments_dict(syntax_style))
+            theme = Theme("spyder_theme", base, extra_style)
+            IPython.utils.PyColorize.theme_table["spyder_theme"] = theme
+            self.shell.run_line_magic("colors", "spyder_theme")
+        else:
+            # Use `tb_highlight_style` class attribute to set the style (
+            # IPython 8.x)
+            import IPython.core.ultratb
+            from IPython.core.ultratb import VerboseTB
+
+            IPython.core.ultratb.get_style_by_name = create_style_class
+
+            if getattr(VerboseTB, "tb_highlight_style", None) is not None:
+                VerboseTB.tb_highlight_style = syntax_style
+            elif getattr(VerboseTB, "_tb_highlight_style", None) is not None:
+                VerboseTB._tb_highlight_style = syntax_style
 
     def get_cwd(self):
         """Get current working directory."""
@@ -770,27 +817,42 @@ class SpyderKernel(IPythonKernel):
         raise NotImplementedError(f"{special}")
 
     @comm_handler
-    def update_syspath(self, path_dict, new_path_dict):
+    def update_syspath(self, new_path, prioritize):
         """
         Update the PYTHONPATH of the kernel.
 
-        `path_dict` and `new_path_dict` have the paths as keys and the state
-        as values. The state is `True` for active and `False` for inactive.
+        Parameters
+        ----------
+        new_path: list of str
+            List of PYTHONPATH paths.
+        prioritize: bool
+            Whether to place PYTHONPATH paths at the front (True) or
+            back (False) of sys.path.
 
-        `path_dict` corresponds to the previous state of the PYTHONPATH.
-        `new_path_dict` corresponds to the new state of the PYTHONPATH.
+        Notes
+        -----
+        A copy of sys.path is made at instantiation, which should be clean,
+        so we can just prepend/append to the copy without having to explicitly
+        remove old user paths. PYTHONPATH can just be overwritten.
         """
-        # Remove old paths
-        for path in path_dict:
-            while path in sys.path:
-                sys.path.remove(path)
+        if new_path is not None:
+            # Overwrite PYTHONPATH
+            os.environ.update({'PYTHONPATH': os.pathsep.join(new_path)})
 
-        # Add new paths
-        pypath = [path for path, active in new_path_dict.items() if active]
-        if pypath:
-            sys.path.extend(pypath)
-            os.environ.update({'PYTHONPATH': os.pathsep.join(pypath)})
+            # Add new paths to original sys.path
+            if prioritize:
+                sys.path[:] = new_path + self._sys_path
+
+                # Ensure current directory is always first to imitate Python
+                # standard behavior
+                if '' in sys.path:
+                    sys.path.remove('')
+                    sys.path.insert(0, '')
+            else:
+                sys.path[:] = self._sys_path + new_path
         else:
+            # Restore original sys.path and remove PYTHONPATH
+            sys.path[:] = self._sys_path
             os.environ.pop('PYTHONPATH', None)
 
     @comm_handler
@@ -800,7 +862,9 @@ class SpyderKernel(IPythonKernel):
         if not self.pythonenv_info:
             path = sys.executable.replace("pythonw.exe", "python.exe")
 
-            if is_conda_env(pyexec=path):
+            if is_pixi_env(path):
+                env_type = PythonEnvType.Pixi
+            elif is_conda_env(pyexec=path):
                 env_type = PythonEnvType.Conda
             elif is_pyenv_env(path):
                 env_type = PythonEnvType.PyEnv

@@ -25,6 +25,21 @@ class InternalUtils:
     def _get_domain_id(self) -> str:
         return self._get_field_from_environment("DataZoneDomainId")
 
+    def _get_account_id(self) -> Optional[str]:
+        execution_role_arn = self._get_field_from_environment("ExecutionRoleArn")
+        # Parse account ID from ARN format: arn:aws:iam::ACCOUNT_ID:role/...
+        if execution_role_arn:
+            parts = execution_role_arn.split(":")
+            if len(parts) >= 5 and parts[0] == "arn" and parts[2] == "iam":
+                account_id: str = parts[4]
+                logging.debug(f"Successfully extracted AWS account ID: {account_id}")
+                return account_id
+            else:
+                logging.warning(f"ExecutionRoleArn has unexpected format: {execution_role_arn}")
+        else:
+            logging.warning("ExecutionRoleArn not found in metadata")
+        return None
+
     def _get_project_id(
         self,
         datazone_api: BaseClient,

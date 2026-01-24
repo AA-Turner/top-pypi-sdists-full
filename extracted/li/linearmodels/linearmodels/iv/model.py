@@ -4,6 +4,7 @@ Instrumental variable estimators
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any, TypeVar, Union, cast
 import warnings
 
@@ -16,17 +17,19 @@ from numpy import (
     average,
     c_,
     column_stack,
+    dtype,
     eye,
+    float64,
     isscalar,
     logical_not,
     nan,
     nanmean,
+    ndarray,
     ones,
     sqrt,
     squeeze,
 )
 from numpy.linalg import eigvalsh, inv, matrix_rank, pinv
-import pandas
 from pandas import DataFrame, Series, concat
 from scipy.optimize import minimize
 
@@ -58,13 +61,13 @@ IVResultType = type[Union[IVResults, IVGMMResults, OLSResults]]
 
 __all__ = [
     "COVARIANCE_ESTIMATORS",
-    "WEIGHT_MATRICES",
-    "IVGMM",
-    "IVLIML",
     "IV2SLS",
+    "IVGMM",
     "IVGMMCUE",
-    "IVResultType",
+    "IVLIML",
+    "WEIGHT_MATRICES",
     "_OLS",
+    "IVResultType",
 ]
 
 COVARIANCE_ESTIMATORS = {
@@ -239,7 +242,7 @@ class _IVModelBase:
         *,
         exog: IVDataLike | None = None,
         endog: IVDataLike | None = None,
-        data: pandas.DataFrame | None = None,
+        data: DataFrame | None = None,
         eval_env: int = 4,
     ) -> DataFrame:
         """
@@ -281,7 +284,7 @@ class _IVModelBase:
         """
         if data is not None and not self.formula:
             raise ValueError(
-                "Unable to use data when the model was not " "created using a formula."
+                "Unable to use data when the model was not created using a formula."
             )
         if data is not None and (exog is not None or endog is not None):
             raise ValueError(
@@ -338,17 +341,17 @@ class _IVModelBase:
                 " ({}).".format(self.instruments.shape[1], self.endog.shape[1])
             )
         if matrix_rank(x) < x.shape[1]:
-            raise ValueError("regressors [exog endog] do not have full " "column rank")
+            raise ValueError("regressors [exog endog] do not have full column rank")
         if matrix_rank(z) < z.shape[1]:
             raise ValueError(
-                "instruments [exog instruments]  do not have " "full column rank"
+                "instruments [exog instruments]  do not have full column rank"
             )
         self._has_constant, self._const_loc = has_constant(x)
 
     def _drop_missing(self) -> linearmodels.typing.data.BoolArray:
         data = (self.dependent, self.exog, self.endog, self.instruments, self.weights)
         missing = cast(
-            linearmodels.typing.data.BoolArray,
+            "linearmodels.typing.data.BoolArray",
             npany(column_stack([dh.isnull for dh in data]), axis=1),
         )
         if npany(missing):
@@ -420,7 +423,7 @@ class _IVModelBase:
     @property
     def notnull(self) -> linearmodels.typing.data.BoolArray:
         """Locations of observations included in estimation"""
-        return cast(linearmodels.typing.data.BoolArray, logical_not(self._drop_locs))
+        return cast("linearmodels.typing.data.BoolArray", logical_not(self._drop_locs))
 
     def _f_statistic(
         self,
@@ -632,7 +635,7 @@ class _IVLSModelBase(_IVModelBase):
             * "robust", "heteroskedastic" - Heteroskedasticity robust inference
             * "kernel" - Heteroskedasticity and autocorrelation robust
               inference
-            * "cluster" - One-way cluster dependent inference.
+            * "clustered" - One-way cluster dependent inference.
               Heteroskedasticity robust
 
         debiased : bool
@@ -675,7 +678,7 @@ class _IVLSModelBase(_IVModelBase):
                     "Unable to estimate kappa. This is most likely occurs if the "
                     f"instrument matrix is rank deficient. The error raised when "
                     f"computing kappa was:\n\n{exc}"
-                )
+                ) from exc
         if kappa is not None:
             est_kappa = kappa
         else:
@@ -690,9 +693,8 @@ class _IVLSModelBase(_IVModelBase):
         cov_estimator = COVARIANCE_ESTIMATORS[cov_type]
         cov_config["debiased"] = debiased
         cov_config["kappa"] = est_kappa
-        cov_config_copy = {k: v for k, v in cov_config.items()}
-        if "center" in cov_config_copy:
-            del cov_config_copy["center"]
+        cov_config_copy = dict(cov_config.items())
+        cov_config_copy.pop("center", None)
         cov_estimator_inst = cov_estimator(wx, wy, wz, params, **cov_config_copy)
 
         results = {"kappa": est_kappa, "liml_kappa": liml_kappa}
@@ -786,7 +788,7 @@ class IVLIML(_IVLSModelBase):
     @staticmethod
     def from_formula(
         formula: str,
-        data: pandas.DataFrame,
+        data: DataFrame,
         *,
         weights: IVDataLike | None = None,
         fuller: float = 0,
@@ -899,7 +901,7 @@ class IV2SLS(_IVLSModelBase):
 
     @staticmethod
     def from_formula(
-        formula: str, data: pandas.DataFrame, *, weights: IVDataLike | None = None
+        formula: str, data: DataFrame, *, weights: IVDataLike | None = None
     ) -> IV2SLS:
         """
         Parameters
@@ -963,7 +965,7 @@ class _IVGMMBase(_IVModelBase):
         Observation weights used in estimation
     weight_type : str
         Name of moment condition weight function to use in the GMM estimation
-    **weight_config
+    weight_config
         Additional keyword arguments to pass to the moment condition weight
         function
 
@@ -976,7 +978,7 @@ class _IVGMMBase(_IVModelBase):
     * "robust", "heteroskedastic" - Allows for heteroskedasticity by not
       autocorrelation
     * "kernel" - Allows for heteroskedasticity and autocorrelation
-    * "cluster" - Allows for one-way cluster dependence
+    * "clustered" - Allows for one-way cluster dependence
 
     The estimator is defined as
 
@@ -1066,7 +1068,7 @@ class IVGMM(_IVGMMBase):
         Observation weights used in estimation
     weight_type : str
         Name of moment condition weight function to use in the GMM estimation
-    **weight_config
+    weight_config
         Additional keyword arguments to pass to the moment condition weight
         function
 
@@ -1079,7 +1081,7 @@ class IVGMM(_IVGMMBase):
     * "robust", "heteroskedastic" - Allows for heteroskedasticity by not
       autocorrelation
     * "kernel" - Allows for heteroskedasticity and autocorrelation
-    * "cluster" - Allows for one-way cluster dependence
+    * "clustered" - Allows for one-way cluster dependence
 
     The estimator is defined as
 
@@ -1121,7 +1123,7 @@ class IVGMM(_IVGMMBase):
     @staticmethod
     def from_formula(
         formula: str,
-        data: pandas.DataFrame,
+        data: DataFrame,
         *,
         weights: IVDataLike | None = None,
         weight_type: str = "robust",
@@ -1139,7 +1141,7 @@ class IVGMM(_IVGMMBase):
             Observation weights used in estimation
         weight_type : str
             Name of moment condition weight function to use in the GMM estimation
-        **weight_config
+        weight_config
             Additional keyword arguments to pass to the moment condition weight
             function
 
@@ -1245,7 +1247,7 @@ class IVGMM(_IVGMMBase):
             * "robust", "heteroskedastic" - Allows for heteroskedasticity but
               not autocorrelation
             * "kernel" - Allows for heteroskedasticity and autocorrelation
-            * "cluster" - Allows for one-way cluster dependence
+            * "clustered" - Allows for one-way cluster dependence
 
         debiased : bool
             Flag indicating whether to debiased the covariance estimator using
@@ -1342,7 +1344,7 @@ class IVGMMCUE(_IVGMMBase):
         Observation weights used in estimation
     weight_type : str
         Name of moment condition weight function to use in the GMM estimation
-    **weight_config
+    weight_config
         Additional keyword arguments to pass to the moment condition weight
         function
 
@@ -1355,7 +1357,7 @@ class IVGMMCUE(_IVGMMBase):
     * "robust", "heteroskedastic" - Allows for heteroskedasticity by not
       autocorrelation
     * "kernel" - Allows for heteroskedasticity and autocorrelation
-    * "cluster" - Allows for one-way cluster dependence
+    * "clustered" - Allows for one-way cluster dependence
 
     In most circumstances, the ``center`` weight option should be ``True`` to
     avoid starting value dependence.
@@ -1400,7 +1402,7 @@ class IVGMMCUE(_IVGMMBase):
     @staticmethod
     def from_formula(
         formula: str,
-        data: pandas.DataFrame,
+        data: DataFrame,
         *,
         weights: IVDataLike | None = None,
         weight_type: str = "robust",
@@ -1418,7 +1420,7 @@ class IVGMMCUE(_IVGMMBase):
             Observation weights used in estimation
         weight_type : str
             Name of moment condition weight function to use in the GMM estimation
-        **weight_config
+        weight_config
             Additional keyword arguments to pass to the moment condition weight
             function
 
@@ -1511,7 +1513,7 @@ class IVGMMCUE(_IVGMMBase):
         x: linearmodels.typing.data.Float64Array,
         y: linearmodels.typing.data.Float64Array,
         z: linearmodels.typing.data.Float64Array,
-        display: bool = False,
+        display: int = 0,
         opt_options: dict[str, Any] | None = None,
     ) -> tuple[linearmodels.typing.data.Float64Array, int]:
         r"""
@@ -1525,8 +1527,8 @@ class IVGMMCUE(_IVGMMBase):
             Regressand matrix (nobs by 1)
         z : ndarray
             Instrument matrix (nobs by ninstr)
-        display : bool
-            Flag indicating whether to display iterative optimizer output
+        display : int
+            Number of iterations between displaying. Set to 0 to suppress output.
         opt_options : dict
             Dictionary containing additional keyword arguments to pass to
             scipy.optimize.minimize.
@@ -1549,19 +1551,41 @@ class IVGMMCUE(_IVGMMBase):
         if opt_options is None:
             opt_options = {}
         assert opt_options is not None
-        options = {"disp": display}
+        options = {}
         if "options" in opt_options:
             opt_options = opt_options.copy()
             options.update(opt_options.pop("options"))
 
-        res = minimize(self.j, starting, args=args, options=options, **opt_options)
+        def callback_factory(
+            _disp: int,
+        ) -> Callable[[ndarray[tuple[int], dtype[float64]]], None]:
+            d = {"iter": 0}
+
+            def _callback(params: ndarray[tuple[int], dtype[float64]]) -> None:
+                fval = self.j(params, *args)
+                if _disp > 0 and (d["iter"] % _disp == 0):
+                    print("Iteration: {}, Objective: {}".format(d["iter"], fval))
+                d["iter"] += 1
+
+            return _callback
+
+        callback = callback_factory(display)
+
+        res = minimize(
+            self.j,
+            starting,
+            args=args,
+            options=options,
+            callback=callback,
+            **opt_options,
+        )
 
         return res.x[:, None], res.nit
 
     def fit(
         self,
         *,
-        starting: linearmodels.typing.data.Float64Array | pandas.Series | None = None,
+        starting: linearmodels.typing.data.Float64Array | Series | None = None,
         display: bool = False,
         cov_type: str = "robust",
         debiased: bool = False,
@@ -1628,9 +1652,7 @@ class IVGMMCUE(_IVGMMBase):
         else:
             starting = asarray(starting)
             if len(starting) != self.exog.shape[1] + self.endog.shape[1]:
-                raise ValueError(
-                    "starting does not have the correct number " "of values"
-                )
+                raise ValueError("starting does not have the correct number of values")
         params, iters = self.estimate_parameters(
             starting, wx, wy, wz, display, opt_options=opt_options
         )
@@ -1687,9 +1709,9 @@ class _OLS(IVLIML):
 
 
 def _gmm_model_from_formula(
-    cls: type[IVGMM] | type[IVGMMCUE],
+    cls: type[IVGMM | IVGMMCUE],
     formula: str,
-    data: pandas.DataFrame,
+    data: DataFrame,
     weights: IVDataLike | None,
     weight_type: str,
     **weight_config: Any,
@@ -1706,7 +1728,7 @@ def _gmm_model_from_formula(
         Observation weights used in estimation
     weight_type : str
         Name of moment condition weight function to use in the GMM estimation
-    **weight_config
+    weight_config
         Additional keyword arguments to pass to the moment condition weight
         function
 

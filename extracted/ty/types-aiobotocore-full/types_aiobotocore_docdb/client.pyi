@@ -3,7 +3,7 @@ Type annotations for docdb service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_docdb/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -153,11 +154,6 @@ from .type_defs import (
 )
 from .waiter import DBInstanceAvailableWaiter, DBInstanceDeletedWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -166,64 +162,65 @@ else:
 __all__ = ("DocDBClient",)
 
 class Exceptions(BaseClientExceptions):
-    AuthorizationNotFoundFault: Type[BotocoreClientError]
-    CertificateNotFoundFault: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    DBClusterAlreadyExistsFault: Type[BotocoreClientError]
-    DBClusterNotFoundFault: Type[BotocoreClientError]
-    DBClusterParameterGroupNotFoundFault: Type[BotocoreClientError]
-    DBClusterQuotaExceededFault: Type[BotocoreClientError]
-    DBClusterSnapshotAlreadyExistsFault: Type[BotocoreClientError]
-    DBClusterSnapshotNotFoundFault: Type[BotocoreClientError]
-    DBInstanceAlreadyExistsFault: Type[BotocoreClientError]
-    DBInstanceNotFoundFault: Type[BotocoreClientError]
-    DBParameterGroupAlreadyExistsFault: Type[BotocoreClientError]
-    DBParameterGroupNotFoundFault: Type[BotocoreClientError]
-    DBParameterGroupQuotaExceededFault: Type[BotocoreClientError]
-    DBSecurityGroupNotFoundFault: Type[BotocoreClientError]
-    DBSnapshotAlreadyExistsFault: Type[BotocoreClientError]
-    DBSnapshotNotFoundFault: Type[BotocoreClientError]
-    DBSubnetGroupAlreadyExistsFault: Type[BotocoreClientError]
-    DBSubnetGroupDoesNotCoverEnoughAZs: Type[BotocoreClientError]
-    DBSubnetGroupNotFoundFault: Type[BotocoreClientError]
-    DBSubnetGroupQuotaExceededFault: Type[BotocoreClientError]
-    DBSubnetQuotaExceededFault: Type[BotocoreClientError]
-    DBUpgradeDependencyFailureFault: Type[BotocoreClientError]
-    EventSubscriptionQuotaExceededFault: Type[BotocoreClientError]
-    GlobalClusterAlreadyExistsFault: Type[BotocoreClientError]
-    GlobalClusterNotFoundFault: Type[BotocoreClientError]
-    GlobalClusterQuotaExceededFault: Type[BotocoreClientError]
-    InstanceQuotaExceededFault: Type[BotocoreClientError]
-    InsufficientDBClusterCapacityFault: Type[BotocoreClientError]
-    InsufficientDBInstanceCapacityFault: Type[BotocoreClientError]
-    InsufficientStorageClusterCapacityFault: Type[BotocoreClientError]
-    InvalidDBClusterSnapshotStateFault: Type[BotocoreClientError]
-    InvalidDBClusterStateFault: Type[BotocoreClientError]
-    InvalidDBInstanceStateFault: Type[BotocoreClientError]
-    InvalidDBParameterGroupStateFault: Type[BotocoreClientError]
-    InvalidDBSecurityGroupStateFault: Type[BotocoreClientError]
-    InvalidDBSnapshotStateFault: Type[BotocoreClientError]
-    InvalidDBSubnetGroupStateFault: Type[BotocoreClientError]
-    InvalidDBSubnetStateFault: Type[BotocoreClientError]
-    InvalidEventSubscriptionStateFault: Type[BotocoreClientError]
-    InvalidGlobalClusterStateFault: Type[BotocoreClientError]
-    InvalidRestoreFault: Type[BotocoreClientError]
-    InvalidSubnet: Type[BotocoreClientError]
-    InvalidVPCNetworkStateFault: Type[BotocoreClientError]
-    KMSKeyNotAccessibleFault: Type[BotocoreClientError]
-    ResourceNotFoundFault: Type[BotocoreClientError]
-    SNSInvalidTopicFault: Type[BotocoreClientError]
-    SNSNoAuthorizationFault: Type[BotocoreClientError]
-    SNSTopicArnNotFoundFault: Type[BotocoreClientError]
-    SharedSnapshotQuotaExceededFault: Type[BotocoreClientError]
-    SnapshotQuotaExceededFault: Type[BotocoreClientError]
-    SourceNotFoundFault: Type[BotocoreClientError]
-    StorageQuotaExceededFault: Type[BotocoreClientError]
-    StorageTypeNotSupportedFault: Type[BotocoreClientError]
-    SubnetAlreadyInUse: Type[BotocoreClientError]
-    SubscriptionAlreadyExistFault: Type[BotocoreClientError]
-    SubscriptionCategoryNotFoundFault: Type[BotocoreClientError]
-    SubscriptionNotFoundFault: Type[BotocoreClientError]
+    AuthorizationNotFoundFault: type[BotocoreClientError]
+    CertificateNotFoundFault: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DBClusterAlreadyExistsFault: type[BotocoreClientError]
+    DBClusterNotFoundFault: type[BotocoreClientError]
+    DBClusterParameterGroupNotFoundFault: type[BotocoreClientError]
+    DBClusterQuotaExceededFault: type[BotocoreClientError]
+    DBClusterSnapshotAlreadyExistsFault: type[BotocoreClientError]
+    DBClusterSnapshotNotFoundFault: type[BotocoreClientError]
+    DBInstanceAlreadyExistsFault: type[BotocoreClientError]
+    DBInstanceNotFoundFault: type[BotocoreClientError]
+    DBParameterGroupAlreadyExistsFault: type[BotocoreClientError]
+    DBParameterGroupNotFoundFault: type[BotocoreClientError]
+    DBParameterGroupQuotaExceededFault: type[BotocoreClientError]
+    DBSecurityGroupNotFoundFault: type[BotocoreClientError]
+    DBSnapshotAlreadyExistsFault: type[BotocoreClientError]
+    DBSnapshotNotFoundFault: type[BotocoreClientError]
+    DBSubnetGroupAlreadyExistsFault: type[BotocoreClientError]
+    DBSubnetGroupDoesNotCoverEnoughAZs: type[BotocoreClientError]
+    DBSubnetGroupNotFoundFault: type[BotocoreClientError]
+    DBSubnetGroupQuotaExceededFault: type[BotocoreClientError]
+    DBSubnetQuotaExceededFault: type[BotocoreClientError]
+    DBUpgradeDependencyFailureFault: type[BotocoreClientError]
+    EventSubscriptionQuotaExceededFault: type[BotocoreClientError]
+    GlobalClusterAlreadyExistsFault: type[BotocoreClientError]
+    GlobalClusterNotFoundFault: type[BotocoreClientError]
+    GlobalClusterQuotaExceededFault: type[BotocoreClientError]
+    InstanceQuotaExceededFault: type[BotocoreClientError]
+    InsufficientDBClusterCapacityFault: type[BotocoreClientError]
+    InsufficientDBInstanceCapacityFault: type[BotocoreClientError]
+    InsufficientStorageClusterCapacityFault: type[BotocoreClientError]
+    InvalidDBClusterSnapshotStateFault: type[BotocoreClientError]
+    InvalidDBClusterStateFault: type[BotocoreClientError]
+    InvalidDBInstanceStateFault: type[BotocoreClientError]
+    InvalidDBParameterGroupStateFault: type[BotocoreClientError]
+    InvalidDBSecurityGroupStateFault: type[BotocoreClientError]
+    InvalidDBSnapshotStateFault: type[BotocoreClientError]
+    InvalidDBSubnetGroupStateFault: type[BotocoreClientError]
+    InvalidDBSubnetStateFault: type[BotocoreClientError]
+    InvalidEventSubscriptionStateFault: type[BotocoreClientError]
+    InvalidGlobalClusterStateFault: type[BotocoreClientError]
+    InvalidRestoreFault: type[BotocoreClientError]
+    InvalidSubnet: type[BotocoreClientError]
+    InvalidVPCNetworkStateFault: type[BotocoreClientError]
+    KMSKeyNotAccessibleFault: type[BotocoreClientError]
+    NetworkTypeNotSupported: type[BotocoreClientError]
+    ResourceNotFoundFault: type[BotocoreClientError]
+    SNSInvalidTopicFault: type[BotocoreClientError]
+    SNSNoAuthorizationFault: type[BotocoreClientError]
+    SNSTopicArnNotFoundFault: type[BotocoreClientError]
+    SharedSnapshotQuotaExceededFault: type[BotocoreClientError]
+    SnapshotQuotaExceededFault: type[BotocoreClientError]
+    SourceNotFoundFault: type[BotocoreClientError]
+    StorageQuotaExceededFault: type[BotocoreClientError]
+    StorageTypeNotSupportedFault: type[BotocoreClientError]
+    SubnetAlreadyInUse: type[BotocoreClientError]
+    SubscriptionAlreadyExistFault: type[BotocoreClientError]
+    SubscriptionCategoryNotFoundFault: type[BotocoreClientError]
+    SubscriptionNotFoundFault: type[BotocoreClientError]
 
 class DocDBClient(AioBaseClient):
     """
@@ -996,7 +993,7 @@ class DocDBClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

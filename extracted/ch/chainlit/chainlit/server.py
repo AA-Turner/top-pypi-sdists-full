@@ -10,7 +10,7 @@ import urllib.parse
 import webbrowser
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
-from typing import List, Optional, Union, cast
+from typing import TYPE_CHECKING, List, Optional, Union, cast
 
 import socketio
 from fastapi import (
@@ -78,6 +78,9 @@ from chainlit.user import PersistedUser, User
 from chainlit.utils import utc_now
 
 from ._utils import is_path_inside
+
+if TYPE_CHECKING:
+    from chainlit.element import CustomElement, ElementDict
 
 mimetypes.add_type("application/javascript", ".js")
 mimetypes.add_type("text/css", ".css")
@@ -177,6 +180,9 @@ async def lifespan(app: FastAPI):
             if slack_task:
                 slack_task.cancel()
                 await slack_task
+
+            if data_layer := get_data_layer():
+                await data_layer.close()
         except asyncio.exceptions.CancelledError:
             pass
 
@@ -374,7 +380,7 @@ def get_html_template(root_path):
     JS_PLACEHOLDER = "<!-- JS INJECTION PLACEHOLDER -->"
     CSS_PLACEHOLDER = "<!-- CSS INJECTION PLACEHOLDER -->"
 
-    default_url = "https://github.com/Chainlit/chainlit"
+    default_url = config.ui.custom_meta_url or "https://github.com/Chainlit/chainlit"
     default_meta_image_url = (
         "https://chainlit-cloud.s3.eu-west-3.amazonaws.com/logo/chainlit_banner.png"
     )
@@ -781,8 +787,11 @@ async def project_translations(
 ):
     """Return project translations."""
 
-    # Load translation based on the provided language
-    translation = config.load_translation(language)
+    # Use configured language if set, otherwise use the language from query
+    effective_language = config.ui.language or language
+
+    # Load translation based on the effective language
+    translation = config.load_translation(effective_language)
 
     return JSONResponse(
         content={
@@ -803,13 +812,18 @@ async def project_settings(
 ):
     """Return project settings. This is called by the UI before the establishing the websocket connection."""
 
+    # Use configured language if set, otherwise use the language from query
+    effective_language = config.ui.language or language
+
     # Load the markdown file based on the provided language
-    markdown = get_markdown_str(config.root, language)
+    markdown = get_markdown_str(config.root, effective_language)
 
     chat_profiles = []
     profiles: list[dict] = []
     if config.code.set_chat_profiles:
-        chat_profiles = await config.code.set_chat_profiles(current_user, language)
+        chat_profiles = await config.code.set_chat_profiles(
+            current_user, effective_language
+        )
         if chat_profiles:
             for p in chat_profiles:
                 d = p.to_dict()
@@ -818,7 +832,7 @@ async def project_settings(
 
     starters = []
     if config.code.set_starters:
-        s = await config.code.set_starters(current_user, language)
+        s = await config.code.set_starters(current_user, effective_language)
         if s:
             starters = [it.to_dict() for it in s]
 
@@ -1001,8 +1015,8 @@ async def get_shared_thread(
 
     is_shared = bool(metadata.get("is_shared"))
 
-    # Proceed only if both conditions are True.
-    if not (user_can_view and is_shared):
+    # Proceed only raise an error if both conditions are False.
+    if (not user_can_view) and (not is_shared):
         raise HTTPException(status_code=404, detail="Thread not found")
 
     metadata.pop("chat_profile", None)
@@ -1042,7 +1056,7 @@ async def update_thread_element(
     """Update a specific thread element."""
 
     from chainlit.context import init_ws_context
-    from chainlit.element import Element, ElementDict
+    from chainlit.element import ElementDict
     from chainlit.session import WebsocketSession
 
     session = WebsocketSession.get_by_id(payload.sessionId)
@@ -1053,7 +1067,7 @@ async def update_thread_element(
     if element_dict["type"] != "custom":
         return {"success": False}
 
-    element = Element.from_dict(element_dict)
+    element = _sanitize_custom_element(element_dict)
 
     if current_user:
         if (
@@ -1066,6 +1080,7 @@ async def update_thread_element(
             )
 
     await element.update()
+
     return {"success": True}
 
 
@@ -1077,7 +1092,7 @@ async def delete_thread_element(
     """Delete a specific thread element."""
 
     from chainlit.context import init_ws_context
-    from chainlit.element import CustomElement, ElementDict
+    from chainlit.element import ElementDict
     from chainlit.session import WebsocketSession
 
     session = WebsocketSession.get_by_id(payload.sessionId)
@@ -1088,17 +1103,7 @@ async def delete_thread_element(
     if element_dict["type"] != "custom":
         return {"success": False}
 
-    element = CustomElement(
-        id=element_dict["id"],
-        object_key=element_dict["objectKey"],
-        chainlit_key=element_dict["chainlitKey"],
-        url=element_dict["url"],
-        for_id=element_dict.get("forId") or "",
-        thread_id=element_dict.get("threadId") or "",
-        name=element_dict["name"],
-        props=element_dict.get("props") or {},
-        display=element_dict["display"],
-    )
+    element = _sanitize_custom_element(element_dict)
 
     if current_user:
         if (
@@ -1113,6 +1118,19 @@ async def delete_thread_element(
     await element.remove()
 
     return {"success": True}
+
+
+def _sanitize_custom_element(element_dict: "ElementDict") -> "CustomElement":
+    from chainlit.element import CustomElement
+
+    return CustomElement(
+        id=element_dict["id"],
+        for_id=element_dict.get("forId") or "",
+        thread_id=element_dict.get("threadId") or "",
+        name=element_dict["name"],
+        props=element_dict.get("props") or {},
+        display=element_dict["display"],
+    )
 
 
 @router.put("/project/thread")
@@ -1669,7 +1687,13 @@ async def get_logo(theme: Optional[Theme] = Query(Theme.light)):
             break
 
     if not logo_path:
-        raise HTTPException(status_code=404, detail="Missing default logo")
+        logo_path = os.path.join(
+            os.path.dirname(__file__),
+            "frontend",
+            "dist",
+            f"logo_{theme_value}.svg",
+        )
+        logger.info("Missing custom logo. Falling back to default logo.")
 
     media_type, _ = mimetypes.guess_type(logo_path)
 

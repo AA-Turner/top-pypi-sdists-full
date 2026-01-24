@@ -3,7 +3,7 @@ Type annotations for auditmanager service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_auditmanager/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -137,12 +138,6 @@ from .type_defs import (
     ValidateAssessmentReportIntegrityResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -153,13 +148,13 @@ __all__ = ("AuditManagerClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class AuditManagerClient(BaseClient):
@@ -199,7 +194,7 @@ class AuditManagerClient(BaseClient):
 
     def associate_assessment_report_evidence_folder(
         self, **kwargs: Unpack[AssociateAssessmentReportEvidenceFolderRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates an evidence folder to an assessment report in an Audit Manager
         assessment.
@@ -299,7 +294,7 @@ class AuditManagerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_auditmanager/client/#create_control)
         """
 
-    def delete_assessment(self, **kwargs: Unpack[DeleteAssessmentRequestTypeDef]) -> Dict[str, Any]:
+    def delete_assessment(self, **kwargs: Unpack[DeleteAssessmentRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an assessment in Audit Manager.
 
@@ -309,7 +304,7 @@ class AuditManagerClient(BaseClient):
 
     def delete_assessment_framework(
         self, **kwargs: Unpack[DeleteAssessmentFrameworkRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a custom framework in Audit Manager.
 
@@ -319,7 +314,7 @@ class AuditManagerClient(BaseClient):
 
     def delete_assessment_framework_share(
         self, **kwargs: Unpack[DeleteAssessmentFrameworkShareRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a share request for a custom framework in Audit Manager.
 
@@ -329,7 +324,7 @@ class AuditManagerClient(BaseClient):
 
     def delete_assessment_report(
         self, **kwargs: Unpack[DeleteAssessmentReportRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an assessment report in Audit Manager.
 
@@ -337,7 +332,7 @@ class AuditManagerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_auditmanager/client/#delete_assessment_report)
         """
 
-    def delete_control(self, **kwargs: Unpack[DeleteControlRequestTypeDef]) -> Dict[str, Any]:
+    def delete_control(self, **kwargs: Unpack[DeleteControlRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a custom control in Audit Manager.
 
@@ -355,7 +350,7 @@ class AuditManagerClient(BaseClient):
 
     def deregister_organization_admin_account(
         self, **kwargs: Unpack[DeregisterOrganizationAdminAccountRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the specified Amazon Web Services account as a delegated administrator
         for Audit Manager.
@@ -366,7 +361,7 @@ class AuditManagerClient(BaseClient):
 
     def disassociate_assessment_report_evidence_folder(
         self, **kwargs: Unpack[DisassociateAssessmentReportEvidenceFolderRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates an evidence folder from the specified assessment report in Audit
         Manager.
@@ -706,7 +701,7 @@ class AuditManagerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_auditmanager/client/#start_assessment_framework_share)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags the specified resource in Audit Manager.
 
@@ -714,7 +709,7 @@ class AuditManagerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_auditmanager/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag from a resource in Audit Manager.
 

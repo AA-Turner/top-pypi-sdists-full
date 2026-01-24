@@ -45,6 +45,8 @@ setup(
     # PyPI metadata
     author=speech_recognition.__author__,
     author_email="azhang9@gmail.com",
+    maintainer="nikkie",
+    maintainer_email="takuyafjp+develop@gmail.com",
     description=speech_recognition.__doc__,
     long_description=open("README.rst").read(),
     long_description_content_type="text/x-rst",
@@ -75,4 +77,7 @@ setup(
         "standard-aifc; python_version>='3.13'",
         "audioop-lts; python_version>='3.13'",
     ],
+    entry_points={
+        "console_scripts": ["sprc=speech_recognition.cli:main"],
+    },
 )

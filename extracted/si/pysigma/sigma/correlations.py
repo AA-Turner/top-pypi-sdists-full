@@ -1,11 +1,20 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Dict, List, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
+
+from typing_extensions import Self
+
 import sigma.exceptions as sigma_exceptions
 from sigma.exceptions import SigmaRuleLocation, SigmaTimespanError
 from sigma.processing.tracking import ProcessingItemTrackingMixin
 from sigma.rule import EnumLowercaseStringMixin, SigmaRule, SigmaRuleBase
-import sigma
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from sigma.collection import SigmaCollection
 
 
 class SigmaCorrelationType(EnumLowercaseStringMixin, Enum):
@@ -17,11 +26,24 @@ class SigmaCorrelationType(EnumLowercaseStringMixin, Enum):
     VALUE_COUNT = auto()
     TEMPORAL = auto()
     TEMPORAL_ORDERED = auto()
+    VALUE_SUM = auto()
+    VALUE_AVG = auto()
+    VALUE_PERCENTILE = auto()
+    VALUE_MEDIAN = auto()
 
 
 # TODO: type supported from 3.12
 # type SigmaCorrelationTypeLiteral = Literal[
-SigmaCorrelationTypeLiteral = Literal["event_count", "value_count", "temporal", "temporal_ordered"]
+SigmaCorrelationTypeLiteral = Literal[
+    "event_count",
+    "value_count",
+    "temporal",
+    "temporal_ordered",
+    "value_sum",
+    "value_avg",
+    "value_percentile",
+    "value_median",
+]
 
 
 @dataclass(unsafe_hash=True)
@@ -32,9 +54,9 @@ class SigmaRuleReference:
     """
 
     reference: str
-    rule: SigmaRule = field(init=False, repr=False, compare=False)
+    rule: SigmaRule | SigmaCorrelationRule = field(init=False, repr=False, compare=False)
 
-    def resolve(self, rule_collection: "sigma.collection.SigmaCollection"):
+    def resolve(self, rule_collection: SigmaCollection) -> None:
         """
         Resolves the reference to the actual Sigma rule.
 
@@ -50,9 +72,10 @@ class SigmaCorrelationConditionOperator(Enum):
     GT = auto()
     GTE = auto()
     EQ = auto()
+    NEQ = auto()
 
     @classmethod
-    def operators(cls):
+    def operators(cls) -> set[str]:
         return {op.name.lower() for op in cls}
 
 
@@ -60,20 +83,23 @@ class SigmaCorrelationConditionOperator(Enum):
 class SigmaCorrelationCondition:
     op: SigmaCorrelationConditionOperator
     count: int
-    fieldref: Optional[str] = field(default=None)
-    source: Optional[SigmaRuleLocation] = field(default=None, compare=False)
+    fieldref: str | list[str] | None = field(default=None)
+    percentile: int | None = field(default=None)
+    source: SigmaRuleLocation | None = field(default=None, compare=False)
 
     @classmethod
     def from_dict(
-        cls, d: dict, source: Optional[SigmaRuleLocation] = None
-    ) -> "SigmaCorrelationCondition":
+        cls: type[Self],
+        d: dict[str, Any],
+        source: SigmaRuleLocation | None = None,
+    ) -> Self:
         d_keys = frozenset(d.keys())
         ops = frozenset(SigmaCorrelationConditionOperator.operators())
         if len(d_keys.intersection(ops)) != 1:
             raise sigma_exceptions.SigmaCorrelationConditionError(
-                f"Sigma correlation condition must have exactly one condition item", source=source
+                "Sigma correlation condition must have exactly one condition item", source=source
             )
-        unknown_keys = d_keys.difference(ops).difference({"field"})
+        unknown_keys = d_keys.difference(ops).difference({"field", "percentile"})
         if unknown_keys:
             raise sigma_exceptions.SigmaCorrelationConditionError(
                 "Sigma correlation condition contains invalid items: " + ", ".join(unknown_keys),
@@ -81,7 +107,6 @@ class SigmaCorrelationCondition:
             )
 
         # Condition operator and count
-        cond_op = None
         for (
             op
         ) in (
@@ -103,12 +128,32 @@ class SigmaCorrelationCondition:
         except KeyError:
             cond_field = None
 
-        return cls(op=cond_op, count=cond_count, fieldref=cond_field, source=source)
+        # Condition percentile (for value_percentile correlation type)
+        try:
+            cond_percentile = int(d["percentile"])
+        except KeyError:
+            cond_percentile = None
+        except ValueError:
+            raise sigma_exceptions.SigmaCorrelationConditionError(
+                f"'{ d['percentile'] }' is no valid Sigma correlation condition percentile",
+                source=source,
+            )
 
-    def to_dict(self) -> dict:
-        if not self.fieldref:
-            return {self.op.name.lower(): self.count}
-        return {self.op.name.lower(): self.count, "field": self.fieldref}
+        return cls(
+            op=cond_op,
+            count=cond_count,
+            fieldref=cond_field,
+            percentile=cond_percentile,
+            source=source,
+        )
+
+    def to_dict(self: Self) -> dict[str, Any]:
+        result: dict[str, Any] = {self.op.name.lower(): self.count}
+        if self.fieldref:
+            result["field"] = self.fieldref
+        if self.percentile is not None:
+            result["percentile"] = self.percentile
+        return result
 
 
 @dataclass
@@ -118,7 +163,7 @@ class SigmaCorrelationTimespan:
     count: int = field(init=False)
     unit: str = field(init=False)
 
-    def __post_init__(self):
+    def __post_init__(self: Self) -> None:
         """
         Parses a string representing a time span and stores the equivalent number of seconds.
 
@@ -154,9 +199,9 @@ class SigmaCorrelationFieldAlias:
     """
 
     alias: str
-    mapping: Dict[SigmaRuleReference, str]
+    mapping: dict[SigmaRuleReference, str]
 
-    def resolve_rule_references(self, rule_collection: "sigma.collection.SigmaCollection"):
+    def resolve_rule_references(self: Self, rule_collection: SigmaCollection) -> None:
         """
         Resolves all rule references in the mapping property to actual Sigma rules.
 
@@ -169,16 +214,16 @@ class SigmaCorrelationFieldAlias:
 
 @dataclass
 class SigmaCorrelationFieldAliases:
-    aliases: Dict[str, SigmaCorrelationFieldAlias] = field(default_factory=dict)
+    aliases: dict[str, SigmaCorrelationFieldAlias] = field(default_factory=dict)
 
-    def __iter__(self):
+    def __iter__(self: Self) -> Iterator[SigmaCorrelationFieldAlias]:
         return iter(self.aliases.values())
 
-    def __len__(self):
+    def __len__(self: Self) -> int:
         return len(self.aliases)
 
     @classmethod
-    def from_dict(cls, d: dict):
+    def from_dict(cls: type[Self], d: dict[str, Any]) -> Self:
         aliases = {}
         for alias, mapping in d.items():
             if not isinstance(mapping, dict):
@@ -196,7 +241,7 @@ class SigmaCorrelationFieldAliases:
 
         return cls(aliases=aliases)
 
-    def to_dict(self) -> dict:
+    def to_dict(self: Self) -> dict[str, dict[str, str]]:
         return {
             alias: {
                 rule_ref.reference: field_name for rule_ref, field_name in alias_def.mapping.items()
@@ -204,7 +249,7 @@ class SigmaCorrelationFieldAliases:
             for alias, alias_def in self.aliases.items()
         }
 
-    def resolve_rule_references(self, rule_collection: "sigma.collection.SigmaCollection"):
+    def resolve_rule_references(self: Self, rule_collection: SigmaCollection) -> None:
         """
         Resolves all rule references in the aliases property to actual Sigma rules.
 
@@ -217,16 +262,20 @@ class SigmaCorrelationFieldAliases:
 
 @dataclass
 class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
-    type: SigmaCorrelationType = None
-    rules: List[SigmaRuleReference] = field(default_factory=list)
+    type: SigmaCorrelationType = SigmaCorrelationType.EVENT_COUNT
+    rules: list[SigmaRuleReference] = field(default_factory=list)
     generate: bool = field(default=False)
-    timespan: SigmaCorrelationTimespan = field(default_factory=SigmaCorrelationTimespan)
-    group_by: Optional[List[str]] = None
+    timespan: SigmaCorrelationTimespan = field(
+        default_factory=lambda: SigmaCorrelationTimespan("1m")
+    )
+    group_by: list[str] | None = None
     aliases: SigmaCorrelationFieldAliases = field(default_factory=SigmaCorrelationFieldAliases)
-    condition: Optional[SigmaCorrelationCondition] = None
-    source: Optional[SigmaRuleLocation] = field(default=None, compare=False)
+    condition: SigmaCorrelationCondition = field(
+        default_factory=lambda: SigmaCorrelationCondition(SigmaCorrelationConditionOperator.GTE, 1)
+    )
+    source: SigmaRuleLocation | None = field(default=None, compare=False)
 
-    def __post_init__(self):
+    def __post_init__(self: Self) -> None:
         super().__post_init__()
         if (
             self.type not in {SigmaCorrelationType.TEMPORAL, SigmaCorrelationType.TEMPORAL_ORDERED}
@@ -235,19 +284,35 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
             raise sigma_exceptions.SigmaCorrelationRuleError(
                 "Non-temporal Sigma correlation rule without condition", source=self.source
             )
-        if self.type == SigmaCorrelationType.VALUE_COUNT and self.condition.fieldref is None:
+        if (
+            self.type
+            in {
+                SigmaCorrelationType.VALUE_COUNT,
+                SigmaCorrelationType.VALUE_SUM,
+                SigmaCorrelationType.VALUE_AVG,
+                SigmaCorrelationType.VALUE_PERCENTILE,
+                SigmaCorrelationType.VALUE_MEDIAN,
+            }
+            and self.condition.fieldref is None
+        ):
+            # Format type name for error message (special case for VALUE_COUNT to match existing tests)
+            if self.type == SigmaCorrelationType.VALUE_COUNT:
+                type_name = "Value count"
+            else:
+                type_name = self.type.name.replace("_", " ").capitalize()
             raise sigma_exceptions.SigmaCorrelationRuleError(
-                "Value count correlation rule without field reference", source=self.source
+                f"{type_name} correlation rule without field reference",
+                source=self.source,
             )
 
     @classmethod
     def from_dict(
         cls,
-        rule: dict,
+        rule: dict[str, Any],
         collect_errors: bool = False,
-        source: Optional[SigmaRuleLocation] = None,
-    ) -> "SigmaCorrelationRule":
-        kwargs, errors = super().from_dict(rule, collect_errors, source)
+        source: SigmaRuleLocation | None = None,
+    ) -> Self:
+        kwargs, errors = super().from_dict_common_params(rule, collect_errors, source)
         correlation_rule = rule.get("correlation", dict())
 
         # Correlation type
@@ -264,7 +329,7 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
         else:  # no correlation type provided
             errors.append(
                 sigma_exceptions.SigmaCorrelationTypeError(
-                    f"Sigma correlation rule without type", source=source
+                    "Sigma correlation rule without type", source=source
                 )
             )
 
@@ -278,13 +343,13 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
             else:
                 errors.append(
                     sigma_exceptions.SigmaCorrelationRuleError(
-                        f"Rule reference must be plain string or list.", source=source
+                        "Rule reference must be plain string or list.", source=source
                     )
                 )
         else:
             errors.append(
                 sigma_exceptions.SigmaCorrelationRuleError(
-                    f"Sigma correlation rule without rule references", source=source
+                    "Sigma correlation rule without rule references", source=source
                 )
             )
 
@@ -294,7 +359,7 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
             if not isinstance(generate, bool):
                 errors.append(
                     sigma_exceptions.SigmaCorrelationRuleError(
-                        f"Sigma correlation generate definition must be a boolean", source=source
+                        "Sigma correlation generate definition must be a boolean", source=source
                     )
                 )
         else:
@@ -310,7 +375,7 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
             else:
                 errors.append(
                     sigma_exceptions.SigmaCorrelationRuleError(
-                        f"Sigma correlation group-by definition must be string or list",
+                        "Sigma correlation group-by definition must be string or list",
                         source=source,
                     )
                 )
@@ -325,7 +390,7 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
         else:
             errors.append(
                 sigma_exceptions.SigmaCorrelationRuleError(
-                    f"Sigma correlation rule without timespan", source=source
+                    "Sigma correlation rule without timespan", source=source
                 )
             )
 
@@ -337,7 +402,7 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
             else:
                 errors.append(
                     sigma_exceptions.SigmaCorrelationRuleError(
-                        f"Sigma correlation aliases definition must be a dict", source=source
+                        "Sigma correlation aliases definition must be a dict", source=source
                     )
                 )
         else:
@@ -351,7 +416,7 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
             else:
                 errors.append(
                     sigma_exceptions.SigmaCorrelationRuleError(
-                        f"Sigma correlation condition definition must be a dict", source=source
+                        "Sigma correlation condition definition must be a dict", source=source
                     )
                 )
         elif correlation_type not in (
@@ -360,7 +425,7 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
         ):
             errors.append(
                 sigma_exceptions.SigmaCorrelationRuleError(
-                    f"Non-temporal Sigma correlation rule without condition", source=source
+                    "Non-temporal Sigma correlation rule without condition", source=source
                 )
             )
         elif correlation_type in (
@@ -386,23 +451,26 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
             **kwargs,
         )
 
-    def to_dict(self) -> dict:
+    @classmethod
+    def from_yaml(cls, rule: str, collect_errors: bool = False) -> Self:
+        """Convert YAML input string with single document into SigmaCorrelationRule object."""
+        return super().from_yaml(rule, collect_errors)
+
+    def to_dict(self: Self) -> dict[str, Any]:
         d = super().to_dict()
         dc = {
             "type": self.type.name.lower(),
             "rules": [rule.reference for rule in self.rules],
             "timespan": self.timespan.spec,
             "group-by": self.group_by,
+            "aliases": self.aliases.to_dict() if self.aliases is not None else None,
+            "condition": self.condition.to_dict() if self.condition is not None else None,
         }
-        if self.aliases is not None:
-            dc["aliases"] = self.aliases.to_dict()
-        if self.condition is not None:
-            dc["condition"] = self.condition.to_dict()
         d["correlation"] = dc
 
         return d
 
-    def resolve_rule_references(self, rule_collection: "sigma.collection.SigmaCollection"):
+    def resolve_rule_references(self: Self, rule_collection: SigmaCollection) -> None:
         """
         Resolves all rule references in the rules property to actual Sigma rules.
 
@@ -418,7 +486,9 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
 
         self.aliases.resolve_rule_references(rule_collection)
 
-    def flatten_rules(self, include_correlations: bool = True) -> List[SigmaRule]:
+    def flatten_rules(
+        self: Self, include_correlations: bool = True
+    ) -> list[SigmaRule | SigmaCorrelationRule]:
         """
         Flattens the rules in the correlation rule and returns a list of Sigma rules. If include_correlations
         is set to False, only the Sigma rules are returned, excluding nested correlation rules.
@@ -426,7 +496,7 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
         Returns:
             List of Sigma rules.
         """
-        rules = []
+        rules: list[SigmaRule | SigmaCorrelationRule] = []
         for rule_ref in self.rules:
             rule = rule_ref.rule
             if isinstance(rule, SigmaCorrelationRule):

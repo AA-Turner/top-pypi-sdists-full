@@ -1,10 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-html
-Version: 4.1.1
+Version: 4.2.0
 Summary: pytest plugin for generating HTML reports
 Project-URL: Homepage, https://github.com/pytest-dev/pytest-html
-Project-URL: Tracker, https://github.com/pytest-dev/pytest-html/issues
 Project-URL: Source, https://github.com/pytest-dev/pytest-html
+Project-URL: Tracker, https://github.com/pytest-dev/pytest-html/issues
 Author-email: Dave Hunt <dhunt@mozilla.com>, Jim Brannlund <jimbrannlund@fastmail.com>
 License-Expression: MPL-2.0
 License-File: LICENSE
@@ -12,36 +12,39 @@ Keywords: html,pytest,report
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
+Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
 Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8
-Requires-Dist: jinja2>=3.0.0
-Requires-Dist: pytest-metadata>=2.0.0
-Requires-Dist: pytest>=7.0.0
+Requires-Python: >=3.9
+Requires-Dist: jinja2>=3
+Requires-Dist: pytest-metadata>=2
+Requires-Dist: pytest>=7
 Provides-Extra: docs
-Requires-Dist: pip-tools>=6.13.0; extra == 'docs'
+Requires-Dist: pip-tools>=6.13; extra == 'docs'
 Provides-Extra: test
 Requires-Dist: assertpy>=1.1; extra == 'test'
 Requires-Dist: beautifulsoup4>=4.11.1; extra == 'test'
-Requires-Dist: black>=22.1.0; extra == 'test'
+Requires-Dist: black>=22.1; extra == 'test'
 Requires-Dist: flake8>=4.0.1; extra == 'test'
-Requires-Dist: pre-commit>=2.17.0; extra == 'test'
-Requires-Dist: pytest-mock>=3.7.0; extra == 'test'
+Requires-Dist: pre-commit>=2.17; extra == 'test'
+Requires-Dist: pytest-mock>=3.7; extra == 'test'
 Requires-Dist: pytest-rerunfailures>=11.1.2; extra == 'test'
-Requires-Dist: pytest-xdist>=2.4.0; extra == 'test'
-Requires-Dist: selenium>=4.3.0; extra == 'test'
+Requires-Dist: pytest-xdist>=2.4; extra == 'test'
+Requires-Dist: selenium>=4.3; extra == 'test'
 Requires-Dist: tox>=3.24.5; extra == 'test'
 Description-Content-Type: text/x-rst
 

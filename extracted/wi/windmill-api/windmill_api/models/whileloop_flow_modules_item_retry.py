@@ -16,11 +16,13 @@ T = TypeVar("T", bound="WhileloopFlowModulesItemRetry")
 
 @_attrs_define
 class WhileloopFlowModulesItemRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, WhileloopFlowModulesItemRetryConstant]):
-        exponential (Union[Unset, WhileloopFlowModulesItemRetryExponential]):
-        retry_if (Union[Unset, WhileloopFlowModulesItemRetryRetryIf]):
+        constant (Union[Unset, WhileloopFlowModulesItemRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, WhileloopFlowModulesItemRetryExponential]): Retry with exponential backoff (delay
+            doubles each time)
+        retry_if (Union[Unset, WhileloopFlowModulesItemRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "WhileloopFlowModulesItemRetryConstant"] = UNSET

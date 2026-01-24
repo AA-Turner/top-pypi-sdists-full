@@ -15,12 +15,12 @@ import sys
 from typing import Any, Callable, TypeVar, Union, cast
 
 import tiledbsoma
-
-from .._soma_object import SOMAObject
+from tiledbsoma._soma_object import SOMAObject
 
 Printable = Union[io.TextIOWrapper, io.StringIO]
+printableStdout = cast("Printable", sys.stdout)
 
-_SOMAObjectType = TypeVar("_SOMAObjectType", bound=SOMAObject)  # type: ignore[type-arg]
+_SOMAObjectType = TypeVar("_SOMAObjectType", bound=SOMAObject)
 
 
 def get_experiment_shapes(
@@ -104,7 +104,7 @@ def get_experiment_shapes(
     # printing things as it finds them, rather than giving the user a wait
     # followed by a final burst of output.
 
-    retval = _treewalk(
+    return _treewalk(
         uri,
         leaf_visitor=_leaf_visitor_get_shapes,
         nobs=None,
@@ -116,14 +116,13 @@ def get_experiment_shapes(
         context=context,
         output_handle=None,
     )
-    return retval
 
 
 def show_experiment_shapes(
     uri: str,
     *,
     context: tiledbsoma.SOMATileDBContext | None = None,
-    output_handle: Printable = cast(Printable, sys.stdout),
+    output_handle: Printable = printableStdout,
 ) -> bool:
     """Outputs the current shapes of the elements in the ``Experiment``.
 
@@ -200,7 +199,7 @@ def upgrade_experiment_shapes(
     verbose: bool = False,
     check_only: bool = False,
     context: tiledbsoma.SOMATileDBContext | None = None,
-    output_handle: Printable = cast(Printable, sys.stdout),
+    output_handle: Printable = printableStdout,
 ) -> bool:
     """Upgrade the elements inside a SOMA ``Experiment`` to use the ``shape`` feature
     introduced in TileDB-SOMA 1.15.
@@ -292,7 +291,7 @@ def resize_experiment(
     verbose: bool = False,
     check_only: bool = False,
     context: tiledbsoma.SOMATileDBContext | None = None,
-    output_handle: Printable = cast(Printable, sys.stdout),
+    output_handle: Printable = printableStdout,
 ) -> bool:
     """Resize the elements in the SOMA ``Experiment`` to fit the requested number
     of observations and variables.
@@ -368,8 +367,8 @@ def resize_experiment(
     # on one measurement while the experiment's other measurements aren't being
     # updated -- then we need to find those other measurements' var-shapes.
     with tiledbsoma.Experiment.open(uri, context=context) as exp:
-        for ms_key in exp.ms.keys():
-            if ms_key not in nvars.keys():
+        for ms_key in exp.ms:
+            if ms_key not in nvars:
                 nvars[ms_key] = exp.ms[ms_key].var._maybe_soma_joinid_shape or 1
 
     retval = _treewalk(
@@ -392,7 +391,7 @@ def _treewalk(
     *,
     node_name: str | None = None,
     leaf_visitor: Callable[..., dict[str, Any]],
-    **kwargs: Any,
+    **kwargs: Any,  # noqa: ANN401
 ) -> dict[str, Any]:
     """Apply visitor function to the ``Experiment`` elements.
 
@@ -431,13 +430,9 @@ def _treewalk(
     """
 
     def _recurse(
-        parent: (
-            tiledbsoma.Experiment
-            | tiledbsoma.Measurement
-            | tiledbsoma.Collection[_SOMAObjectType]
-        ),
+        parent: tiledbsoma.Experiment | tiledbsoma.Measurement | tiledbsoma.Collection[_SOMAObjectType],
         node_name: str | None,
-        **kwargs: Any,
+        **kwargs: Any,  # noqa: ANN401
     ) -> dict[str, Any]:
         """Applies ``_treewalk`` to the requested child element.
 
@@ -463,7 +458,6 @@ def _treewalk(
     # to be shown *all* the component arrays which have issues, not just
     # the first such.
     with tiledbsoma.open(uri, context=kwargs["context"]) as item:
-
         # Non-terminal
         if isinstance(item, tiledbsoma.Experiment):
             retval = {}
@@ -500,17 +494,17 @@ def _treewalk(
 
 
 def _leaf_visitor_show_shapes(
-    item: Any,
+    item: Any,  # noqa: ANN401
     *,
     node_name: str,
-    nobs: int | None,
-    nvars: dict[str, int] | None,
+    nobs: int | None,  # noqa: ARG001
+    nvars: dict[str, int] | None,  # noqa: ARG001
     ms_name: str | None,
     coll_name: str | None,
     verbose: bool,
     check_only: bool,
     output_handle: Printable | None,
-    context: tiledbsoma.SOMATileDBContext | None,
+    context: tiledbsoma.SOMATileDBContext | None,  # noqa: ARG001
 ) -> dict[str, Any]:
     retval = {"status": True}
     if isinstance(item, tiledbsoma.DataFrame):
@@ -637,7 +631,7 @@ def _leaf_visitor_show_shapes(
 
 
 def _leaf_visitor_upgrade(
-    item: Any,
+    item: Any,  # noqa: ANN401
     *,
     node_name: str,
     nobs: int | None,
@@ -652,10 +646,7 @@ def _leaf_visitor_upgrade(
     retval = {"status": True}
 
     if isinstance(item, tiledbsoma.DataFrame):
-        if item.index_column_names == ("soma_joinid",):
-            count = item.non_empty_domain()[0][1] + 1
-        else:
-            count = item.count
+        count = item.non_empty_domain()[0][1] + 1 if item.index_column_names == ("soma_joinid",) else item.count
 
         _print_leaf_node_banner(
             uri=item.uri,
@@ -692,7 +683,6 @@ def _leaf_visitor_upgrade(
                 print("  Already upgraded", file=output_handle)
 
     elif isinstance(item, tiledbsoma.SparseNDArray):
-
         old_bounds = item.non_empty_domain()
         # Make a tuple of hi+1
         counts_from_old_bounds = tuple(e[1] + 1 for e in old_bounds)
@@ -738,9 +728,7 @@ def _leaf_visitor_upgrade(
                     f"  Applying tiledbsoma_upgrade_shape({new_shape})",
                     file=output_handle,
                 )
-            with tiledbsoma.SparseNDArray.open(
-                item.uri, "w", context=context
-            ) as writer:
+            with tiledbsoma.SparseNDArray.open(item.uri, "w", context=context) as writer:
                 writer.tiledbsoma_upgrade_shape(new_shape)
         else:
             if verbose:
@@ -766,7 +754,7 @@ def _leaf_visitor_upgrade(
 
 
 def _leaf_visitor_resize(
-    item: Any,
+    item: Any,  # noqa: ANN401
     *,
     node_name: str,
     nobs: int | None,
@@ -780,21 +768,16 @@ def _leaf_visitor_resize(
 ) -> dict[str, Any]:
     retval = {"status": True}
     if isinstance(item, tiledbsoma.DataFrame):
-
         if node_name == "obs":
             new_soma_joinid_shape = nobs
             if new_soma_joinid_shape is None:
-                raise tiledbsoma.SOMAError(
-                    "experiment resize: internal error: nobs missing"
-                )
+                raise tiledbsoma.SOMAError("experiment resize: internal error: nobs missing")
 
         elif node_name == "var":
             new_soma_joinid_shape = _get_new_var_shape(nvars=nvars, ms_name=ms_name)
 
         else:
-            raise tiledbsoma.SOMAError(
-                "experiment resize: internal error: dataframe node name '{node_name}'"
-            )
+            raise tiledbsoma.SOMAError(f"experiment resize: internal error: dataframe node name '{node_name}'")
 
         _print_leaf_node_banner(
             uri=item.uri,
@@ -812,9 +795,7 @@ def _leaf_visitor_resize(
                 f"  Dry run for: tiledbsoma_resize_soma_joinid_shape({new_soma_joinid_shape})",
                 file=output_handle,
             )
-            ok, msg = item.tiledbsoma_resize_soma_joinid_shape(
-                new_soma_joinid_shape, check_only=True
-            )
+            ok, msg = item.tiledbsoma_resize_soma_joinid_shape(new_soma_joinid_shape, check_only=True)
             _print_dry_run_result(
                 ok=ok,
                 msg=msg,
@@ -831,7 +812,6 @@ def _leaf_visitor_resize(
                 writer.tiledbsoma_resize_soma_joinid_shape(new_soma_joinid_shape)
 
     elif isinstance(item, tiledbsoma.SparseNDArray):
-
         _print_leaf_node_banner(
             uri=item.uri,
             type_name="SparseNDArray",
@@ -863,13 +843,10 @@ def _leaf_visitor_resize(
         else:
             if verbose:
                 print(f"  Applying resize({new_shape})", file=output_handle)
-            with tiledbsoma.SparseNDArray.open(
-                item.uri, "w", context=context
-            ) as writer:
+            with tiledbsoma.SparseNDArray.open(item.uri, "w", context=context) as writer:
                 writer.resize(new_shape)
 
     elif isinstance(item, tiledbsoma.DenseNDArray):
-
         _print_leaf_node_banner(
             uri=item.uri,
             type_name="DenseNDArray",
@@ -934,7 +911,7 @@ def _get_leaf_node_description(
 
 def _bannerize(
     node_name: str,
-    value: Any,
+    value: Any,  # noqa: ANN401
     *,
     verbose: bool,
     check_only: bool,
@@ -971,9 +948,7 @@ def _get_new_var_shape(
         raise tiledbsoma.SOMAError("experiment resize: internal error: ms_name missing")
 
     if ms_name not in nvars:
-        raise tiledbsoma.SOMAError(
-            f"experiment resize: missing measurement name '{ms_name}' in provided nvars"
-        )
+        raise tiledbsoma.SOMAError(f"experiment resize: missing measurement name '{ms_name}' in provided nvars")
     return nvars[ms_name]
 
 
@@ -998,15 +973,11 @@ def _get_new_ndarray_shape(
         raise tiledbsoma.SOMAError("experiment resize: internal error: ms_name missing")
 
     if ms_name not in nvars:
-        raise tiledbsoma.SOMAError(
-            f"experiment resize: missing measurement name '{ms_name}' in provided nvars"
-        )
+        raise tiledbsoma.SOMAError(f"experiment resize: missing measurement name '{ms_name}' in provided nvars")
     nvar = nvars[ms_name]
 
     if coll_name is None:
-        raise tiledbsoma.SOMAError(
-            "experiment resize: internal error: coll_name missing"
-        )
+        raise tiledbsoma.SOMAError("experiment resize: internal error: coll_name missing")
 
     coll_dict = {
         "X": (nobs, nvar),
@@ -1019,23 +990,21 @@ def _get_new_ndarray_shape(
     try:
         return coll_dict[coll_name]
     except KeyError:
-        raise tiledbsoma.SOMAError(
-            f"experiment resize: internal error: unhandled collection {coll_name}"
-        )
+        raise tiledbsoma.SOMAError(f"experiment resize: internal error: unhandled collection {coll_name}") from None
 
 
 def _leaf_visitor_get_shapes(
-    item: Any,
+    item: Any,  # noqa: ANN401
     *,
-    node_name: str,
-    nobs: int | None,
-    nvars: dict[str, int] | None,
-    ms_name: str | None,
-    coll_name: str | None,
-    verbose: bool,
-    check_only: bool,
-    context: tiledbsoma.SOMATileDBContext | None,
-    output_handle: Printable | None,
+    node_name: str,  # noqa: ARG001
+    nobs: int | None,  # noqa: ARG001
+    nvars: dict[str, int] | None,  # noqa: ARG001
+    ms_name: str | None,  # noqa: ARG001
+    coll_name: str | None,  # noqa: ARG001
+    verbose: bool,  # noqa: ARG001
+    check_only: bool,  # noqa: ARG001
+    context: tiledbsoma.SOMATileDBContext | None,  # noqa: ARG001
+    output_handle: Printable | None,  # noqa: ARG001
 ) -> dict[str, Any]:
     retval: dict[str, Any] = {}
     if isinstance(item, tiledbsoma.DataFrame):
@@ -1065,28 +1034,29 @@ def _leaf_visitor_get_shapes(
     return retval
 
 
-# Expected input is like
-# {
-#   "obs": { "status": true },
-#   "ms": {
-#     "RNA": {
-#       "var": { "status": true },
-#       "X": {
-#         "data": { "status": true }
-#       }
-#     }
-#   }
-# }
 def _check_statuses(dikt: dict[str, Any]) -> bool:
     """This reduces the pass/fail statuses for all leaf nodes in a treewalk
     over the experiment down to a single pass/fail. It returns True
     only when all leaves have status=True, else False.
+
+    Expected input is like:
+    {
+        "obs": { "status": true },
+        "ms": {
+            "RNA": {
+                "var": { "status": true },
+                "X": {
+                    "data": { "status": true }
+                }
+            }
+        }
+    }
     """
     if "status" in dikt:
         ok = dikt["status"]
         assert isinstance(ok, bool)
         return ok
-    for key, value in dikt.items():
+    for value in dikt.values():
         assert isinstance(value, dict)
         if not _check_statuses(value):
             return False

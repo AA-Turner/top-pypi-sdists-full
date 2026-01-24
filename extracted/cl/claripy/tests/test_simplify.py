@@ -258,6 +258,35 @@ class TestSimplify(unittest.TestCase):
         result2 = ~(e[0:0])
         assert expr2 is result2
 
+    def test_bitwise_and_xor_ne(self):
+        expr = claripy.BVS("expr", 32)
+        a = claripy.BVV(2, 32)
+        cond = ((expr & a) ^ a) != 0
+        expected = expr & a == 0
+        assert cond is expected
+
+        cond = ((a & expr) ^ a) != 0
+        expected = expr & a == 0
+        assert cond is expected
+
+    def test_bitwise_and_xor_eq(self):
+        expr = claripy.BVS("expr", 32)
+        a = claripy.BVV(2, 32)
+        cond = ((expr & a) ^ a) == 0
+        expected = expr & a != 0
+        assert cond is expected
+
+        cond = ((a & expr) ^ a) == 0
+        expected = expr & a != 0
+        assert cond is expected
+
+    def test_simplification_zero_bitwise_and_after_extract(self):
+        a = claripy.BVV(0xFFFFFFFF_00000000, 64)
+        b = claripy.BVS("b", 64)
+        a_and_b = a & b
+        expr = claripy.Extract(31, 0, a_and_b)
+        assert expr is claripy.BVV(0, 32)
+
 
 if __name__ == "__main__":
     unittest.main()

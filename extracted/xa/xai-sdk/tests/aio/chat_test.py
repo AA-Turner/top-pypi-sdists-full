@@ -27,6 +27,7 @@ from xai_sdk.chat import (
 )
 from xai_sdk.proto import chat_pb2, image_pb2, sample_pb2
 from xai_sdk.search import SearchParameters, news_source, rss_source, web_source, x_source
+from xai_sdk.tools import code_execution, web_search, x_search
 
 from .. import server
 
@@ -352,7 +353,82 @@ async def test_function_calling_streaming_batch(client):
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_structured_output(client):
+async def test_agentic_tool_calling_streaming(client):
+    chat = client.chat.create(
+        "grok-4-fast",
+        tools=[web_search()],
+    )
+    chat.append(user("What is the weather in London?"))
+    stream = chat.stream()
+
+    expected_chunks = [
+        "I",
+        " am",
+        " searching",
+        ".",
+        "",  # Final chunk is a tool call which has no content set
+    ]
+
+    last_response = None
+    i = 0
+    async for response, chunk in stream:
+        last_response = response
+        if i == 0:
+            assert chunk.tool_calls[0].function.name == "web_search"
+            assert chunk.tool_calls[0].function.arguments == '{"query":"What is the weather in London?"}'
+        elif i == 1:
+            assert chunk.proto.outputs[0].delta.role == chat_pb2.ROLE_TOOL
+            assert chunk.proto.outputs[0].delta.content == "I am tool response"
+            assert chunk.content == ""
+
+            tool_outputs = chunk.tool_outputs
+            assert len(tool_outputs) == 1
+            assert tool_outputs[0].tool_calls[0].function.name == "web_search"
+            assert tool_outputs[0].tool_calls[0].function.arguments == '{"query":"What is the weather in London?"}'
+            assert tool_outputs[0].role == "ROLE_TOOL"
+            assert tool_outputs[0].content == "I am tool response"
+        else:
+            assert chunk.content == expected_chunks[i - 2]
+        i += 1
+
+    assert last_response is not None
+    assert last_response.content == "I am searching."
+    assert len(last_response.tool_calls) == 1
+    assert last_response.finish_reason == "REASON_STOP"
+    assert last_response.role == "ROLE_ASSISTANT"
+    assert last_response.tool_calls[0].function.name == "web_search"
+    assert last_response.tool_calls[0].function.arguments == '{"query":"What is the weather in London?"}'
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_agentic_tool_calling_non_streaming(client):
+    chat = client.chat.create(
+        "grok-4-fast",
+        tools=[web_search()],
+    )
+    chat.append(user("What is the weather in London?"))
+    response = await chat.sample()
+
+    assert len(response.proto.outputs) == 3
+    assert response.proto.outputs[1].message.role == chat_pb2.ROLE_TOOL
+    assert response.proto.outputs[1].message.content == "I am tool response"
+
+    tool_outputs = response.tool_outputs
+    assert len(tool_outputs) == 1
+    assert tool_outputs[0].message.tool_calls[0].function.name == "web_search"
+    assert tool_outputs[0].message.tool_calls[0].function.arguments == '{"query":"What is the weather in London?"}'
+    assert tool_outputs[0].message.content == "I am tool response"
+
+    assert response.content == "I am searching."
+    assert len(response.tool_calls) == 1
+    assert response.finish_reason == "REASON_STOP"
+    assert response.role == "ROLE_ASSISTANT"
+    assert response.tool_calls[0].function.name == "web_search"
+    assert response.tool_calls[0].function.arguments == '{"query":"What is the weather in London?"}'
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_structured_output_parse(client):
     class Weather(BaseModel):
         city: str
         units: str
@@ -367,6 +443,26 @@ async def test_structured_output(client):
     assert receipt.city == "London"
     assert receipt.units == "C"
     assert receipt.temperature == 20
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_structured_output_chat_create(client):
+    class Weather(BaseModel):
+        city: str
+        units: str
+        temperature: int
+
+    chat = client.chat.create("grok-3-latest", response_format=Weather)
+    chat.append(user("What is the weather in London?"))
+    response = await chat.sample()
+
+    assert response.content == '{"city":"London","units":"C", "temperature": 20}'
+    # Parse the JSON response into the expected model
+    weather = Weather.model_validate_json(response.content)
+    assert isinstance(weather, Weather)
+    assert weather.city == "London"
+    assert weather.units == "C"
+    assert weather.temperature == 20
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -530,6 +626,17 @@ async def test_delete_stored_completion_raises_not_found_error_if_response_not_f
     assert e.value.details() == "Response not found"  # type: ignore
 
 
+@pytest.mark.asyncio(loop_scope="session")
+async def test_use_encrypted_content(client: AsyncClient):
+    chat = client.chat.create(model="grok-3", use_encrypted_content=True)
+    chat.append(user("Hello, how are you?"))
+    response = await chat.sample()
+
+    assert response.content == "Hello, this is a test response!"
+    assert response.reasoning_content == "test reasoning content"
+    assert response.encrypted_content == "test encrypted content"
+
+
 @mock.patch("xai_sdk.aio.chat.tracer")
 @pytest.mark.asyncio(loop_scope="session")
 async def test_sample_creates_span_with_correct_attributes(mock_tracer: mock.MagicMock, client: AsyncClient):
@@ -557,6 +664,7 @@ async def test_sample_creates_span_with_correct_attributes(mock_tracer: mock.Mag
         "gen_ai.prompt.0.role": "user",
         "gen_ai.prompt.0.content": "Hello, how are you?",
         "gen_ai.request.store_messages": False,
+        "gen_ai.request.use_encrypted_content": False,
     }
 
     mock_tracer.start_as_current_span.assert_called_once_with(
@@ -580,6 +688,40 @@ async def test_sample_creates_span_with_correct_attributes(mock_tracer: mock.Mag
         "gen_ai.completion.0.role": "assistant",
         "gen_ai.completion.0.content": response.content,
     }
+    mock_span.set_attributes.assert_called_once_with(expected_response_attributes)
+
+
+@mock.patch("xai_sdk.aio.chat.tracer")
+@pytest.mark.asyncio(loop_scope="session")
+async def test_sample_creates_span_without_sensitive_attributes_when_disabled(
+    mock_tracer: mock.MagicMock, client: AsyncClient
+):
+    """Test that sensitive attributes are not included when XAI_SDK_DISABLE_SENSITIVE_TELEMETRY_ATTRIBUTES is set."""
+    mock_span = mock.MagicMock()
+    mock_tracer.start_as_current_span.return_value.__enter__.return_value = mock_span
+
+    conversation_id = "test-conversation-id"
+    chat = client.chat.create(model="grok-3", conversation_id=conversation_id)
+    chat.append(user("Hello, how are you?"))
+
+    with mock.patch.dict("os.environ", {"XAI_SDK_DISABLE_SENSITIVE_TELEMETRY_ATTRIBUTES": "1"}):
+        await chat.sample()
+
+    expected_request_attributes = {
+        "gen_ai.operation.name": "chat",
+        "gen_ai.system": "xai",
+        "gen_ai.output.type": "text",
+        "gen_ai.request.model": "grok-3",
+        "server.port": 443,
+    }
+
+    mock_tracer.start_as_current_span.assert_called_once_with(
+        name="chat.sample grok-3",
+        kind=SpanKind.CLIENT,
+        attributes=expected_request_attributes,
+    )
+
+    expected_response_attributes = {}
     mock_span.set_attributes.assert_called_once_with(expected_response_attributes)
 
 
@@ -615,6 +757,8 @@ async def test_sample_creates_span_with_correct_optional_attributes(mock_tracer:
         parallel_tool_calls=False,
         store_messages=True,
         previous_response_id="test-previous-response-id",
+        use_encrypted_content=True,
+        max_turns=5,
     )
 
     await chat.sample()
@@ -646,6 +790,7 @@ async def test_sample_creates_span_with_correct_optional_attributes(mock_tracer:
         "gen_ai.prompt.2.role": "assistant",
         "gen_ai.prompt.2.content": "I'm doing well, thank you!",
         "gen_ai.request.store_messages": True,
+        "gen_ai.request.use_encrypted_content": True,
         "gen_ai.request.previous_response_id": "test-previous-response-id",
     }
 
@@ -683,6 +828,7 @@ async def test_sample_batch_creates_span_with_correct_attributes(mock_tracer: mo
         "gen_ai.prompt.0.role": "user",
         "gen_ai.prompt.0.content": "Hello, how are you?",
         "gen_ai.request.store_messages": False,
+        "gen_ai.request.use_encrypted_content": False,
     }
 
     mock_tracer.start_as_current_span.assert_called_once_with(
@@ -749,6 +895,7 @@ async def test_stream_creates_span_with_correct_attributes(mock_tracer: mock.Mag
         "gen_ai.prompt.0.role": "user",
         "gen_ai.prompt.0.content": "Hello, how are you?",
         "gen_ai.request.store_messages": False,
+        "gen_ai.request.use_encrypted_content": False,
     }
 
     mock_tracer.start_as_current_span.assert_called_once_with(
@@ -813,6 +960,7 @@ async def test_stream_batch_creates_span_with_correct_attributes(mock_tracer: mo
         "gen_ai.prompt.0.role": "user",
         "gen_ai.prompt.0.content": "Hello, how are you?",
         "gen_ai.request.store_messages": False,
+        "gen_ai.request.use_encrypted_content": False,
     }
 
     mock_tracer.start_as_current_span.assert_called_once_with(
@@ -884,6 +1032,7 @@ async def test_parse_creates_span_with_correct_attributes(mock_tracer: mock.Magi
         "gen_ai.prompt.0.role": "user",
         "gen_ai.prompt.0.content": "What's the weather in London?",
         "gen_ai.request.store_messages": False,
+        "gen_ai.request.use_encrypted_content": False,
     }
 
     mock_tracer.start_as_current_span.assert_called_once_with(
@@ -937,6 +1086,7 @@ async def test_defer_creates_span_with_correct_attributes(mock_tracer: mock.Magi
         "gen_ai.prompt.0.role": "user",
         "gen_ai.prompt.0.content": "Hello, how are you?",
         "gen_ai.request.store_messages": False,
+        "gen_ai.request.use_encrypted_content": False,
     }
 
     mock_tracer.start_as_current_span.assert_called_once_with(
@@ -994,6 +1144,7 @@ async def test_defer_batch_creates_span_with_correct_attributes(mock_tracer: moc
         "gen_ai.prompt.0.role": "user",
         "gen_ai.prompt.0.content": "Hello, how are you?",
         "gen_ai.request.store_messages": False,
+        "gen_ai.request.use_encrypted_content": False,
     }
 
     mock_tracer.start_as_current_span.assert_called_once_with(
@@ -1062,6 +1213,7 @@ async def test_chat_with_function_calling_creates_span_with_correct_attributes(
         "gen_ai.prompt.0.role": "user",
         "gen_ai.prompt.0.content": "What's the weather in London?",
         "gen_ai.request.store_messages": False,
+        "gen_ai.request.use_encrypted_content": False,
     }
 
     mock_tracer.start_as_current_span.assert_called_once_with(
@@ -1155,6 +1307,7 @@ async def test_chat_with_function_call_result_creates_span_with_correct_attribut
         "gen_ai.prompt.2.role": "tool",
         "gen_ai.prompt.2.content": "The weather in London is 20 degrees Fahrenheit.",
         "gen_ai.request.store_messages": False,
+        "gen_ai.request.use_encrypted_content": False,
     }
 
     mock_tracer.start_as_current_span.assert_called_once_with(
@@ -1259,6 +1412,61 @@ def test_chat_create_with_tools(client: AsyncClient):
     assert chat_completion_request.tools[1] == expected_news_tool
 
 
+def test_chat_create_with_server_side_tools(client: AsyncClient):
+    from_date = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    to_date = datetime(2024, 12, 31, tzinfo=timezone.utc)
+
+    chat = client.chat.create(
+        "grok-3",
+        tools=[
+            web_search(
+                excluded_domains=["spam.com", "unwanted.com"],
+                enable_image_understanding=True,
+            ),
+            x_search(
+                from_date=from_date,
+                to_date=to_date,
+                allowed_x_handles=["xai", "elonmusk"],
+                enable_image_understanding=True,
+                enable_video_understanding=True,
+            ),
+            code_execution(),
+        ],
+    )
+
+    chat_completion_request = chat.proto
+    assert len(chat_completion_request.tools) == 3
+
+    expected_from_date_pb = timestamp_pb2.Timestamp()
+    expected_from_date_pb.FromDatetime(from_date)
+
+    expected_to_date_pb = timestamp_pb2.Timestamp()
+    expected_to_date_pb.FromDatetime(to_date)
+
+    expected_web_search_tool = chat_pb2.Tool(
+        web_search=chat_pb2.WebSearch(
+            excluded_domains=["spam.com", "unwanted.com"],
+            enable_image_understanding=True,
+        )
+    )
+
+    expected_x_search_tool = chat_pb2.Tool(
+        x_search=chat_pb2.XSearch(
+            from_date=expected_from_date_pb,
+            to_date=expected_to_date_pb,
+            allowed_x_handles=["xai", "elonmusk"],
+            enable_image_understanding=True,
+            enable_video_understanding=True,
+        )
+    )
+
+    expected_code_execution_tool = chat_pb2.Tool(code_execution=chat_pb2.CodeExecution())
+
+    assert chat_completion_request.tools[0] == expected_web_search_tool
+    assert chat_completion_request.tools[1] == expected_x_search_tool
+    assert chat_completion_request.tools[2] == expected_code_execution_tool
+
+
 @pytest.mark.parametrize(
     "tool_choice",
     [
@@ -1304,6 +1512,11 @@ def test_chat_create_with_required_tool(client: AsyncClient):
     assert chat_completion_request.tool_choice == chat_pb2.ToolChoice(function_name="get_weather")
 
 
+class Person(BaseModel):
+    name: str
+    age: int
+
+
 @pytest.mark.parametrize(
     "response_format",
     [
@@ -1315,6 +1528,7 @@ def test_chat_create_with_required_tool(client: AsyncClient):
             format_type=chat_pb2.FORMAT_TYPE_JSON_SCHEMA,
             schema='{"type": "object", "properties": {"name": {"type": "string"}, "age": {"type": "number"}}}',
         ),
+        Person,
     ],
 )
 def test_chat_create_with_response_format(
@@ -1332,6 +1546,11 @@ def test_chat_create_with_response_format(
         )
     elif response_format == "text":
         assert chat_completion_request.response_format == chat_pb2.ResponseFormat(format_type=chat_pb2.FORMAT_TYPE_TEXT)
+    elif isinstance(response_format, type) and issubclass(response_format, BaseModel):
+        assert chat_completion_request.response_format == chat_pb2.ResponseFormat(
+            format_type=chat_pb2.FORMAT_TYPE_JSON_SCHEMA,
+            schema=json.dumps(response_format.model_json_schema()),
+        )
     else:
         assert chat_completion_request.response_format == response_format
 
@@ -1502,12 +1721,14 @@ def test_chat_append_response(client: AsyncClient):
     chat.append(user("test message"))
 
     chat_completion_response = chat_pb2.GetChatCompletionResponse(
-        choices=[
-            chat_pb2.Choice(
+        outputs=[
+            chat_pb2.CompletionOutput(
                 finish_reason=sample_pb2.FinishReason.REASON_STOP,
-                index=0,
                 message=chat_pb2.CompletionMessage(
-                    role=chat_pb2.ROLE_ASSISTANT, content="Hello, this is a test response!"
+                    role=chat_pb2.ROLE_ASSISTANT,
+                    content="Hello, this is a test response!",
+                    reasoning_content="test reasoning content",
+                    encrypted_content="test encrypted content",
                 ),
             )
         ]
@@ -1520,7 +1741,10 @@ def test_chat_append_response(client: AsyncClient):
     expected_messages = [
         chat_pb2.Message(role=chat_pb2.ROLE_USER, content=[chat_pb2.Content(text="test message")]),
         chat_pb2.Message(
-            role=chat_pb2.ROLE_ASSISTANT, content=[chat_pb2.Content(text="Hello, this is a test response!")]
+            role=chat_pb2.ROLE_ASSISTANT,
+            content=[chat_pb2.Content(text="Hello, this is a test response!")],
+            reasoning_content="test reasoning content",
+            encrypted_content="test encrypted content",
         ),
     ]
 
@@ -1540,3 +1764,77 @@ def test_chat_append_tool_result(client: AsyncClient):
 
     assert len(chat.messages) == 2
     assert chat.messages == expected_messages
+
+
+def test_chat_create_with_max_turns(client: AsyncClient):
+    chat = client.chat.create(
+        "grok-4-fast",
+        max_turns=5,
+    )
+
+    chat_completion_request = chat.proto
+    assert chat_completion_request.max_turns == 5
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_response_created_timestamp(client: AsyncClient):
+    """Test that the Response.created property returns a Python datetime object."""
+    chat = client.chat.create("grok-3-latest")
+    chat.append(user("test message"))
+    response = await chat.sample()
+
+    # Verify that created is a datetime object
+    assert isinstance(response.created, datetime)
+    # Verify that the timestamp is reasonable (within last few seconds)
+    # Note: ToDatetime() returns a timezone-naive datetime in UTC
+    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+    assert (now_utc - response.created).total_seconds() < 10
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_chunk_created_timestamp(client: AsyncClient):
+    """Test that the Chunk.created property returns a Python datetime object."""
+    chat = client.chat.create("grok-3-latest")
+    chat.append(user("test message"))
+    stream = chat.stream()
+
+    chunks = []
+    async for _, chunk in stream:
+        # Verify that created is a datetime object
+        assert isinstance(chunk.created, datetime)
+        # Verify that the timestamp is reasonable (within last few seconds)
+        # Note: ToDatetime() returns a timezone-naive datetime in UTC
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        assert (now_utc - chunk.created).total_seconds() < 10
+        chunks.append(chunk)
+
+    # Ensure we received some chunks
+    assert len(chunks) > 0
+
+
+def test_chat_create_with_include_output(client: AsyncClient):
+    chat = client.chat.create(
+        "grok-4-fast",
+        include=[
+            "web_search_call_output",
+            "x_search_call_output",
+            chat_pb2.IncludeOption.INCLUDE_OPTION_CODE_EXECUTION_CALL_OUTPUT,
+            "collections_search_call_output",
+            "mcp_call_output",
+            "attachment_search_call_output",
+            "inline_citations",
+            "verbose_streaming",
+        ],
+    )
+
+    chat_completion_request = chat.proto
+    assert chat_completion_request.include == [
+        chat_pb2.IncludeOption.INCLUDE_OPTION_WEB_SEARCH_CALL_OUTPUT,
+        chat_pb2.IncludeOption.INCLUDE_OPTION_X_SEARCH_CALL_OUTPUT,
+        chat_pb2.IncludeOption.INCLUDE_OPTION_CODE_EXECUTION_CALL_OUTPUT,
+        chat_pb2.IncludeOption.INCLUDE_OPTION_COLLECTIONS_SEARCH_CALL_OUTPUT,
+        chat_pb2.IncludeOption.INCLUDE_OPTION_MCP_CALL_OUTPUT,
+        chat_pb2.IncludeOption.INCLUDE_OPTION_ATTACHMENT_SEARCH_CALL_OUTPUT,
+        chat_pb2.IncludeOption.INCLUDE_OPTION_INLINE_CITATIONS,
+        chat_pb2.IncludeOption.INCLUDE_OPTION_VERBOSE_STREAMING,
+    ]

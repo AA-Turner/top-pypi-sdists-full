@@ -40,7 +40,7 @@ class CloudPC(Entity, Parsable):
     allotment_display_name: Optional[str] = None
     # The connection setting of the Cloud PC. Possible values: enableSingleSignOn. Read Only.
     connection_setting: Optional[CloudPcConnectionSetting] = None
-    # The connectionSettings property
+    # The connection settings of the Cloud PC. Possible values: enableSingleSignOn. Read-only. This property is deprecated and stopped retuning data on August 31, 2024. Going forward, use the connectionSetting property.
     connection_settings: Optional[CloudPcConnectionSettings] = None
     # The connectivity health check result of a Cloud PC, including the updated timestamp and whether the Cloud PC can be connected.
     connectivity_result: Optional[CloudPcConnectivityResult] = None
@@ -52,7 +52,7 @@ class CloudPC(Entity, Parsable):
     disk_encryption_state: Optional[CloudPcDiskEncryptionState] = None
     # The display name of the Cloud PC.
     display_name: Optional[str] = None
-    # The current availability of a frontline assigned Cloud PC. Possible values: notApplicable, available,notAvailable and unknownFutureValue. Default value is notApplicable. Read Only.
+    # The current availability of a frontline assigned Cloud PC. Possible values: notApplicable, available, notAvailable, and unknownFutureValue. Default value is notApplicable. Read-only. This property is deprecated and will stop returning data on October 30, 2025. Going forward use the retrieveFrontlineCloudPcDetail API.
     frontline_cloud_pc_availability: Optional[FrontlineCloudPcAvailability] = None
     # The date and time when the grace period ends and reprovisioning or deprovisioning happens. Required only if the status is inGracePeriod. The timestamp is shown in ISO 8601 format and Coordinated Universal Time (UTC). For example, midnight UTC on Jan 1, 2014 is 2014-01-01T00:00:00Z.
     grace_period_end_date_time: Optional[datetime.datetime] = None
@@ -74,7 +74,7 @@ class CloudPC(Entity, Parsable):
     odata_type: Optional[str] = None
     # The Azure network connection that is applied during the provisioning of Cloud PCs.
     on_premises_connection_name: Optional[str] = None
-    # The version of the operating system (OS) to provision on Cloud PCs. Possible values are: windows10, windows11, unknownFutureValue.
+    # The version of the operating system (OS) to provision on Cloud PCs. The possible values are: windows10, windows11, unknownFutureValue.
     os_version: Optional[CloudPcOperatingSystem] = None
     # The results of every partner agent's installation status on Cloud PC.
     partner_agent_install_results: Optional[list[CloudPcPartnerAgentInstallResult]] = None
@@ -88,7 +88,7 @@ class CloudPC(Entity, Parsable):
     provisioning_policy_id: Optional[str] = None
     # The provisioning policy that is applied during the provisioning of Cloud PCs.
     provisioning_policy_name: Optional[str] = None
-    # The type of licenses to be used when provisioning Cloud PCs using this policy. Possible values are: dedicated, shared, unknownFutureValue,sharedByUser, sharedByEntraGroup. Use the Prefer: include-unknown-enum-members request header to get the following values from this evolvable enum: sharedByUser, sharedByEntraGroup. The default value is dedicated. CAUTION: The shared member is deprecated and will stop returning on April 30, 2027； in the future, use the sharedByUser member.
+    # The type of licenses to be used when provisioning Cloud PCs using this policy. The possible values are: dedicated, shared, unknownFutureValue, sharedByUser, sharedByEntraGroup, reserve. Use the Prefer: include-unknown-enum-members request header to get the following values from this evolvable enum: sharedByUser, sharedByEntraGroup, reserve. The default value is dedicated. The shared member is deprecated and will stop returning on April 30, 2027; going forward, use the sharedByUser member.
     provisioning_type: Optional[CloudPcProvisioningType] = None
     # The scopeIds property
     scope_ids: Optional[list[str]] = None
@@ -98,7 +98,7 @@ class CloudPC(Entity, Parsable):
     service_plan_name: Optional[str] = None
     # The service plan type of the Cloud PC.
     service_plan_type: Optional[CloudPcServicePlanType] = None
-    # Indicates the Cloud PC device details (for example, assignedToUserPrincipalName) associated with the frontline shared service plan.
+    # Indicates the Cloud PC device details associated with the frontline shared service plan, including the user's UPN and the session start date and time.
     shared_device_detail: Optional[CloudPcFrontlineSharedDeviceDetail] = None
     # The status property
     status: Optional[CloudPcStatus] = None
@@ -106,7 +106,7 @@ class CloudPC(Entity, Parsable):
     status_detail: Optional[CloudPcStatusDetail] = None
     # The details of the Cloud PC status. For example, { 'code': 'internalServerError', 'message': 'There was an error during the Cloud PC upgrade. Please contact support.', 'additionalInformation': null }. This property is deprecated and will no longer be supported effective August 31, 2024. Use statusDetail instead.
     status_details: Optional[CloudPcStatusDetails] = None
-    # The account type of the user on provisioned Cloud PCs. Possible values are: standardUser, administrator, unknownFutureValue.
+    # The account type of the user on provisioned Cloud PCs. The possible values are: standardUser, administrator, unknownFutureValue.
     user_account_type: Optional[CloudPcUserAccountType] = None
     # The user details (for example, ID and display name) for the user associated with a Reserve Cloud PC assignment. Read-only.
     user_detail: Optional[CloudPcEntraUserDetail] = None

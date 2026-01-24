@@ -113,7 +113,7 @@ class KerberosClientFactory:
 		if self.secret_type == KerberosSecretType.CCACHE:
 			return KerberosCredential.from_ccache(self.secret, principal=self.username, realm=self.domain)
 		if self.secret_type == KerberosSecretType.PEM:
-			return KerberosCredential.from_pem_file(self.certdata, self.keydata)
+			return KerberosCredential.from_pem_file(self.certdata, self.keydata, username=self.username, domain=self.domain)
 		if self.secret_type == KerberosSecretType.CERTSTORE:
 			return KerberosCredential.from_windows_certstore(self.commonname, certstore_name = self.certstore, dhparams = None, username = self.username, domain = self.domain)
 
@@ -230,7 +230,7 @@ class KerberosClientFactory:
 					)
 		
 		if proxy_type is not None:
-			res.proxies = UniProxyTarget.from_url_params(url_str, res.port)
+			res.proxies = UniProxyTarget.from_url_params(query, res.dc_ip, res.port)
 		
 		if res.username is None:
 			if res.secret_type != KerberosSecretType.CERTSTORE:

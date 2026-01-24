@@ -19,7 +19,7 @@ import re  # noqa: F401
 from datetime import datetime
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, StrictBool, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictBool, StrictInt, StrictStr
 
 from snowflake.core.event_table._generated.models.event_table_column import EventTableColumn, EventTableColumnModel
 
@@ -46,28 +46,29 @@ class EventTable(BaseModel):
     comment : str, optional
         user comment associated to an object in the dictionary
     created_on : datetime, optional
-        Date and time when the event table was created.
+        Date and time when the event table was created — **Read-only:** *any user-provided value will be ignored.*
     database_name : str, optional
-        Database in which the event table is stored
+        Database in which the event table is stored — **Read-only:** *any user-provided value will be ignored.*
     schema_name : str, optional
-        Schema in which the event table is stored
+        Schema in which the event table is stored — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Role that owns the event table
+        Role that owns the event table — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        The type of role that owns the event table
+        The type of role that owns the event table — **Read-only:** *any user-provided value will be ignored.*
     rows : int, optional
-        Number of rows in the table.
+        Number of rows in the table — **Read-only:** *any user-provided value will be ignored.*
     bytes : int, optional
-        Number of bytes that will be scanned if the entire table is scanned in a query.Note that this number may be different than the number of actual physical bytes stored on-disk for the table
+        Number of bytes that will be scanned if the entire table is scanned in a query.Note that this number may be different than the number of actual physical bytes stored on-disk for the table — **Read-only:** *any user-provided value will be ignored.*
     automatic_clustering : bool, optional
-        If Automatic Clustering is enabled for your account, specifies whether it is explicitly enabled or disabled for the table.
+        If Automatic Clustering is enabled for your account, specifies whether it is explicitly enabled or disabled for the table — **Read-only:** *any user-provided value will be ignored.*
     search_optimization : bool, optional
-        If ON, the table has the search optimization service enabled
+        If ON, the table has the search optimization service enabled — **Read-only:** *any user-provided value will be ignored.*
     search_optimization_progress : int, optional
-        Percentage of the table that has been optimized for search
+        Percentage of the table that has been optimized for search — **Read-only:** *any user-provided value will be ignored.*
     search_optimization_bytes : int, optional
-        Number of additional bytes of storage that the search optimization service consumes for this table
+        Number of additional bytes of storage that the search optimization service consumes for this table — **Read-only:** *any user-provided value will be ignored.*
     columns : list[EventTableColumn], optional
+        **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: StrictStr
@@ -130,9 +131,10 @@ class EventTable(BaseModel):
         "columns",
     ]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -172,7 +174,7 @@ class EventTable(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of each item in columns (list)
         _items = []
@@ -195,9 +197,9 @@ class EventTable(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return EventTable.parse_obj(obj)
+            return EventTable.model_validate(obj)
 
-        _obj = EventTable.parse_obj(
+        _obj = EventTable.model_validate(
             {
                 "name": obj.get("name"),
                 "cluster_by": obj.get("cluster_by"),

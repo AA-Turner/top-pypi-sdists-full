@@ -8,25 +8,119 @@ import enum
 import os
 import sys
 from typing import NoReturn
-from unittest import (
-    mock,
-)
+from unittest import mock
 
 import pytest
 
 import cmd2
-from cmd2 import (
-    utils,
-)
-from examples.subcommands import (
-    SubcommandsExample,
-)
+from cmd2 import utils
 
 from .conftest import (
     complete_tester,
     normalize,
     run_cmd,
 )
+
+
+class SubcommandsExample(cmd2.Cmd):
+    """Example cmd2 application where we a base command which has a couple subcommands
+    and the "sport" subcommand has tab completion enabled.
+    """
+
+    sport_item_strs = ('Bat', 'Basket', 'Basketball', 'Football', 'Space Ball')
+
+    # create the top-level parser for the base command
+    base_parser = cmd2.Cmd2ArgumentParser()
+    base_subparsers = base_parser.add_subparsers(title='subcommands', help='subcommand help')
+
+    # create the parser for the "foo" subcommand
+    parser_foo = base_subparsers.add_parser('foo', help='foo help')
+    parser_foo.add_argument('-x', type=int, default=1, help='integer')
+    parser_foo.add_argument('y', type=float, help='float')
+    parser_foo.add_argument('input_file', type=str, help='Input File')
+
+    # create the parser for the "bar" subcommand
+    parser_bar = base_subparsers.add_parser('bar', help='bar help')
+
+    bar_subparsers = parser_bar.add_subparsers(title='layer3', help='help for 3rd layer of commands')
+    parser_bar.add_argument('z', help='string')
+
+    bar_subparsers.add_parser('apple', help='apple help')
+    bar_subparsers.add_parser('artichoke', help='artichoke help')
+    bar_subparsers.add_parser('cranberries', help='cranberries help')
+
+    # create the parser for the "sport" subcommand
+    parser_sport = base_subparsers.add_parser('sport', help='sport help')
+    sport_arg = parser_sport.add_argument('sport', help='Enter name of a sport', choices=sport_item_strs)
+
+    # create the top-level parser for the alternate command
+    # The alternate command doesn't provide its own help flag
+    base2_parser = cmd2.Cmd2ArgumentParser(add_help=False)
+    base2_subparsers = base2_parser.add_subparsers(title='subcommands', help='subcommand help')
+
+    # create the parser for the "foo" subcommand
+    parser_foo2 = base2_subparsers.add_parser('foo', help='foo help')
+    parser_foo2.add_argument('-x', type=int, default=1, help='integer')
+    parser_foo2.add_argument('y', type=float, help='float')
+    parser_foo2.add_argument('input_file', type=str, help='Input File')
+
+    # create the parser for the "bar" subcommand
+    parser_bar2 = base2_subparsers.add_parser('bar', help='bar help')
+
+    bar2_subparsers = parser_bar2.add_subparsers(title='layer3', help='help for 3rd layer of commands')
+    parser_bar2.add_argument('z', help='string')
+
+    bar2_subparsers.add_parser('apple', help='apple help')
+    bar2_subparsers.add_parser('artichoke', help='artichoke help')
+    bar2_subparsers.add_parser('cranberries', help='cranberries help')
+
+    # create the parser for the "sport" subcommand
+    parser_sport2 = base2_subparsers.add_parser('sport', help='sport help')
+    sport2_arg = parser_sport2.add_argument('sport', help='Enter name of a sport', choices=sport_item_strs)
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    # subcommand functions for the base command
+    def base_foo(self, args) -> None:
+        """Foo subcommand of base command."""
+        self.poutput(args.x * args.y)
+
+    def base_bar(self, args) -> None:
+        """Bar subcommand of base command."""
+        self.poutput(f'(({args.z}))')
+
+    def base_sport(self, args) -> None:
+        """Sport subcommand of base command."""
+        self.poutput(f'Sport is {args.sport}')
+
+    # Set handler functions for the subcommands
+    parser_foo.set_defaults(func=base_foo)
+    parser_bar.set_defaults(func=base_bar)
+    parser_sport.set_defaults(func=base_sport)
+
+    @cmd2.with_argparser(base_parser)
+    def do_base(self, args) -> None:
+        """Base command help."""
+        func = getattr(args, 'func', None)
+        if func is not None:
+            # Call whatever subcommand function was selected
+            func(self, args)
+        else:
+            # No subcommand was provided, so call help
+            self.do_help('base')
+
+    @cmd2.with_argparser(base2_parser)
+    def do_alternate(self, args) -> None:
+        """Alternate command help."""
+        func = getattr(args, 'func', None)
+        if func is not None:
+            # Call whatever subcommand function was selected
+            func(self, args)
+        else:
+            # No subcommand was provided, so call help
+            self.do_help('alternate')
+
 
 # List of strings used with completion functions
 food_item_strs = ['Pizza', 'Ham', 'Ham Sandwich', 'Potato', 'Cheese "Pizza"']
@@ -125,14 +219,6 @@ def cmd2_app():
     return CompletionsExample()
 
 
-def test_cmd2_command_completion_single(cmd2_app) -> None:
-    text = 'he'
-    line = text
-    endidx = len(line)
-    begidx = endidx - len(text)
-    assert cmd2_app.completenames(text, line, begidx, endidx) == ['help']
-
-
 def test_complete_command_single(cmd2_app) -> None:
     text = 'he'
     line = text
@@ -176,7 +262,7 @@ def test_complete_exception(cmd2_app, capsys) -> None:
     begidx = endidx - len(text)
 
     first_match = complete_tester(text, line, begidx, endidx, cmd2_app)
-    out, err = capsys.readouterr()
+    _out, err = capsys.readouterr()
 
     assert first_match is None
     assert "IndexError" in err
@@ -184,7 +270,7 @@ def test_complete_exception(cmd2_app, capsys) -> None:
 
 def test_complete_macro(base_app, request) -> None:
     # Create the macro
-    out, err = run_cmd(base_app, 'macro create fake run_pyscript {1}')
+    out, _err = run_cmd(base_app, 'macro create fake run_pyscript {1}')
     assert out == normalize("Macro 'fake' created")
 
     # Macros do path completion
@@ -228,7 +314,10 @@ def test_cmd2_command_completion_multiple(cmd2_app) -> None:
     line = text
     endidx = len(line)
     begidx = endidx - len(text)
-    assert cmd2_app.completenames(text, line, begidx, endidx) == ['help', 'history']
+
+    first_match = complete_tester(text, line, begidx, endidx, cmd2_app)
+    assert first_match is not None
+    assert cmd2_app.completion_matches == ['help', 'history']
 
 
 def test_cmd2_command_completion_nomatch(cmd2_app) -> None:
@@ -236,7 +325,10 @@ def test_cmd2_command_completion_nomatch(cmd2_app) -> None:
     line = text
     endidx = len(line)
     begidx = endidx - len(text)
-    assert cmd2_app.completenames(text, line, begidx, endidx) == []
+
+    first_match = complete_tester(text, line, begidx, endidx, cmd2_app)
+    assert first_match is None
+    assert cmd2_app.completion_matches == []
 
 
 def test_cmd2_help_completion_single(cmd2_app) -> None:
@@ -280,7 +372,7 @@ def test_set_allow_style_completion(cmd2_app) -> None:
     endidx = len(line)
     begidx = endidx - len(text)
 
-    expected = [val.name.lower() for val in cmd2.ansi.AllowStyle]
+    expected = [val.name.lower() for val in cmd2.rich_utils.AllowStyle]
 
     first_match = complete_tester(text, line, begidx, endidx, cmd2_app)
     assert first_match
@@ -1084,7 +1176,7 @@ def test_complete_set_value_invalid_settable(cmd2_app, capsys) -> None:
     first_match = complete_tester(text, line, begidx, endidx, cmd2_app)
     assert first_match is None
 
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     assert "fake is not a settable parameter" in out
 
 

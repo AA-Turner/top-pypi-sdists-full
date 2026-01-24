@@ -10,6 +10,9 @@ from .get_knowledge_base_summary_url_response_model_dependent_agents_item import
     GetKnowledgeBaseSummaryUrlResponseModelDependentAgentsItem,
 )
 from .knowledge_base_document_metadata_response_model import KnowledgeBaseDocumentMetadataResponseModel
+from .knowledge_base_folder_path_segment_summary_response_model import (
+    KnowledgeBaseFolderPathSegmentSummaryResponseModel,
+)
 from .resource_access_info import ResourceAccessInfo
 
 
@@ -19,7 +22,23 @@ class GetKnowledgeBaseSummaryUrlResponseModel(UncheckedBaseModel):
     metadata: KnowledgeBaseDocumentMetadataResponseModel
     supported_usages: typing.List[DocumentUsageModeEnum]
     access_info: ResourceAccessInfo
-    dependent_agents: typing.List[GetKnowledgeBaseSummaryUrlResponseModelDependentAgentsItem]
+    folder_parent_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The ID of the parent folder, or null if the document is at the root level.
+    """
+
+    folder_path: typing.Optional[typing.List[KnowledgeBaseFolderPathSegmentSummaryResponseModel]] = pydantic.Field(
+        default=None
+    )
+    """
+    The folder path segments leading to this entity, from root to parent folder.
+    """
+
+    dependent_agents: typing.List[GetKnowledgeBaseSummaryUrlResponseModelDependentAgentsItem] = pydantic.Field()
+    """
+    This field is deprecated and will be removed in the future, use the separate endpoint to get dependent agents instead.
+    """
+
     url: str
 
     if IS_PYDANTIC_V2:

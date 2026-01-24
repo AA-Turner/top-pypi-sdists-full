@@ -56,6 +56,8 @@ class BankSettings(TypedDict, total=False):
 
 
 class PhoneNumber(TypedDict, total=False):
+    """A list of phone numbers in E.164 format."""
+
     phone_number: str
 
 
@@ -231,6 +233,9 @@ class ChildLegalEntityCreate(TypedDict, total=False):
 
     bank_settings: Optional[BankSettings]
 
+    business_description: Optional[str]
+    """A description of the business."""
+
     business_name: Optional[str]
     """The business's legal business name."""
 
@@ -238,6 +243,12 @@ class ChildLegalEntityCreate(TypedDict, total=False):
     """The country of citizenship for an individual."""
 
     compliance_details: Optional[LegalEntityComplianceDetail]
+
+    country_of_incorporation: Optional[str]
+    """
+    The country code where the business is incorporated in the ISO 3166-1 alpha-2 or
+    alpha-3 formats.
+    """
 
     date_formed: Annotated[Union[str, date, None], PropertyInfo(format="iso8601")]
     """A business's formation date (YYYY-MM-DD)."""
@@ -250,6 +261,9 @@ class ChildLegalEntityCreate(TypedDict, total=False):
     email: Optional[str]
     """The entity's primary email."""
 
+    expected_activity_volume: Optional[int]
+    """Monthly expected transaction volume in entity's local currency."""
+
     first_name: Optional[str]
     """An individual's first name."""
 
@@ -259,8 +273,14 @@ class ChildLegalEntityCreate(TypedDict, total=False):
     industry_classifications: Iterable[LegalEntityIndustryClassification]
     """A list of industry classifications for the legal entity."""
 
+    intended_use: Optional[str]
+    """A description of the intended use of the legal entity."""
+
     last_name: Optional[str]
     """An individual's last name."""
+
+    legal_entity_associations: Optional[Iterable["LegalEntityAssociationInlineCreate"]]
+    """The legal entity associations and its child legal entities."""
 
     legal_entity_type: Literal["business", "individual"]
     """The type of legal entity."""
@@ -279,6 +299,12 @@ class ChildLegalEntityCreate(TypedDict, total=False):
     middle_name: Optional[str]
     """An individual's middle name."""
 
+    operating_jurisdictions: SequenceNotStr[str]
+    """
+    A list of countries where the business operates (ISO 3166-1 alpha-2 or alpha-3
+    codes).
+    """
+
     phone_numbers: Iterable[PhoneNumber]
 
     politically_exposed_person: Optional[bool]
@@ -290,6 +316,9 @@ class ChildLegalEntityCreate(TypedDict, total=False):
     prefix: Optional[str]
     """An individual's prefix."""
 
+    primary_social_media_sites: SequenceNotStr[str]
+    """A list of primary social media URLs for the business."""
+
     risk_rating: Optional[Literal["low", "medium", "high"]]
     """The risk rating of the legal entity. One of low, medium, high."""
 
@@ -300,3 +329,6 @@ class ChildLegalEntityCreate(TypedDict, total=False):
 
     website: Optional[str]
     """The entity's primary website URL."""
+
+
+from .legal_entity_association_inline_create import LegalEntityAssociationInlineCreate

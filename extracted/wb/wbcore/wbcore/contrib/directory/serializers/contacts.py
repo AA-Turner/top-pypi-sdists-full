@@ -126,8 +126,8 @@ class EmailContactSerializer(wb_serializers.ModelSerializer):
         if address:
             try:
                 validate_email(address)
-            except ValidationError:
-                raise serializers.ValidationError({"address": _("Invalid e-mail address")})
+            except ValidationError as e:
+                raise serializers.ValidationError({"address": _("Invalid e-mail address")}) from e
         return data
 
     class Meta:
@@ -261,8 +261,8 @@ class TelephoneContactSerializer(wb_serializers.ModelSerializer):
                     data["number"] = formatted_number
                 else:
                     raise serializers.ValidationError({"number": _("Invalid phone number format")})
-            except Exception:
-                raise serializers.ValidationError({"number": _("Invalid phone number format")})
+            except Exception as e:
+                raise serializers.ValidationError({"number": _("Invalid phone number format")}) from e
 
             if entry and formatting_successful:
                 telephone_contact = TelephoneContact.objects.filter(number=formatted_number, entry=entry)
@@ -310,7 +310,7 @@ class BankingContactSerializer(wb_serializers.ModelSerializer):
                 iban_formatted = iban.formatted
                 data["iban"] = iban_formatted
             except ValueError as e:
-                raise serializers.ValidationError({"iban": e})
+                raise serializers.ValidationError({"iban": e}) from e
 
             if entry and iban_formatted:
                 banking_contact = BankingContact.objects.filter(iban=iban_formatted, entry=entry)
@@ -325,7 +325,7 @@ class BankingContactSerializer(wb_serializers.ModelSerializer):
             try:
                 BIC(swift_bic_repr)
             except ValueError as e:
-                raise serializers.ValidationError({"swift_bic": e})
+                raise serializers.ValidationError({"swift_bic": e}) from e
         return data
 
     class Meta:
@@ -364,8 +364,8 @@ class SocialMediaContactSerializer(wb_serializers.ModelSerializer):
         url = data.get("url", self.instance.url if self.instance else "")
         try:
             URLValidator()(url)
-        except ValidationError:
-            raise serializers.ValidationError({"url": _("The URL you provided seems to be wrong.")})
+        except ValidationError as e:
+            raise serializers.ValidationError({"url": _("The URL you provided seems to be wrong.")}) from e
 
         if self.instance and (
             ((data_entry := data.get("entry")) != self.instance.entry)

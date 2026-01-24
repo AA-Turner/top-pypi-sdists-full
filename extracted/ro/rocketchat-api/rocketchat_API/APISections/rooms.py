@@ -1,24 +1,13 @@
 import mimetypes
 import os
 
-from rocketchat_API.APIExceptions.RocketExceptions import RocketMissingParamException
-from rocketchat_API.APISections.base import RocketChatBase
+from rocketchat_API.APIExceptions.RocketExceptions import (
+    RocketMissingParamException,
+)
+from rocketchat_API.APISections.base import RocketChatBase, paginated
 
 
 class RocketChatRooms(RocketChatBase):
-    def rooms_upload(self, rid, file, **kwargs):
-        """Post a message with attached file to a dedicated room."""
-        files = {
-            "file": (
-                os.path.basename(file),
-                open(file, "rb"),
-                mimetypes.guess_type(file)[0],
-            ),
-        }
-        return self.call_api_post(
-            "rooms.upload/" + rid, kwargs=kwargs, use_json=False, files=files
-        )
-
     def rooms_get(self, **kwargs):
         """Get all opened rooms for this user."""
         return self.call_api_get("rooms.get", kwargs=kwargs)
@@ -53,6 +42,7 @@ class RocketChatRooms(RocketChatBase):
             return self.call_api_get("rooms.info", roomName=room_name)
         raise RocketMissingParamException("room_id or roomName required")
 
+    @paginated("rooms")
     def rooms_admin_rooms(self, **kwargs):
         """Retrieves all rooms (requires the view-room-administration permission)."""
         return self.call_api_get("rooms.adminRooms", kwargs=kwargs)
@@ -70,3 +60,16 @@ class RocketChatRooms(RocketChatBase):
     def rooms_leave(self, room_id):
         """Causes the request sender to be removed from the room."""
         return self.call_api_post("rooms.leave", roomId=room_id)
+
+    def rooms_media(self, room_id, file, **kwargs):
+        """Upload media files to a room."""
+        files = {
+            "file": (
+                os.path.basename(file),
+                open(file, "rb"),
+                mimetypes.guess_type(file)[0],
+            ),
+        }
+        return self.call_api_post(
+            "rooms.media/" + room_id, kwargs=kwargs, use_json=False, files=files
+        )

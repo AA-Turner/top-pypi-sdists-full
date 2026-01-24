@@ -1,0 +1,11 @@
+name: regionmask-docs
+
+channels:
+  - conda-forge
+  - nodefaults
+
+dependencies:
+  - pip
+  - pip:
+    - -e ../..[docs]
+    - git+https://github.com/pydata/xarray/ # workaround until new xarray version is out

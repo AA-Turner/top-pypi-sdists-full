@@ -10,10 +10,12 @@ package_data = \
 {'': ['*']}
 
 install_requires = \
-['python-dateutil>=2.7.0', 'types-python-dateutil>=2.8.10']
+['python-dateutil>=2.7.0']
 
 extras_require = \
-{'doc': ['doc8',
+{":python_version<'3.9'": ['backports.zoneinfo==0.2.1'],
+ ":python_version>='3.9'": ['tzdata'],
+ 'doc': ['doc8',
          'sphinx>=7.0.0',
          'sphinx-autobuild',
          'sphinx-autodoc-typehints',
@@ -23,11 +25,11 @@ extras_require = \
           'pytest',
           'pytest-cov',
           'pytest-mock',
-          'pytz==2021.1',
+          'pytz==2025.2',
           'simplejson==3.*']}
 
 setup(name='arrow',
-      version='1.3.0',
+      version='1.4.0',
       description='Better dates & times for Python',
       author=None,
       author_email='Chris Smith <crsmithdev@gmail.com>',

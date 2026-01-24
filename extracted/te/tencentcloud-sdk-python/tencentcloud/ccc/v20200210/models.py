@@ -18,6 +18,57 @@ import warnings
 from tencentcloud.common.abstract_model import AbstractModel
 
 
+class AIAgentInfo(AbstractModel):
+    r"""智能体信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _AIAgentId: 智能体ID
+        :type AIAgentId: int
+        :param _AIAgentName: 智能体名称
+        :type AIAgentName: str
+        """
+        self._AIAgentId = None
+        self._AIAgentName = None
+
+    @property
+    def AIAgentId(self):
+        r"""智能体ID
+        :rtype: int
+        """
+        return self._AIAgentId
+
+    @AIAgentId.setter
+    def AIAgentId(self, AIAgentId):
+        self._AIAgentId = AIAgentId
+
+    @property
+    def AIAgentName(self):
+        r"""智能体名称
+        :rtype: str
+        """
+        return self._AIAgentName
+
+    @AIAgentName.setter
+    def AIAgentName(self, AIAgentName):
+        self._AIAgentName = AIAgentName
+
+
+    def _deserialize(self, params):
+        self._AIAgentId = params.get("AIAgentId")
+        self._AIAgentName = params.get("AIAgentName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class AIAnalysisResult(AbstractModel):
     r"""AI会话分析结果
 
@@ -1193,9 +1244,12 @@ class AutoCalloutTaskInfo(AbstractModel):
 2 已完成：任务中所有呼叫完成
 3结束中：任务到期，但仍有部分呼叫未结束
 4已结束：任务到期终止
+5已暂停：可恢复继续执行
         :type State: int
         :param _TaskId: 任务Id
         :type TaskId: int
+        :param _MaxRingTimeoutSecond: 最大振铃时长，达到时长阈值自动挂断。 仅自携号码支持当前参数
+        :type MaxRingTimeoutSecond: int
         """
         self._Name = None
         self._CalleeCount = None
@@ -1205,6 +1259,7 @@ class AutoCalloutTaskInfo(AbstractModel):
         self._IvrId = None
         self._State = None
         self._TaskId = None
+        self._MaxRingTimeoutSecond = None
 
     @property
     def Name(self):
@@ -1281,6 +1336,7 @@ class AutoCalloutTaskInfo(AbstractModel):
 2 已完成：任务中所有呼叫完成
 3结束中：任务到期，但仍有部分呼叫未结束
 4已结束：任务到期终止
+5已暂停：可恢复继续执行
         :rtype: int
         """
         return self._State
@@ -1300,6 +1356,17 @@ class AutoCalloutTaskInfo(AbstractModel):
     def TaskId(self, TaskId):
         self._TaskId = TaskId
 
+    @property
+    def MaxRingTimeoutSecond(self):
+        r"""最大振铃时长，达到时长阈值自动挂断。 仅自携号码支持当前参数
+        :rtype: int
+        """
+        return self._MaxRingTimeoutSecond
+
+    @MaxRingTimeoutSecond.setter
+    def MaxRingTimeoutSecond(self, MaxRingTimeoutSecond):
+        self._MaxRingTimeoutSecond = MaxRingTimeoutSecond
+
 
     def _deserialize(self, params):
         self._Name = params.get("Name")
@@ -1310,6 +1377,7 @@ class AutoCalloutTaskInfo(AbstractModel):
         self._IvrId = params.get("IvrId")
         self._State = params.get("State")
         self._TaskId = params.get("TaskId")
+        self._MaxRingTimeoutSecond = params.get("MaxRingTimeoutSecond")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1333,10 +1401,13 @@ class BindNumberCallInInterfaceRequest(AbstractModel):
         :type Number: str
         :param _CallInInterface: 待绑定的回调地址
         :type CallInInterface: :class:`tencentcloud.ccc.v20200210.models.Interface`
+        :param _NumberType: 绑定号码类型: inner: 内线号码 | number: 正常线路号码
+        :type NumberType: str
         """
         self._SdkAppId = None
         self._Number = None
         self._CallInInterface = None
+        self._NumberType = None
 
     @property
     def SdkAppId(self):
@@ -1371,6 +1442,17 @@ class BindNumberCallInInterfaceRequest(AbstractModel):
     def CallInInterface(self, CallInInterface):
         self._CallInInterface = CallInInterface
 
+    @property
+    def NumberType(self):
+        r"""绑定号码类型: inner: 内线号码 | number: 正常线路号码
+        :rtype: str
+        """
+        return self._NumberType
+
+    @NumberType.setter
+    def NumberType(self, NumberType):
+        self._NumberType = NumberType
+
 
     def _deserialize(self, params):
         self._SdkAppId = params.get("SdkAppId")
@@ -1378,6 +1460,7 @@ class BindNumberCallInInterfaceRequest(AbstractModel):
         if params.get("CallInInterface") is not None:
             self._CallInInterface = Interface()
             self._CallInInterface._deserialize(params.get("CallInInterface"))
+        self._NumberType = params.get("NumberType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1521,15 +1604,15 @@ class BindStaffSkillGroupListRequest(AbstractModel):
         :type SdkAppId: int
         :param _StaffEmail: 座席邮箱
         :type StaffEmail: str
-        :param _SkillGroupList: 绑定技能组列表
-        :type SkillGroupList: list of int
         :param _StaffSkillGroupList: 绑定技能组列表(必填)
         :type StaffSkillGroupList: list of StaffSkillGroupList
+        :param _SkillGroupList: 绑定技能组列表
+        :type SkillGroupList: list of int
         """
         self._SdkAppId = None
         self._StaffEmail = None
-        self._SkillGroupList = None
         self._StaffSkillGroupList = None
+        self._SkillGroupList = None
 
     @property
     def SdkAppId(self):
@@ -1554,6 +1637,17 @@ class BindStaffSkillGroupListRequest(AbstractModel):
         self._StaffEmail = StaffEmail
 
     @property
+    def StaffSkillGroupList(self):
+        r"""绑定技能组列表(必填)
+        :rtype: list of StaffSkillGroupList
+        """
+        return self._StaffSkillGroupList
+
+    @StaffSkillGroupList.setter
+    def StaffSkillGroupList(self, StaffSkillGroupList):
+        self._StaffSkillGroupList = StaffSkillGroupList
+
+    @property
     def SkillGroupList(self):
         warnings.warn("parameter `SkillGroupList` is deprecated", DeprecationWarning) 
 
@@ -1568,28 +1662,17 @@ class BindStaffSkillGroupListRequest(AbstractModel):
 
         self._SkillGroupList = SkillGroupList
 
-    @property
-    def StaffSkillGroupList(self):
-        r"""绑定技能组列表(必填)
-        :rtype: list of StaffSkillGroupList
-        """
-        return self._StaffSkillGroupList
-
-    @StaffSkillGroupList.setter
-    def StaffSkillGroupList(self, StaffSkillGroupList):
-        self._StaffSkillGroupList = StaffSkillGroupList
-
 
     def _deserialize(self, params):
         self._SdkAppId = params.get("SdkAppId")
         self._StaffEmail = params.get("StaffEmail")
-        self._SkillGroupList = params.get("SkillGroupList")
         if params.get("StaffSkillGroupList") is not None:
             self._StaffSkillGroupList = []
             for item in params.get("StaffSkillGroupList"):
                 obj = StaffSkillGroupList()
                 obj._deserialize(item)
                 self._StaffSkillGroupList.append(obj)
+        self._SkillGroupList = params.get("SkillGroupList")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -2897,6 +2980,8 @@ class CreateAIAgentCallRequest(AbstractModel):
 2.  dify-inputs-user 为dify的user值
 3.  dify-inputs-conversation_id 为dify的conversation_id值
         :type Variables: list of Variable
+        :param _MaxRingTimeoutSecond: 最大振铃时长，达到时长阈值自动挂断。 仅自携号码支持当前参数
+        :type MaxRingTimeoutSecond: int
         """
         self._SdkAppId = None
         self._AIAgentId = None
@@ -2904,6 +2989,7 @@ class CreateAIAgentCallRequest(AbstractModel):
         self._Callers = None
         self._PromptVariables = None
         self._Variables = None
+        self._MaxRingTimeoutSecond = None
 
     @property
     def SdkAppId(self):
@@ -2979,6 +3065,17 @@ class CreateAIAgentCallRequest(AbstractModel):
     def Variables(self, Variables):
         self._Variables = Variables
 
+    @property
+    def MaxRingTimeoutSecond(self):
+        r"""最大振铃时长，达到时长阈值自动挂断。 仅自携号码支持当前参数
+        :rtype: int
+        """
+        return self._MaxRingTimeoutSecond
+
+    @MaxRingTimeoutSecond.setter
+    def MaxRingTimeoutSecond(self, MaxRingTimeoutSecond):
+        self._MaxRingTimeoutSecond = MaxRingTimeoutSecond
+
 
     def _deserialize(self, params):
         self._SdkAppId = params.get("SdkAppId")
@@ -2997,6 +3094,7 @@ class CreateAIAgentCallRequest(AbstractModel):
                 obj = Variable()
                 obj._deserialize(item)
                 self._Variables.append(obj)
+        self._MaxRingTimeoutSecond = params.get("MaxRingTimeoutSecond")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -3197,7 +3295,7 @@ HoaiMy
 <li>Tencent TTS<br>
 配置请参考<a href="https://cloud.tencent.com/document/product/1073/92668#55924b56-1a73-4663-a7a1-a8dd82d6e823" target="_blank">腾讯云TTS文档链接</a></li>
 </ul>
-<div><div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{ 
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{ 
        &quot;TTSType&quot;: &quot;tencent&quot;, // String TTS类型, 目前支持&quot;tencent&quot; 和 “minixmax”， 其他的厂商支持中
        &quot;AppId&quot;: &quot;您的应用ID&quot;, // String 必填
        &quot;SecretId&quot;: &quot;您的密钥ID&quot;, // String 必填
@@ -3209,28 +3307,27 @@ HoaiMy
        &quot;FastVoiceType&quot;: &quot;xxxx&quot;   //  可选参数， 快速声音复刻的参数 
   }
 </code></pre>
-
-  </div></div><ul>
+ </div><ul>
 <li>Minimax TTS<br>
-配置请参考<a href="https://platform.minimaxi.com/document/T2A%20V2?key=66719005a427f0c8a5701643" target="_blank">Minimax TTS文档链接</a>。注意Minimax TTS存在频率限制，超频可能会导致回答卡顿，<a href="https://platform.minimaxi.com/document/Rate%20limits?key=66b19417290299a26b234572" target="_blank">Minimax TTS频率限制相关文档链接</a>。</li>
+配置请参考<a href="https://platform.minimaxi.com/document/T2A%20V2?key=66719005a427f0c8a5701643" target="_blank"> Minimax TTS 文档链接</a>。注意 Minimax TTS 存在频率限制，超频可能会导致回答卡顿，<a href="https://platform.minimaxi.com/document/Rate%20limits?key=66b19417290299a26b234572" target="_blank">Minimax TTS频率限制相关文档链接</a>。</li>
 </ul>
-<div><div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
         &quot;TTSType&quot;: &quot;minimax&quot;,  // String TTS类型, 
         &quot;Model&quot;: &quot;speech-01-turbo&quot;,
         &quot;APIUrl&quot;: &quot;https://api.minimax.chat/v1/t2a_v2&quot;,
         &quot;APIKey&quot;: &quot;eyxxxx&quot;,
         &quot;GroupId&quot;: &quot;181000000000000&quot;,
-        &quot;VoiceType&quot;:&quot;female-tianmei-jingpin&quot;,
+        &quot;VoiceType&quot;:&quot;female-tianmei&quot;,
         &quot;Speed&quot;: 1.2
 }
 </code></pre>
-</div></div><ul>
+</div><ul>
 <li>火山 TTS</li>
 </ul>
 <p>配置音色类型参考<a href="https://www.volcengine.com/docs/6561/162929" target="_blank">火山TTS文档链接</a><br>
 语音合成音色列表–语音技术-火山引擎<br>
 大模型语音合成音色列表–语音技术-火山引擎</p>
-<div><div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
     &quot;TTSType&quot;: &quot;volcengine&quot;,  // 必填：String TTS类型
     &quot;AppId&quot; : &quot;xxxxxxxx&quot;,   // 必填：String 火山引擎分配的Appid
     &quot;Token&quot; : &quot;TY9d4sQXHxxxxxxx&quot;, // 必填： String类型 火山引擎的访问token
@@ -3240,12 +3337,11 @@ HoaiMy
     &quot;VoiceType&quot; : &quot;zh_male_aojiaobazong_moon_bigtts&quot;   // 音色类型， 默认为大模型语音合成的音色。 如果使用普通语音合成，则需要填写对应的音色类型。 音色类型填写错误会导致没有声音。
 }
 </code></pre>
-
-</div></div><ul>
+</div><ul>
 <li>Azure TTS<br>
 配置请参考<a href="https://docs.azure.cn/zh-cn/ai-services/speech-service/speech-synthesis-markup-voice" target="_blank">AzureTTS文档链接</a></li>
 </ul>
-<div><div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
     &quot;TTSType&quot;: &quot;azure&quot;, // 必填：String TTS类型
     &quot;SubscriptionKey&quot;: &quot;xxxxxxxx&quot;, // 必填：String 订阅的Key
     &quot;Region&quot;: &quot;chinanorth3&quot;,  // 必填：String 订阅的地区
@@ -3254,13 +3350,11 @@ HoaiMy
     &quot;Rate&quot;: 1 // 选填：float 语速  0.5～2 默认为 1
 }
 </code></pre>
-
-</div></div><ul>
-<li>自定义</li>
+</div><ul>
+<li>自定义TTS</li>
 </ul>
-<p>TTS<br>
-具体协议规范请参考<a href="https://doc.weixin.qq.com/doc/w3_ANQAiAbdAFwHILbJBmtSqSbV1WZ3L?scode=AJEAIQdfAAo5a1xajYANQAiAbdAFw" target="_blank">腾讯文档</a></p>
-<div><div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
+<p>具体协议规范请参考<a href="https://doc.weixin.qq.com/doc/w3_ANQAiAbdAFwHILbJBmtSqSbV1WZ3L?scode=AJEAIQdfAAo5a1xajYANQAiAbdAFw" target="_blank">腾讯文档</a></p>
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
   &quot;TTSType&quot;: &quot;custom&quot;, // String 必填
   &quot;APIKey&quot;: &quot;ApiKey&quot;, // String 必填 用来鉴权
   &quot;APIUrl&quot;: &quot;http://0.0.0.0:8080/stream-audio&quot; // String，必填，TTS API URL
@@ -3269,8 +3363,7 @@ HoaiMy
   &quot;AudioChannel&quot;: 1,    // Integer，非必填，音频通道数，取值：1 或 2  默认为1  
 }
 </code></pre>
-
-</div></div>
+</div>
         :type CustomTTSConfig: str
         :param _PromptVariables: 提示词变量
         :type PromptVariables: list of Variable
@@ -3295,8 +3388,19 @@ HoaiMy
         :param _EnableComplianceAudio: 合规提示音， 
 该参数传true（默认）表示通话开始播放摩斯码，提示对话内容为 AI 生成。
 该参数传false表示关闭合规提示音。该参数传false则代表您知晓并同意以下协议：
-我方充分知悉和理解，根据[《网络安全法》](https://www.gov.cn/xinwen/2016-11/07/content_5129723.htm)[《互联网信息服务深度合成管理规定》](https://www.gov.cn/zhengce/zhengceku/2022-12/12/content_5731431.htm)[《生成式人工智能服务管理暂行办法》](https://www.gov.cn/zhengce/zhengceku/202307/content_6891752.htm)[《人工智能生成合成内容标识办法》](https://www.gov.cn/zhengce/zhengceku/202503/content_7014286.htm)的法律法规的规定，对人工智能生成合成内容应当添加显式标识和隐式标识。我方基于业务需求，请腾讯云对生成合成内容不添加显式标识，我方承诺合法合规使用生成合成内容，避免造成混淆、误认；如果使用生成合成内容对公众提供服务的，或通过网络传播的，我方将自觉主动添加符合法律规定和国家标准要求的显式标识，承担人工智能生成合成内容标识的法律义务。我方未能恰当、合理地履行人工智能内容标识义务造成不良后果的，或遭受主管部门责罚的，相关责任由我方完全承担。
+我方充分知悉和理解，根据[《网络安全法》](https://www.cac.gov.cn/2016-11/07/c_1119867116.htm)[《互联网信息服务深度合成管理规定》](https://www.gov.cn/zhengce/zhengceku/2022-12/12/content_5731431.htm)[《生成式人工智能服务管理暂行办法》](https://www.gov.cn/zhengce/zhengceku/202307/content_6891752.htm)[《人工智能生成合成内容标识办法》](https://www.gov.cn/zhengce/zhengceku/202503/content_7014286.htm)的法律法规的规定，对人工智能生成合成内容应当添加显式标识和隐式标识。我方基于业务需求，请腾讯云对生成合成内容不添加显式标识，我方承诺合法合规使用生成合成内容，避免造成混淆、误认；如果使用生成合成内容对公众提供服务的，或通过网络传播的，我方将自觉主动添加符合法律规定和国家标准要求的显式标识，承担人工智能生成合成内容标识的法律义务。我方未能恰当、合理地履行人工智能内容标识义务造成不良后果的，或遭受主管部门责罚的，相关责任由我方完全承担。
         :type EnableComplianceAudio: bool
+        :param _EnableVoicemailDetection: 是否开启语音信箱识别
+        :type EnableVoicemailDetection: bool
+        :param _VoicemailAction: 识别到对端为语音信箱时的行为，当EnableVoicemailDetection为True时生效
+0: 挂断电话（默认）
+        :type VoicemailAction: int
+        :param _LLMExtraBody: 大模型拓展参数， 格式为json字符串
+        :type LLMExtraBody: str
+        :param _MaxCallDurationMs: 最大通话时长， 默认不限制。单位毫秒(ms)
+        :type MaxCallDurationMs: int
+        :param _MaxRingTimeoutSecond: 最大振铃时长，达到时长阈值自动挂断。 **仅自携号码支持当前参数**
+        :type MaxRingTimeoutSecond: int
         """
         self._SdkAppId = None
         self._Callee = None
@@ -3331,6 +3435,11 @@ HoaiMy
         self._VadLevel = None
         self._ToneWord = None
         self._EnableComplianceAudio = None
+        self._EnableVoicemailDetection = None
+        self._VoicemailAction = None
+        self._LLMExtraBody = None
+        self._MaxCallDurationMs = None
+        self._MaxRingTimeoutSecond = None
 
     @property
     def SdkAppId(self):
@@ -3681,7 +3790,7 @@ HoaiMy
 <li>Tencent TTS<br>
 配置请参考<a href="https://cloud.tencent.com/document/product/1073/92668#55924b56-1a73-4663-a7a1-a8dd82d6e823" target="_blank">腾讯云TTS文档链接</a></li>
 </ul>
-<div><div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{ 
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{ 
        &quot;TTSType&quot;: &quot;tencent&quot;, // String TTS类型, 目前支持&quot;tencent&quot; 和 “minixmax”， 其他的厂商支持中
        &quot;AppId&quot;: &quot;您的应用ID&quot;, // String 必填
        &quot;SecretId&quot;: &quot;您的密钥ID&quot;, // String 必填
@@ -3693,28 +3802,27 @@ HoaiMy
        &quot;FastVoiceType&quot;: &quot;xxxx&quot;   //  可选参数， 快速声音复刻的参数 
   }
 </code></pre>
-
-  </div></div><ul>
+ </div><ul>
 <li>Minimax TTS<br>
-配置请参考<a href="https://platform.minimaxi.com/document/T2A%20V2?key=66719005a427f0c8a5701643" target="_blank">Minimax TTS文档链接</a>。注意Minimax TTS存在频率限制，超频可能会导致回答卡顿，<a href="https://platform.minimaxi.com/document/Rate%20limits?key=66b19417290299a26b234572" target="_blank">Minimax TTS频率限制相关文档链接</a>。</li>
+配置请参考<a href="https://platform.minimaxi.com/document/T2A%20V2?key=66719005a427f0c8a5701643" target="_blank"> Minimax TTS 文档链接</a>。注意 Minimax TTS 存在频率限制，超频可能会导致回答卡顿，<a href="https://platform.minimaxi.com/document/Rate%20limits?key=66b19417290299a26b234572" target="_blank">Minimax TTS频率限制相关文档链接</a>。</li>
 </ul>
-<div><div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
         &quot;TTSType&quot;: &quot;minimax&quot;,  // String TTS类型, 
         &quot;Model&quot;: &quot;speech-01-turbo&quot;,
         &quot;APIUrl&quot;: &quot;https://api.minimax.chat/v1/t2a_v2&quot;,
         &quot;APIKey&quot;: &quot;eyxxxx&quot;,
         &quot;GroupId&quot;: &quot;181000000000000&quot;,
-        &quot;VoiceType&quot;:&quot;female-tianmei-jingpin&quot;,
+        &quot;VoiceType&quot;:&quot;female-tianmei&quot;,
         &quot;Speed&quot;: 1.2
 }
 </code></pre>
-</div></div><ul>
+</div><ul>
 <li>火山 TTS</li>
 </ul>
 <p>配置音色类型参考<a href="https://www.volcengine.com/docs/6561/162929" target="_blank">火山TTS文档链接</a><br>
 语音合成音色列表–语音技术-火山引擎<br>
 大模型语音合成音色列表–语音技术-火山引擎</p>
-<div><div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
     &quot;TTSType&quot;: &quot;volcengine&quot;,  // 必填：String TTS类型
     &quot;AppId&quot; : &quot;xxxxxxxx&quot;,   // 必填：String 火山引擎分配的Appid
     &quot;Token&quot; : &quot;TY9d4sQXHxxxxxxx&quot;, // 必填： String类型 火山引擎的访问token
@@ -3724,12 +3832,11 @@ HoaiMy
     &quot;VoiceType&quot; : &quot;zh_male_aojiaobazong_moon_bigtts&quot;   // 音色类型， 默认为大模型语音合成的音色。 如果使用普通语音合成，则需要填写对应的音色类型。 音色类型填写错误会导致没有声音。
 }
 </code></pre>
-
-</div></div><ul>
+</div><ul>
 <li>Azure TTS<br>
 配置请参考<a href="https://docs.azure.cn/zh-cn/ai-services/speech-service/speech-synthesis-markup-voice" target="_blank">AzureTTS文档链接</a></li>
 </ul>
-<div><div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
     &quot;TTSType&quot;: &quot;azure&quot;, // 必填：String TTS类型
     &quot;SubscriptionKey&quot;: &quot;xxxxxxxx&quot;, // 必填：String 订阅的Key
     &quot;Region&quot;: &quot;chinanorth3&quot;,  // 必填：String 订阅的地区
@@ -3738,13 +3845,11 @@ HoaiMy
     &quot;Rate&quot;: 1 // 选填：float 语速  0.5～2 默认为 1
 }
 </code></pre>
-
-</div></div><ul>
-<li>自定义</li>
+</div><ul>
+<li>自定义TTS</li>
 </ul>
-<p>TTS<br>
-具体协议规范请参考<a href="https://doc.weixin.qq.com/doc/w3_ANQAiAbdAFwHILbJBmtSqSbV1WZ3L?scode=AJEAIQdfAAo5a1xajYANQAiAbdAFw" target="_blank">腾讯文档</a></p>
-<div><div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
+<p>具体协议规范请参考<a href="https://doc.weixin.qq.com/doc/w3_ANQAiAbdAFwHILbJBmtSqSbV1WZ3L?scode=AJEAIQdfAAo5a1xajYANQAiAbdAFw" target="_blank">腾讯文档</a></p>
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
   &quot;TTSType&quot;: &quot;custom&quot;, // String 必填
   &quot;APIKey&quot;: &quot;ApiKey&quot;, // String 必填 用来鉴权
   &quot;APIUrl&quot;: &quot;http://0.0.0.0:8080/stream-audio&quot; // String，必填，TTS API URL
@@ -3753,8 +3858,7 @@ HoaiMy
   &quot;AudioChannel&quot;: 1,    // Integer，非必填，音频通道数，取值：1 或 2  默认为1  
 }
 </code></pre>
-
-</div></div>
+</div>
         :rtype: str
         """
         return self._CustomTTSConfig
@@ -3864,7 +3968,7 @@ HoaiMy
         r"""合规提示音， 
 该参数传true（默认）表示通话开始播放摩斯码，提示对话内容为 AI 生成。
 该参数传false表示关闭合规提示音。该参数传false则代表您知晓并同意以下协议：
-我方充分知悉和理解，根据[《网络安全法》](https://www.gov.cn/xinwen/2016-11/07/content_5129723.htm)[《互联网信息服务深度合成管理规定》](https://www.gov.cn/zhengce/zhengceku/2022-12/12/content_5731431.htm)[《生成式人工智能服务管理暂行办法》](https://www.gov.cn/zhengce/zhengceku/202307/content_6891752.htm)[《人工智能生成合成内容标识办法》](https://www.gov.cn/zhengce/zhengceku/202503/content_7014286.htm)的法律法规的规定，对人工智能生成合成内容应当添加显式标识和隐式标识。我方基于业务需求，请腾讯云对生成合成内容不添加显式标识，我方承诺合法合规使用生成合成内容，避免造成混淆、误认；如果使用生成合成内容对公众提供服务的，或通过网络传播的，我方将自觉主动添加符合法律规定和国家标准要求的显式标识，承担人工智能生成合成内容标识的法律义务。我方未能恰当、合理地履行人工智能内容标识义务造成不良后果的，或遭受主管部门责罚的，相关责任由我方完全承担。
+我方充分知悉和理解，根据[《网络安全法》](https://www.cac.gov.cn/2016-11/07/c_1119867116.htm)[《互联网信息服务深度合成管理规定》](https://www.gov.cn/zhengce/zhengceku/2022-12/12/content_5731431.htm)[《生成式人工智能服务管理暂行办法》](https://www.gov.cn/zhengce/zhengceku/202307/content_6891752.htm)[《人工智能生成合成内容标识办法》](https://www.gov.cn/zhengce/zhengceku/202503/content_7014286.htm)的法律法规的规定，对人工智能生成合成内容应当添加显式标识和隐式标识。我方基于业务需求，请腾讯云对生成合成内容不添加显式标识，我方承诺合法合规使用生成合成内容，避免造成混淆、误认；如果使用生成合成内容对公众提供服务的，或通过网络传播的，我方将自觉主动添加符合法律规定和国家标准要求的显式标识，承担人工智能生成合成内容标识的法律义务。我方未能恰当、合理地履行人工智能内容标识义务造成不良后果的，或遭受主管部门责罚的，相关责任由我方完全承担。
         :rtype: bool
         """
         return self._EnableComplianceAudio
@@ -3872,6 +3976,62 @@ HoaiMy
     @EnableComplianceAudio.setter
     def EnableComplianceAudio(self, EnableComplianceAudio):
         self._EnableComplianceAudio = EnableComplianceAudio
+
+    @property
+    def EnableVoicemailDetection(self):
+        r"""是否开启语音信箱识别
+        :rtype: bool
+        """
+        return self._EnableVoicemailDetection
+
+    @EnableVoicemailDetection.setter
+    def EnableVoicemailDetection(self, EnableVoicemailDetection):
+        self._EnableVoicemailDetection = EnableVoicemailDetection
+
+    @property
+    def VoicemailAction(self):
+        r"""识别到对端为语音信箱时的行为，当EnableVoicemailDetection为True时生效
+0: 挂断电话（默认）
+        :rtype: int
+        """
+        return self._VoicemailAction
+
+    @VoicemailAction.setter
+    def VoicemailAction(self, VoicemailAction):
+        self._VoicemailAction = VoicemailAction
+
+    @property
+    def LLMExtraBody(self):
+        r"""大模型拓展参数， 格式为json字符串
+        :rtype: str
+        """
+        return self._LLMExtraBody
+
+    @LLMExtraBody.setter
+    def LLMExtraBody(self, LLMExtraBody):
+        self._LLMExtraBody = LLMExtraBody
+
+    @property
+    def MaxCallDurationMs(self):
+        r"""最大通话时长， 默认不限制。单位毫秒(ms)
+        :rtype: int
+        """
+        return self._MaxCallDurationMs
+
+    @MaxCallDurationMs.setter
+    def MaxCallDurationMs(self, MaxCallDurationMs):
+        self._MaxCallDurationMs = MaxCallDurationMs
+
+    @property
+    def MaxRingTimeoutSecond(self):
+        r"""最大振铃时长，达到时长阈值自动挂断。 **仅自携号码支持当前参数**
+        :rtype: int
+        """
+        return self._MaxRingTimeoutSecond
+
+    @MaxRingTimeoutSecond.setter
+    def MaxRingTimeoutSecond(self, MaxRingTimeoutSecond):
+        self._MaxRingTimeoutSecond = MaxRingTimeoutSecond
 
 
     def _deserialize(self, params):
@@ -3930,6 +4090,11 @@ HoaiMy
             self._ToneWord = ToneWordInfo()
             self._ToneWord._deserialize(params.get("ToneWord"))
         self._EnableComplianceAudio = params.get("EnableComplianceAudio")
+        self._EnableVoicemailDetection = params.get("EnableVoicemailDetection")
+        self._VoicemailAction = params.get("VoicemailAction")
+        self._LLMExtraBody = params.get("LLMExtraBody")
+        self._MaxCallDurationMs = params.get("MaxCallDurationMs")
+        self._MaxRingTimeoutSecond = params.get("MaxRingTimeoutSecond")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -4328,6 +4493,10 @@ class CreateAutoCalloutTaskRequest(AbstractModel):
         :type AvailableTime: list of TimeRange
         :param _AIAgentId: 智能体 ID，不填写时需要填写 IvrId
         :type AIAgentId: int
+        :param _RetryInterval: 任务失败重试时间间隔，重试间隔 600秒～86400 秒
+        :type RetryInterval: int
+        :param _MaxRingTimeoutSecond: 最大振铃时长，达到时长阈值自动挂断。 仅自携号码支持当前参数
+        :type MaxRingTimeoutSecond: int
         """
         self._SdkAppId = None
         self._NotBefore = None
@@ -4344,6 +4513,8 @@ class CreateAutoCalloutTaskRequest(AbstractModel):
         self._TimeZone = None
         self._AvailableTime = None
         self._AIAgentId = None
+        self._RetryInterval = None
+        self._MaxRingTimeoutSecond = None
 
     @property
     def SdkAppId(self):
@@ -4510,6 +4681,28 @@ class CreateAutoCalloutTaskRequest(AbstractModel):
     def AIAgentId(self, AIAgentId):
         self._AIAgentId = AIAgentId
 
+    @property
+    def RetryInterval(self):
+        r"""任务失败重试时间间隔，重试间隔 600秒～86400 秒
+        :rtype: int
+        """
+        return self._RetryInterval
+
+    @RetryInterval.setter
+    def RetryInterval(self, RetryInterval):
+        self._RetryInterval = RetryInterval
+
+    @property
+    def MaxRingTimeoutSecond(self):
+        r"""最大振铃时长，达到时长阈值自动挂断。 仅自携号码支持当前参数
+        :rtype: int
+        """
+        return self._MaxRingTimeoutSecond
+
+    @MaxRingTimeoutSecond.setter
+    def MaxRingTimeoutSecond(self, MaxRingTimeoutSecond):
+        self._MaxRingTimeoutSecond = MaxRingTimeoutSecond
+
 
     def _deserialize(self, params):
         self._SdkAppId = params.get("SdkAppId")
@@ -4542,6 +4735,8 @@ class CreateAutoCalloutTaskRequest(AbstractModel):
                 obj._deserialize(item)
                 self._AvailableTime.append(obj)
         self._AIAgentId = params.get("AIAgentId")
+        self._RetryInterval = params.get("RetryInterval")
+        self._MaxRingTimeoutSecond = params.get("MaxRingTimeoutSecond")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -4730,7 +4925,7 @@ class CreateCallOutSessionRequest(AbstractModel):
         r"""
         :param _SdkAppId: 应用 ID
         :type SdkAppId: int
-        :param _UserId: 客服用户 ID，一般为客服邮箱，确保已经绑定了手机号 https://cloud.tencent.com/document/product/679/76067#.E6.AD.A5.E9.AA.A42.EF.BC.9A.E5.AE.8C.E5.96.84.E8.B4.A6.E5.8F.B7.E4.BF.A1.E6.81.AF
+        :param _UserId: 座席邮箱，确保已经绑定了手机号 https://cloud.tencent.com/document/product/679/76067#.E6.AD.A5.E9.AA.A42.EF.BC.9A.E5.AE.8C.E5.96.84.E8.B4.A6.E5.8F.B7.E4.BF.A1.E6.81.AF
         :type UserId: str
         :param _Callee: 被叫号码，须带 0086 前缀
         :type Callee: str
@@ -4767,7 +4962,7 @@ class CreateCallOutSessionRequest(AbstractModel):
 
     @property
     def UserId(self):
-        r"""客服用户 ID，一般为客服邮箱，确保已经绑定了手机号 https://cloud.tencent.com/document/product/679/76067#.E6.AD.A5.E9.AA.A42.EF.BC.9A.E5.AE.8C.E5.96.84.E8.B4.A6.E5.8F.B7.E4.BF.A1.E6.81.AF
+        r"""座席邮箱，确保已经绑定了手机号 https://cloud.tencent.com/document/product/679/76067#.E6.AD.A5.E9.AA.A42.EF.BC.9A.E5.AE.8C.E5.96.84.E8.B4.A6.E5.8F.B7.E4.BF.A1.E6.81.AF
         :rtype: str
         """
         return self._UserId
@@ -5257,6 +5452,8 @@ class CreateIVRSessionRequest(AbstractModel):
         :type Variables: list of Variable
         :param _UUI: 用户数据
         :type UUI: str
+        :param _MaxRingTimeoutSecond: 最大振铃时长，达到时长阈值自动挂断。 仅自携号码支持当前参数
+        :type MaxRingTimeoutSecond: int
         """
         self._SdkAppId = None
         self._Callee = None
@@ -5264,6 +5461,7 @@ class CreateIVRSessionRequest(AbstractModel):
         self._Callers = None
         self._Variables = None
         self._UUI = None
+        self._MaxRingTimeoutSecond = None
 
     @property
     def SdkAppId(self):
@@ -5331,6 +5529,17 @@ class CreateIVRSessionRequest(AbstractModel):
     def UUI(self, UUI):
         self._UUI = UUI
 
+    @property
+    def MaxRingTimeoutSecond(self):
+        r"""最大振铃时长，达到时长阈值自动挂断。 仅自携号码支持当前参数
+        :rtype: int
+        """
+        return self._MaxRingTimeoutSecond
+
+    @MaxRingTimeoutSecond.setter
+    def MaxRingTimeoutSecond(self, MaxRingTimeoutSecond):
+        self._MaxRingTimeoutSecond = MaxRingTimeoutSecond
+
 
     def _deserialize(self, params):
         self._SdkAppId = params.get("SdkAppId")
@@ -5344,6 +5553,7 @@ class CreateIVRSessionRequest(AbstractModel):
                 obj._deserialize(item)
                 self._Variables.append(obj)
         self._UUI = params.get("UUI")
+        self._MaxRingTimeoutSecond = params.get("MaxRingTimeoutSecond")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -5577,7 +5787,7 @@ class CreatePredictiveDialingCampaignRequest(AbstractModel):
         :type SkillGroupId: int
         :param _Priority: 相同应用内多个任务运行优先级，从高到底 1 - 5
         :type Priority: int
-        :param _ExpectedAbandonRate: 预期呼损率，百分比，5 - 50
+        :param _ExpectedAbandonRate: 预期呼损率，百分比，0 - 50
         :type ExpectedAbandonRate: int
         :param _RetryInterval: 呼叫重试间隔时间，单位秒，60 - 86400
         :type RetryInterval: int
@@ -5698,7 +5908,7 @@ class CreatePredictiveDialingCampaignRequest(AbstractModel):
 
     @property
     def ExpectedAbandonRate(self):
-        r"""预期呼损率，百分比，5 - 50
+        r"""预期呼损率，百分比，0 - 50
         :rtype: int
         """
         return self._ExpectedAbandonRate
@@ -6174,15 +6384,15 @@ class CreateUserSigRequest(AbstractModel):
         :type SdkAppId: int
         :param _Uid: 用户 ID，该值必须与 ClientData 字段中 Uid 的值一致
         :type Uid: str
-        :param _ExpiredTime: 有效期，单位秒，不超过 1 小时
-        :type ExpiredTime: int
         :param _ClientData: 用户签名数据，必填字段，为标准 JSON 格式
         :type ClientData: str
+        :param _ExpiredTime: 有效期，单位秒，不超过 1 小时
+        :type ExpiredTime: int
         """
         self._SdkAppId = None
         self._Uid = None
-        self._ExpiredTime = None
         self._ClientData = None
+        self._ExpiredTime = None
 
     @property
     def SdkAppId(self):
@@ -6207,17 +6417,6 @@ class CreateUserSigRequest(AbstractModel):
         self._Uid = Uid
 
     @property
-    def ExpiredTime(self):
-        r"""有效期，单位秒，不超过 1 小时
-        :rtype: int
-        """
-        return self._ExpiredTime
-
-    @ExpiredTime.setter
-    def ExpiredTime(self, ExpiredTime):
-        self._ExpiredTime = ExpiredTime
-
-    @property
     def ClientData(self):
         r"""用户签名数据，必填字段，为标准 JSON 格式
         :rtype: str
@@ -6228,12 +6427,23 @@ class CreateUserSigRequest(AbstractModel):
     def ClientData(self, ClientData):
         self._ClientData = ClientData
 
+    @property
+    def ExpiredTime(self):
+        r"""有效期，单位秒，不超过 1 小时
+        :rtype: int
+        """
+        return self._ExpiredTime
+
+    @ExpiredTime.setter
+    def ExpiredTime(self, ExpiredTime):
+        self._ExpiredTime = ExpiredTime
+
 
     def _deserialize(self, params):
         self._SdkAppId = params.get("SdkAppId")
         self._Uid = params.get("Uid")
-        self._ExpiredTime = params.get("ExpiredTime")
         self._ClientData = params.get("ClientData")
+        self._ExpiredTime = params.get("ExpiredTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -6615,6 +6825,135 @@ class DeleteStaffResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._OnlineStaffList = params.get("OnlineStaffList")
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeAIAgentInfoListRequest(AbstractModel):
+    r"""DescribeAIAgentInfoList请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SdkAppId: 应用 ID（必填），可以查看 https://console.cloud.tencent.com/ccc
+        :type SdkAppId: int
+        :param _PageSize: 分页尺寸，上限 100
+        :type PageSize: int
+        :param _PageNumber: 分页页码，从 0 开始
+        :type PageNumber: int
+        """
+        self._SdkAppId = None
+        self._PageSize = None
+        self._PageNumber = None
+
+    @property
+    def SdkAppId(self):
+        r"""应用 ID（必填），可以查看 https://console.cloud.tencent.com/ccc
+        :rtype: int
+        """
+        return self._SdkAppId
+
+    @SdkAppId.setter
+    def SdkAppId(self, SdkAppId):
+        self._SdkAppId = SdkAppId
+
+    @property
+    def PageSize(self):
+        r"""分页尺寸，上限 100
+        :rtype: int
+        """
+        return self._PageSize
+
+    @PageSize.setter
+    def PageSize(self, PageSize):
+        self._PageSize = PageSize
+
+    @property
+    def PageNumber(self):
+        r"""分页页码，从 0 开始
+        :rtype: int
+        """
+        return self._PageNumber
+
+    @PageNumber.setter
+    def PageNumber(self, PageNumber):
+        self._PageNumber = PageNumber
+
+
+    def _deserialize(self, params):
+        self._SdkAppId = params.get("SdkAppId")
+        self._PageSize = params.get("PageSize")
+        self._PageNumber = params.get("PageNumber")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeAIAgentInfoListResponse(AbstractModel):
+    r"""DescribeAIAgentInfoList返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _AIAgentInfoList: 智能体信息列表
+        :type AIAgentInfoList: list of AIAgentInfo
+        :param _TotalCount: 智能体总数量
+        :type TotalCount: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._AIAgentInfoList = None
+        self._TotalCount = None
+        self._RequestId = None
+
+    @property
+    def AIAgentInfoList(self):
+        r"""智能体信息列表
+        :rtype: list of AIAgentInfo
+        """
+        return self._AIAgentInfoList
+
+    @AIAgentInfoList.setter
+    def AIAgentInfoList(self, AIAgentInfoList):
+        self._AIAgentInfoList = AIAgentInfoList
+
+    @property
+    def TotalCount(self):
+        r"""智能体总数量
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("AIAgentInfoList") is not None:
+            self._AIAgentInfoList = []
+            for item in params.get("AIAgentInfoList"):
+                obj = AIAgentInfo()
+                obj._deserialize(item)
+                self._AIAgentInfoList.append(obj)
+        self._TotalCount = params.get("TotalCount")
         self._RequestId = params.get("RequestId")
 
 
@@ -7492,8 +7831,10 @@ class DescribeAutoCalloutTaskResponse(AbstractModel):
         :type Callees: list of AutoCalloutTaskCalleeInfo
         :param _IvrId: 任务使用的IvrId
         :type IvrId: int
-        :param _State: 任务状态 0初始 1运行中 2已完成 3结束中 4已终止
+        :param _State: 任务状态 0初始 1运行中 2已完成 3结束中 4已终止 5已暂停
         :type State: int
+        :param _MaxRingTimeoutSecond: 最大振铃时长，达到时长阈值自动挂断。 仅自携号码支持当前参数
+        :type MaxRingTimeoutSecond: int
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
@@ -7505,6 +7846,7 @@ class DescribeAutoCalloutTaskResponse(AbstractModel):
         self._Callees = None
         self._IvrId = None
         self._State = None
+        self._MaxRingTimeoutSecond = None
         self._RequestId = None
 
     @property
@@ -7587,7 +7929,7 @@ class DescribeAutoCalloutTaskResponse(AbstractModel):
 
     @property
     def State(self):
-        r"""任务状态 0初始 1运行中 2已完成 3结束中 4已终止
+        r"""任务状态 0初始 1运行中 2已完成 3结束中 4已终止 5已暂停
         :rtype: int
         """
         return self._State
@@ -7595,6 +7937,17 @@ class DescribeAutoCalloutTaskResponse(AbstractModel):
     @State.setter
     def State(self, State):
         self._State = State
+
+    @property
+    def MaxRingTimeoutSecond(self):
+        r"""最大振铃时长，达到时长阈值自动挂断。 仅自携号码支持当前参数
+        :rtype: int
+        """
+        return self._MaxRingTimeoutSecond
+
+    @MaxRingTimeoutSecond.setter
+    def MaxRingTimeoutSecond(self, MaxRingTimeoutSecond):
+        self._MaxRingTimeoutSecond = MaxRingTimeoutSecond
 
     @property
     def RequestId(self):
@@ -7622,6 +7975,7 @@ class DescribeAutoCalloutTaskResponse(AbstractModel):
                 self._Callees.append(obj)
         self._IvrId = params.get("IvrId")
         self._State = params.get("State")
+        self._MaxRingTimeoutSecond = params.get("MaxRingTimeoutSecond")
         self._RequestId = params.get("RequestId")
 
 
@@ -11902,18 +12256,18 @@ class DescribeTelCdrRequest(AbstractModel):
         :type StartTimeStamp: int
         :param _EndTimeStamp: 结束时间戳，Unix 秒级时间戳，结束时间与开始时间的区间范围小于90天。
         :type EndTimeStamp: int
-        :param _InstanceId: 实例 ID（废弃）
-        :type InstanceId: int
-        :param _Limit: 返回数据条数，上限（废弃）
-        :type Limit: int
-        :param _Offset: 偏移（废弃）
-        :type Offset: int
         :param _SdkAppId: 应用 ID（必填），可以查看 https://console.cloud.tencent.com/ccc
         :type SdkAppId: int
         :param _PageSize: 分页尺寸（必填），上限 100
         :type PageSize: int
         :param _PageNumber: 分页页码（必填），从 0 开始
         :type PageNumber: int
+        :param _InstanceId: 实例 ID（废弃）
+        :type InstanceId: int
+        :param _Limit: 返回数据条数，上限（废弃）
+        :type Limit: int
+        :param _Offset: 偏移（废弃）
+        :type Offset: int
         :param _Phones: 按手机号筛选
         :type Phones: list of str
         :param _SessionIds: 按SessionId筛选
@@ -11921,12 +12275,12 @@ class DescribeTelCdrRequest(AbstractModel):
         """
         self._StartTimeStamp = None
         self._EndTimeStamp = None
-        self._InstanceId = None
-        self._Limit = None
-        self._Offset = None
         self._SdkAppId = None
         self._PageSize = None
         self._PageNumber = None
+        self._InstanceId = None
+        self._Limit = None
+        self._Offset = None
         self._Phones = None
         self._SessionIds = None
 
@@ -11951,6 +12305,39 @@ class DescribeTelCdrRequest(AbstractModel):
     @EndTimeStamp.setter
     def EndTimeStamp(self, EndTimeStamp):
         self._EndTimeStamp = EndTimeStamp
+
+    @property
+    def SdkAppId(self):
+        r"""应用 ID（必填），可以查看 https://console.cloud.tencent.com/ccc
+        :rtype: int
+        """
+        return self._SdkAppId
+
+    @SdkAppId.setter
+    def SdkAppId(self, SdkAppId):
+        self._SdkAppId = SdkAppId
+
+    @property
+    def PageSize(self):
+        r"""分页尺寸（必填），上限 100
+        :rtype: int
+        """
+        return self._PageSize
+
+    @PageSize.setter
+    def PageSize(self, PageSize):
+        self._PageSize = PageSize
+
+    @property
+    def PageNumber(self):
+        r"""分页页码（必填），从 0 开始
+        :rtype: int
+        """
+        return self._PageNumber
+
+    @PageNumber.setter
+    def PageNumber(self, PageNumber):
+        self._PageNumber = PageNumber
 
     @property
     def InstanceId(self):
@@ -11990,39 +12377,6 @@ class DescribeTelCdrRequest(AbstractModel):
         self._Offset = Offset
 
     @property
-    def SdkAppId(self):
-        r"""应用 ID（必填），可以查看 https://console.cloud.tencent.com/ccc
-        :rtype: int
-        """
-        return self._SdkAppId
-
-    @SdkAppId.setter
-    def SdkAppId(self, SdkAppId):
-        self._SdkAppId = SdkAppId
-
-    @property
-    def PageSize(self):
-        r"""分页尺寸（必填），上限 100
-        :rtype: int
-        """
-        return self._PageSize
-
-    @PageSize.setter
-    def PageSize(self, PageSize):
-        self._PageSize = PageSize
-
-    @property
-    def PageNumber(self):
-        r"""分页页码（必填），从 0 开始
-        :rtype: int
-        """
-        return self._PageNumber
-
-    @PageNumber.setter
-    def PageNumber(self, PageNumber):
-        self._PageNumber = PageNumber
-
-    @property
     def Phones(self):
         r"""按手机号筛选
         :rtype: list of str
@@ -12048,12 +12402,12 @@ class DescribeTelCdrRequest(AbstractModel):
     def _deserialize(self, params):
         self._StartTimeStamp = params.get("StartTimeStamp")
         self._EndTimeStamp = params.get("EndTimeStamp")
-        self._InstanceId = params.get("InstanceId")
-        self._Limit = params.get("Limit")
-        self._Offset = params.get("Offset")
         self._SdkAppId = params.get("SdkAppId")
         self._PageSize = params.get("PageSize")
         self._PageNumber = params.get("PageNumber")
+        self._InstanceId = params.get("InstanceId")
+        self._Limit = params.get("Limit")
+        self._Offset = params.get("Offset")
         self._Phones = params.get("Phones")
         self._SessionIds = params.get("SessionIds")
         memeber_set = set(params.keys())
@@ -15155,6 +15509,87 @@ class PackageBuyInfo(AbstractModel):
         
 
 
+class PauseAutoCalloutTaskRequest(AbstractModel):
+    r"""PauseAutoCalloutTask请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: 任务Id
+        :type TaskId: int
+        :param _SdkAppId: 应用 ID（必填），可以查看 https://console.cloud.tencent.com/ccc
+
+        :type SdkAppId: int
+        """
+        self._TaskId = None
+        self._SdkAppId = None
+
+    @property
+    def TaskId(self):
+        r"""任务Id
+        :rtype: int
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def SdkAppId(self):
+        r"""应用 ID（必填），可以查看 https://console.cloud.tencent.com/ccc
+
+        :rtype: int
+        """
+        return self._SdkAppId
+
+    @SdkAppId.setter
+    def SdkAppId(self, SdkAppId):
+        self._SdkAppId = SdkAppId
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._SdkAppId = params.get("SdkAppId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class PauseAutoCalloutTaskResponse(AbstractModel):
+    r"""PauseAutoCalloutTask返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class PausePredictiveDialingCampaignRequest(AbstractModel):
     r"""PausePredictiveDialingCampaign请求参数结构体
 
@@ -15345,6 +15780,115 @@ class PhoneNumBuyInfo(AbstractModel):
         
 
 
+class PlaySoundCallRequest(AbstractModel):
+    r"""PlaySoundCall请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SdkAppId: 应用 ID（必填），可以查看 https://console.cloud.tencent.com/ccc
+        :type SdkAppId: int
+        :param _SessionId: 会话ID
+        :type SessionId: str
+        :param _FileId: 音频文件 ID，参见管理端-电话客服-放音文件管理
+        :type FileId: int
+        :param _PlayTimes: 放音次数，默认 1 次
+        :type PlayTimes: int
+        """
+        self._SdkAppId = None
+        self._SessionId = None
+        self._FileId = None
+        self._PlayTimes = None
+
+    @property
+    def SdkAppId(self):
+        r"""应用 ID（必填），可以查看 https://console.cloud.tencent.com/ccc
+        :rtype: int
+        """
+        return self._SdkAppId
+
+    @SdkAppId.setter
+    def SdkAppId(self, SdkAppId):
+        self._SdkAppId = SdkAppId
+
+    @property
+    def SessionId(self):
+        r"""会话ID
+        :rtype: str
+        """
+        return self._SessionId
+
+    @SessionId.setter
+    def SessionId(self, SessionId):
+        self._SessionId = SessionId
+
+    @property
+    def FileId(self):
+        r"""音频文件 ID，参见管理端-电话客服-放音文件管理
+        :rtype: int
+        """
+        return self._FileId
+
+    @FileId.setter
+    def FileId(self, FileId):
+        self._FileId = FileId
+
+    @property
+    def PlayTimes(self):
+        r"""放音次数，默认 1 次
+        :rtype: int
+        """
+        return self._PlayTimes
+
+    @PlayTimes.setter
+    def PlayTimes(self, PlayTimes):
+        self._PlayTimes = PlayTimes
+
+
+    def _deserialize(self, params):
+        self._SdkAppId = params.get("SdkAppId")
+        self._SessionId = params.get("SessionId")
+        self._FileId = params.get("FileId")
+        self._PlayTimes = params.get("PlayTimes")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class PlaySoundCallResponse(AbstractModel):
+    r"""PlaySoundCall返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class ResetExtensionPasswordRequest(AbstractModel):
     r"""ResetExtensionPassword请求参数结构体
 
@@ -15492,6 +16036,85 @@ class RestoreMemberOnlineRequest(AbstractModel):
 
 class RestoreMemberOnlineResponse(AbstractModel):
     r"""RestoreMemberOnline返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ResumeAutoCalloutTaskRequest(AbstractModel):
+    r"""ResumeAutoCalloutTask请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: 任务Id
+        :type TaskId: int
+        :param _SdkAppId: 应用 ID（必填），可以查看 https://console.cloud.tencent.com/ccc
+        :type SdkAppId: int
+        """
+        self._TaskId = None
+        self._SdkAppId = None
+
+    @property
+    def TaskId(self):
+        r"""任务Id
+        :rtype: int
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def SdkAppId(self):
+        r"""应用 ID（必填），可以查看 https://console.cloud.tencent.com/ccc
+        :rtype: int
+        """
+        return self._SdkAppId
+
+    @SdkAppId.setter
+    def SdkAppId(self, SdkAppId):
+        self._SdkAppId = SdkAppId
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._SdkAppId = params.get("SdkAppId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ResumeAutoCalloutTaskResponse(AbstractModel):
+    r"""ResumeAutoCalloutTask返回参数结构体
 
     """
 
@@ -15912,6 +16535,10 @@ class ServeParticipant(AbstractModel):
         :param _SkillGroupId: 技能组 ID
         :type SkillGroupId: int
         :param _EndStatusString: 结束状态
+
+中文详情[参考](https://www.tencentcloud.com/zh/document/product/1229/71847)
+
+英文详情[参考](https://www.tencentcloud.com/document/product/1229/71847?lang=en)
         :type EndStatusString: str
         :param _RecordURL: 录音 URL
         :type RecordURL: str
@@ -16078,6 +16705,10 @@ class ServeParticipant(AbstractModel):
     @property
     def EndStatusString(self):
         r"""结束状态
+
+中文详情[参考](https://www.tencentcloud.com/zh/document/product/1229/71847)
+
+英文详情[参考](https://www.tencentcloud.com/document/product/1229/71847?lang=en)
         :rtype: str
         """
         return self._EndStatusString
@@ -16377,6 +17008,302 @@ class SessionEvent(AbstractModel):
         if params.get("StaffEventDetail") is not None:
             self._StaffEventDetail = EventStaffDetail()
             self._StaffEventDetail._deserialize(params.get("StaffEventDetail"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SetStaffStatusItem(AbstractModel):
+    r"""创建 staff 的信息 item
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _StaffUserId: 座席账号
+        :type StaffUserId: str
+        :param _Status: 状态，free 示闲 notReady 示忙 rest 小休	
+        :type Status: str
+        :param _Reason: 如果设置小休状态，这里是原因
+        :type Reason: str
+        """
+        self._StaffUserId = None
+        self._Status = None
+        self._Reason = None
+
+    @property
+    def StaffUserId(self):
+        r"""座席账号
+        :rtype: str
+        """
+        return self._StaffUserId
+
+    @StaffUserId.setter
+    def StaffUserId(self, StaffUserId):
+        self._StaffUserId = StaffUserId
+
+    @property
+    def Status(self):
+        r"""状态，free 示闲 notReady 示忙 rest 小休	
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def Reason(self):
+        r"""如果设置小休状态，这里是原因
+        :rtype: str
+        """
+        return self._Reason
+
+    @Reason.setter
+    def Reason(self, Reason):
+        self._Reason = Reason
+
+
+    def _deserialize(self, params):
+        self._StaffUserId = params.get("StaffUserId")
+        self._Status = params.get("Status")
+        self._Reason = params.get("Reason")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SetStaffStatusRequest(AbstractModel):
+    r"""SetStaffStatus请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SdkAppId: 应用 ID（必填），可以查看 https://console.cloud.tencent.com/ccc
+        :type SdkAppId: int
+        :param _StaffStatusList: 设置座席状态列表，最大个数 10
+        :type StaffStatusList: list of SetStaffStatusItem
+        """
+        self._SdkAppId = None
+        self._StaffStatusList = None
+
+    @property
+    def SdkAppId(self):
+        r"""应用 ID（必填），可以查看 https://console.cloud.tencent.com/ccc
+        :rtype: int
+        """
+        return self._SdkAppId
+
+    @SdkAppId.setter
+    def SdkAppId(self, SdkAppId):
+        self._SdkAppId = SdkAppId
+
+    @property
+    def StaffStatusList(self):
+        r"""设置座席状态列表，最大个数 10
+        :rtype: list of SetStaffStatusItem
+        """
+        return self._StaffStatusList
+
+    @StaffStatusList.setter
+    def StaffStatusList(self, StaffStatusList):
+        self._StaffStatusList = StaffStatusList
+
+
+    def _deserialize(self, params):
+        self._SdkAppId = params.get("SdkAppId")
+        if params.get("StaffStatusList") is not None:
+            self._StaffStatusList = []
+            for item in params.get("StaffStatusList"):
+                obj = SetStaffStatusItem()
+                obj._deserialize(item)
+                self._StaffStatusList.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SetStaffStatusResponse(AbstractModel):
+    r"""SetStaffStatus返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _StaffStatusList: 设置座席状态应答列表
+        :type StaffStatusList: list of SetStaffStatusRspItem
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._StaffStatusList = None
+        self._RequestId = None
+
+    @property
+    def StaffStatusList(self):
+        r"""设置座席状态应答列表
+        :rtype: list of SetStaffStatusRspItem
+        """
+        return self._StaffStatusList
+
+    @StaffStatusList.setter
+    def StaffStatusList(self, StaffStatusList):
+        self._StaffStatusList = StaffStatusList
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("StaffStatusList") is not None:
+            self._StaffStatusList = []
+            for item in params.get("StaffStatusList"):
+                obj = SetStaffStatusRspItem()
+                obj._deserialize(item)
+                self._StaffStatusList.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
+class SetStaffStatusRspItem(AbstractModel):
+    r"""设置 staff 状态应答 item
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _StaffUserId: 座席账号
+        :type StaffUserId: str
+        :param _ErrorCode: 错误码，参考协议整体错误码
+        :type ErrorCode: str
+        :param _ErrorMessage: 错误信息
+        :type ErrorMessage: str
+        :param _Status: 当前状态
+        :type Status: str
+        :param _Reason: 当前状态如果是小休，这里是原因
+        :type Reason: str
+        :param _PreviousStatus: 之前状态
+        :type PreviousStatus: str
+        :param _PreviousReason: 之前状态如果是小休，这里是原因
+        :type PreviousReason: str
+        """
+        self._StaffUserId = None
+        self._ErrorCode = None
+        self._ErrorMessage = None
+        self._Status = None
+        self._Reason = None
+        self._PreviousStatus = None
+        self._PreviousReason = None
+
+    @property
+    def StaffUserId(self):
+        r"""座席账号
+        :rtype: str
+        """
+        return self._StaffUserId
+
+    @StaffUserId.setter
+    def StaffUserId(self, StaffUserId):
+        self._StaffUserId = StaffUserId
+
+    @property
+    def ErrorCode(self):
+        r"""错误码，参考协议整体错误码
+        :rtype: str
+        """
+        return self._ErrorCode
+
+    @ErrorCode.setter
+    def ErrorCode(self, ErrorCode):
+        self._ErrorCode = ErrorCode
+
+    @property
+    def ErrorMessage(self):
+        r"""错误信息
+        :rtype: str
+        """
+        return self._ErrorMessage
+
+    @ErrorMessage.setter
+    def ErrorMessage(self, ErrorMessage):
+        self._ErrorMessage = ErrorMessage
+
+    @property
+    def Status(self):
+        r"""当前状态
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def Reason(self):
+        r"""当前状态如果是小休，这里是原因
+        :rtype: str
+        """
+        return self._Reason
+
+    @Reason.setter
+    def Reason(self, Reason):
+        self._Reason = Reason
+
+    @property
+    def PreviousStatus(self):
+        r"""之前状态
+        :rtype: str
+        """
+        return self._PreviousStatus
+
+    @PreviousStatus.setter
+    def PreviousStatus(self, PreviousStatus):
+        self._PreviousStatus = PreviousStatus
+
+    @property
+    def PreviousReason(self):
+        r"""之前状态如果是小休，这里是原因
+        :rtype: str
+        """
+        return self._PreviousReason
+
+    @PreviousReason.setter
+    def PreviousReason(self, PreviousReason):
+        self._PreviousReason = PreviousReason
+
+
+    def _deserialize(self, params):
+        self._StaffUserId = params.get("StaffUserId")
+        self._ErrorCode = params.get("ErrorCode")
+        self._ErrorMessage = params.get("ErrorMessage")
+        self._Status = params.get("Status")
+        self._Reason = params.get("Reason")
+        self._PreviousStatus = params.get("PreviousStatus")
+        self._PreviousReason = params.get("PreviousReason")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -17002,11 +17929,20 @@ class StaffStatus(AbstractModel):
         :type Status: str
         :param _SessionId: 状态关联的会话 Id
         :type SessionId: str
+        :param _Reason: 小休原因
+        :type Reason: str
+        :param _StaffEmail: 座席邮箱
+        :type StaffEmail: str
+        :param _StaffNo: 座席工号
+        :type StaffNo: str
         """
         self._Cursor = None
         self._Timestamp = None
         self._Status = None
         self._SessionId = None
+        self._Reason = None
+        self._StaffEmail = None
+        self._StaffNo = None
 
     @property
     def Cursor(self):
@@ -17052,12 +17988,48 @@ class StaffStatus(AbstractModel):
     def SessionId(self, SessionId):
         self._SessionId = SessionId
 
+    @property
+    def Reason(self):
+        r"""小休原因
+        :rtype: str
+        """
+        return self._Reason
+
+    @Reason.setter
+    def Reason(self, Reason):
+        self._Reason = Reason
+
+    @property
+    def StaffEmail(self):
+        r"""座席邮箱
+        :rtype: str
+        """
+        return self._StaffEmail
+
+    @StaffEmail.setter
+    def StaffEmail(self, StaffEmail):
+        self._StaffEmail = StaffEmail
+
+    @property
+    def StaffNo(self):
+        r"""座席工号
+        :rtype: str
+        """
+        return self._StaffNo
+
+    @StaffNo.setter
+    def StaffNo(self, StaffNo):
+        self._StaffNo = StaffNo
+
 
     def _deserialize(self, params):
         self._Cursor = params.get("Cursor")
         self._Timestamp = params.get("Timestamp")
         self._Status = params.get("Status")
         self._SessionId = params.get("SessionId")
+        self._Reason = params.get("Reason")
+        self._StaffEmail = params.get("StaffEmail")
+        self._StaffNo = params.get("StaffNo")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -17576,6 +18548,8 @@ class TelCdrInfo(AbstractModel):
 
 电话呼出        221     callerCancelWithoutRing      **未振铃被叫号码异常**
 
+电话呼出        222     voiceMailReached      **语音信箱挂断**
+
 音频呼入        501     callConflict      **VoIP用户呼叫冲突终止**
 
 音频呼入        502     clientTimeout      **VoIP用户客户端超时**
@@ -17648,6 +18622,10 @@ NotExists
         :type VoicemailRecordURL: list of str
         :param _VoicemailAsrURL: 通话中语音留言ASR文本信息地址
         :type VoicemailAsrURL: list of str
+        :param _AIAgentId: 如果是智能体相关通话，这里是智能体 ID
+        :type AIAgentId: int
+        :param _AIAgentName: 如果是智能体相关通话，这里是智能体名称
+        :type AIAgentName: str
         """
         self._Caller = None
         self._Callee = None
@@ -17687,6 +18665,8 @@ NotExists
         self._QueuedSkillGroupName = None
         self._VoicemailRecordURL = None
         self._VoicemailAsrURL = None
+        self._AIAgentId = None
+        self._AIAgentName = None
 
     @property
     def Caller(self):
@@ -17854,6 +18834,8 @@ NotExists
 电话呼出        220     callerCancelWhileRing      **振铃中主叫取消**
 
 电话呼出        221     callerCancelWithoutRing      **未振铃被叫号码异常**
+
+电话呼出        222     voiceMailReached      **语音信箱挂断**
 
 音频呼入        501     callConflict      **VoIP用户呼叫冲突终止**
 
@@ -18190,6 +19172,28 @@ NotExists
     def VoicemailAsrURL(self, VoicemailAsrURL):
         self._VoicemailAsrURL = VoicemailAsrURL
 
+    @property
+    def AIAgentId(self):
+        r"""如果是智能体相关通话，这里是智能体 ID
+        :rtype: int
+        """
+        return self._AIAgentId
+
+    @AIAgentId.setter
+    def AIAgentId(self, AIAgentId):
+        self._AIAgentId = AIAgentId
+
+    @property
+    def AIAgentName(self):
+        r"""如果是智能体相关通话，这里是智能体名称
+        :rtype: str
+        """
+        return self._AIAgentName
+
+    @AIAgentName.setter
+    def AIAgentName(self, AIAgentName):
+        self._AIAgentName = AIAgentName
+
 
     def _deserialize(self, params):
         self._Caller = params.get("Caller")
@@ -18247,6 +19251,8 @@ NotExists
         self._QueuedSkillGroupName = params.get("QueuedSkillGroupName")
         self._VoicemailRecordURL = params.get("VoicemailRecordURL")
         self._VoicemailAsrURL = params.get("VoicemailAsrURL")
+        self._AIAgentId = params.get("AIAgentId")
+        self._AIAgentName = params.get("AIAgentName")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

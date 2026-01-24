@@ -13,22 +13,21 @@
 #  permissions and limitations under the License.
 """Base class for entrypoint configurations that run a single step."""
 
-import os
-import sys
-from typing import TYPE_CHECKING, Any, List, Set
+from typing import TYPE_CHECKING, Any, Dict, List
 from uuid import UUID
 
 from zenml.client import Client
 from zenml.entrypoints.base_entrypoint_configuration import (
-    DEPLOYMENT_ID_OPTION,
+    SNAPSHOT_ID_OPTION,
     BaseEntrypointConfiguration,
 )
 from zenml.integrations.registry import integration_registry
 from zenml.logger import get_logger
 
 if TYPE_CHECKING:
+    from zenml.config import DockerSettings
     from zenml.config.step_configurations import Step
-    from zenml.models import PipelineDeploymentResponse
+    from zenml.models import PipelineSnapshotResponse
 
 logger = get_logger(__name__)
 
@@ -73,13 +72,13 @@ class StepEntrypointConfiguration(BaseEntrypointConfiguration):
         ...
 
     class MyOrchestrator(BaseOrchestrator):
-        def prepare_or_run_pipeline(
+        def submit_pipeline(
             self,
-            deployment: "PipelineDeployment",
+            snapshot: "PipelineSnapshotResponse",
             stack: "Stack",
             environment: Dict[str, str],
             placeholder_run: Optional["PipelineRunResponse"] = None,
-        ) -> Any:
+        ) -> Optional[SubmissionResult]:
             ...
 
             cmd = MyStepEntrypointConfiguration.get_entrypoint_command()
@@ -87,7 +86,7 @@ class StepEntrypointConfiguration(BaseEntrypointConfiguration):
                 ...
 
                 args = MyStepEntrypointConfiguration.get_entrypoint_arguments(
-                    step_name=step_name
+                    step_name=step_name, snapshot_id=snapshot.id
                 )
                 # Run the command and pass it the arguments. Our example
                 # orchestrator here executes the entrypoint in a separate
@@ -115,14 +114,14 @@ class StepEntrypointConfiguration(BaseEntrypointConfiguration):
         """
 
     @classmethod
-    def get_entrypoint_options(cls) -> Set[str]:
+    def get_entrypoint_options(cls) -> Dict[str, bool]:
         """Gets all options required for running with this configuration.
 
         Returns:
             The superclass options as well as an option for the name of the
             step to run.
         """
-        return super().get_entrypoint_options() | {STEP_NAME_OPTION}
+        return super().get_entrypoint_options() | {STEP_NAME_OPTION: True}
 
     @classmethod
     def get_entrypoint_arguments(
@@ -149,21 +148,40 @@ class StepEntrypointConfiguration(BaseEntrypointConfiguration):
             kwargs[STEP_NAME_OPTION],
         ]
 
-    def load_deployment(self) -> "PipelineDeploymentResponse":
-        """Loads the deployment.
+    @property
+    def docker_settings(self) -> "DockerSettings":
+        """The Docker settings configured for this entrypoint configuration.
 
         Returns:
-            The deployment.
+            The Docker settings.
         """
-        deployment_id = UUID(self.entrypoint_args[DEPLOYMENT_ID_OPTION])
+        return self.step.config.docker_settings
+
+    @property
+    def step(self) -> "Step":
+        """The step configured for this entrypoint configuration.
+
+        Returns:
+            The step.
+        """
         step_name = self.entrypoint_args[STEP_NAME_OPTION]
-        return Client().zen_store.get_deployment(
-            deployment_id=deployment_id, step_configuration_filter=[step_name]
+        return self.snapshot.step_configurations[step_name]
+
+    def _load_snapshot(self) -> "PipelineSnapshotResponse":
+        """Loads the snapshot.
+
+        Returns:
+            The snapshot.
+        """
+        snapshot_id = UUID(self.entrypoint_args[SNAPSHOT_ID_OPTION])
+        step_name = self.entrypoint_args[STEP_NAME_OPTION]
+        return Client().zen_store.get_snapshot(
+            snapshot_id=snapshot_id, step_configuration_filter=[step_name]
         )
 
     def run(self) -> None:
         """Prepares the environment and runs the configured step."""
-        deployment = self.load_deployment()
+        snapshot = self.snapshot
 
         # Activate all the integrations. This makes sure that all materializers
         # and stack component flavors are registered.
@@ -171,27 +189,11 @@ class StepEntrypointConfiguration(BaseEntrypointConfiguration):
 
         step_name = self.entrypoint_args[STEP_NAME_OPTION]
 
-        # Change the working directory to make sure we're in the correct
-        # directory where the files in the Docker image should be included.
-        # This is necessary as some services overwrite the working directory
-        # configured in the Docker image itself.
-        os.makedirs("/app", exist_ok=True)
-        os.chdir("/app")
+        self.prepare_code_environment()
 
-        self.download_code_if_necessary(
-            deployment=deployment, step_name=step_name
-        )
+        pipeline_name = snapshot.pipeline_configuration.name
 
-        # If the working directory is not in the sys.path, we include it to make
-        # sure user code gets correctly imported.
-        cwd = os.getcwd()
-        if cwd not in sys.path:
-            sys.path.insert(0, cwd)
-
-        pipeline_name = deployment.pipeline_configuration.name
-
-        step = deployment.step_configurations[step_name]
-        self._run_step(step, deployment=deployment)
+        self._run_step(step=self.step, snapshot=snapshot)
 
         self.post_run(
             pipeline_name=pipeline_name,
@@ -201,14 +203,14 @@ class StepEntrypointConfiguration(BaseEntrypointConfiguration):
     def _run_step(
         self,
         step: "Step",
-        deployment: "PipelineDeploymentResponse",
+        snapshot: "PipelineSnapshotResponse",
     ) -> None:
         """Runs a single step.
 
         Args:
             step: The step to run.
-            deployment: The deployment configuration.
+            snapshot: The snapshot configuration.
         """
         orchestrator = Client().active_stack.orchestrator
-        orchestrator._prepare_run(deployment=deployment)
+        orchestrator._prepare_run(snapshot=snapshot)
         orchestrator.run_step(step=step)

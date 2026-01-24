@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: podman
-Version: 5.6.0
+Version: 5.7.0
 Summary: Bindings for Podman RESTful API
 Home-page: https://github.com/containers/podman-py
 Author: Brent Baude, Urvashi Mohnani

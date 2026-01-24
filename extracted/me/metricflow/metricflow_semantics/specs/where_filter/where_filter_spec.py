@@ -9,11 +9,10 @@ from typing_extensions import override
 
 from metricflow_semantics.collection_helpers.merger import Mergeable
 from metricflow_semantics.experimental.semantic_graph.attribute_resolution.annotated_spec_linkable_element_set import (
-    AnnotatedSpecLinkableElementSet,
+    GroupByItemSet,
 )
 from metricflow_semantics.specs.instance_spec import LinkableInstanceSpec
 from metricflow_semantics.specs.linkable_spec_set import LinkableSpecSet
-from metricflow_semantics.specs.spec_set import group_specs_by_type
 from metricflow_semantics.sql.sql_bind_parameters import SqlBindParameterSet
 
 
@@ -49,22 +48,14 @@ class WhereFilterSpec(Mergeable, SerializableDataclass):
     # quoted identifiers later.
     where_sql: str
     bind_parameters: SqlBindParameterSet
-    # Temporarily use `AnnotatedSpecLinkableElementSet` to simplify migration. This should be changed to a simpler type
-    # as this class needs to be serializable.
-    element_set: AnnotatedSpecLinkableElementSet
+    element_set: GroupByItemSet
 
     @cached_property
     def linkable_spec_set(self) -> LinkableSpecSet:
         """Return the `LinkableSpecSet` of the group-by items referenced in this filter."""
-        spec_set = group_specs_by_type(annotated_spec.spec for annotated_spec in self.element_set.annotated_specs)
-        return LinkableSpecSet(
-            dimension_specs=spec_set.dimension_specs,
-            time_dimension_specs=spec_set.time_dimension_specs,
-            entity_specs=spec_set.entity_specs,
-            group_by_metric_specs=spec_set.group_by_metric_specs,
-        )
+        return LinkableSpecSet.create_from_specs(self.element_set.specs)
 
-    @property
+    @cached_property
     def linkable_specs(self) -> Tuple[LinkableInstanceSpec, ...]:  # noqa: D102
         return self.element_set.specs
 
@@ -94,5 +85,5 @@ class WhereFilterSpec(Mergeable, SerializableDataclass):
         return WhereFilterSpec(
             where_sql="TRUE",
             bind_parameters=SqlBindParameterSet(),
-            element_set=AnnotatedSpecLinkableElementSet(),
+            element_set=GroupByItemSet(),
         )

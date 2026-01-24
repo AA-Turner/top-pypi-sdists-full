@@ -75,11 +75,9 @@ class MockDWaveSampler(dimod.Sampler, dimod.Structured):
 
         parameter_warnings (bool, optional, default=True):
             The MockSampler is adaptive with respect to ``num_reads``,
-            ``answer_mode`` and ``max_answers`` and ``label`` 
-            parameters. By default ``initial_state`` can also be mocked, if
-            dwave-greedy is installed. All other parameters are ignored and a 
-            warning will be raised by default.
-        
+            ``answer_mode`` and ``label`` parameters. All other parameters are
+            ignored and a warning will be raised by default.
+
         substitute_sampler (:class:`~dimod.Sampler`, optional, default=SteepestDescentSampler()):
             The sampler to be used as a substitute when executing the mock sampler. 
             By default, :class:`~dwave.samplers.SteepestDescentSampler` is employed, which performs a 
@@ -90,7 +88,7 @@ class MockDWaveSampler(dimod.Sampler, dimod.Structured):
         substitute_kwargs (dict, optional, default={}):
             A dictionary of keyword arguments to pass to the `substitute_sampler`'s 
             `sample` method. This allows users to configure the substitute sampler 
-            with specific parameters like `num_reads`, `initial_state`, or other 
+            with specific parameters like `num_reads` or other
             sampler-specific options. If not provided, an empty dictionary is used 
             by default.
 
@@ -101,12 +99,12 @@ class MockDWaveSampler(dimod.Sampler, dimod.Structured):
             a brute-force :class:`~dimod.ExactSolver`). Only small cutoffs
             should be used since solution time increases exponentially with
             problem size.
-            
+
             - When ``substitute_sampler`` is not provided, the default value is 
             ``EXACT_SOLVER_CUTOFF_DEFAULT`` (e.g., 16).
             - When ``substitute_sampler`` is provided, the default value is 
             ``0``, disabling exact ground state calculation.
-            
+
             Set ``exact_solver_cutoff`` to zero to disable exact ground state
             calculation explicitly.
 
@@ -150,10 +148,8 @@ class MockDWaveSampler(dimod.Sampler, dimod.Structured):
                  **config):
         
         self.mocked_parameters={'answer_mode',
-                                'max_answers',
                                 'num_reads',
-                                'label',
-                                'initial_state'}
+                                'label'}
 
         EXACT_SOLVER_CUTOFF_DEFAULT = 16
 
@@ -260,7 +256,6 @@ class MockDWaveSampler(dimod.Sampler, dimod.Structured):
             'flux_drift_compensation': ['parameters'],
             'h_gain_schedule': ['parameters'],
             'initial_state': ['parameters'],
-            'max_answers': ['parameters'],
             'num_reads': ['parameters'],
             'programming_thermalization': ['parameters'],
             'readout_thermalization': ['parameters'],
@@ -301,8 +296,6 @@ class MockDWaveSampler(dimod.Sampler, dimod.Structured):
                 'initial_state':
                 'Initial states to use for a reverse-anneal request, as a list '
                 'of qubit index and state.',
-                'max_answers':
-                'Maximum number of answers to return.',
                 'num_reads':
                 'Number of states to read (answers to return), as a positive '
                 'integer.',
@@ -321,7 +314,6 @@ class MockDWaveSampler(dimod.Sampler, dimod.Structured):
                 'annealing, as a boolean flag.'
                 'fast_anneal': 
                 'Activation of the fast-anneal protocol, as a boolean flag.'},
-            'vfyc': False,
             'anneal_offset_step': -0.0001500217998314891,
             'anneal_offset_step_phi0': 1.4303846404537006e-05,
             'annealing_time_range': [0.5, 2000.0],
@@ -360,7 +352,22 @@ class MockDWaveSampler(dimod.Sampler, dimod.Structured):
 
     @dimod.bqm_structured
     def sample(self, bqm, **kwargs):
+        """Emulate limited `DWaveSampler.sample` behaviour, for testing purposes.
 
+        The purpose of this routine is not to emulate the QPU sampling distribution,
+        but to reproduce the interface sufficiently for testing. Note that it
+        returns only ground states or local minima under default operation
+        without sensitivity to a majority of the possible QPU kwargs.
+        In specific contexts a more realistic sampler can be proposed, overloading
+        the MockDWaveSampler class and/or the sample function. See for example
+        the dwave-experimental testing module.
+
+        Args:
+            bqm: A :class:`dimod.BinaryQuadraticModel` binary quadratic model.
+
+        Returns:
+            A :class:`dimod.SampleSet`.
+        """
         # Check kwargs compatibility with parameters and substitute sampler:
         for kw in kwargs:
             if kw in self.parameters:
@@ -400,20 +407,8 @@ class MockDWaveSampler(dimod.Sampler, dimod.Structured):
         num_reads = kwargs.get('num_reads', substitute_kwargs.get('num_reads', 1))
         substitute_kwargs['num_reads'] = num_reads
 
-        if 'initial_state' in kwargs:
-            initial_state = kwargs['initial_state']
-            # Initial state format is a list of (qubit,values)
-            # value=3 denotes an unused variable (should be absent
-            # from bqm). 
-            # Convert to format for substitute (NB: plural key)
-            substitute_kwargs['initial_states'] = (
-                np.array([pair[1] for pair in initial_state
-                          if pair[1]!=3],dtype=float),
-                [pair[0] for pair in initial_state if pair[1]!=3])
-
         sampler_kwargs = kwargs.copy()
         sampler_kwargs.update(substitute_kwargs)
-
         ss = self.substitute_sampler.sample(bqm, **sampler_kwargs)
         ss.info.update(info)
         # determine ground state exactly for small problems
@@ -426,11 +421,6 @@ class MockDWaveSampler(dimod.Sampler, dimod.Structured):
         if answer_mode is None or answer_mode == 'histogram':
             # Default for DWaveSampler() is 'histogram'
             ss = ss.aggregate()
-
-        max_answers = kwargs.get('max_answers')
-        if max_answers is not None:
-            # Truncate sampleset if requested. Do not reorder (per DWaveSampler())
-            ss = ss.truncate(max_answers)
 
         return ss
 

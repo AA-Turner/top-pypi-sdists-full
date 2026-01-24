@@ -1,5 +1,3 @@
-from typing import Dict, List, Tuple
-
 from ase.units import kB
 import numpy as np
 
@@ -19,7 +17,7 @@ class SGCState:
         for each singlet.
     """
 
-    def __init__(self, temp: float, chem_pot: Dict[str, float]):
+    def __init__(self, temp: float, chem_pot: dict[str, float]):
         self.temp = temp
         self.chem_pot = chem_pot
         self.singlets = {k: 0.0 for k in self.chem_pot.keys()}
@@ -36,7 +34,7 @@ class SGCState:
         """
         prefix = f"{int(self.temp)}K_"
         prefix += "_".join(
-            f"{k}{sign_indicator(v)}{int(1000.0*abs(v))}" for k, v in self.chem_pot.items()
+            f"{k}{sign_indicator(v)}{int(1000.0 * abs(v))}" for k, v in self.chem_pot.items()
         )
         return prefix
 
@@ -91,7 +89,7 @@ class MultiStateSGCConcObserver(MCObserver):
 
     name = "multi_state_sgc_conc_observer"
 
-    def __init__(self, ref_state: SGCState, thermo_states: List[SGCState], calc: Clease):
+    def __init__(self, ref_state: SGCState, thermo_states: list[SGCState], calc: Clease):
         super().__init__()
         self.thermo_states = thermo_states
         self.calc = calc
@@ -104,7 +102,7 @@ class MultiStateSGCConcObserver(MCObserver):
         for state in self.thermo_states:
             state.reset()
 
-    def __call__(self, system_changes: List[Tuple[int, str, str]]):
+    def __call__(self, system_changes: list[tuple[int, str, str]]):
         """
         Observers are called after system update, thus the calcualtor already
         reflects the changes. system_changes is therefore not used.
@@ -123,7 +121,7 @@ class MultiStateSGCConcObserver(MCObserver):
                 state.singlets[k] += weight * cf[k]
                 state.avg_weight += weight
 
-    def get_averages(self) -> Dict[str, float]:
+    def get_averages(self) -> dict[str, float]:
         """
         Return a dictionary with the calculated averages
         """

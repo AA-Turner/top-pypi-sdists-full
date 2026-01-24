@@ -7,9 +7,10 @@ from typing import Any, Callable, Optional, Union
 
 import pydantic.v1 as pd
 
-from tidy3d.components.base import TYPE_TAG_STR, Tidy3dBaseModel, cached_property
+from tidy3d.components.base import Tidy3dBaseModel, cached_property
 from tidy3d.components.data.sim_data import SimulationData
 from tidy3d.components.simulation import Simulation
+from tidy3d.components.types import TYPE_TAG_STR
 from tidy3d.log import Console, get_logging_console, log
 from tidy3d.web.api.container import Batch, BatchData, Job
 
@@ -143,7 +144,13 @@ class DesignSpace(Tidy3dBaseModel):
         except (TypeError, OSError):
             return None
 
-    def run(self, fn: Callable, fn_post: Optional[Callable] = None, verbose: bool = True) -> Result:
+    def run(
+        self,
+        fn: Callable,
+        fn_post: Optional[Callable] = None,
+        verbose: bool = True,
+        priority: Optional[int] = None,
+    ) -> Result:
         """Explore a parameter space with a supplied method using the user supplied function.
         Supplied functions are used to evaluate the design space and are called within the method.
         For optimization methods these functions act as the fitness function. A single function can be
@@ -208,6 +215,11 @@ class DesignSpace(Tidy3dBaseModel):
         verbose : bool = True
             Toggle the output of statements stored in the logging console.
 
+        priority : int = None
+            Optional vGPU queue priority (1 = lowest, 10 = highest) applied to simulations run via
+            ``fn`` / ``fn_post``. Ignored when ``fn_post`` is not provided because no automatic
+            batching occurs in that mode.
+
         Returns
         -------
         :class:`Result`
@@ -215,19 +227,31 @@ class DesignSpace(Tidy3dBaseModel):
             Can be converted to ``pandas.DataFrame`` with ``.to_dataframe()``.
         """
 
+        if priority is not None and (priority < 1 or priority > 10):
+            raise ValueError("'priority' must be between 1 and 10 (inclusive).")
+
         # Get the console
         # Method.run checks for console is None instead of being passed console and verbose
         console = get_logging_console() if verbose else None
 
         # Run based on how many functions the user provides
         if fn_post is None:
+            if priority is not None:
+                log.warning(
+                    "'priority' has no effect unless both fn and fn_post are provided;"
+                    " please split your function to allow automatic batching.",
+                    log_once=True,
+                )
             fn_args, fn_values, aux_values, opt_output = self.run_single(fn, console)
             sim_names = None
             sim_paths = None
 
         else:
             fn_args, fn_values, aux_values, opt_output, sim_names, sim_paths = self.run_pre_post(
-                fn_pre=fn, fn_post=fn_post, console=console
+                fn_pre=fn,
+                fn_post=fn_post,
+                console=console,
+                priority=priority,
             )
 
             if len(sim_names) == 0:
@@ -251,12 +275,20 @@ class DesignSpace(Tidy3dBaseModel):
         evaluate_fn = self._get_evaluate_fn_single(fn=fn)
         return self.method._run(run_fn=evaluate_fn, parameters=self.parameters, console=console)
 
-    def run_pre_post(self, fn_pre: Callable, fn_post: Callable, console: Console) -> tuple(
-        list[dict], list[dict], list[Any]
-    ):
+    def run_pre_post(
+        self,
+        fn_pre: Callable,
+        fn_post: Callable,
+        console: Console,
+        priority: Optional[int] = None,
+    ) -> tuple(list[dict], list[dict], list[Any]):
         """Run a function with Tidy3D implicitly called in between."""
         handler = self._get_evaluate_fn_pre_post(
-            fn_pre=fn_pre, fn_post=fn_post, fn_mid=self._fn_mid, console=console
+            fn_pre=fn_pre,
+            fn_post=fn_post,
+            fn_mid=self._fn_mid,
+            console=console,
+            priority=priority,
         )
         fn_args, fn_values, aux_values, opt_output = self.method._run(
             run_fn=handler.fn_combined, parameters=self.parameters, console=console
@@ -275,16 +307,22 @@ class DesignSpace(Tidy3dBaseModel):
         return evaluate
 
     def _get_evaluate_fn_pre_post(
-        self, fn_pre: Callable, fn_post: Callable, fn_mid: Callable, console: Console
+        self,
+        fn_pre: Callable,
+        fn_post: Callable,
+        fn_mid: Callable,
+        console: Console,
+        priority: Optional[int],
     ):
         """Get function that tries to use batch processing on a set of arguments."""
 
         class Pre_Post_Handler:
-            def __init__(self, console):
+            def __init__(self, console, priority) -> None:
                 self.sim_counter = 0
                 self.sim_names = []
                 self.sim_paths = []
                 self.console = console
+                self.priority = priority
 
             def fn_combined(self, args_list: list[dict[str, Any]]) -> list[Any]:
                 """Compute fn_pre and fn_post functions and capture other outputs."""
@@ -299,7 +337,10 @@ class DesignSpace(Tidy3dBaseModel):
                     )
 
                 data, task_names, task_paths, sim_counter = fn_mid(
-                    sim_dict, self.sim_counter, self.console
+                    sim_dict,
+                    self.sim_counter,
+                    self.console,
+                    self.priority,
                 )
                 self.sim_names.extend(task_names)
                 self.sim_paths.extend(task_paths)
@@ -307,12 +348,26 @@ class DesignSpace(Tidy3dBaseModel):
                 post_out = [fn_post(val) for val in data.values()]
                 return post_out
 
-        handler = Pre_Post_Handler(console)
+        handler = Pre_Post_Handler(console, priority)
 
         return handler
 
+    @staticmethod
+    def _run_batch(
+        batch: Batch,
+        path_dir: str,
+        priority: Optional[int] = None,
+    ) -> BatchData:
+        """Run a batch and return the BatchData."""
+        batch_out = batch.run(path_dir=path_dir, priority=priority)
+        return batch_out
+
     def _fn_mid(
-        self, pre_out: dict[int, Any], sim_counter: int, console: Console
+        self,
+        pre_out: dict[int, Any],
+        sim_counter: int,
+        console: Console,
+        priority: Optional[int],
     ) -> Union[dict[int, Any], BatchData]:
         """A function of the output of ``fn_pre`` that gives the input to ``fn_post``."""
 
@@ -334,7 +389,7 @@ class DesignSpace(Tidy3dBaseModel):
             output_dict: dict,
             naming_dict: dict,
             previous_key: str = "",
-        ):
+        ) -> None:
             """Recursively search for search_type objects within a dictionary."""
             current_key = previous_key
             for key, value in search_dict.items():
@@ -386,16 +441,17 @@ class DesignSpace(Tidy3dBaseModel):
             console.log(f"Running {run_statement}")
 
         # Running simulations and batches
-        sims_out = Batch(
+        batch = Batch(
             simulations=named_sims,
             folder_name=self.folder_name,
             simulation_type="tidy3d_design",
             verbose=False,  # Using a custom output instead of Batch.monitor updates
-        ).run(path_dir=self.path_dir)
+        )
+        sims_out = self._run_batch(batch, path_dir=self.path_dir, priority=priority)
 
         batch_results = {}
         for batch_key, batch in batches.items():
-            batch_out = batch.run(path_dir=self.path_dir)
+            batch_out = self._run_batch(batch, path_dir=self.path_dir, priority=priority)
             batch_results[batch_key] = batch_out
 
         def _return_to_dict(return_dict: dict, key: str, return_obj: Any) -> None:
@@ -460,7 +516,8 @@ class DesignSpace(Tidy3dBaseModel):
             Union[SimulationData, list[SimulationData], dict[str, SimulationData]], Any
         ],
         path_dir: str = ".",
-        **batch_kwargs,
+        priority: Optional[int] = None,
+        **batch_kwargs: Any,
     ) -> Result:
         """
         This function has been superceded by `run`, please use `run` for batched simulations.
@@ -477,7 +534,7 @@ class DesignSpace(Tidy3dBaseModel):
             )
 
         new_self = self.updated_copy(path_dir=path_dir)
-        result = new_self.run(fn=fn_pre, fn_post=fn_post)
+        result = new_self.run(fn=fn_pre, fn_post=fn_post, priority=priority)
 
         return result
 

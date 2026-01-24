@@ -155,6 +155,29 @@ CMD ["python", "/app/{{ agent_file }}"]
             module_path = runtime._get_module_path(agent_file, tmp_path)
             assert module_path == "bedrock_agentcore.handler"
 
+    def test_get_module_path_with_symlink_dirs(self, tmp_path):
+        """Test module path generation when project_root contains symlinks (e.g., /tmp -> /private/tmp on macOS)."""
+        with patch.object(ContainerRuntime, "_is_runtime_installed", return_value=True):
+            runtime = ContainerRuntime("docker")
+
+            # Create test structure: pkg/subpkg/agent.py
+            pkg_dir = tmp_path / "pkg"
+            pkg_dir.mkdir()
+            subpkg_dir = pkg_dir / "subpkg"
+            subpkg_dir.mkdir()
+            agent_file = subpkg_dir / "agent.py"
+            agent_file.touch()
+
+            # Simulate macOS /tmp symlink issue: agent_path is resolved, project_root is not
+            # On macOS, tmp_path might be /private/tmp/... but Path("/tmp/...") doesn't resolve to same
+            agent_resolved = agent_file.resolve()
+            # Pass project root as unresolved Path (simulates what happens in real code)
+            project_unresolved = Path(str(pkg_dir))
+
+            module_path = runtime._get_module_path(agent_resolved, project_unresolved)
+            # Should correctly compute "subpkg.agent" even if paths don't match without resolve()
+            assert module_path == "subpkg.agent"
+
     def test_validate_module_path_success(self, tmp_path):
         """Test successful module path validation."""
         with patch.object(ContainerRuntime, "_is_runtime_installed", return_value=True):
@@ -317,6 +340,93 @@ CMD ["python", "/app/{{ agent_file }}"]
                 call_args = mock_template_instance.render.call_args
                 context = call_args[1] if call_args[1] else call_args[0][0] if call_args[0] else {}
                 assert context.get("has_current_package") is True
+
+    def test_source_path_pyproject_normalizes_install_path(self, tmp_path):
+        """Ensure pyproject installs work when build context is a subdirectory."""
+        with patch.object(ContainerRuntime, "_is_runtime_installed", return_value=True):
+            runtime = ContainerRuntime("docker")
+
+        project_root = tmp_path / "project"
+        source_dir = project_root / "server"
+        source_dir.mkdir(parents=True)
+        agent_file = source_dir / "server.py"
+        agent_file.write_text("# agent entrypoint")
+        pyproject_file = source_dir / "pyproject.toml"
+        pyproject_file.write_text("[project]\nname = 'example'\nversion = '0.1.0'\n")
+
+        def _dep_info(*_, **__):
+            from bedrock_agentcore_starter_toolkit.utils.runtime.entrypoint import DependencyInfo
+
+            return DependencyInfo(
+                file="server/pyproject.toml",
+                type="pyproject",
+                resolved_path=str(pyproject_file),
+                install_path="server",
+            )
+
+        with (
+            patch(
+                "bedrock_agentcore_starter_toolkit.utils.runtime.container.detect_dependencies", side_effect=_dep_info
+            ),
+            patch("bedrock_agentcore_starter_toolkit.utils.runtime.container.Template") as mock_template,
+            patch.object(runtime, "_get_current_platform", return_value="linux/arm64"),
+        ):
+            mock_template.return_value.render.return_value = "# Dockerfile"
+            runtime.generate_dockerfile(
+                agent_path=agent_file,
+                output_dir=project_root,
+                agent_name="test_agent",
+                source_path=str(source_dir),
+                requirements_file="server/pyproject.toml",
+            )
+
+        call_args = mock_template.return_value.render.call_args
+        context = call_args[1] if call_args[1] else call_args[0][0] if call_args[0] else {}
+        assert context["dependencies_install_path"] == "."
+        assert context["dependencies_file"] == "server/pyproject.toml"
+
+    def test_source_path_requirements_normalizes_file_path(self, tmp_path):
+        """Ensure requirements files inside subdirectories are copied from the context root."""
+        with patch.object(ContainerRuntime, "_is_runtime_installed", return_value=True):
+            runtime = ContainerRuntime("docker")
+
+        project_root = tmp_path / "project"
+        source_dir = project_root / "server"
+        source_dir.mkdir(parents=True)
+        agent_file = source_dir / "server.py"
+        agent_file.write_text("# agent entrypoint")
+        requirements_file = source_dir / "requirements.txt"
+        requirements_file.write_text("requests==2.31.0")
+
+        def _dep_info(*_, **__):
+            from bedrock_agentcore_starter_toolkit.utils.runtime.entrypoint import DependencyInfo
+
+            return DependencyInfo(
+                file="server/requirements.txt",
+                type="requirements",
+                resolved_path=str(requirements_file),
+            )
+
+        with (
+            patch(
+                "bedrock_agentcore_starter_toolkit.utils.runtime.container.detect_dependencies", side_effect=_dep_info
+            ),
+            patch("bedrock_agentcore_starter_toolkit.utils.runtime.container.Template") as mock_template,
+            patch.object(runtime, "_get_current_platform", return_value="linux/arm64"),
+        ):
+            mock_template.return_value.render.return_value = "# Dockerfile"
+            runtime.generate_dockerfile(
+                agent_path=agent_file,
+                output_dir=project_root,
+                agent_name="test_agent",
+                source_path=str(source_dir),
+                requirements_file="server/requirements.txt",
+            )
+
+        call_args = mock_template.return_value.render.call_args
+        context = call_args[1] if call_args[1] else call_args[0][0] if call_args[0] else {}
+        assert context["dependencies_file"] == "requirements.txt"
+        assert context["dependencies_install_path"] is None
 
     def test_is_runtime_installed_success(self):
         """Test _is_runtime_installed with successful runtime detection."""
@@ -541,3 +651,245 @@ CMD ["python", "/app/{{ agent_file }}"]
                     "https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/getting-started-custom.html"
                     in warning_message
                 )
+
+    def test_generate_dockerfile_with_memory(self, tmp_path):
+        """Test Dockerfile generation with memory parameters."""
+        with patch.object(ContainerRuntime, "_is_runtime_installed", return_value=True):
+            runtime = ContainerRuntime("docker")
+
+            # Create agent file
+            agent_file = tmp_path / "test_agent.py"
+            agent_file.write_text("# test agent")
+
+            # Mock template, dependencies, and platform validation
+            with (
+                patch("bedrock_agentcore_starter_toolkit.utils.runtime.container.detect_dependencies") as mock_deps,
+                patch(
+                    "bedrock_agentcore_starter_toolkit.utils.runtime.container.get_python_version", return_value="3.10"
+                ),
+                patch("bedrock_agentcore_starter_toolkit.utils.runtime.container.Template") as mock_template,
+                patch.object(runtime, "_get_current_platform", return_value="linux/arm64"),
+            ):
+                from bedrock_agentcore_starter_toolkit.utils.runtime.entrypoint import DependencyInfo
+
+                mock_deps.return_value = DependencyInfo(file="requirements.txt", type="requirements")
+                mock_template_instance = mock_template.return_value
+                mock_template_instance.render.return_value = "# Generated Dockerfile with memory"
+
+                # Call with memory parameters
+                dockerfile_path = runtime.generate_dockerfile(
+                    agent_path=agent_file,
+                    output_dir=tmp_path,
+                    agent_name="test_agent",
+                    memory_id="mem_123456",
+                    memory_name="test_agent_memory",
+                )
+
+                assert dockerfile_path == tmp_path / "Dockerfile"
+
+                # Verify template was called with memory context
+                call_args = mock_template_instance.render.call_args
+                context = call_args[1] if call_args[1] else call_args[0][0] if call_args[0] else {}
+
+                assert context.get("memory_id") == "mem_123456"
+                assert context.get("memory_name") == "test_agent_memory"
+
+    def test_validate_module_path_with_hyphens(self, tmp_path):
+        """Test _validate_module_path with directory containing hyphens."""
+        with patch.object(ContainerRuntime, "_is_runtime_installed", return_value=True):
+            runtime = ContainerRuntime("docker")
+
+            # Create test structure with hyphenated directory
+            invalid_dir = tmp_path / "my-invalid-dir"
+            invalid_dir.mkdir()
+            agent_file = invalid_dir / "agent.py"
+            agent_file.touch()
+
+            # Should raise ValueError about hyphens
+            with pytest.raises(ValueError) as excinfo:
+                runtime._validate_module_path(agent_file, tmp_path)
+            assert "contains hyphens" in str(excinfo.value)
+            assert "my-invalid-dir" in str(excinfo.value)
+
+    def test_validate_module_path_outside_project(self, tmp_path):
+        """Test _validate_module_path with file outside project directory."""
+        with patch.object(ContainerRuntime, "_is_runtime_installed", return_value=True):
+            runtime = ContainerRuntime("docker")
+
+            project_root = tmp_path / "project"
+            project_root.mkdir()
+
+            # Create file outside project root
+            outside_file = tmp_path / "agent.py"
+            outside_file.touch()
+
+            # Should raise ValueError about file location
+            with pytest.raises(ValueError) as excinfo:
+                runtime._validate_module_path(outside_file, project_root)
+
+            # The actual error comes from pathlib.Path.relative_to()
+            assert "is not in the subpath of" in str(excinfo.value) or "does not start with" in str(excinfo.value)
+
+    def test_ensure_dockerignore_missing_template(self, tmp_path):
+        """Test _ensure_dockerignore when template file is missing."""
+        with patch.object(ContainerRuntime, "_is_runtime_installed", return_value=True):
+            runtime = ContainerRuntime("docker")
+
+            # Mock both .dockerignore and template checks to return False
+            with patch("pathlib.Path.exists", side_effect=[False, False, False]):  # Need three False values
+                # First False for .dockerignore check
+                # Second False for template_path.exists()
+                # Third False for final .dockerignore check
+
+                runtime._ensure_dockerignore(tmp_path)
+
+                # Verify .dockerignore was not created
+                dockerignore_path = tmp_path / ".dockerignore"
+                assert not dockerignore_path.exists()
+
+    def test_auto_runtime_detection_no_runtime_available(self):
+        """Test auto-detection when no container runtime is available."""
+        with patch.object(ContainerRuntime, "_is_runtime_installed", return_value=False):
+            with patch("bedrock_agentcore_starter_toolkit.utils.runtime.container.console") as mock_console:
+                with patch("bedrock_agentcore_starter_toolkit.utils.runtime.container._print_success") as mock_success:
+                    runtime = ContainerRuntime("auto")
+
+                    assert runtime.runtime == "none"
+                    assert runtime.has_local_runtime is False
+                    mock_console.print.assert_called()
+                    mock_success.assert_called()
+
+    def test_explicit_runtime_not_available_warning(self):
+        """Test warning when explicitly requested runtime is not available."""
+        with patch.object(ContainerRuntime, "_is_runtime_installed", return_value=False):
+            with patch("bedrock_agentcore_starter_toolkit.utils.runtime.container._handle_warn") as mock_warn:
+                runtime = ContainerRuntime("docker")
+
+                assert runtime.runtime == "none"
+                assert runtime.has_local_runtime is False
+                mock_warn.assert_called()
+
+                # Check warning message contains expected content
+                warning_call = mock_warn.call_args[0][0]
+                assert "Docker is not installed" in warning_call
+
+
+class TestTypeScriptDockerfileGeneration:
+    """Test TypeScript Dockerfile generation."""
+
+    def test_typescript_template_selection(self, tmp_path, mock_subprocess):
+        """Test that TypeScript uses Dockerfile.node.j2 template."""
+        with patch.object(ContainerRuntime, "_is_runtime_installed", return_value=True):
+            runtime = ContainerRuntime("docker")
+
+            # Create TypeScript project structure
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            agent_file = src_dir / "index.ts"
+            agent_file.write_text("// TypeScript agent")
+
+            (tmp_path / "package.json").write_text('{"name": "test", "scripts": {"build": "tsc"}}')
+
+            with patch.object(runtime, "_get_current_platform", return_value="linux/arm64"):
+                dockerfile_path = runtime.generate_dockerfile(
+                    agent_path=agent_file,
+                    output_dir=tmp_path,
+                    agent_name="test_agent",
+                    aws_region="us-west-2",
+                    language="typescript",
+                    node_version="20",
+                )
+
+                assert dockerfile_path.exists()
+                content = dockerfile_path.read_text()
+                assert "FROM public.ecr.aws/docker/library/node:20-slim" in content
+                assert "npm ci" in content
+                assert "npm run build" in content
+
+    def test_typescript_entrypoint_transformation(self, tmp_path, mock_subprocess):
+        """Test entrypoint is transformed from .ts to dist/.js."""
+        with patch.object(ContainerRuntime, "_is_runtime_installed", return_value=True):
+            runtime = ContainerRuntime("docker")
+
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            agent_file = src_dir / "index.ts"
+            agent_file.write_text("// TypeScript agent")
+
+            with patch.object(runtime, "_get_current_platform", return_value="linux/arm64"):
+                dockerfile_path = runtime.generate_dockerfile(
+                    agent_path=agent_file,
+                    output_dir=tmp_path,
+                    agent_name="test_agent",
+                    language="typescript",
+                )
+
+                content = dockerfile_path.read_text()
+                assert "dist/src/index.js" in content
+
+    def test_typescript_root_entrypoint_transformation(self, tmp_path, mock_subprocess):
+        """Test root-level entrypoint transformation."""
+        with patch.object(ContainerRuntime, "_is_runtime_installed", return_value=True):
+            runtime = ContainerRuntime("docker")
+
+            agent_file = tmp_path / "index.ts"
+            agent_file.write_text("// TypeScript agent")
+
+            with patch.object(runtime, "_get_current_platform", return_value="linux/arm64"):
+                dockerfile_path = runtime.generate_dockerfile(
+                    agent_path=agent_file,
+                    output_dir=tmp_path,
+                    agent_name="test_agent",
+                    language="typescript",
+                )
+
+                content = dockerfile_path.read_text()
+                assert "dist/index.js" in content
+
+    def test_typescript_node_version(self, tmp_path, mock_subprocess):
+        """Test custom node version in Dockerfile."""
+        with patch.object(ContainerRuntime, "_is_runtime_installed", return_value=True):
+            runtime = ContainerRuntime("docker")
+
+            agent_file = tmp_path / "index.ts"
+            agent_file.write_text("// TypeScript agent")
+
+            with patch.object(runtime, "_get_current_platform", return_value="linux/arm64"):
+                dockerfile_path = runtime.generate_dockerfile(
+                    agent_path=agent_file,
+                    output_dir=tmp_path,
+                    agent_name="test_agent",
+                    language="typescript",
+                    node_version="22",
+                )
+
+                content = dockerfile_path.read_text()
+                assert "FROM public.ecr.aws/docker/library/node:22-slim" in content
+
+    def test_typescript_with_memory_id(self, tmp_path, mock_subprocess):
+        """Test TypeScript Dockerfile includes memory_id."""
+        with patch.object(ContainerRuntime, "_is_runtime_installed", return_value=True):
+            runtime = ContainerRuntime("docker")
+
+            agent_file = tmp_path / "index.ts"
+            agent_file.write_text("// TypeScript agent")
+
+            with patch.object(runtime, "_get_current_platform", return_value="linux/arm64"):
+                dockerfile_path = runtime.generate_dockerfile(
+                    agent_path=agent_file,
+                    output_dir=tmp_path,
+                    agent_name="test_agent",
+                    language="typescript",
+                    memory_id="mem-123",
+                )
+
+                content = dockerfile_path.read_text()
+                assert "mem-123" in content
+
+    def test_transform_ts_entrypoint_tsx(self, mock_subprocess):
+        """Test _transform_ts_entrypoint with .tsx file."""
+        with patch.object(ContainerRuntime, "_is_runtime_installed", return_value=True):
+            runtime = ContainerRuntime("docker")
+
+            result = runtime._transform_ts_entrypoint("src/app.tsx")
+            assert result == "dist/src/app.js"

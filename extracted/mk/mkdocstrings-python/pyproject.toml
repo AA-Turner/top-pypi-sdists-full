@@ -15,7 +15,7 @@ license-files = [
     "LICENSE",
 ]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 keywords = []
 dynamic = []
 classifiers = [
@@ -24,7 +24,6 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -42,7 +41,7 @@ dependencies = [
     "griffe>=1.13",
     "typing-extensions>=4.0; python_version < '3.11'",
 ]
-version = "1.18.2"
+version = "2.0.1"
 
 [project.urls]
 Homepage = "https://mkdocstrings.github.io/python"

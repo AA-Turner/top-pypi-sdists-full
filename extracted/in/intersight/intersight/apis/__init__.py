@@ -20,13 +20,13 @@ from intersight.api.adapter_api import AdapterApi
 from intersight.api.apic_api import ApicApi
 from intersight.api.appliance_api import ApplianceApi
 from intersight.api.asset_api import AssetApi
+from intersight.api.auditd_api import AuditdApi
 from intersight.api.bios_api import BiosApi
 from intersight.api.boot_api import BootApi
 from intersight.api.bulk_api import BulkApi
 from intersight.api.capability_api import CapabilityApi
 from intersight.api.catalystsdwan_api import CatalystsdwanApi
 from intersight.api.certificatemanagement_api import CertificatemanagementApi
-from intersight.api.changelog_api import ChangelogApi
 from intersight.api.chassis_api import ChassisApi
 from intersight.api.cloud_api import CloudApi
 from intersight.api.comm_api import CommApi
@@ -68,7 +68,6 @@ from intersight.api.license_api import LicenseApi
 from intersight.api.ls_api import LsApi
 from intersight.api.macpool_api import MacpoolApi
 from intersight.api.management_api import ManagementApi
-from intersight.api.marketplace_api import MarketplaceApi
 from intersight.api.memory_api import MemoryApi
 from intersight.api.meraki_api import MerakiApi
 from intersight.api.meta_api import MetaApi
@@ -87,6 +86,7 @@ from intersight.api.organization_api import OrganizationApi
 from intersight.api.os_api import OsApi
 from intersight.api.partnerintegration_api import PartnerintegrationApi
 from intersight.api.pci_api import PciApi
+from intersight.api.pool_api import PoolApi
 from intersight.api.port_api import PortApi
 from intersight.api.power_api import PowerApi
 from intersight.api.processor_api import ProcessorApi
@@ -128,4 +128,4 @@ from intersight.api.vnic_api import VnicApi
 from intersight.api.vrf_api import VrfApi
 from intersight.api.webhook_api import WebhookApi
 from intersight.api.workflow_api import WorkflowApi
-from intersight.api.workspace_api import WorkspaceApi
+from intersight.api.workload_api import WorkloadApi

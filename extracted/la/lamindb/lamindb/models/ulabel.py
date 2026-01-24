@@ -2,36 +2,44 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, overload
 
+import pgtrigger
+from django.conf import settings as django_settings
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 
-from lamindb.base import deprecated
 from lamindb.base.fields import (
-    BooleanField,
     CharField,
     DateTimeField,
     ForeignKey,
+    TextField,
 )
 from lamindb.errors import FieldValidationError
 
-from ..base.ids import base62_8
+from ..base.uids import base62_8
 from .can_curate import CanCurate
 from .feature import Feature
-from .has_parents import HasParents
+from .has_parents import HasParents, _query_relatives
 from .run import Run, TracksRun, TracksUpdates, User, current_user_id
-from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
+from .sqlrecord import BaseSQLRecord, HasType, IsLink, SQLRecord, _get_record_kwargs
 from .transform import Transform
 
 if TYPE_CHECKING:
     from datetime import datetime
 
     from .artifact import Artifact
+    from .block import ULabelBlock
     from .collection import Collection
     from .project import Project
+    from .query_set import QuerySet
+    from .record import Record
 
 
-class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
+class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Universal labels.
+
+    In some cases you may just want to create a simple label, then `ULabel` is for you.
+
+    It behaves like `Record`, just without the ability to store features.
 
     Args:
         name: `str` A name.
@@ -39,56 +47,75 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
 
-    A `ULabel` record provides the easiest way to annotate a dataset
-    with a label: `"My project"`, `"curated"`, or `"Batch X"`:
-
-        >>> my_project = ULabel(name="My project").save()
-        >>> artifact.ulabels.add(my_project)
-
-    Often, a ulabel is measured *within* a dataset. For instance, an artifact
-    might characterize 2 species of the Iris flower (`"setosa"` &
-    `"versicolor"`) measured by a `"species"` feature. Use the
-    :class:`~lamindb.curators.DataFrameCurator` flow to automatically parse, validate, and
-    annotate with labels that are contained in `DataFrame` objects.
-
-    .. note::
-
-        If you work with complex entities like cell lines, cell types, tissues,
-        etc., consider using the pre-defined biological registries in
-        :mod:`bionty` to label artifacts & collections.
-
-        If you work with biological samples, likely, the only sustainable way of
-        tracking metadata, is to create a custom schema module.
-
     See Also:
         :meth:`~lamindb.Feature`
-            Dimensions of measurement for artifacts & collections.
-        :attr:`~lamindb.Artifact.features`
-            Feature manager for an artifact.
+            Dimensions of measurement (e.g. column of a sheet, attribute of a record).
+        :meth:`~lamindb.ULabel`
+            Like `ULabel`, but with the ability to store features.
 
     Examples:
 
-        Create a ulabel:
+        Create a label::
 
-        >>> train_split = ln.ULabel(name="train").save()
+            train_split = ln.ULabel(name="train").save()
 
-        Organize ulabels in a hierarchy:
+        Organize ulabels in a hierarchy::
 
-        >>> split_type = ln.ULabel(name="Split", is_type=True).save()
-        >>> train_split = ln.ULabel(name="train", type="split_type").save()
+            split_type = ln.ULabel(name="Split", is_type=True).save()
+            train_split = ln.ULabel(name="train", type="split_type").save()
 
-        Label an artifact:
+        Label an artifact::
 
-        >>> artifact.ulabels.add(ulabel)
+            artifact.ulabels.add(train_split)
 
-        Query an artifact by ulabel:
+        Query artifacts by label::
 
-        >>> ln.Artifact.filter(ulabels=train_split).to_dataframe()
+            ln.Artifact.filter(ulabels=train_split).to_dataframe()
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        if (
+            django_settings.DATABASES.get("default", {}).get("ENGINE")
+            == "django.db.backends.postgresql"
+        ):
+            triggers = [
+                pgtrigger.Trigger(
+                    name="prevent_ulabel_type_cycle",
+                    operation=pgtrigger.Update | pgtrigger.Insert,
+                    when=pgtrigger.Before,
+                    condition=pgtrigger.Condition("NEW.type_id IS NOT NULL"),
+                    func="""
+                        -- Check for direct self-reference
+                        IF NEW.type_id = NEW.id THEN
+                            RAISE EXCEPTION 'Cannot set type: ulabel cannot be its own type';
+                        END IF;
+
+                        -- Check for cycles in the type chain
+                        IF EXISTS (
+                            WITH RECURSIVE type_chain AS (
+                                SELECT type_id, 1 as depth
+                                FROM lamindb_ulabel
+                                WHERE id = NEW.type_id
+
+                                UNION ALL
+
+                                SELECT r.type_id, tc.depth + 1
+                                FROM lamindb_ulabel r
+                                INNER JOIN type_chain tc ON r.id = tc.type_id
+                                WHERE tc.depth < 100
+                            )
+                            SELECT 1 FROM type_chain WHERE type_id = NEW.id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: would create a cycle';
+                        END IF;
+
+                        RETURN NEW;
+                    """,
+                ),
+            ]
+        # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     _name_field: str = "name"
 
@@ -107,13 +134,8 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
     """
     ulabels: ULabel
     """ULabels of this type (can only be non-empty if `is_type` is `True`)."""
-    is_type: bool = BooleanField(default=False, db_index=True, null=True)
-    """Distinguish types from instances of the type.
-
-    For example, a ulabel "Project" would be a type, and the actual projects "Project 1", "Project 2", would be records of that `type`.
-    """
-    description: str | None = CharField(null=True, db_index=True)
-    """A description (optional)."""
+    description: str | None = TextField(null=True)
+    """A description."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
     """A simple reference like URL or external ID."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
@@ -133,15 +155,25 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
     Reverse accessor for parents.
     """
     transforms: Transform
-    """Linked transforms."""
+    """The transforms annotated by this ulabel."""
     runs: Run
-    """Linked runs."""
-    artifacts: Artifact
-    """Linked artifacts."""
+    """The runs annotated by this ulabel."""
+    artifacts: Artifact = models.ManyToManyField(
+        "Artifact", through="ArtifactULabel", related_name="ulabels"
+    )
+    """The artifacts annotated by this ulabel."""
     collections: Collection
-    """Linked collections."""
+    """The collections annotated by this ulabel."""
     projects: Project
-    """Linked projects."""
+    """The projects annotated by this ulabel."""
+    linked_in_records: Record = models.ManyToManyField(
+        "Record",
+        through="RecordULabel",
+        related_name="linked_ulabels",
+    )
+    """Records linking this ulabel as a value."""
+    ablocks: ULabelBlock
+    """Blocks that annotate this ulabel."""
 
     @overload
     def __init__(
@@ -202,11 +234,13 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
             _aux=_aux,
         )
 
-    @property
-    @deprecated("ulabels")
-    def records(self) -> list[ULabel]:
-        """Return all instances of this type."""
-        return self.ulabels
+    def query_ulabels(self) -> QuerySet:
+        """Query ulabels of sub types.
+
+        While `.ulabels` retrieves the ulabels with the current type, this method
+        also retrieves sub types and the ulabels with sub types of the current type.
+        """
+        return _query_relatives([self], "ulabels")  # type: ignore
 
 
 class ArtifactULabel(BaseSQLRecord, IsLink, TracksRun):
@@ -216,8 +250,6 @@ class ArtifactULabel(BaseSQLRecord, IsLink, TracksRun):
     feature: Feature | None = ForeignKey(
         Feature, PROTECT, null=True, related_name="links_artifactulabel", default=None
     )
-    label_ref_is_name: bool | None = BooleanField(null=True)
-    feature_ref_is_name: bool | None = BooleanField(null=True)
 
     class Meta:
         # can have the same label linked to the same artifact if the feature is
@@ -263,8 +295,6 @@ class CollectionULabel(BaseSQLRecord, IsLink, TracksRun):
     feature: Feature | None = ForeignKey(
         Feature, PROTECT, null=True, related_name="links_collectionulabel", default=None
     )
-    label_ref_is_name: bool | None = BooleanField(null=True)
-    feature_ref_is_name: bool | None = BooleanField(null=True)
 
     class Meta:
         app_label = "lamindb"

@@ -25,12 +25,13 @@ from .._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from .._base_client import make_request_options
+from ..pagination import SyncDefaultPagination, AsyncDefaultPagination
+from .._base_client import AsyncPaginator, make_request_options
 from ..types.service_plan import ServicePlan
 from ..types.traffic_type import TrafficType
 from ..types.usage_payment_method import UsagePaymentMethod
+from ..types.outbound_voice_profile import OutboundVoiceProfile
 from ..types.outbound_call_recording_param import OutboundCallRecordingParam
-from ..types.outbound_voice_profile_list_response import OutboundVoiceProfileListResponse
 from ..types.outbound_voice_profile_create_response import OutboundVoiceProfileCreateResponse
 from ..types.outbound_voice_profile_delete_response import OutboundVoiceProfileDeleteResponse
 from ..types.outbound_voice_profile_update_response import OutboundVoiceProfileUpdateResponse
@@ -65,6 +66,7 @@ class OutboundVoiceProfilesResource(SyncAPIResource):
         name: str,
         billing_group_id: Optional[str] | Omit = omit,
         call_recording: OutboundCallRecordingParam | Omit = omit,
+        calling_window: outbound_voice_profile_create_params.CallingWindow | Omit = omit,
         concurrent_call_limit: Optional[int] | Omit = omit,
         daily_spend_limit: str | Omit = omit,
         daily_spend_limit_enabled: bool | Omit = omit,
@@ -90,6 +92,9 @@ class OutboundVoiceProfilesResource(SyncAPIResource):
 
           billing_group_id: The ID of the billing group associated with the outbound proflile. Defaults to
               null (for no group assigned).
+
+          calling_window: (BETA) Specifies the time window and call limits for calls made using this
+              outbound voice profile. Note that all times are UTC in 24-hour clock time.
 
           concurrent_call_limit: Must be no more than your global concurrent call limit. Null means no limit.
 
@@ -129,6 +134,7 @@ class OutboundVoiceProfilesResource(SyncAPIResource):
                     "name": name,
                     "billing_group_id": billing_group_id,
                     "call_recording": call_recording,
+                    "calling_window": calling_window,
                     "concurrent_call_limit": concurrent_call_limit,
                     "daily_spend_limit": daily_spend_limit,
                     "daily_spend_limit_enabled": daily_spend_limit_enabled,
@@ -188,6 +194,7 @@ class OutboundVoiceProfilesResource(SyncAPIResource):
         name: str,
         billing_group_id: Optional[str] | Omit = omit,
         call_recording: OutboundCallRecordingParam | Omit = omit,
+        calling_window: outbound_voice_profile_update_params.CallingWindow | Omit = omit,
         concurrent_call_limit: Optional[int] | Omit = omit,
         daily_spend_limit: str | Omit = omit,
         daily_spend_limit_enabled: bool | Omit = omit,
@@ -213,6 +220,9 @@ class OutboundVoiceProfilesResource(SyncAPIResource):
 
           billing_group_id: The ID of the billing group associated with the outbound proflile. Defaults to
               null (for no group assigned).
+
+          calling_window: (BETA) Specifies the time window and call limits for calls made using this
+              outbound voice profile.
 
           concurrent_call_limit: Must be no more than your global concurrent call limit. Null means no limit.
 
@@ -254,6 +264,7 @@ class OutboundVoiceProfilesResource(SyncAPIResource):
                     "name": name,
                     "billing_group_id": billing_group_id,
                     "call_recording": call_recording,
+                    "calling_window": calling_window,
                     "concurrent_call_limit": concurrent_call_limit,
                     "daily_spend_limit": daily_spend_limit,
                     "daily_spend_limit_enabled": daily_spend_limit_enabled,
@@ -299,7 +310,7 @@ class OutboundVoiceProfilesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> OutboundVoiceProfileListResponse:
+    ) -> SyncDefaultPagination[OutboundVoiceProfile]:
         """
         Get all outbound voice profiles belonging to the user that match the given
         filters.
@@ -309,8 +320,8 @@ class OutboundVoiceProfilesResource(SyncAPIResource):
               Consolidated filter parameter (deepObject style). Originally:
               filter[name][contains]
 
-          page: Consolidated page parameter (deepObject style). Originally: page[number],
-              page[size]
+          page: Consolidated page parameter (deepObject style). Originally: page[size],
+              page[number]
 
           sort: Specifies the sort order for results. By default sorting direction is ascending.
               To have the results sorted in descending order add the <code>-</code>
@@ -335,8 +346,9 @@ class OutboundVoiceProfilesResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return self._get(
+        return self._get_api_list(
             "/outbound_voice_profiles",
+            page=SyncDefaultPagination[OutboundVoiceProfile],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -351,7 +363,7 @@ class OutboundVoiceProfilesResource(SyncAPIResource):
                     outbound_voice_profile_list_params.OutboundVoiceProfileListParams,
                 ),
             ),
-            cast_to=OutboundVoiceProfileListResponse,
+            model=OutboundVoiceProfile,
         )
 
     def delete(
@@ -414,6 +426,7 @@ class AsyncOutboundVoiceProfilesResource(AsyncAPIResource):
         name: str,
         billing_group_id: Optional[str] | Omit = omit,
         call_recording: OutboundCallRecordingParam | Omit = omit,
+        calling_window: outbound_voice_profile_create_params.CallingWindow | Omit = omit,
         concurrent_call_limit: Optional[int] | Omit = omit,
         daily_spend_limit: str | Omit = omit,
         daily_spend_limit_enabled: bool | Omit = omit,
@@ -439,6 +452,9 @@ class AsyncOutboundVoiceProfilesResource(AsyncAPIResource):
 
           billing_group_id: The ID of the billing group associated with the outbound proflile. Defaults to
               null (for no group assigned).
+
+          calling_window: (BETA) Specifies the time window and call limits for calls made using this
+              outbound voice profile. Note that all times are UTC in 24-hour clock time.
 
           concurrent_call_limit: Must be no more than your global concurrent call limit. Null means no limit.
 
@@ -478,6 +494,7 @@ class AsyncOutboundVoiceProfilesResource(AsyncAPIResource):
                     "name": name,
                     "billing_group_id": billing_group_id,
                     "call_recording": call_recording,
+                    "calling_window": calling_window,
                     "concurrent_call_limit": concurrent_call_limit,
                     "daily_spend_limit": daily_spend_limit,
                     "daily_spend_limit_enabled": daily_spend_limit_enabled,
@@ -537,6 +554,7 @@ class AsyncOutboundVoiceProfilesResource(AsyncAPIResource):
         name: str,
         billing_group_id: Optional[str] | Omit = omit,
         call_recording: OutboundCallRecordingParam | Omit = omit,
+        calling_window: outbound_voice_profile_update_params.CallingWindow | Omit = omit,
         concurrent_call_limit: Optional[int] | Omit = omit,
         daily_spend_limit: str | Omit = omit,
         daily_spend_limit_enabled: bool | Omit = omit,
@@ -562,6 +580,9 @@ class AsyncOutboundVoiceProfilesResource(AsyncAPIResource):
 
           billing_group_id: The ID of the billing group associated with the outbound proflile. Defaults to
               null (for no group assigned).
+
+          calling_window: (BETA) Specifies the time window and call limits for calls made using this
+              outbound voice profile.
 
           concurrent_call_limit: Must be no more than your global concurrent call limit. Null means no limit.
 
@@ -603,6 +624,7 @@ class AsyncOutboundVoiceProfilesResource(AsyncAPIResource):
                     "name": name,
                     "billing_group_id": billing_group_id,
                     "call_recording": call_recording,
+                    "calling_window": calling_window,
                     "concurrent_call_limit": concurrent_call_limit,
                     "daily_spend_limit": daily_spend_limit,
                     "daily_spend_limit_enabled": daily_spend_limit_enabled,
@@ -622,7 +644,7 @@ class AsyncOutboundVoiceProfilesResource(AsyncAPIResource):
             cast_to=OutboundVoiceProfileUpdateResponse,
         )
 
-    async def list(
+    def list(
         self,
         *,
         filter: outbound_voice_profile_list_params.Filter | Omit = omit,
@@ -648,7 +670,7 @@ class AsyncOutboundVoiceProfilesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> OutboundVoiceProfileListResponse:
+    ) -> AsyncPaginator[OutboundVoiceProfile, AsyncDefaultPagination[OutboundVoiceProfile]]:
         """
         Get all outbound voice profiles belonging to the user that match the given
         filters.
@@ -658,8 +680,8 @@ class AsyncOutboundVoiceProfilesResource(AsyncAPIResource):
               Consolidated filter parameter (deepObject style). Originally:
               filter[name][contains]
 
-          page: Consolidated page parameter (deepObject style). Originally: page[number],
-              page[size]
+          page: Consolidated page parameter (deepObject style). Originally: page[size],
+              page[number]
 
           sort: Specifies the sort order for results. By default sorting direction is ascending.
               To have the results sorted in descending order add the <code>-</code>
@@ -684,14 +706,15 @@ class AsyncOutboundVoiceProfilesResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return await self._get(
+        return self._get_api_list(
             "/outbound_voice_profiles",
+            page=AsyncDefaultPagination[OutboundVoiceProfile],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=await async_maybe_transform(
+                query=maybe_transform(
                     {
                         "filter": filter,
                         "page": page,
@@ -700,7 +723,7 @@ class AsyncOutboundVoiceProfilesResource(AsyncAPIResource):
                     outbound_voice_profile_list_params.OutboundVoiceProfileListParams,
                 ),
             ),
-            cast_to=OutboundVoiceProfileListResponse,
+            model=OutboundVoiceProfile,
         )
 
     async def delete(

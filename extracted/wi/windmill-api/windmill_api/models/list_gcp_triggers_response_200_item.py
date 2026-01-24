@@ -6,6 +6,7 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..models.list_gcp_triggers_response_200_item_delivery_type import ListGcpTriggersResponse200ItemDeliveryType
+from ..models.list_gcp_triggers_response_200_item_mode import ListGcpTriggersResponse200ItemMode
 from ..models.list_gcp_triggers_response_200_item_subscription_mode import (
     ListGcpTriggersResponse200ItemSubscriptionMode,
 )
@@ -35,7 +36,6 @@ class ListGcpTriggersResponse200Item:
         delivery_type (ListGcpTriggersResponse200ItemDeliveryType):
         subscription_mode (ListGcpTriggersResponse200ItemSubscriptionMode): The mode of subscription. 'existing' means
             using an existing GCP subscription, while 'create_update' involves creating or updating a new subscription.
-        enabled (bool):
         path (str):
         script_path (str):
         email (str):
@@ -44,6 +44,7 @@ class ListGcpTriggersResponse200Item:
         edited_by (str):
         edited_at (datetime.datetime):
         is_flow (bool):
+        mode (ListGcpTriggersResponse200ItemMode): job trigger mode
         server_id (Union[Unset, str]):
         delivery_config (Union[Unset, ListGcpTriggersResponse200ItemDeliveryConfig]):
         last_server_ping (Union[Unset, datetime.datetime]):
@@ -51,7 +52,7 @@ class ListGcpTriggersResponse200Item:
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, ListGcpTriggersResponse200ItemErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, ListGcpTriggersResponse200ItemRetry]):
+        retry (Union[Unset, ListGcpTriggersResponse200ItemRetry]): Retry configuration for failed module executions
     """
 
     gcp_resource_path: str
@@ -59,7 +60,6 @@ class ListGcpTriggersResponse200Item:
     subscription_id: str
     delivery_type: ListGcpTriggersResponse200ItemDeliveryType
     subscription_mode: ListGcpTriggersResponse200ItemSubscriptionMode
-    enabled: bool
     path: str
     script_path: str
     email: str
@@ -68,6 +68,7 @@ class ListGcpTriggersResponse200Item:
     edited_by: str
     edited_at: datetime.datetime
     is_flow: bool
+    mode: ListGcpTriggersResponse200ItemMode
     server_id: Union[Unset, str] = UNSET
     delivery_config: Union[Unset, "ListGcpTriggersResponse200ItemDeliveryConfig"] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
@@ -85,7 +86,6 @@ class ListGcpTriggersResponse200Item:
 
         subscription_mode = self.subscription_mode.value
 
-        enabled = self.enabled
         path = self.path
         script_path = self.script_path
         email = self.email
@@ -96,6 +96,8 @@ class ListGcpTriggersResponse200Item:
         edited_at = self.edited_at.isoformat()
 
         is_flow = self.is_flow
+        mode = self.mode.value
+
         server_id = self.server_id
         delivery_config: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.delivery_config, Unset):
@@ -124,7 +126,6 @@ class ListGcpTriggersResponse200Item:
                 "subscription_id": subscription_id,
                 "delivery_type": delivery_type,
                 "subscription_mode": subscription_mode,
-                "enabled": enabled,
                 "path": path,
                 "script_path": script_path,
                 "email": email,
@@ -133,6 +134,7 @@ class ListGcpTriggersResponse200Item:
                 "edited_by": edited_by,
                 "edited_at": edited_at,
                 "is_flow": is_flow,
+                "mode": mode,
             }
         )
         if server_id is not UNSET:
@@ -174,8 +176,6 @@ class ListGcpTriggersResponse200Item:
 
         subscription_mode = ListGcpTriggersResponse200ItemSubscriptionMode(d.pop("subscription_mode"))
 
-        enabled = d.pop("enabled")
-
         path = d.pop("path")
 
         script_path = d.pop("script_path")
@@ -191,6 +191,8 @@ class ListGcpTriggersResponse200Item:
         edited_at = isoparse(d.pop("edited_at"))
 
         is_flow = d.pop("is_flow")
+
+        mode = ListGcpTriggersResponse200ItemMode(d.pop("mode"))
 
         server_id = d.pop("server_id", UNSET)
 
@@ -232,7 +234,6 @@ class ListGcpTriggersResponse200Item:
             subscription_id=subscription_id,
             delivery_type=delivery_type,
             subscription_mode=subscription_mode,
-            enabled=enabled,
             path=path,
             script_path=script_path,
             email=email,
@@ -241,6 +242,7 @@ class ListGcpTriggersResponse200Item:
             edited_by=edited_by,
             edited_at=edited_at,
             is_flow=is_flow,
+            mode=mode,
             server_id=server_id,
             delivery_config=delivery_config,
             last_server_ping=last_server_ping,

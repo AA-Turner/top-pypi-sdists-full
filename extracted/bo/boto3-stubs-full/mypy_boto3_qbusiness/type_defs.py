@@ -3,7 +3,7 @@ Type annotations for qbusiness service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_qbusiness/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -80,12 +81,6 @@ from .literals import (
     WebExperienceStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -461,7 +456,7 @@ class S3TypeDef(TypedDict):
 
 
 class ActionExecutionPayloadFieldOutputTypeDef(TypedDict):
-    value: Dict[str, Any]
+    value: dict[str, Any]
 
 
 class ActionExecutionPayloadFieldTypeDef(TypedDict):
@@ -469,8 +464,8 @@ class ActionExecutionPayloadFieldTypeDef(TypedDict):
 
 
 class ActionReviewPayloadFieldAllowedValueTypeDef(TypedDict):
-    value: NotRequired[Dict[str, Any]]
-    displayValue: NotRequired[Dict[str, Any]]
+    value: NotRequired[dict[str, Any]]
+    displayValue: NotRequired[dict[str, Any]]
 
 
 class ActionSummaryTypeDef(TypedDict):
@@ -505,7 +500,7 @@ class PermissionConditionTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -579,7 +574,7 @@ class DeleteDocumentTypeDef(TypedDict):
 
 
 class BlockedPhrasesConfigurationTypeDef(TypedDict):
-    blockedPhrases: NotRequired[List[str]]
+    blockedPhrases: NotRequired[list[str]]
     systemMessageOverride: NotRequired[str]
 
 
@@ -590,7 +585,7 @@ class BlockedPhrasesConfigurationUpdateTypeDef(TypedDict):
 
 
 class BrowserExtensionConfigurationOutputTypeDef(TypedDict):
-    enabledBrowserExtensions: List[BrowserExtensionType]
+    enabledBrowserExtensions: list[BrowserExtensionType]
 
 
 class BrowserExtensionConfigurationTypeDef(TypedDict):
@@ -743,8 +738,8 @@ DataSourceTypeDef = TypedDict(
 
 
 class DataSourceVpcConfigurationOutputTypeDef(TypedDict):
-    subnetIds: List[str]
-    securityGroupIds: List[str]
+    subnetIds: list[str]
+    securityGroupIds: list[str]
 
 
 class DataSourceVpcConfigurationTypeDef(TypedDict):
@@ -854,7 +849,7 @@ class NumberAttributeBoostingConfigurationTypeDef(TypedDict):
 
 class StringAttributeBoostingConfigurationOutputTypeDef(TypedDict):
     boostingLevel: DocumentAttributeBoostingLevelType
-    attributeValueBoosting: NotRequired[Dict[str, StringAttributeValueBoostingLevelType]]
+    attributeValueBoosting: NotRequired[dict[str, StringAttributeValueBoostingLevelType]]
 
 
 class StringListAttributeBoostingConfigurationTypeDef(TypedDict):
@@ -868,7 +863,7 @@ class StringAttributeBoostingConfigurationTypeDef(TypedDict):
 
 class DocumentAttributeValueOutputTypeDef(TypedDict):
     stringValue: NotRequired[str]
-    stringListValue: NotRequired[List[str]]
+    stringListValue: NotRequired[list[str]]
     longValue: NotRequired[int]
     dateValue: NotRequired[datetime]
 
@@ -1230,8 +1225,8 @@ class ScoreAttributesTypeDef(TypedDict):
 
 
 class UsersAndGroupsOutputTypeDef(TypedDict):
-    userIds: NotRequired[List[str]]
-    userGroups: NotRequired[List[str]]
+    userIds: NotRequired[list[str]]
+    userGroups: NotRequired[list[str]]
 
 
 class SamlConfigurationTypeDef(TypedDict):
@@ -1292,7 +1287,7 @@ class APISchemaTypeDef(TypedDict):
 
 class ActionExecutionOutputTypeDef(TypedDict):
     pluginId: str
-    payload: Dict[str, ActionExecutionPayloadFieldOutputTypeDef]
+    payload: dict[str, ActionExecutionPayloadFieldOutputTypeDef]
     payloadFieldNameSeparator: str
 
 
@@ -1314,10 +1309,10 @@ ActionReviewPayloadFieldTypeDef = TypedDict(
         "displayOrder": NotRequired[int],
         "displayDescription": NotRequired[str],
         "type": NotRequired[ActionPayloadFieldTypeType],
-        "value": NotRequired[Dict[str, Any]],
-        "allowedValues": NotRequired[List[ActionReviewPayloadFieldAllowedValueTypeDef]],
+        "value": NotRequired[dict[str, Any]],
+        "allowedValues": NotRequired[list[ActionReviewPayloadFieldAllowedValueTypeDef]],
         "allowedFormat": NotRequired[str],
-        "arrayItemJsonSchema": NotRequired[Dict[str, Any]],
+        "arrayItemJsonSchema": NotRequired[dict[str, Any]],
         "required": NotRequired[bool],
     },
 )
@@ -1423,13 +1418,13 @@ class GetPolicyResponseTypeDef(TypedDict):
 
 
 class ListPluginActionsResponseTypeDef(TypedDict):
-    items: List[ActionSummaryTypeDef]
+    items: list[ActionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListPluginTypeActionsResponseTypeDef(TypedDict):
-    items: List[ActionSummaryTypeDef]
+    items: list[ActionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1515,13 +1510,13 @@ class ChatModeConfigurationTypeDef(TypedDict):
 
 
 class ListChatResponseConfigurationsResponseTypeDef(TypedDict):
-    chatResponseConfigurations: List[ChatResponseConfigurationTypeDef]
+    chatResponseConfigurations: list[ChatResponseConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ContentRetrievalRuleOutputTypeDef(TypedDict):
-    eligibleDataSources: NotRequired[List[EligibleDataSourceTypeDef]]
+    eligibleDataSources: NotRequired[list[EligibleDataSourceTypeDef]]
 
 
 class ContentRetrievalRuleTypeDef(TypedDict):
@@ -1537,7 +1532,7 @@ class CopyFromSourceTypeDef(TypedDict):
 
 
 class ListConversationsResponseTypeDef(TypedDict):
-    conversations: List[ConversationTypeDef]
+    conversations: list[ConversationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1560,7 +1555,7 @@ class GetApplicationResponseTypeDef(TypedDict):
     qAppsConfiguration: QAppsConfigurationTypeDef
     personalizationConfiguration: PersonalizationConfigurationTypeDef
     autoSubscriptionConfiguration: AutoSubscriptionConfigurationTypeDef
-    clientIdsForOIDC: List[str]
+    clientIdsForOIDC: list[str]
     quickSightConfiguration: QuickSightConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1595,7 +1590,7 @@ class CreateApplicationRequestTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1643,7 +1638,7 @@ class CreateUserRequestTypeDef(TypedDict):
 
 
 class GetUserResponseTypeDef(TypedDict):
-    userAliases: List[UserAliasTypeDef]
+    userAliases: list[UserAliasTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1655,9 +1650,9 @@ class UpdateUserRequestTypeDef(TypedDict):
 
 
 class UpdateUserResponseTypeDef(TypedDict):
-    userAliasesAdded: List[UserAliasTypeDef]
-    userAliasesUpdated: List[UserAliasTypeDef]
-    userAliasesDeleted: List[UserAliasTypeDef]
+    userAliasesAdded: list[UserAliasTypeDef]
+    userAliasesUpdated: list[UserAliasTypeDef]
+    userAliasesDeleted: list[UserAliasTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1678,7 +1673,7 @@ class DataSourceSyncJobTypeDef(TypedDict):
 
 
 class ListDataSourcesResponseTypeDef(TypedDict):
-    dataSources: List[DataSourceTypeDef]
+    dataSources: list[DataSourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1690,8 +1685,8 @@ DataSourceVpcConfigurationUnionTypeDef = Union[
 
 class DocumentAclConditionTypeDef(TypedDict):
     memberRelation: NotRequired[MemberRelationType]
-    users: NotRequired[List[DocumentAclUserTypeDef]]
-    groups: NotRequired[List[DocumentAclGroupTypeDef]]
+    users: NotRequired[list[DocumentAclUserTypeDef]]
+    groups: NotRequired[list[DocumentAclGroupTypeDef]]
 
 
 class DocumentAttributeBoostingConfigurationOutputTypeDef(TypedDict):
@@ -1889,7 +1884,7 @@ class GroupMembersTypeDef(TypedDict):
 
 
 class ListGroupsResponseTypeDef(TypedDict):
-    items: List[GroupSummaryTypeDef]
+    items: list[GroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1904,7 +1899,7 @@ class IndexStatisticsTypeDef(TypedDict):
 
 
 class ListIndicesResponseTypeDef(TypedDict):
-    indices: List[IndexTypeDef]
+    indices: list[IndexTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1914,25 +1909,25 @@ class ResponseConfigurationTypeDef(TypedDict):
 
 
 class ListPluginTypeMetadataResponseTypeDef(TypedDict):
-    items: List[PluginTypeMetadataSummaryTypeDef]
+    items: list[PluginTypeMetadataSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListPluginsResponseTypeDef(TypedDict):
-    plugins: List[PluginTypeDef]
+    plugins: list[PluginTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListRetrieversResponseTypeDef(TypedDict):
-    retrievers: List[RetrieverTypeDef]
+    retrievers: list[RetrieverTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListWebExperiencesResponseTypeDef(TypedDict):
-    webExperiences: List[WebExperienceTypeDef]
+    webExperiences: list[WebExperienceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1946,7 +1941,7 @@ class MediaExtractionConfigurationTypeDef(TypedDict):
 class PluginAuthConfigurationOutputTypeDef(TypedDict):
     basicAuthConfiguration: NotRequired[BasicAuthConfigurationTypeDef]
     oAuth2ClientCredentialConfiguration: NotRequired[OAuth2ClientCredentialConfigurationTypeDef]
-    noAuthConfiguration: NotRequired[Dict[str, Any]]
+    noAuthConfiguration: NotRequired[dict[str, Any]]
     idcAuthConfiguration: NotRequired[IdcAuthConfigurationTypeDef]
 
 
@@ -1996,19 +1991,19 @@ class ActionReviewEventTypeDef(TypedDict):
     systemMessageId: NotRequired[str]
     pluginId: NotRequired[str]
     pluginType: NotRequired[PluginTypeType]
-    payload: NotRequired[Dict[str, ActionReviewPayloadFieldTypeDef]]
+    payload: NotRequired[dict[str, ActionReviewPayloadFieldTypeDef]]
     payloadFieldNameSeparator: NotRequired[str]
 
 
 class ActionReviewTypeDef(TypedDict):
     pluginId: NotRequired[str]
     pluginType: NotRequired[PluginTypeType]
-    payload: NotRequired[Dict[str, ActionReviewPayloadFieldTypeDef]]
+    payload: NotRequired[dict[str, ActionReviewPayloadFieldTypeDef]]
     payloadFieldNameSeparator: NotRequired[str]
 
 
 class ListApplicationsResponseTypeDef(TypedDict):
-    applications: List[ApplicationTypeDef]
+    applications: list[ApplicationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2021,24 +2016,24 @@ class FailedAttachmentEventTypeDef(TypedDict):
 
 
 class ListDocumentsResponseTypeDef(TypedDict):
-    documentDetailList: List[DocumentDetailsTypeDef]
+    documentDetailList: list[DocumentDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class BatchDeleteDocumentResponseTypeDef(TypedDict):
-    failedDocuments: List[FailedDocumentTypeDef]
+    failedDocuments: list[FailedDocumentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchPutDocumentResponseTypeDef(TypedDict):
-    failedDocuments: List[FailedDocumentTypeDef]
+    failedDocuments: list[FailedDocumentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetGroupResponseTypeDef(TypedDict):
     status: GroupStatusDetailTypeDef
-    statusHistory: List[GroupStatusDetailTypeDef]
+    statusHistory: list[GroupStatusDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2072,7 +2067,7 @@ class AttachmentTypeDef(TypedDict):
 
 
 class ListSubscriptionsResponseTypeDef(TypedDict):
-    subscriptions: List[SubscriptionTypeDef]
+    subscriptions: list[SubscriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2080,7 +2075,7 @@ class ListSubscriptionsResponseTypeDef(TypedDict):
 class DataAccessorAuthenticationDetailOutputTypeDef(TypedDict):
     authenticationType: DataAccessorAuthenticationTypeType
     authenticationConfiguration: NotRequired[DataAccessorAuthenticationConfigurationTypeDef]
-    externalIds: NotRequired[List[str]]
+    externalIds: NotRequired[list[str]]
 
 
 class DataAccessorAuthenticationDetailTypeDef(TypedDict):
@@ -2090,20 +2085,20 @@ class DataAccessorAuthenticationDetailTypeDef(TypedDict):
 
 
 class ListDataSourceSyncJobsResponseTypeDef(TypedDict):
-    history: List[DataSourceSyncJobTypeDef]
+    history: list[DataSourceSyncJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class DocumentAclMembershipTypeDef(TypedDict):
     memberRelation: NotRequired[MemberRelationType]
-    conditions: NotRequired[List[DocumentAclConditionTypeDef]]
+    conditions: NotRequired[list[DocumentAclConditionTypeDef]]
 
 
 class NativeIndexConfigurationOutputTypeDef(TypedDict):
     indexId: str
     version: NotRequired[int]
-    boostingOverride: NotRequired[Dict[str, DocumentAttributeBoostingConfigurationOutputTypeDef]]
+    boostingOverride: NotRequired[dict[str, DocumentAttributeBoostingConfigurationOutputTypeDef]]
 
 
 class NativeIndexConfigurationTypeDef(TypedDict):
@@ -2120,9 +2115,9 @@ class HookConfigurationOutputTypeDef(TypedDict):
 
 
 class AttributeFilterOutputTypeDef(TypedDict):
-    andAllFilters: NotRequired[List[Dict[str, Any]]]
-    orAllFilters: NotRequired[List[Dict[str, Any]]]
-    notFilter: NotRequired[Dict[str, Any]]
+    andAllFilters: NotRequired[list[dict[str, Any]]]
+    orAllFilters: NotRequired[list[dict[str, Any]]]
+    notFilter: NotRequired[dict[str, Any]]
     equalsTo: NotRequired[DocumentAttributeOutputTypeDef]
     containsAll: NotRequired[DocumentAttributeOutputTypeDef]
     containsAny: NotRequired[DocumentAttributeOutputTypeDef]
@@ -2137,7 +2132,7 @@ class RelevantContentTypeDef(TypedDict):
     documentId: NotRequired[str]
     documentTitle: NotRequired[str]
     documentUri: NotRequired[str]
-    documentAttributes: NotRequired[List[DocumentAttributeOutputTypeDef]]
+    documentAttributes: NotRequired[list[DocumentAttributeOutputTypeDef]]
     scoreAttributes: NotRequired[ScoreAttributesTypeDef]
 
 
@@ -2203,7 +2198,7 @@ GetIndexResponseTypeDef = TypedDict(
         "createdAt": datetime,
         "updatedAt": datetime,
         "capacityConfiguration": IndexCapacityConfigurationTypeDef,
-        "documentAttributeConfigurations": List[DocumentAttributeConfigurationTypeDef],
+        "documentAttributeConfigurations": list[DocumentAttributeConfigurationTypeDef],
         "error": ErrorDetailTypeDef,
         "indexStatistics": IndexStatisticsTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -2212,7 +2207,7 @@ GetIndexResponseTypeDef = TypedDict(
 
 
 class ChatResponseConfigurationDetailTypeDef(TypedDict):
-    responseConfigurations: NotRequired[Dict[Literal["ALL"], ResponseConfigurationTypeDef]]
+    responseConfigurations: NotRequired[dict[Literal["ALL"], ResponseConfigurationTypeDef]]
     responseConfigurationSummary: NotRequired[str]
     status: NotRequired[ChatResponseConfigurationStatusType]
     error: NotRequired[ErrorDetailTypeDef]
@@ -2257,7 +2252,7 @@ class GetWebExperienceResponseTypeDef(TypedDict):
     subtitle: str
     welcomeMessage: str
     samplePromptsControlMode: WebExperienceSamplePromptsControlModeType
-    origins: List[str]
+    origins: list[str]
     roleArn: str
     identityProviderConfiguration: IdentityProviderConfigurationTypeDef
     authenticationConfiguration: WebExperienceAuthConfigurationTypeDef
@@ -2328,7 +2323,7 @@ class AttachmentInputEventTypeDef(TypedDict):
 
 
 class ListAttachmentsResponseTypeDef(TypedDict):
-    attachments: List[AttachmentTypeDef]
+    attachments: list[AttachmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2369,13 +2364,13 @@ class ActionFilterConfigurationOutputTypeDef(TypedDict):
 
 
 class SearchRelevantContentResponseTypeDef(TypedDict):
-    relevantContent: List[RelevantContentTypeDef]
+    relevantContent: list[RelevantContentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class DocumentEnrichmentConfigurationOutputTypeDef(TypedDict):
-    inlineConfigurations: NotRequired[List[InlineDocumentEnrichmentConfigurationOutputTypeDef]]
+    inlineConfigurations: NotRequired[list[InlineDocumentEnrichmentConfigurationOutputTypeDef]]
     preExtractionHookConfiguration: NotRequired[HookConfigurationOutputTypeDef]
     postExtractionHookConfiguration: NotRequired[HookConfigurationOutputTypeDef]
 
@@ -2447,7 +2442,7 @@ class SourceAttributionTypeDef(TypedDict):
     url: NotRequired[str]
     citationNumber: NotRequired[int]
     updatedAt: NotRequired[datetime]
-    textMessageSegments: NotRequired[List[TextSegmentTypeDef]]
+    textMessageSegments: NotRequired[list[TextSegmentTypeDef]]
     documentId: NotRequired[str]
     indexId: NotRequired[str]
     datasourceId: NotRequired[str]
@@ -2455,23 +2450,23 @@ class SourceAttributionTypeDef(TypedDict):
 
 class TopicConfigurationOutputTypeDef(TypedDict):
     name: str
-    rules: List[RuleOutputTypeDef]
+    rules: list[RuleOutputTypeDef]
     description: NotRequired[str]
-    exampleChatMessages: NotRequired[List[str]]
+    exampleChatMessages: NotRequired[list[str]]
 
 
 RuleConfigurationUnionTypeDef = Union[RuleConfigurationTypeDef, RuleConfigurationOutputTypeDef]
 
 
 class ListDataAccessorsResponseTypeDef(TypedDict):
-    dataAccessors: List[DataAccessorTypeDef]
+    dataAccessors: list[DataAccessorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class CheckDocumentAccessResponseTypeDef(TypedDict):
-    userGroups: List[AssociatedGroupTypeDef]
-    userAliases: List[AssociatedUserTypeDef]
+    userGroups: list[AssociatedGroupTypeDef]
+    userAliases: list[AssociatedUserTypeDef]
     hasAccess: bool
     documentAcl: DocumentAclTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2512,7 +2507,7 @@ GetDataSourceResponseTypeDef = TypedDict(
         "dataSourceArn": str,
         "displayName": str,
         "type": str,
-        "configuration": Dict[str, Any],
+        "configuration": dict[str, Any],
         "vpcConfiguration": DataSourceVpcConfigurationOutputTypeDef,
         "createdAt": datetime,
         "updatedAt": datetime,
@@ -2542,8 +2537,8 @@ class ChatSyncOutputTypeDef(TypedDict):
     userMessageId: str
     actionReview: ActionReviewTypeDef
     authChallengeRequest: AuthChallengeRequestTypeDef
-    sourceAttributions: List[SourceAttributionTypeDef]
-    failedAttachments: List[AttachmentOutputTypeDef]
+    sourceAttributions: list[SourceAttributionTypeDef]
+    failedAttachments: list[AttachmentOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2554,8 +2549,8 @@ MessageTypeDef = TypedDict(
         "body": NotRequired[str],
         "time": NotRequired[datetime],
         "type": NotRequired[MessageTypeType],
-        "attachments": NotRequired[List[AttachmentOutputTypeDef]],
-        "sourceAttribution": NotRequired[List[SourceAttributionTypeDef]],
+        "attachments": NotRequired[list[AttachmentOutputTypeDef]],
+        "sourceAttribution": NotRequired[list[SourceAttributionTypeDef]],
         "actionReview": NotRequired[ActionReviewTypeDef],
         "actionExecution": NotRequired[ActionExecutionOutputTypeDef],
     },
@@ -2566,7 +2561,7 @@ class MetadataEventTypeDef(TypedDict):
     conversationId: NotRequired[str]
     userMessageId: NotRequired[str]
     systemMessageId: NotRequired[str]
-    sourceAttributions: NotRequired[List[SourceAttributionTypeDef]]
+    sourceAttributions: NotRequired[list[SourceAttributionTypeDef]]
     finalTextMessage: NotRequired[str]
 
 
@@ -2574,7 +2569,7 @@ class GetChatControlsConfigurationResponseTypeDef(TypedDict):
     responseScope: ResponseScopeType
     orchestrationConfiguration: AppliedOrchestrationConfigurationTypeDef
     blockedPhrases: BlockedPhrasesConfigurationTypeDef
-    topicConfigurations: List[TopicConfigurationOutputTypeDef]
+    topicConfigurations: list[TopicConfigurationOutputTypeDef]
     creatorModeConfiguration: AppliedCreatorModeConfigurationTypeDef
     hallucinationReductionConfiguration: HallucinationReductionConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2617,7 +2612,7 @@ class GetDataAccessorResponseTypeDef(TypedDict):
     applicationId: str
     idcApplicationArn: str
     principal: str
-    actionConfigurations: List[ActionConfigurationOutputTypeDef]
+    actionConfigurations: list[ActionConfigurationOutputTypeDef]
     authenticationDetail: DataAccessorAuthenticationDetailOutputTypeDef
     createdAt: datetime
     updatedAt: datetime
@@ -2664,7 +2659,7 @@ class AttributeFilterTypeDef(TypedDict):
 
 
 class ListMessagesResponseTypeDef(TypedDict):
-    messages: List[MessageTypeDef]
+    messages: list[MessageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

@@ -3,7 +3,7 @@ Type annotations for medialive service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_medialive/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -54,6 +54,8 @@ __all__ = (
     "Av1LookAheadRateControlType",
     "Av1RateControlModeType",
     "Av1SceneChangeDetectType",
+    "Av1SpatialAqType",
+    "Av1TemporalAqType",
     "AvailBlankingStateType",
     "BandwidthReductionFilterStrengthType",
     "BandwidthReductionPostFilterSharpeningType",
@@ -67,6 +69,7 @@ __all__ = (
     "BurnInShadowColorType",
     "BurnInTeletextGridControlType",
     "CdiInputResolutionType",
+    "ChannelAlertStateType",
     "ChannelClassType",
     "ChannelCreatedWaiterName",
     "ChannelDeletedWaiterName",
@@ -82,6 +85,7 @@ __all__ = (
     "CloudWatchAlarmTemplateStatisticType",
     "CloudWatchAlarmTemplateTargetResourceTypeType",
     "CloudWatchAlarmTemplateTreatMissingDataType",
+    "ClusterAlertStateType",
     "ClusterCreatedWaiterName",
     "ClusterDeletedWaiterName",
     "ClusterStateType",
@@ -252,10 +256,13 @@ __all__ = (
     "InputTimecodeSourceType",
     "InputTypeType",
     "LastFrameClippingBehaviorType",
+    "LinkedChannelTypeType",
+    "ListAlertsPaginatorName",
     "ListChannelPlacementGroupsPaginatorName",
     "ListChannelsPaginatorName",
     "ListCloudWatchAlarmTemplateGroupsPaginatorName",
     "ListCloudWatchAlarmTemplatesPaginatorName",
+    "ListClusterAlertsPaginatorName",
     "ListClustersPaginatorName",
     "ListEventBridgeRuleTemplateGroupsPaginatorName",
     "ListEventBridgeRuleTemplatesPaginatorName",
@@ -263,6 +270,7 @@ __all__ = (
     "ListInputDevicesPaginatorName",
     "ListInputSecurityGroupsPaginatorName",
     "ListInputsPaginatorName",
+    "ListMultiplexAlertsPaginatorName",
     "ListMultiplexProgramsPaginatorName",
     "ListMultiplexesPaginatorName",
     "ListNetworksPaginatorName",
@@ -309,6 +317,7 @@ __all__ = (
     "Mpeg2SubGopLengthType",
     "Mpeg2TimecodeInsertionBehaviorType",
     "MsSmoothH265PackagingTypeType",
+    "MultiplexAlertStateType",
     "MultiplexCreatedWaiterName",
     "MultiplexDeletedWaiterName",
     "MultiplexRunningWaiterName",
@@ -330,6 +339,7 @@ __all__ = (
     "OfferingTypeType",
     "PaginatorName",
     "PipelineIdType",
+    "PipelineLockingMethodType",
     "PreferredChannelPipelineType",
     "RebootInputDeviceForceType",
     "RegionName",
@@ -343,6 +353,7 @@ __all__ = (
     "ReservationStateType",
     "ReservationVideoQualityType",
     "ResourceServiceName",
+    "RouterEncryptionTypeType",
     "RtmpAdMarkersType",
     "RtmpCacheFullBehaviorType",
     "RtmpCaptionDataType",
@@ -471,6 +482,8 @@ Av1LevelType = Literal[
 Av1LookAheadRateControlType = Literal["HIGH", "LOW", "MEDIUM"]
 Av1RateControlModeType = Literal["CBR", "QVBR"]
 Av1SceneChangeDetectType = Literal["DISABLED", "ENABLED"]
+Av1SpatialAqType = Literal["DISABLED", "ENABLED"]
+Av1TemporalAqType = Literal["DISABLED", "ENABLED"]
 AvailBlankingStateType = Literal["DISABLED", "ENABLED"]
 BandwidthReductionFilterStrengthType = Literal[
     "AUTO", "STRENGTH_1", "STRENGTH_2", "STRENGTH_3", "STRENGTH_4"
@@ -488,6 +501,7 @@ BurnInOutlineColorType = Literal["BLACK", "BLUE", "GREEN", "RED", "WHITE", "YELL
 BurnInShadowColorType = Literal["BLACK", "NONE", "WHITE"]
 BurnInTeletextGridControlType = Literal["FIXED", "SCALED"]
 CdiInputResolutionType = Literal["FHD", "HD", "SD", "UHD"]
+ChannelAlertStateType = Literal["CLEARED", "SET"]
 ChannelClassType = Literal["SINGLE_PIPELINE", "STANDARD"]
 ChannelCreatedWaiterName = Literal["channel_created"]
 ChannelDeletedWaiterName = Literal["channel_deleted"]
@@ -536,6 +550,7 @@ CloudWatchAlarmTemplateTargetResourceTypeType = Literal[
 CloudWatchAlarmTemplateTreatMissingDataType = Literal[
     "breaching", "ignore", "missing", "notBreaching"
 ]
+ClusterAlertStateType = Literal["CLEARED", "SET"]
 ClusterCreatedWaiterName = Literal["cluster_created"]
 ClusterDeletedWaiterName = Literal["cluster_deleted"]
 ClusterStateType = Literal[
@@ -841,6 +856,7 @@ InputTypeType = Literal[
     "AWS_CDI",
     "INPUT_DEVICE",
     "MEDIACONNECT",
+    "MEDIACONNECT_ROUTER",
     "MP4_FILE",
     "MULTICAST",
     "RTMP_PULL",
@@ -854,10 +870,13 @@ InputTypeType = Literal[
     "URL_PULL",
 ]
 LastFrameClippingBehaviorType = Literal["EXCLUDE_LAST_FRAME", "INCLUDE_LAST_FRAME"]
+LinkedChannelTypeType = Literal["FOLLOWING_CHANNEL", "PRIMARY_CHANNEL"]
+ListAlertsPaginatorName = Literal["list_alerts"]
 ListChannelPlacementGroupsPaginatorName = Literal["list_channel_placement_groups"]
 ListChannelsPaginatorName = Literal["list_channels"]
 ListCloudWatchAlarmTemplateGroupsPaginatorName = Literal["list_cloud_watch_alarm_template_groups"]
 ListCloudWatchAlarmTemplatesPaginatorName = Literal["list_cloud_watch_alarm_templates"]
+ListClusterAlertsPaginatorName = Literal["list_cluster_alerts"]
 ListClustersPaginatorName = Literal["list_clusters"]
 ListEventBridgeRuleTemplateGroupsPaginatorName = Literal["list_event_bridge_rule_template_groups"]
 ListEventBridgeRuleTemplatesPaginatorName = Literal["list_event_bridge_rule_templates"]
@@ -865,6 +884,7 @@ ListInputDeviceTransfersPaginatorName = Literal["list_input_device_transfers"]
 ListInputDevicesPaginatorName = Literal["list_input_devices"]
 ListInputSecurityGroupsPaginatorName = Literal["list_input_security_groups"]
 ListInputsPaginatorName = Literal["list_inputs"]
+ListMultiplexAlertsPaginatorName = Literal["list_multiplex_alerts"]
 ListMultiplexProgramsPaginatorName = Literal["list_multiplex_programs"]
 ListMultiplexesPaginatorName = Literal["list_multiplexes"]
 ListNetworksPaginatorName = Literal["list_networks"]
@@ -914,6 +934,7 @@ Mpeg2ScanTypeType = Literal["INTERLACED", "PROGRESSIVE"]
 Mpeg2SubGopLengthType = Literal["DYNAMIC", "FIXED"]
 Mpeg2TimecodeInsertionBehaviorType = Literal["DISABLED", "GOP_TIMECODE"]
 MsSmoothH265PackagingTypeType = Literal["HEV1", "HVC1"]
+MultiplexAlertStateType = Literal["CLEARED", "SET"]
 MultiplexCreatedWaiterName = Literal["multiplex_created"]
 MultiplexDeletedWaiterName = Literal["multiplex_deleted"]
 MultiplexRunningWaiterName = Literal["multiplex_running"]
@@ -980,6 +1001,7 @@ NodeStateType = Literal[
 OfferingDurationUnitsType = Literal["MONTHS"]
 OfferingTypeType = Literal["NO_UPFRONT"]
 PipelineIdType = Literal["PIPELINE_0", "PIPELINE_1"]
+PipelineLockingMethodType = Literal["SOURCE_TIMECODE", "VIDEO_ALIGNMENT"]
 PreferredChannelPipelineType = Literal["CURRENTLY_ACTIVE", "PIPELINE_0", "PIPELINE_1"]
 RebootInputDeviceForceType = Literal["NO", "YES"]
 ReservationAutomaticRenewalType = Literal["DISABLED", "ENABLED", "UNAVAILABLE"]
@@ -991,6 +1013,7 @@ ReservationResourceTypeType = Literal["CHANNEL", "INPUT", "MULTIPLEX", "OUTPUT"]
 ReservationSpecialFeatureType = Literal["ADVANCED_AUDIO", "AUDIO_NORMALIZATION", "MGHD", "MGUHD"]
 ReservationStateType = Literal["ACTIVE", "CANCELED", "DELETED", "EXPIRED"]
 ReservationVideoQualityType = Literal["ENHANCED", "PREMIUM", "STANDARD"]
+RouterEncryptionTypeType = Literal["AUTOMATIC", "SECRETS_MANAGER"]
 RtmpAdMarkersType = Literal["ON_CUE_POINT_SCTE35"]
 RtmpCacheFullBehaviorType = Literal["DISCONNECT_IMMEDIATELY", "WAIT_FOR_SERVER"]
 RtmpCaptionDataType = Literal["ALL", "FIELD1_608", "FIELD1_AND_FIELD2_608"]
@@ -1129,7 +1152,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -1199,6 +1221,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -1244,7 +1267,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -1297,7 +1319,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -1336,8 +1357,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -1372,6 +1391,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -1381,6 +1401,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -1391,6 +1412,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -1412,8 +1436,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -1428,15 +1450,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -1467,6 +1490,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -1507,6 +1531,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -1522,10 +1547,12 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal[
     "describe_schedule",
+    "list_alerts",
     "list_channel_placement_groups",
     "list_channels",
     "list_cloud_watch_alarm_template_groups",
     "list_cloud_watch_alarm_templates",
+    "list_cluster_alerts",
     "list_clusters",
     "list_event_bridge_rule_template_groups",
     "list_event_bridge_rule_templates",
@@ -1533,6 +1560,7 @@ PaginatorName = Literal[
     "list_input_devices",
     "list_input_security_groups",
     "list_inputs",
+    "list_multiplex_alerts",
     "list_multiplex_programs",
     "list_multiplexes",
     "list_networks",

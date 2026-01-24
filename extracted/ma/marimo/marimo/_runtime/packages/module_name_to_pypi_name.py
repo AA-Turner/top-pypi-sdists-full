@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 
@@ -9,6 +9,7 @@ def module_name_to_pypi_name() -> dict[str, str]:
         "AFQ": "pyAFQ",
         "AG_fft_tools": "agpy",
         "Adafruit": "Adafruit-Libraries",
+        "airflow": "apache-airflow",
         "Asterisk": "py-Asterisk",
         "BB_jekyll_hook": "bitbucket-jekyll-hook",
         "Banzai": "Banzai-NGS",
@@ -686,6 +687,7 @@ def module_name_to_pypi_name() -> dict[str, str]:
         "sklearn": "scikit-learn",
         "sklego": "scikit-lego",
         "skvideo": "scikit-video",
+        "sky": "skypilot",
         "slack": "slackclient",
         "slugify": "unicode-slugify",
         "smarkets": "smk-python-sdk",

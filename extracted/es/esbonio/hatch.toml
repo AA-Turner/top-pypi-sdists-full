@@ -1,0 +1,36 @@
+[version]
+path = "esbonio/server/server.py"
+validate-bump = false
+
+[build.targets.sdist]
+include = ["esbonio", "tests", "CHANGES.rst"]
+
+[build.targets.wheel]
+packages = ["esbonio"]
+
+[envs.hatch-test]
+default-args = ["tests/server"]
+extra-dependencies = ["pytest-lsp>=1.0", "pytest-asyncio>=1"]
+matrix-name-format = "{variable}{value}"
+
+[envs.hatch-test.env-vars]
+UV_PRERELEASE="allow"
+
+[[envs.hatch-test.matrix]]
+python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
+[[envs.hatch-test.matrix]]
+python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+sphinx = ["6", "7", "8"]
+
+
+[envs.hatch-test.overrides]
+matrix.sphinx.dependencies = [
+    "myst-parser",
+    { value = "sphinx>=6,<7", if = ["6"] },
+    { value = "sphinx>=7,<8", if = ["7"] },
+    { value = "sphinx>=8,<9", if = ["8"] },
+]
+
+[envs.hatch-test.overrides.matrix.sphinx.default-args]
+value = ["tests/sphinx-agent", "tests/e2e"]

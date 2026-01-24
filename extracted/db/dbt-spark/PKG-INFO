@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-spark
-Version: 1.9.3
+Version: 1.10.0
 Summary: The Apache Spark adapter plugin for dbt
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-adapters/tree/main/dbt-spark
 Project-URL: Documentation, https://docs.getdbt.com
@@ -16,11 +16,11 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9.0
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10.0
 Requires-Dist: dbt-adapters<2.0,>=1.7
 Requires-Dist: dbt-common<2.0,>=1.10
 Requires-Dist: dbt-core>=1.8.0

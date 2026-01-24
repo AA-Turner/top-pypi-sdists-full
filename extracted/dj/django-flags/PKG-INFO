@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: django-flags
-Version: 5.0.14
+Version: 5.1.0
 Summary: Feature flags for Django projects
 Author-email: CFPB <tech@cfpb.gov>
-License: CC0
+License-Expression: CC0-1.0
 Project-URL: Homepage, https://cfpb.github.io/django-flags/
 Project-URL: Bug Reports, https://github.com/cfpb/django-flags/issues
 Project-URL: Source, https://github.com/cfpb/django-flags
@@ -11,17 +11,13 @@ Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
-Classifier: License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication
-Classifier: License :: Public Domain
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: django>=4.2
@@ -52,7 +48,7 @@ Feature flags allow you to toggle functionality in both Django code and the Djan
 
 ## Dependencies
 
-- Python 3.8+
+- Python 3.10+
 - Django 4.2+
 
 ## Installation

@@ -905,9 +905,29 @@ class DomainsMySupportAccount(pulumi.CustomResource):
                  user: Optional[pulumi.Input[Union['DomainsMySupportAccountUserArgs', 'DomainsMySupportAccountUserArgsDict']]] = None,
                  __props__=None):
         """
-        This resource provides the My Support Account resource in Oracle Cloud Infrastructure Identity Domains service.
+        ## Example Usage
 
-        Create a user's own support account.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_my_support_account = oci.identity.DomainsMySupportAccount("test_my_support_account",
+            idcs_endpoint=test_domain["url"],
+            schemas=["urn:ietf:params:scim:schemas:oracle:idcs:supportAccount"],
+            token=my_support_account_token,
+            authorization=my_support_account_authorization,
+            id=my_support_account_id,
+            ocid=my_support_account_ocid,
+            resource_type_schema_version=my_support_account_resource_type_schema_version,
+            tags=[{
+                "key": my_support_account_tags_key,
+                "value": my_support_account_tags_value,
+            }],
+            user={
+                "ocid": my_support_account_user_ocid,
+                "value": my_support_account_user_value,
+            })
+        ```
 
         ## Import
 
@@ -985,9 +1005,29 @@ class DomainsMySupportAccount(pulumi.CustomResource):
                  args: DomainsMySupportAccountArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the My Support Account resource in Oracle Cloud Infrastructure Identity Domains service.
+        ## Example Usage
 
-        Create a user's own support account.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_my_support_account = oci.identity.DomainsMySupportAccount("test_my_support_account",
+            idcs_endpoint=test_domain["url"],
+            schemas=["urn:ietf:params:scim:schemas:oracle:idcs:supportAccount"],
+            token=my_support_account_token,
+            authorization=my_support_account_authorization,
+            id=my_support_account_id,
+            ocid=my_support_account_ocid,
+            resource_type_schema_version=my_support_account_resource_type_schema_version,
+            tags=[{
+                "key": my_support_account_tags_key,
+                "value": my_support_account_tags_value,
+            }],
+            user={
+                "ocid": my_support_account_user_ocid,
+                "value": my_support_account_user_value,
+            })
+        ```
 
         ## Import
 

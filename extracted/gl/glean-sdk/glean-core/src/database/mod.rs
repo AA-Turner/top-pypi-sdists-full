@@ -136,7 +136,7 @@ pub struct Database {
     ping_lifetime_max_time: Duration,
 
     /// Initial file size when opening the database.
-    file_size: Option<NonZeroU64>,
+    pub(crate) file_size: Option<NonZeroU64>,
 
     /// RKV load state
     rkv_load_state: RkvLoadState,
@@ -183,7 +183,7 @@ impl std::fmt::Debug for Database {
     }
 }
 
-/// Calculate the  database size from all the files in the directory.
+/// Calculate the database size from all the files in the directory.
 ///
 ///  # Arguments
 ///
@@ -482,7 +482,7 @@ impl Database {
                 if let Err(e) =
                     self.record_per_lifetime(data.inner.lifetime, ping_name, &name, value)
                 {
-                    log::error!(
+                    log::info!(
                         "Failed to record metric '{}' into {}: {:?}",
                         data.base_identifier(),
                         ping_name,
@@ -553,7 +553,7 @@ impl Database {
                     &name,
                     &mut transform,
                 ) {
-                    log::error!(
+                    log::info!(
                         "Failed to record metric '{}' into {}: {:?}",
                         data.base_identifier(),
                         ping_name,

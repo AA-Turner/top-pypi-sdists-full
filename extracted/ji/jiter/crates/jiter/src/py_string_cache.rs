@@ -7,22 +7,19 @@ use pyo3::types::{PyBool, PyString};
 
 use crate::string_decoder::StringOutput;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum StringCacheMode {
+    #[default]
     All,
     Keys,
     None,
 }
 
-impl Default for StringCacheMode {
-    fn default() -> Self {
-        Self::All
-    }
-}
+impl<'py> FromPyObject<'_, 'py> for StringCacheMode {
+    type Error = PyErr;
 
-impl<'py> FromPyObject<'py> for StringCacheMode {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<StringCacheMode> {
-        if let Ok(bool_mode) = ob.downcast::<PyBool>() {
+    fn extract(ob: Borrowed<'_, 'py, PyAny>) -> PyResult<StringCacheMode> {
+        if let Ok(bool_mode) = ob.cast::<PyBool>() {
             Ok(bool_mode.is_true().into())
         } else if let Ok(str_mode) = ob.extract::<&str>() {
             match str_mode {
@@ -258,7 +255,7 @@ pub unsafe fn pystring_ascii_new<'py>(py: Python<'py>, s: &str) -> Bound<'py, Py
         let data_ptr = pyo3::ffi::PyUnicode_DATA(ptr).cast();
         core::ptr::copy_nonoverlapping(s.as_ptr(), data_ptr, s.len());
         core::ptr::write(data_ptr.add(s.len()), 0);
-        Bound::from_owned_ptr(py, ptr).downcast_into_unchecked()
+        Bound::from_owned_ptr(py, ptr).cast_into_unchecked()
     }
 
     #[cfg(any(PyPy, GraalPy, Py_LIMITED_API))]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scrapy-playwright
-Version: 0.0.44
+Version: 0.0.46
 Summary: Playwright integration for Scrapy
 Home-page: https://github.com/scrapy-plugins/scrapy-playwright
 Author: Eugenio Lacuesta
@@ -9,7 +9,6 @@ License: BSD
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -19,11 +18,11 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: scrapy!=2.4.0,>=2.0
-Requires-Dist: playwright>=1.15
+Requires-Dist: scrapy>=2.7
+Requires-Dist: playwright>=1.40
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -60,9 +59,9 @@ to integrate `asyncio`-based projects such as `Playwright`.
 
 ### Minimum required versions
 
-* Python >= 3.9
-* Scrapy >= 2.0 (!= 2.4.0)
-* Playwright >= 1.15
+* Python >= 3.10
+* Scrapy >= 2.7
+* Playwright >= 1.40
 
 
 ## Installation

@@ -16,6 +16,7 @@ from ..models import (
     CompanyType,
     CustomerStatus,
     EmailContact,
+    EmployerEmployeeRelationship,
     Entry,
     Person,
     Specialization,
@@ -59,6 +60,54 @@ class PersonRepresentationSerializer(EntryRepresentationSerializer):
             "primary_email",
             "primary_telephone",
             "profile_image",
+            "_additional_resources",
+        )
+
+
+class FullDetailPersonRepresentationSerializer(PersonRepresentationSerializer):
+    primary_email = wb_serializers.SerializerMethodField(
+        read_only=True, required=False, label=_("Primary Email"), allow_null=True
+    )
+    primary_telephone = wb_serializers.SerializerMethodField(
+        read_only=True, required=False, label=_("Primary Telephone"), allow_null=True
+    )
+    primary_position = wb_serializers.SerializerMethodField(
+        read_only=True, required=False, label=_("Primary Position"), allow_null=True
+    )
+
+    def get_primary_email(self, person):
+        try:
+            return EmailContact.objects.get(entry_id=person.id, primary=True).address
+        except EmailContact.DoesNotExist:
+            return None
+
+    def get_primary_telephone(self, person):
+        try:
+            return TelephoneContact.objects.get(entry_id=person.id, primary=True).number
+        except TelephoneContact.DoesNotExist:
+            return None
+
+    def get_primary_position(self, person):
+        try:
+            rel = EmployerEmployeeRelationship.objects.get(employee_id=person.id, primary=True)
+            return rel.position.title if rel.position else rel.position_name
+        except EmployerEmployeeRelationship.DoesNotExist:
+            return None
+
+    class Meta:
+        model = Person
+        fields = (
+            "id",
+            "computed_str",
+            "first_name",
+            "last_name",
+            "primary_email",
+            "primary_telephone",
+            "primary_position",
+            "profile_image",
+            "description",
+            "_detail",
+            "_detail_preview",
             "_additional_resources",
         )
 
@@ -181,7 +230,7 @@ class EntryModelSerializer(wb_serializers.ModelSerializer):
         read_only=True,
         required=False,
     )
-    is_primary_employer = wb_serializers.BooleanField(default=False, read_only=True)
+    is_primary_employer = wb_serializers.BooleanField(read_only=True)
     position_in_company = wb_serializers.CharField(
         allow_null=True,
         default="",
@@ -192,19 +241,26 @@ class EntryModelSerializer(wb_serializers.ModelSerializer):
         read_only=True,
         required=False,
     )
-    primary_address = wb_serializers.CharField(default="", label=_("Primary Address"), read_only=True)
-    primary_email = wb_serializers.CharField(allow_null=True, default="", label=_("Primary Email"), read_only=False)
-    primary_manager_repr = wb_serializers.CharField(label=_("Primary Manager"), read_only=True)
-    primary_telephone = wb_serializers.TelephoneField(allow_null=True, default="", label=_("Primary Telephone"))
+    primary_address = wb_serializers.CharField(
+        allow_null=True, read_only=True, required=False, label=_("Primary Address")
+    )
+    primary_email = wb_serializers.CharField(
+        allow_null=True, required=False, read_only=False, label=_("Primary Email")
+    )
+    primary_manager_repr = wb_serializers.CharField(
+        allow_null=True, read_only=True, required=False, label=_("Primary Manager")
+    )
+    primary_telephone = wb_serializers.TelephoneField(
+        allow_null=True,
+        required=False,
+        label=_("Primary Telephone"),
+    )
+    primary_website = wb_serializers.URLField(allow_null=True, required=False, label=_("Primary Website"))
+    primary_social = wb_serializers.URLField(allow_null=True, required=False, label=_("Primary Social"))
     profile_image = wb_serializers.ImageField(allow_null=True, required=False, label=_("Profile Image"))
     _relationship_managers = PersonRepresentationSerializer(many=True, source="relationship_managers")
     _social_media = SocialMediaContactRepresentationSerializer(many=True, read_only=True, source="social_media")
-    primary_manager = wb_serializers.PrimaryKeyRelatedField(
-        queryset=lambda: Person.objects.filter_only_internal(),
-        default=wb_serializers.CurrentUserDefault("profile"),
-        label=_("Primary Manager"),
-        required=False,
-    )
+    primary_manager = wb_serializers.PrimaryKeyRelatedField(label=_("Primary Manager"), required=False, read_only=True)
     _primary_manager = InternalUserProfileRepresentationSerializer(source="primary_manager")
 
     @wb_serializers.register_resource()
@@ -252,8 +308,8 @@ class EntryModelSerializer(wb_serializers.ModelSerializer):
         if primary_email := data.get("primary_email", None):
             try:
                 validate_email(primary_email)
-            except ValidationError:
-                raise ValidationError({"primary_email": "Invalid e-mail address"})
+            except ValidationError as e:
+                raise ValidationError({"primary_email": "Invalid e-mail address"}) from e
 
         if primary_telephone := data.get("primary_telephone", None):
             try:
@@ -265,8 +321,8 @@ class EntryModelSerializer(wb_serializers.ModelSerializer):
                     data["primary_telephone"] = formatted_number
                 else:
                     raise ValidationError({"primary_telephone": gettext("Invalid phone number format")})
-            except Exception:
-                raise ValidationError({"primary_telephone": gettext("Invalid phone number format")})
+            except Exception as e:
+                raise ValidationError({"primary_telephone": gettext("Invalid phone number format")}) from e
         return super().validate(data)
 
     def update(self, instance, validated_data):
@@ -333,6 +389,8 @@ class EntryModelSerializer(wb_serializers.ModelSerializer):
             "primary_email",
             "primary_manager_repr",
             "primary_telephone",
+            "primary_website",
+            "primary_social",
             "profile_image",
             "relationship_managers",
             "_relationship_managers",

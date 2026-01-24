@@ -27,36 +27,52 @@ class UsageChartPeriod(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     USAGE_CHART_PERIOD_UNSPECIFIED: _ClassVar[UsageChartPeriod]
     USAGE_CHART_PERIOD_DAILY: _ClassVar[UsageChartPeriod]
     USAGE_CHART_PERIOD_MONTHLY: _ClassVar[UsageChartPeriod]
+    USAGE_CHART_PERIOD_HOURLY: _ClassVar[UsageChartPeriod]
 
 class UsageChartGrouping(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     USAGE_CHART_GROUPING_UNSPECIFIED: _ClassVar[UsageChartGrouping]
     USAGE_CHART_GROUPING_INSTANCE_TYPE: _ClassVar[UsageChartGrouping]
     USAGE_CHART_GROUPING_CLUSTER: _ClassVar[UsageChartGrouping]
+    USAGE_CHART_GROUPING_NODEPOOL: _ClassVar[UsageChartGrouping]
+
+class UsageChartTimeRange(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    USAGE_CHART_TIME_RANGE_UNSPECIFIED: _ClassVar[UsageChartTimeRange]
+    USAGE_CHART_TIME_RANGE_1D: _ClassVar[UsageChartTimeRange]
+    USAGE_CHART_TIME_RANGE_7D: _ClassVar[UsageChartTimeRange]
 
 USAGE_CHART_PERIOD_UNSPECIFIED: UsageChartPeriod
 USAGE_CHART_PERIOD_DAILY: UsageChartPeriod
 USAGE_CHART_PERIOD_MONTHLY: UsageChartPeriod
+USAGE_CHART_PERIOD_HOURLY: UsageChartPeriod
 USAGE_CHART_GROUPING_UNSPECIFIED: UsageChartGrouping
 USAGE_CHART_GROUPING_INSTANCE_TYPE: UsageChartGrouping
 USAGE_CHART_GROUPING_CLUSTER: UsageChartGrouping
+USAGE_CHART_GROUPING_NODEPOOL: UsageChartGrouping
+USAGE_CHART_TIME_RANGE_UNSPECIFIED: UsageChartTimeRange
+USAGE_CHART_TIME_RANGE_1D: UsageChartTimeRange
+USAGE_CHART_TIME_RANGE_7D: UsageChartTimeRange
 
 class GetUsageChartRequest(_message.Message):
-    __slots__ = ("start_ms", "end_ms", "period", "grouping")
+    __slots__ = ("start_ms", "end_ms", "period", "grouping", "time_range")
     START_MS_FIELD_NUMBER: _ClassVar[int]
     END_MS_FIELD_NUMBER: _ClassVar[int]
     PERIOD_FIELD_NUMBER: _ClassVar[int]
     GROUPING_FIELD_NUMBER: _ClassVar[int]
+    TIME_RANGE_FIELD_NUMBER: _ClassVar[int]
     start_ms: int
     end_ms: int
     period: UsageChartPeriod
     grouping: UsageChartGrouping
+    time_range: UsageChartTimeRange
     def __init__(
         self,
         start_ms: _Optional[int] = ...,
         end_ms: _Optional[int] = ...,
         period: _Optional[_Union[UsageChartPeriod, str]] = ...,
         grouping: _Optional[_Union[UsageChartGrouping, str]] = ...,
+        time_range: _Optional[_Union[UsageChartTimeRange, str]] = ...,
     ) -> None: ...
 
 class GetUsageChartResponse(_message.Message):

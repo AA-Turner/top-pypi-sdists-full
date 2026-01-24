@@ -66,7 +66,7 @@ STREAM_MAPS_CONFIG = PropertiesList(
                     ),
                     Property(
                         "__filter__",
-                        StringType(pattern=r"^bool\((.*)\)$"),
+                        StringType(),
                         title="Filter",
                         description=(
                             "Filter out records from a stream. A string expression "
@@ -79,7 +79,7 @@ STREAM_MAPS_CONFIG = PropertiesList(
                     ),
                     Property(
                         "__key_properties__",
-                        ArrayType(StringType),
+                        ArrayType(StringType()),
                         title="Key Properties",
                         description="Primary key properties for the stream.",
                         nullable=False,
@@ -128,7 +128,7 @@ STREAM_MAPS_CONFIG = PropertiesList(
             ),
             Property(
                 "locale",
-                OneOf(StringType, ArrayType(StringType)),
+                OneOf(StringType, ArrayType(StringType())),
                 title="Faker Locale",
                 description=(
                     "One or more LCID locale strings to produce localized output for: "
@@ -160,6 +160,12 @@ FLATTENING_CONFIG = PropertiesList(
         IntegerType(),
         title="Max Flattening Depth",
         description="The max depth to flatten schemas.",
+    ),
+    Property(
+        "flattening_max_key_length",
+        IntegerType(),
+        title="Max Key Length",
+        description="The maximum length of a flattened key.",
     ),
 ).to_dict()
 BATCH_CONFIG = PropertiesList(
@@ -376,7 +382,7 @@ class DeprecatedEnumMeta(EnumMeta):
         Returns:
             Enum member.
         """
-        obj: Enum = super().__getitem__(name)
+        obj: Enum = super().__getitem__(name)  # ty: ignore[invalid-assignment]
         if isinstance(obj, DeprecatedEnum) and obj.deprecation_message:
             obj.emit_warning()
         return obj
@@ -452,6 +458,9 @@ class PluginCapabilities(CapabilitiesEnum):
     #: `batched files <https://hub.meltano.com/singer/docs#batch>`_.
     #: A.K.A ``FAST_SYNC``.
     BATCH = "batch"
+
+    #: Support structured logging with contextual information.
+    STRUCTURED_LOGGING = "structured-logging"
 
 
 class TapCapabilities(CapabilitiesEnum):

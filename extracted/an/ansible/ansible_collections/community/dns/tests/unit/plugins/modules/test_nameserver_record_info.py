@@ -11,7 +11,6 @@ __metaclass__ = type
 
 
 import pytest
-from ansible_collections.community.dns.plugins.modules import nameserver_record_info
 from ansible_collections.community.internal_test_tools.tests.unit.compat.mock import (
     MagicMock,
     patch,
@@ -22,6 +21,8 @@ from ansible_collections.community.internal_test_tools.tests.unit.plugins.module
     ModuleTestCase,
     set_module_args,
 )
+
+from ansible_collections.community.dns.plugins.modules import nameserver_record_info
 
 from ..module_utils.resolver_helper import (
     create_mock_answer,
@@ -198,8 +199,24 @@ class TestNameserverRecordInfo(ModuleTestCase):
                 'value': 'asdf',
             }
         ]
+        assert exc.value.args[0]['results'][0]['result'][0]['entries'] == [
+            {
+                'strings': ['asdf'],
+                'value': 'asdf',
+            }
+        ]
         assert exc.value.args[0]['results'][0]['result'][1]['nameserver'] == 'ns.example.org'
         assert exc.value.args[0]['results'][0]['result'][1]['values'] == [
+            {
+                'strings': ['asdf'],
+                'value': 'asdf',
+            },
+            {
+                'strings': ['fdsa'],
+                'value': 'fdsa',
+            },
+        ]
+        assert exc.value.args[0]['results'][0]['result'][1]['entries'] == [
             {
                 'strings': ['asdf'],
                 'value': 'asdf',
@@ -345,6 +362,12 @@ class TestNameserverRecordInfo(ModuleTestCase):
                         'value': 'fdsaasdf',
                     }
                 ],
+                'entries': [
+                    {
+                        'strings': ['fdsa', 'asdf'],
+                        'value': 'fdsaasdf',
+                    }
+                ],
             }
         ]
         assert exc.value.args[0]['results'][1]['name'] == 'mail.example.com'
@@ -433,6 +456,7 @@ class TestNameserverRecordInfo(ModuleTestCase):
         assert len(exc.value.args[0]['results'][0]['result']) == 1
         assert exc.value.args[0]['results'][0]['result'][0]['nameserver'] == 'ns.example.com'
         assert exc.value.args[0]['results'][0]['result'][0]['values'] == []
+        assert exc.value.args[0]['results'][0]['result'][0]['entries'] == []
 
     def test_no_answer(self):
         fake_query = MagicMock()
@@ -519,6 +543,7 @@ class TestNameserverRecordInfo(ModuleTestCase):
         assert len(exc.value.args[0]['results'][0]['result']) == 1
         assert exc.value.args[0]['results'][0]['result'][0]['nameserver'] == 'ns.example.com'
         assert exc.value.args[0]['results'][0]['result'][0]['values'] == []
+        assert exc.value.args[0]['results'][0]['result'][0]['entries'] == []
 
     def test_servfail(self):
         resolver = mock_resolver(['1.1.1.1'], {})

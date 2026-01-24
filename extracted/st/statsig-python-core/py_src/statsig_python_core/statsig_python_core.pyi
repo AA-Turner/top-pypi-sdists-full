@@ -41,6 +41,7 @@ class EvaluationDetails:
     reason: builtins.str
     lcut: typing.Optional[builtins.int]
     received_at: typing.Optional[builtins.int]
+    version: typing.Optional[builtins.int]
 
 class Experiment:
     name: builtins.str
@@ -90,6 +91,7 @@ class FeatureGateEvaluationOptions:
 
 class InitializeDetails:
     duration: builtins.float
+    duration_ms: builtins.int
     init_success: builtins.bool
     is_config_spec_ready: builtins.bool
     is_id_list_ready: typing.Optional[builtins.bool]
@@ -223,9 +225,6 @@ class StatsigBasePy:
     def get_layer(self, user:StatsigUser, name:builtins.str, options:typing.Optional[LayerEvaluationOptions]=None) -> Layer:
         ...
 
-    def get_prompt(self, user:StatsigUser, name:builtins.str, options:typing.Optional[LayerEvaluationOptions]=None) -> Layer:
-        ...
-
     def manually_log_layer_parameter_exposure(self, user:StatsigUser, name:builtins.str, param_name:builtins.str) -> None:
         ...
 
@@ -294,7 +293,6 @@ class StatsigOptions:
     enable_id_lists: typing.Optional[builtins.bool]
     wait_for_user_agent_init: typing.Optional[builtins.bool]
     wait_for_country_lookup_init: typing.Optional[builtins.bool]
-    disable_user_agent_parsing: typing.Optional[builtins.bool]
     disable_country_lookup: typing.Optional[builtins.bool]
     id_lists_url: typing.Optional[builtins.str]
     id_lists_sync_interval_ms: typing.Optional[builtins.int]
@@ -309,7 +307,10 @@ class StatsigOptions:
     config_compression_mode: typing.Optional[builtins.str]
     proxy_config: typing.Optional[ProxyConfig]
     spec_adapter_configs: typing.Optional[list]
-    def __new__(cls,specs_url:typing.Optional[builtins.str]=None, specs_sync_interval_ms:typing.Optional[builtins.int]=None, init_timeout_ms:typing.Optional[builtins.int]=None, log_event_url:typing.Optional[builtins.str]=None, disable_all_logging:typing.Optional[builtins.bool]=None, disable_network:typing.Optional[builtins.bool]=None, event_logging_flush_interval_ms:typing.Optional[builtins.int]=None, event_logging_max_queue_size:typing.Optional[builtins.int]=None, event_logging_max_pending_batch_queue_size:typing.Optional[builtins.int]=None, enable_id_lists:typing.Optional[builtins.bool]=None, wait_for_user_agent_init:typing.Optional[builtins.bool]=None, wait_for_country_lookup_init:typing.Optional[builtins.bool]=None, disable_user_agent_parsing:typing.Optional[builtins.bool]=None, disable_country_lookup:typing.Optional[builtins.bool]=None, id_lists_url:typing.Optional[builtins.str]=None, id_lists_sync_interval_ms:typing.Optional[builtins.int]=None, fallback_to_statsig_api:typing.Optional[builtins.bool]=None, environment:typing.Optional[builtins.str]=None, output_log_level:typing.Optional[builtins.str]=None, global_custom_fields:typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, builtins.int, builtins.float, builtins.bool, typing.List[typing.Union[builtins.str, builtins.int, builtins.float, builtins.bool]]]]]=None, observability_client:typing.Optional[ObservabilityClientBase]=None, data_store:typing.Optional[DataStoreBase]=None, persistent_storage:typing.Optional[PersistentStorageBaseClass]=None, config_compression_mode:typing.Optional[builtins.str]=None, proxy_config:typing.Optional[ProxyConfig]=None, output_logger_provider:typing.Optional[OutputLoggerProviderBase]=None, spec_adapter_configs:typing.Optional[list]=None): ...
+    use_third_party_ua_parser: typing.Optional[builtins.bool]
+    disable_disk_access: typing.Optional[builtins.bool]
+    experimental_flags: typing.Optional[builtins.set[builtins.str]]
+    def __new__(cls,specs_url:typing.Optional[builtins.str]=None, specs_sync_interval_ms:typing.Optional[builtins.int]=None, init_timeout_ms:typing.Optional[builtins.int]=None, log_event_url:typing.Optional[builtins.str]=None, disable_all_logging:typing.Optional[builtins.bool]=None, disable_network:typing.Optional[builtins.bool]=None, event_logging_flush_interval_ms:typing.Optional[builtins.int]=None, event_logging_max_queue_size:typing.Optional[builtins.int]=None, event_logging_max_pending_batch_queue_size:typing.Optional[builtins.int]=None, enable_id_lists:typing.Optional[builtins.bool]=None, wait_for_user_agent_init:typing.Optional[builtins.bool]=None, wait_for_country_lookup_init:typing.Optional[builtins.bool]=None, disable_country_lookup:typing.Optional[builtins.bool]=None, id_lists_url:typing.Optional[builtins.str]=None, id_lists_sync_interval_ms:typing.Optional[builtins.int]=None, fallback_to_statsig_api:typing.Optional[builtins.bool]=None, environment:typing.Optional[builtins.str]=None, output_log_level:typing.Optional[builtins.str]=None, global_custom_fields:typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, builtins.int, builtins.float, builtins.bool, typing.List[typing.Union[builtins.str, builtins.int, builtins.float, builtins.bool]]]]]=None, observability_client:typing.Optional[ObservabilityClientBase]=None, data_store:typing.Optional[DataStoreBase]=None, persistent_storage:typing.Optional[PersistentStorageBaseClass]=None, config_compression_mode:typing.Optional[builtins.str]=None, proxy_config:typing.Optional[ProxyConfig]=None, output_logger_provider:typing.Optional[OutputLoggerProviderBase]=None, spec_adapter_configs:typing.Optional[list]=None, use_third_party_ua_parser:typing.Optional[builtins.bool]=None, disable_disk_access:typing.Optional[builtins.bool]=None, experimental_flags:typing.Optional[builtins.set[builtins.str]]=None): ...
 
 class StatsigUser:
     user_id: builtins.str

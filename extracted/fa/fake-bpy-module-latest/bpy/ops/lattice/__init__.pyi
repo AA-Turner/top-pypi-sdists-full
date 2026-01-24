@@ -13,10 +13,7 @@ def flip(
 ) -> None:
     """Mirror all control points without inverting the lattice deform
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param axis: Flip Axis, Coordinates along this axis get flipped
-    :type axis: typing.Literal['U','V','W'] | None
     """
 
 def make_regular(
@@ -24,11 +21,7 @@ def make_regular(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Set UVW control points a uniform distance apart
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Set UVW control points a uniform distance apart"""
 
 def select_all(
     execution_context: int | str | None = None,
@@ -39,8 +32,6 @@ def select_all(
 ) -> None:
     """Change selection of all UVW control points
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Action, Selection action to execute
 
     TOGGLE
@@ -54,7 +45,6 @@ def select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
-        :type action: typing.Literal['TOGGLE','SELECT','DESELECT','INVERT'] | None
     """
 
 def select_less(
@@ -62,11 +52,7 @@ def select_less(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Deselect vertices at the boundary of each selection region
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Deselect vertices at the boundary of each selection region"""
 
 def select_mirror(
     execution_context: int | str | None = None,
@@ -78,12 +64,8 @@ def select_mirror(
 ) -> None:
     """Select mirrored lattice points
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param axis: Axis
-    :type axis: set[bpy.stub_internal.rna_enums.AxisFlagXyzItems] | None
     :param extend: Extend, Extend the selection
-    :type extend: bool | None
     """
 
 def select_more(
@@ -91,11 +73,7 @@ def select_more(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select vertex directly linked to already selected ones
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select vertex directly linked to already selected ones"""
 
 def select_random(
     execution_context: int | str | None = None,
@@ -108,12 +86,8 @@ def select_random(
 ) -> None:
     """Randomly select UVW control points
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param ratio: Ratio, Portion of items to select randomly
-        :type ratio: float | None
         :param seed: Random Seed, Seed for the random number generator
-        :type seed: int | None
         :param action: Action, Selection action to execute
 
     SELECT
@@ -121,7 +95,6 @@ def select_random(
 
     DESELECT
     Deselect -- Deselect all elements.
-        :type action: typing.Literal['SELECT','DESELECT'] | None
     """
 
 def select_ungrouped(
@@ -133,8 +106,5 @@ def select_ungrouped(
 ) -> None:
     """Select vertices without a group
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param extend: Extend, Extend the selection
-    :type extend: bool | None
     """

@@ -7,12 +7,12 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Iterator, List, Optional
 
-from ._internal import _enum, _from_dict, _repeated_dict, _repeated_enum
+from databricks.sdk.service import catalog
+from databricks.sdk.service._internal import (_enum, _from_dict,
+                                              _repeated_dict, _repeated_enum)
 
 _LOG = logging.getLogger("databricks.sdk")
 
-
-from databricks.sdk.service import catalog
 
 # all definitions in this file are in alphabetical order
 
@@ -53,24 +53,6 @@ class ColumnTypeName(Enum):
     TIMESTAMP_NTZ = "TIMESTAMP_NTZ"
     USER_DEFINED_TYPE = "USER_DEFINED_TYPE"
     VARIANT = "VARIANT"
-
-
-@dataclass
-class DeleteResponse:
-    def as_dict(self) -> dict:
-        """Serializes the DeleteResponse into a dictionary suitable for use as a JSON request body."""
-        body = {}
-        return body
-
-    def as_shallow_dict(self) -> dict:
-        """Serializes the DeleteResponse into a shallow dictionary of its immediate attributes."""
-        body = {}
-        return body
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> DeleteResponse:
-        """Deserializes the DeleteResponse from a dictionary."""
-        return cls()
 
 
 @dataclass
@@ -2023,9 +2005,26 @@ class SharedDataObject:
     """Array of partitions for the shared data."""
 
     shared_as: Optional[str] = None
-    """A user-provided new name for the data object within the share. If this new name is not provided,
-    the object's original name will be used as the `shared_as` name. The `shared_as` name must be
-    unique within a share. For tables, the new name must follow the format of `<schema>.<table>`."""
+    """A user-provided alias name for table-like data objects within the share.
+    
+    Use this field for table-like objects (for example: TABLE, VIEW, MATERIALIZED_VIEW,
+    STREAMING_TABLE, FOREIGN_TABLE). For non-table objects (for example: VOLUME, MODEL,
+    NOTEBOOK_FILE, FUNCTION), use `string_shared_as` instead.
+    
+    Important: For non-table objects, this field must be omitted entirely.
+    
+    Format: Must be a 2-part name `<schema_name>.<table_name>` (e.g., "sales_schema.orders_table") -
+    Both schema and table names must contain only alphanumeric characters and underscores - No
+    periods, spaces, forward slashes, or control characters are allowed within each part - Do not
+    include the catalog name (use 2 parts, not 3)
+    
+    Behavior: - If not provided, the service automatically generates the alias as `<schema>.<table>`
+    from the object's original name - If you don't want to specify this field, omit it entirely from
+    the request (do not pass an empty string) - The `shared_as` name must be unique within the share
+    
+    Examples: - Valid: "analytics_schema.customer_view" - Invalid:
+    "catalog.analytics_schema.customer_view" (3 parts not allowed) - Invalid:
+    "analytics-schema.customer-view" (hyphens not allowed)"""
 
     start_version: Optional[int] = None
     """The start version associated with the object. This allows data providers to control the lowest
@@ -2039,10 +2038,30 @@ class SharedDataObject:
     """One of: **ACTIVE**, **PERMISSION_DENIED**."""
 
     string_shared_as: Optional[str] = None
-    """A user-provided new name for the shared object within the share. If this new name is not not
-    provided, the object's original name will be used as the `string_shared_as` name. The
-    `string_shared_as` name must be unique for objects of the same type within a Share. For
-    notebooks, the new name should be the new notebook file name."""
+    """A user-provided alias name for non-table data objects within the share.
+    
+    Use this field for non-table objects (for example: VOLUME, MODEL, NOTEBOOK_FILE, FUNCTION). For
+    table-like objects (for example: TABLE, VIEW, MATERIALIZED_VIEW, STREAMING_TABLE,
+    FOREIGN_TABLE), use `shared_as` instead.
+    
+    Important: For table-like objects, this field must be omitted entirely.
+    
+    Format: - For VOLUME: Must be a 2-part name `<schema_name>.<volume_name>` (e.g.,
+    "data_schema.ml_models") - For FUNCTION: Must be a 2-part name `<schema_name>.<function_name>`
+    (e.g., "udf_schema.calculate_tax") - For MODEL: Must be a 2-part name
+    `<schema_name>.<model_name>` (e.g., "models.prediction_model") - For NOTEBOOK_FILE: Should be
+    the notebook file name (e.g., "analysis_notebook.py") - All names must contain only alphanumeric
+    characters and underscores - No periods, spaces, forward slashes, or control characters are
+    allowed within each part
+    
+    Behavior: - If not provided, the service automatically generates the alias from the object's
+    original name - If you don't want to specify this field, omit it entirely from the request (do
+    not pass an empty string) - The `string_shared_as` name must be unique for objects of the same
+    type within the share
+    
+    Examples: - Valid for VOLUME: "data_schema.training_data" - Valid for FUNCTION:
+    "analytics.calculate_revenue" - Invalid: "catalog.data_schema.training_data" (3 parts not
+    allowed for volumes) - Invalid: "data-schema.training-data" (hyphens not allowed)"""
 
     def as_dict(self) -> dict:
         """Serializes the SharedDataObject into a dictionary suitable for use as a JSON request body."""
@@ -2131,6 +2150,7 @@ class SharedDataObject:
 class SharedDataObjectDataObjectType(Enum):
 
     FEATURE_SPEC = "FEATURE_SPEC"
+    FOREIGN_TABLE = "FOREIGN_TABLE"
     FUNCTION = "FUNCTION"
     MATERIALIZED_VIEW = "MATERIALIZED_VIEW"
     MODEL = "MODEL"
@@ -2139,6 +2159,7 @@ class SharedDataObjectDataObjectType(Enum):
     STREAMING_TABLE = "STREAMING_TABLE"
     TABLE = "TABLE"
     VIEW = "VIEW"
+    VOLUME = "VOLUME"
 
 
 class SharedDataObjectHistoryDataSharingStatus(Enum):
@@ -2310,6 +2331,13 @@ class TableInternalAttributes:
     auxiliary_managed_location: Optional[str] = None
     """Managed Delta Metadata location for foreign iceberg tables."""
 
+    dependency_storage_locations: Optional[List[str]] = None
+    """Storage locations of all table dependencies for shared views. Used on the recipient side for SEG
+    (Secure Egress Gateway) whitelisting."""
+
+    has_delta_uniform_iceberg: Optional[bool] = None
+    """Whether the table has uniform enabled."""
+
     parent_storage_location: Optional[str] = None
     """Will be populated in the reconciliation response for VIEW and FOREIGN_TABLE, with the value of
     the parent UC entity's storage_location, following the same logic as getManagedEntityPath in
@@ -2332,6 +2360,10 @@ class TableInternalAttributes:
         body = {}
         if self.auxiliary_managed_location is not None:
             body["auxiliary_managed_location"] = self.auxiliary_managed_location
+        if self.dependency_storage_locations:
+            body["dependency_storage_locations"] = [v for v in self.dependency_storage_locations]
+        if self.has_delta_uniform_iceberg is not None:
+            body["has_delta_uniform_iceberg"] = self.has_delta_uniform_iceberg
         if self.parent_storage_location is not None:
             body["parent_storage_location"] = self.parent_storage_location
         if self.storage_location is not None:
@@ -2347,6 +2379,10 @@ class TableInternalAttributes:
         body = {}
         if self.auxiliary_managed_location is not None:
             body["auxiliary_managed_location"] = self.auxiliary_managed_location
+        if self.dependency_storage_locations:
+            body["dependency_storage_locations"] = self.dependency_storage_locations
+        if self.has_delta_uniform_iceberg is not None:
+            body["has_delta_uniform_iceberg"] = self.has_delta_uniform_iceberg
         if self.parent_storage_location is not None:
             body["parent_storage_location"] = self.parent_storage_location
         if self.storage_location is not None:
@@ -2362,6 +2398,8 @@ class TableInternalAttributes:
         """Deserializes the TableInternalAttributes from a dictionary."""
         return cls(
             auxiliary_managed_location=d.get("auxiliary_managed_location", None),
+            dependency_storage_locations=d.get("dependency_storage_locations", None),
+            has_delta_uniform_iceberg=d.get("has_delta_uniform_iceberg", None),
             parent_storage_location=d.get("parent_storage_location", None),
             storage_location=d.get("storage_location", None),
             type=_enum(d, "type", TableInternalAttributesSharedTableType),
@@ -2554,6 +2592,7 @@ class ProvidersAPI:
 
         :returns: :class:`ProviderInfo`
         """
+
         body = {}
         if authentication_type is not None:
             body["authentication_type"] = authentication_type.value
@@ -2609,9 +2648,10 @@ class ProvidersAPI:
         max_results: Optional[int] = None,
         page_token: Optional[str] = None,
     ) -> Iterator[ProviderInfo]:
-        """Gets an array of available authentication providers. The caller must either be a metastore admin or
-        the owner of the providers. Providers not owned by the caller are not included in the response. There
-        is no guarantee of a specific ordering of the elements in the array.
+        """Gets an array of available authentication providers. The caller must either be a metastore admin, have
+        the **USE_PROVIDER** privilege on the providers, or be the owner of the providers. Providers not owned
+        by the caller and for which the caller does not have the **USE_PROVIDER** privilege are not included
+        in the response. There is no guarantee of a specific ordering of the elements in the array.
 
         :param data_provider_global_metastore_id: str (optional)
           If not provided, all providers will be returned. If no providers exist with this ID, no results will
@@ -2769,6 +2809,7 @@ class ProvidersAPI:
 
         :returns: :class:`ProviderInfo`
         """
+
         body = {}
         if comment is not None:
             body["comment"] = comment
@@ -2889,6 +2930,7 @@ class RecipientFederationPoliciesAPI:
 
         :returns: :class:`FederationPolicy`
         """
+
         body = policy.as_dict()
         headers = {
             "Accept": "application/json",
@@ -2978,44 +3020,6 @@ class RecipientFederationPoliciesAPI:
                 return
             query["page_token"] = json["next_page_token"]
 
-    def update(
-        self, recipient_name: str, name: str, policy: FederationPolicy, *, update_mask: Optional[str] = None
-    ) -> FederationPolicy:
-        """Updates an existing federation policy for an OIDC_RECIPIENT. The caller must be the owner of the
-        recipient.
-
-        :param recipient_name: str
-          Name of the recipient. This is the name of the recipient for which the policy is being updated.
-        :param name: str
-          Name of the policy. This is the name of the current name of the policy.
-        :param policy: :class:`FederationPolicy`
-        :param update_mask: str (optional)
-          The field mask specifies which fields of the policy to update. To specify multiple fields in the
-          field mask, use comma as the separator (no space). The special value '*' indicates that all fields
-          should be updated (full replacement). If unspecified, all fields that are set in the policy provided
-          in the update request will overwrite the corresponding fields in the existing policy. Example value:
-          'comment,oidc_policy.audiences'.
-
-        :returns: :class:`FederationPolicy`
-        """
-        body = policy.as_dict()
-        query = {}
-        if update_mask is not None:
-            query["update_mask"] = update_mask
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-
-        res = self._api.do(
-            "PATCH",
-            f"/api/2.0/data-sharing/recipients/{recipient_name}/federation-policies/{name}",
-            query=query,
-            body=body,
-            headers=headers,
-        )
-        return FederationPolicy.from_dict(res)
-
 
 class RecipientsAPI:
     """A recipient is an object you create using :method:recipients/create to represent an organization which you
@@ -3076,6 +3080,7 @@ class RecipientsAPI:
 
         :returns: :class:`RecipientInfo`
         """
+
         body = {}
         if authentication_type is not None:
             body["authentication_type"] = authentication_type.value
@@ -3117,9 +3122,8 @@ class RecipientsAPI:
         self._api.do("DELETE", f"/api/2.1/unity-catalog/recipients/{name}", headers=headers)
 
     def get(self, name: str) -> RecipientInfo:
-        """Gets a share recipient from the metastore if:
-
-        * the caller is the owner of the share recipient, or: * is a metastore admin
+        """Gets a share recipient from the metastore. The caller must be one of: * A user with **USE_RECIPIENT**
+        privilege on the metastore * The owner of the share recipient * A metastore admin
 
         :param name: str
           Name of the recipient.
@@ -3198,6 +3202,7 @@ class RecipientsAPI:
 
         :returns: :class:`RecipientInfo`
         """
+
         body = {}
         if existing_token_expire_in_seconds is not None:
             body["existing_token_expire_in_seconds"] = existing_token_expire_in_seconds
@@ -3212,8 +3217,8 @@ class RecipientsAPI:
     def share_permissions(
         self, name: str, *, max_results: Optional[int] = None, page_token: Optional[str] = None
     ) -> GetRecipientSharePermissionsResponse:
-        """Gets the share permissions for the specified Recipient. The caller must be a metastore admin or the
-        owner of the Recipient.
+        """Gets the share permissions for the specified Recipient. The caller must have the **USE_RECIPIENT**
+        privilege on the metastore or be the owner of the Recipient.
 
         :param name: str
           The name of the Recipient.
@@ -3279,6 +3284,7 @@ class RecipientsAPI:
 
         :returns: :class:`RecipientInfo`
         """
+
         body = {}
         if comment is not None:
             body["comment"] = comment
@@ -3323,6 +3329,7 @@ class SharesAPI:
 
         :returns: :class:`ShareInfo`
         """
+
         body = {}
         if comment is not None:
             body["comment"] = comment
@@ -3352,8 +3359,8 @@ class SharesAPI:
         self._api.do("DELETE", f"/api/2.1/unity-catalog/shares/{name}", headers=headers)
 
     def get(self, name: str, *, include_shared_data: Optional[bool] = None) -> ShareInfo:
-        """Gets a data object share from the metastore. The caller must be a metastore admin or the owner of the
-        share.
+        """Gets a data object share from the metastore. The caller must have the USE_SHARE privilege on the
+        metastore or be the owner of the share.
 
         :param name: str
           The name of the share.
@@ -3376,8 +3383,9 @@ class SharesAPI:
     def list_shares(
         self, *, max_results: Optional[int] = None, page_token: Optional[str] = None
     ) -> Iterator[ShareInfo]:
-        """Gets an array of data object shares from the metastore. The caller must be a metastore admin or the
-        owner of the share. There is no guarantee of a specific ordering of the elements in the array.
+        """Gets an array of data object shares from the metastore. If the caller has the USE_SHARE privilege on
+        the metastore, all shares are returned. Otherwise, only shares owned by the caller are returned. There
+        is no guarantee of a specific ordering of the elements in the array.
 
         :param max_results: int (optional)
           Maximum number of shares to return. - when set to 0, the page length is set to a server configured
@@ -3416,11 +3424,11 @@ class SharesAPI:
     def share_permissions(
         self, name: str, *, max_results: Optional[int] = None, page_token: Optional[str] = None
     ) -> GetSharePermissionsResponse:
-        """Gets the permissions for a data share from the metastore. The caller must be a metastore admin or the
-        owner of the share.
+        """Gets the permissions for a data share from the metastore. The caller must have the USE_SHARE privilege
+        on the metastore or be the owner of the share.
 
         :param name: str
-          The name of the share.
+          The name of the Recipient.
         :param max_results: int (optional)
           Maximum number of permissions to return. - when set to 0, the page length is set to a server
           configured value (recommended); - when set to a value greater than 0, the page length is the minimum
@@ -3488,6 +3496,7 @@ class SharesAPI:
 
         :returns: :class:`ShareInfo`
         """
+
         body = {}
         if comment is not None:
             body["comment"] = comment
@@ -3514,11 +3523,11 @@ class SharesAPI:
         changes: Optional[List[PermissionsChange]] = None,
         omit_permissions_list: Optional[bool] = None,
     ) -> UpdateSharePermissionsResponse:
-        """Updates the permissions for a data share in the metastore. The caller must be a metastore admin or an
-        owner of the share.
+        """Updates the permissions for a data share in the metastore. The caller must have both the USE_SHARE and
+        SET_SHARE_PERMISSION privileges on the metastore, or be the owner of the share.
 
-        For new recipient grants, the user must also be the recipient owner or metastore admin. recipient
-        revocations do not require additional privileges.
+        For new recipient grants, the user must also be the owner of the recipients. recipient revocations do
+        not require additional privileges.
 
         :param name: str
           The name of the share.
@@ -3529,6 +3538,7 @@ class SharesAPI:
 
         :returns: :class:`UpdateSharePermissionsResponse`
         """
+
         body = {}
         if changes is not None:
             body["changes"] = [v.as_dict() for v in changes]

@@ -67,665 +67,17 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_controltower.CfnEnabledBaselineProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "baseline_identifier": "baselineIdentifier",
-        "baseline_version": "baselineVersion",
-        "target_identifier": "targetIdentifier",
-        "parameters": "parameters",
-        "tags": "tags",
-    },
+from ..interfaces.aws_controltower import (
+    EnabledBaselineReference as _EnabledBaselineReference_fc2f59a9,
+    EnabledControlReference as _EnabledControlReference_bbbf16c6,
+    IEnabledBaselineRef as _IEnabledBaselineRef_5ab0e530,
+    IEnabledControlRef as _IEnabledControlRef_c4d4bf0a,
+    ILandingZoneRef as _ILandingZoneRef_c378ff0b,
+    LandingZoneReference as _LandingZoneReference_e8582b94,
 )
-class CfnEnabledBaselineProps:
-    def __init__(
-        self,
-        *,
-        baseline_identifier: builtins.str,
-        baseline_version: builtins.str,
-        target_identifier: builtins.str,
-        parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnabledBaseline.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEnabledBaseline``.
 
-        :param baseline_identifier: The specific ``Baseline`` enabled as part of the ``EnabledBaseline`` resource.
-        :param baseline_version: The enabled version of the ``Baseline`` .
-        :param target_identifier: The target on which to enable the ``Baseline`` .
-        :param parameters: Shows the parameters that are applied when enabling this ``Baseline`` .
-        :param tags: 
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledbaseline.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_controltower as controltower
-            
-            # value: Any
-            
-            cfn_enabled_baseline_props = controltower.CfnEnabledBaselineProps(
-                baseline_identifier="baselineIdentifier",
-                baseline_version="baselineVersion",
-                target_identifier="targetIdentifier",
-            
-                # the properties below are optional
-                parameters=[controltower.CfnEnabledBaseline.ParameterProperty(
-                    key="key",
-                    value=value
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cee7d036bdad40a28b228f1094b7badfc14178a44cd291977e709bfab8981cec)
-            check_type(argname="argument baseline_identifier", value=baseline_identifier, expected_type=type_hints["baseline_identifier"])
-            check_type(argname="argument baseline_version", value=baseline_version, expected_type=type_hints["baseline_version"])
-            check_type(argname="argument target_identifier", value=target_identifier, expected_type=type_hints["target_identifier"])
-            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "baseline_identifier": baseline_identifier,
-            "baseline_version": baseline_version,
-            "target_identifier": target_identifier,
-        }
-        if parameters is not None:
-            self._values["parameters"] = parameters
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def baseline_identifier(self) -> builtins.str:
-        '''The specific ``Baseline`` enabled as part of the ``EnabledBaseline`` resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledbaseline.html#cfn-controltower-enabledbaseline-baselineidentifier
-        '''
-        result = self._values.get("baseline_identifier")
-        assert result is not None, "Required property 'baseline_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def baseline_version(self) -> builtins.str:
-        '''The enabled version of the ``Baseline`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledbaseline.html#cfn-controltower-enabledbaseline-baselineversion
-        '''
-        result = self._values.get("baseline_version")
-        assert result is not None, "Required property 'baseline_version' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target_identifier(self) -> builtins.str:
-        '''The target on which to enable the ``Baseline`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledbaseline.html#cfn-controltower-enabledbaseline-targetidentifier
-        '''
-        result = self._values.get("target_identifier")
-        assert result is not None, "Required property 'target_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnabledBaseline.ParameterProperty"]]]]:
-        '''Shows the parameters that are applied when enabling this ``Baseline`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledbaseline.html#cfn-controltower-enabledbaseline-parameters
-        '''
-        result = self._values.get("parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnabledBaseline.ParameterProperty"]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledbaseline.html#cfn-controltower-enabledbaseline-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEnabledBaselineProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_controltower.CfnEnabledControlProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "control_identifier": "controlIdentifier",
-        "target_identifier": "targetIdentifier",
-        "parameters": "parameters",
-        "tags": "tags",
-    },
-)
-class CfnEnabledControlProps:
-    def __init__(
-        self,
-        *,
-        control_identifier: builtins.str,
-        target_identifier: builtins.str,
-        parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnabledControl.EnabledControlParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEnabledControl``.
-
-        :param control_identifier: The ARN of the control. Only *Strongly recommended* and *Elective* controls are permitted, with the exception of the *Region deny* control. For information on how to find the ``controlIdentifier`` , see `the overview page <https://docs.aws.amazon.com//controltower/latest/APIReference/Welcome.html>`_ .
-        :param target_identifier: The ARN of the organizational unit. For information on how to find the ``targetIdentifier`` , see `the overview page <https://docs.aws.amazon.com//controltower/latest/APIReference/Welcome.html>`_ .
-        :param parameters: Array of ``EnabledControlParameter`` objects.
-        :param tags: A set of tags to assign to the enabled control.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledcontrol.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_controltower as controltower
-            
-            # value: Any
-            
-            cfn_enabled_control_props = controltower.CfnEnabledControlProps(
-                control_identifier="controlIdentifier",
-                target_identifier="targetIdentifier",
-            
-                # the properties below are optional
-                parameters=[controltower.CfnEnabledControl.EnabledControlParameterProperty(
-                    key="key",
-                    value=value
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23e0009029d159859294a7c6bf2b14974d61fd34884bdb5a993abbb2d14cff4f)
-            check_type(argname="argument control_identifier", value=control_identifier, expected_type=type_hints["control_identifier"])
-            check_type(argname="argument target_identifier", value=target_identifier, expected_type=type_hints["target_identifier"])
-            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "control_identifier": control_identifier,
-            "target_identifier": target_identifier,
-        }
-        if parameters is not None:
-            self._values["parameters"] = parameters
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def control_identifier(self) -> builtins.str:
-        '''The ARN of the control.
-
-        Only *Strongly recommended* and *Elective* controls are permitted, with the exception of the *Region deny* control. For information on how to find the ``controlIdentifier`` , see `the overview page <https://docs.aws.amazon.com//controltower/latest/APIReference/Welcome.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledcontrol.html#cfn-controltower-enabledcontrol-controlidentifier
-        '''
-        result = self._values.get("control_identifier")
-        assert result is not None, "Required property 'control_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target_identifier(self) -> builtins.str:
-        '''The ARN of the organizational unit.
-
-        For information on how to find the ``targetIdentifier`` , see `the overview page <https://docs.aws.amazon.com//controltower/latest/APIReference/Welcome.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledcontrol.html#cfn-controltower-enabledcontrol-targetidentifier
-        '''
-        result = self._values.get("target_identifier")
-        assert result is not None, "Required property 'target_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnabledControl.EnabledControlParameterProperty"]]]]:
-        '''Array of ``EnabledControlParameter`` objects.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledcontrol.html#cfn-controltower-enabledcontrol-parameters
-        '''
-        result = self._values.get("parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnabledControl.EnabledControlParameterProperty"]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A set of tags to assign to the enabled control.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledcontrol.html#cfn-controltower-enabledcontrol-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEnabledControlProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_controltower.CfnLandingZoneProps",
-    jsii_struct_bases=[],
-    name_mapping={"manifest": "manifest", "version": "version", "tags": "tags"},
-)
-class CfnLandingZoneProps:
-    def __init__(
-        self,
-        *,
-        manifest: typing.Any,
-        version: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLandingZone``.
-
-        :param manifest: The landing zone manifest JSON text file that specifies the landing zone configurations.
-        :param version: The landing zone's current deployed version.
-        :param tags: Tags to be applied to the landing zone.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-landingzone.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_controltower as controltower
-            
-            # manifest: Any
-            
-            cfn_landing_zone_props = controltower.CfnLandingZoneProps(
-                manifest=manifest,
-                version="version",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19c72c4436a305fc4b4dfd189564d877d145ce92e0c75f37eafddc778100f13e)
-            check_type(argname="argument manifest", value=manifest, expected_type=type_hints["manifest"])
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "manifest": manifest,
-            "version": version,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def manifest(self) -> typing.Any:
-        '''The landing zone manifest JSON text file that specifies the landing zone configurations.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-landingzone.html#cfn-controltower-landingzone-manifest
-        '''
-        result = self._values.get("manifest")
-        assert result is not None, "Required property 'manifest' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def version(self) -> builtins.str:
-        '''The landing zone's current deployed version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-landingzone.html#cfn-controltower-landingzone-version
-        '''
-        result = self._values.get("version")
-        assert result is not None, "Required property 'version' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Tags to be applied to the landing zone.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-landingzone.html#cfn-controltower-landingzone-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLandingZoneProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_controltower.EnabledBaselineReference",
-    jsii_struct_bases=[],
-    name_mapping={"enabled_baseline_identifier": "enabledBaselineIdentifier"},
-)
-class EnabledBaselineReference:
-    def __init__(self, *, enabled_baseline_identifier: builtins.str) -> None:
-        '''A reference to a EnabledBaseline resource.
-
-        :param enabled_baseline_identifier: The EnabledBaselineIdentifier of the EnabledBaseline resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_controltower as controltower
-            
-            enabled_baseline_reference = controltower.EnabledBaselineReference(
-                enabled_baseline_identifier="enabledBaselineIdentifier"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebcd0d27ece3fa2e7ae6e550d003638623599701dbaf719709816ef9ef09f0e8)
-            check_type(argname="argument enabled_baseline_identifier", value=enabled_baseline_identifier, expected_type=type_hints["enabled_baseline_identifier"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "enabled_baseline_identifier": enabled_baseline_identifier,
-        }
-
-    @builtins.property
-    def enabled_baseline_identifier(self) -> builtins.str:
-        '''The EnabledBaselineIdentifier of the EnabledBaseline resource.'''
-        result = self._values.get("enabled_baseline_identifier")
-        assert result is not None, "Required property 'enabled_baseline_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EnabledBaselineReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_controltower.EnabledControlReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "control_identifier": "controlIdentifier",
-        "target_identifier": "targetIdentifier",
-    },
-)
-class EnabledControlReference:
-    def __init__(
-        self,
-        *,
-        control_identifier: builtins.str,
-        target_identifier: builtins.str,
-    ) -> None:
-        '''A reference to a EnabledControl resource.
-
-        :param control_identifier: The ControlIdentifier of the EnabledControl resource.
-        :param target_identifier: The TargetIdentifier of the EnabledControl resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_controltower as controltower
-            
-            enabled_control_reference = controltower.EnabledControlReference(
-                control_identifier="controlIdentifier",
-                target_identifier="targetIdentifier"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2195eb7218142aa3a47b92fec490550d84003692f6d6018697f6f8063f54d58a)
-            check_type(argname="argument control_identifier", value=control_identifier, expected_type=type_hints["control_identifier"])
-            check_type(argname="argument target_identifier", value=target_identifier, expected_type=type_hints["target_identifier"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "control_identifier": control_identifier,
-            "target_identifier": target_identifier,
-        }
-
-    @builtins.property
-    def control_identifier(self) -> builtins.str:
-        '''The ControlIdentifier of the EnabledControl resource.'''
-        result = self._values.get("control_identifier")
-        assert result is not None, "Required property 'control_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target_identifier(self) -> builtins.str:
-        '''The TargetIdentifier of the EnabledControl resource.'''
-        result = self._values.get("target_identifier")
-        assert result is not None, "Required property 'target_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EnabledControlReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_controltower.IEnabledBaselineRef")
-class IEnabledBaselineRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a EnabledBaseline.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="enabledBaselineRef")
-    def enabled_baseline_ref(self) -> EnabledBaselineReference:
-        '''(experimental) A reference to a EnabledBaseline resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IEnabledBaselineRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a EnabledBaseline.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_controltower.IEnabledBaselineRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="enabledBaselineRef")
-    def enabled_baseline_ref(self) -> EnabledBaselineReference:
-        '''(experimental) A reference to a EnabledBaseline resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(EnabledBaselineReference, jsii.get(self, "enabledBaselineRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEnabledBaselineRef).__jsii_proxy_class__ = lambda : _IEnabledBaselineRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_controltower.IEnabledControlRef")
-class IEnabledControlRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a EnabledControl.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="enabledControlRef")
-    def enabled_control_ref(self) -> EnabledControlReference:
-        '''(experimental) A reference to a EnabledControl resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IEnabledControlRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a EnabledControl.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_controltower.IEnabledControlRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="enabledControlRef")
-    def enabled_control_ref(self) -> EnabledControlReference:
-        '''(experimental) A reference to a EnabledControl resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(EnabledControlReference, jsii.get(self, "enabledControlRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEnabledControlRef).__jsii_proxy_class__ = lambda : _IEnabledControlRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_controltower.ILandingZoneRef")
-class ILandingZoneRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a LandingZone.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="landingZoneRef")
-    def landing_zone_ref(self) -> "LandingZoneReference":
-        '''(experimental) A reference to a LandingZone resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ILandingZoneRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a LandingZone.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_controltower.ILandingZoneRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="landingZoneRef")
-    def landing_zone_ref(self) -> "LandingZoneReference":
-        '''(experimental) A reference to a LandingZone resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("LandingZoneReference", jsii.get(self, "landingZoneRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ILandingZoneRef).__jsii_proxy_class__ = lambda : _ILandingZoneRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_controltower.LandingZoneReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "landing_zone_arn": "landingZoneArn",
-        "landing_zone_identifier": "landingZoneIdentifier",
-    },
-)
-class LandingZoneReference:
-    def __init__(
-        self,
-        *,
-        landing_zone_arn: builtins.str,
-        landing_zone_identifier: builtins.str,
-    ) -> None:
-        '''A reference to a LandingZone resource.
-
-        :param landing_zone_arn: The ARN of the LandingZone resource.
-        :param landing_zone_identifier: The LandingZoneIdentifier of the LandingZone resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_controltower as controltower
-            
-            landing_zone_reference = controltower.LandingZoneReference(
-                landing_zone_arn="landingZoneArn",
-                landing_zone_identifier="landingZoneIdentifier"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1952769df8fb390aae4016abf244a2b4c3a6a0eccb28b073c6aff566d1b42c8d)
-            check_type(argname="argument landing_zone_arn", value=landing_zone_arn, expected_type=type_hints["landing_zone_arn"])
-            check_type(argname="argument landing_zone_identifier", value=landing_zone_identifier, expected_type=type_hints["landing_zone_identifier"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "landing_zone_arn": landing_zone_arn,
-            "landing_zone_identifier": landing_zone_identifier,
-        }
-
-    @builtins.property
-    def landing_zone_arn(self) -> builtins.str:
-        '''The ARN of the LandingZone resource.'''
-        result = self._values.get("landing_zone_arn")
-        assert result is not None, "Required property 'landing_zone_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def landing_zone_identifier(self) -> builtins.str:
-        '''The LandingZoneIdentifier of the LandingZone resource.'''
-        result = self._values.get("landing_zone_identifier")
-        assert result is not None, "Required property 'landing_zone_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LandingZoneReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IEnabledBaselineRef, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, _IEnabledBaselineRef_5ab0e530, _ITaggableV2_4e6798f8)
 class CfnEnabledBaseline(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -739,6 +91,7 @@ class CfnEnabledBaseline(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_controltower as controltower
@@ -764,16 +117,17 @@ class CfnEnabledBaseline(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         baseline_identifier: builtins.str,
         baseline_version: builtins.str,
         target_identifier: builtins.str,
-        parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnabledBaseline.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnabledBaseline.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::ControlTower::EnabledBaseline``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param baseline_identifier: The specific ``Baseline`` enabled as part of the ``EnabledBaseline`` resource.
@@ -796,8 +150,20 @@ class CfnEnabledBaseline(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnEnabledBaseline")
+    @builtins.classmethod
+    def is_cfn_enabled_baseline(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEnabledBaseline.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5e09a5dba630535a2f8d2e5d15a3d49c069893b08b0228a19c8000f2a78fe220)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEnabledBaseline", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -836,9 +202,9 @@ class CfnEnabledBaseline(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -847,9 +213,9 @@ class CfnEnabledBaseline(
 
     @builtins.property
     @jsii.member(jsii_name="enabledBaselineRef")
-    def enabled_baseline_ref(self) -> EnabledBaselineReference:
+    def enabled_baseline_ref(self) -> "_EnabledBaselineReference_fc2f59a9":
         '''A reference to a EnabledBaseline resource.'''
-        return typing.cast(EnabledBaselineReference, jsii.get(self, "enabledBaselineRef"))
+        return typing.cast("_EnabledBaselineReference_fc2f59a9", jsii.get(self, "enabledBaselineRef"))
 
     @builtins.property
     @jsii.member(jsii_name="baselineIdentifier")
@@ -894,14 +260,14 @@ class CfnEnabledBaseline(
     @jsii.member(jsii_name="parameters")
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnabledBaseline.ParameterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledBaseline.ParameterProperty"]]]]:
         '''Shows the parameters that are applied when enabling this ``Baseline`` .'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnabledBaseline.ParameterProperty"]]]], jsii.get(self, "parameters"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledBaseline.ParameterProperty"]]]], jsii.get(self, "parameters"))
 
     @parameters.setter
     def parameters(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnabledBaseline.ParameterProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledBaseline.ParameterProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__85aec378e74e2e896fd36d14071fb0792f36ba92c5c2dbed45d60aed4145fb66)
@@ -910,11 +276,11 @@ class CfnEnabledBaseline(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9a9dd44360aa5f3a328dba2dbcea76058e61fb30293a75243bec51585249eacf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -990,7 +356,142 @@ class CfnEnabledBaseline(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IEnabledControlRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_controltower.CfnEnabledBaselineProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "baseline_identifier": "baselineIdentifier",
+        "baseline_version": "baselineVersion",
+        "target_identifier": "targetIdentifier",
+        "parameters": "parameters",
+        "tags": "tags",
+    },
+)
+class CfnEnabledBaselineProps:
+    def __init__(
+        self,
+        *,
+        baseline_identifier: builtins.str,
+        baseline_version: builtins.str,
+        target_identifier: builtins.str,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnabledBaseline.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEnabledBaseline``.
+
+        :param baseline_identifier: The specific ``Baseline`` enabled as part of the ``EnabledBaseline`` resource.
+        :param baseline_version: The enabled version of the ``Baseline`` .
+        :param target_identifier: The target on which to enable the ``Baseline`` .
+        :param parameters: Shows the parameters that are applied when enabling this ``Baseline`` .
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledbaseline.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_controltower as controltower
+            
+            # value: Any
+            
+            cfn_enabled_baseline_props = controltower.CfnEnabledBaselineProps(
+                baseline_identifier="baselineIdentifier",
+                baseline_version="baselineVersion",
+                target_identifier="targetIdentifier",
+            
+                # the properties below are optional
+                parameters=[controltower.CfnEnabledBaseline.ParameterProperty(
+                    key="key",
+                    value=value
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cee7d036bdad40a28b228f1094b7badfc14178a44cd291977e709bfab8981cec)
+            check_type(argname="argument baseline_identifier", value=baseline_identifier, expected_type=type_hints["baseline_identifier"])
+            check_type(argname="argument baseline_version", value=baseline_version, expected_type=type_hints["baseline_version"])
+            check_type(argname="argument target_identifier", value=target_identifier, expected_type=type_hints["target_identifier"])
+            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "baseline_identifier": baseline_identifier,
+            "baseline_version": baseline_version,
+            "target_identifier": target_identifier,
+        }
+        if parameters is not None:
+            self._values["parameters"] = parameters
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def baseline_identifier(self) -> builtins.str:
+        '''The specific ``Baseline`` enabled as part of the ``EnabledBaseline`` resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledbaseline.html#cfn-controltower-enabledbaseline-baselineidentifier
+        '''
+        result = self._values.get("baseline_identifier")
+        assert result is not None, "Required property 'baseline_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def baseline_version(self) -> builtins.str:
+        '''The enabled version of the ``Baseline`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledbaseline.html#cfn-controltower-enabledbaseline-baselineversion
+        '''
+        result = self._values.get("baseline_version")
+        assert result is not None, "Required property 'baseline_version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_identifier(self) -> builtins.str:
+        '''The target on which to enable the ``Baseline`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledbaseline.html#cfn-controltower-enabledbaseline-targetidentifier
+        '''
+        result = self._values.get("target_identifier")
+        assert result is not None, "Required property 'target_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def parameters(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledBaseline.ParameterProperty"]]]]:
+        '''Shows the parameters that are applied when enabling this ``Baseline`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledbaseline.html#cfn-controltower-enabledbaseline-parameters
+        '''
+        result = self._values.get("parameters")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledBaseline.ParameterProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledbaseline.html#cfn-controltower-enabledbaseline-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEnabledBaselineProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IEnabledControlRef_c4d4bf0a, _ITaggableV2_4e6798f8)
 class CfnEnabledControl(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1006,6 +507,7 @@ class CfnEnabledControl(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_controltower as controltower
@@ -1030,15 +532,16 @@ class CfnEnabledControl(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         control_identifier: builtins.str,
         target_identifier: builtins.str,
-        parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnabledControl.EnabledControlParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnabledControl.EnabledControlParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::ControlTower::EnabledControl``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param control_identifier: The ARN of the control. Only *Strongly recommended* and *Elective* controls are permitted, with the exception of the *Region deny* control. For information on how to find the ``controlIdentifier`` , see `the overview page <https://docs.aws.amazon.com//controltower/latest/APIReference/Welcome.html>`_ .
@@ -1059,8 +562,20 @@ class CfnEnabledControl(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnEnabledControl")
+    @builtins.classmethod
+    def is_cfn_enabled_control(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEnabledControl.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9e764ea81c10e2fcb4b5c9268a99900232bdfe55916559ad3f65773288d27ef)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEnabledControl", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1091,9 +606,9 @@ class CfnEnabledControl(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1102,9 +617,9 @@ class CfnEnabledControl(
 
     @builtins.property
     @jsii.member(jsii_name="enabledControlRef")
-    def enabled_control_ref(self) -> EnabledControlReference:
+    def enabled_control_ref(self) -> "_EnabledControlReference_bbbf16c6":
         '''A reference to a EnabledControl resource.'''
-        return typing.cast(EnabledControlReference, jsii.get(self, "enabledControlRef"))
+        return typing.cast("_EnabledControlReference_bbbf16c6", jsii.get(self, "enabledControlRef"))
 
     @builtins.property
     @jsii.member(jsii_name="controlIdentifier")
@@ -1136,14 +651,14 @@ class CfnEnabledControl(
     @jsii.member(jsii_name="parameters")
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnabledControl.EnabledControlParameterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledControl.EnabledControlParameterProperty"]]]]:
         '''Array of ``EnabledControlParameter`` objects.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnabledControl.EnabledControlParameterProperty"]]]], jsii.get(self, "parameters"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledControl.EnabledControlParameterProperty"]]]], jsii.get(self, "parameters"))
 
     @parameters.setter
     def parameters(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnabledControl.EnabledControlParameterProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledControl.EnabledControlParameterProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d515a7308c280d71a9dde323de4153a28a8fd50c1d63b3e432f221eb67cc226)
@@ -1152,12 +667,12 @@ class CfnEnabledControl(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A set of tags to assign to the enabled control.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cbb8154bebca6a968563b4cbc9e3dac6895358c7f3c169f15f270de236454f6a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1238,7 +753,131 @@ class CfnEnabledControl(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ILandingZoneRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_controltower.CfnEnabledControlProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "control_identifier": "controlIdentifier",
+        "target_identifier": "targetIdentifier",
+        "parameters": "parameters",
+        "tags": "tags",
+    },
+)
+class CfnEnabledControlProps:
+    def __init__(
+        self,
+        *,
+        control_identifier: builtins.str,
+        target_identifier: builtins.str,
+        parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnabledControl.EnabledControlParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEnabledControl``.
+
+        :param control_identifier: The ARN of the control. Only *Strongly recommended* and *Elective* controls are permitted, with the exception of the *Region deny* control. For information on how to find the ``controlIdentifier`` , see `the overview page <https://docs.aws.amazon.com//controltower/latest/APIReference/Welcome.html>`_ .
+        :param target_identifier: The ARN of the organizational unit. For information on how to find the ``targetIdentifier`` , see `the overview page <https://docs.aws.amazon.com//controltower/latest/APIReference/Welcome.html>`_ .
+        :param parameters: Array of ``EnabledControlParameter`` objects.
+        :param tags: A set of tags to assign to the enabled control.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledcontrol.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_controltower as controltower
+            
+            # value: Any
+            
+            cfn_enabled_control_props = controltower.CfnEnabledControlProps(
+                control_identifier="controlIdentifier",
+                target_identifier="targetIdentifier",
+            
+                # the properties below are optional
+                parameters=[controltower.CfnEnabledControl.EnabledControlParameterProperty(
+                    key="key",
+                    value=value
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__23e0009029d159859294a7c6bf2b14974d61fd34884bdb5a993abbb2d14cff4f)
+            check_type(argname="argument control_identifier", value=control_identifier, expected_type=type_hints["control_identifier"])
+            check_type(argname="argument target_identifier", value=target_identifier, expected_type=type_hints["target_identifier"])
+            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "control_identifier": control_identifier,
+            "target_identifier": target_identifier,
+        }
+        if parameters is not None:
+            self._values["parameters"] = parameters
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def control_identifier(self) -> builtins.str:
+        '''The ARN of the control.
+
+        Only *Strongly recommended* and *Elective* controls are permitted, with the exception of the *Region deny* control. For information on how to find the ``controlIdentifier`` , see `the overview page <https://docs.aws.amazon.com//controltower/latest/APIReference/Welcome.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledcontrol.html#cfn-controltower-enabledcontrol-controlidentifier
+        '''
+        result = self._values.get("control_identifier")
+        assert result is not None, "Required property 'control_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_identifier(self) -> builtins.str:
+        '''The ARN of the organizational unit.
+
+        For information on how to find the ``targetIdentifier`` , see `the overview page <https://docs.aws.amazon.com//controltower/latest/APIReference/Welcome.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledcontrol.html#cfn-controltower-enabledcontrol-targetidentifier
+        '''
+        result = self._values.get("target_identifier")
+        assert result is not None, "Required property 'target_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def parameters(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledControl.EnabledControlParameterProperty"]]]]:
+        '''Array of ``EnabledControlParameter`` objects.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledcontrol.html#cfn-controltower-enabledcontrol-parameters
+        '''
+        result = self._values.get("parameters")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnabledControl.EnabledControlParameterProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A set of tags to assign to the enabled control.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-enabledcontrol.html#cfn-controltower-enabledcontrol-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEnabledControlProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ILandingZoneRef_c378ff0b, _ITaggableV2_4e6798f8)
 class CfnLandingZone(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1254,6 +893,7 @@ class CfnLandingZone(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_controltower as controltower
@@ -1265,6 +905,7 @@ class CfnLandingZone(
             version="version",
         
             # the properties below are optional
+            remediation_types=["remediationTypes"],
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -1274,30 +915,64 @@ class CfnLandingZone(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         manifest: typing.Any,
         version: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        remediation_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::ControlTower::LandingZone``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param manifest: The landing zone manifest JSON text file that specifies the landing zone configurations.
         :param version: The landing zone's current deployed version.
+        :param remediation_types: The types of remediation actions configured for the landing zone, such as automatic drift correction or compliance enforcement.
         :param tags: Tags to be applied to the landing zone.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__af3c2c6625c6aae1afd50bbbd83dafe3289d77c3e128938fa7a5e5c8c7ddf150)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnLandingZoneProps(manifest=manifest, version=version, tags=tags)
+        props = CfnLandingZoneProps(
+            manifest=manifest,
+            version=version,
+            remediation_types=remediation_types,
+            tags=tags,
+        )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForLandingZone")
+    @builtins.classmethod
+    def arn_for_landing_zone(
+        cls,
+        resource: "_ILandingZoneRef_c378ff0b",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__36638b5e73ae0759a65f449689a9ef46f9b511d7843e7813f777d3775441d74e)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLandingZone", [resource]))
+
+    @jsii.member(jsii_name="isCfnLandingZone")
+    @builtins.classmethod
+    def is_cfn_landing_zone(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLandingZone.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0fbf2e6c872dcc975b073b7baf401268403ffd771bd9a450b5d5ac60e3101f75)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLandingZone", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1375,9 +1050,9 @@ class CfnLandingZone(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1386,9 +1061,9 @@ class CfnLandingZone(
 
     @builtins.property
     @jsii.member(jsii_name="landingZoneRef")
-    def landing_zone_ref(self) -> LandingZoneReference:
+    def landing_zone_ref(self) -> "_LandingZoneReference_e8582b94":
         '''A reference to a LandingZone resource.'''
-        return typing.cast(LandingZoneReference, jsii.get(self, "landingZoneRef"))
+        return typing.cast("_LandingZoneReference_e8582b94", jsii.get(self, "landingZoneRef"))
 
     @builtins.property
     @jsii.member(jsii_name="manifest")
@@ -1417,17 +1092,148 @@ class CfnLandingZone(
         jsii.set(self, "version", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="remediationTypes")
+    def remediation_types(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The types of remediation actions configured for the landing zone, such as automatic drift correction or compliance enforcement.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "remediationTypes"))
+
+    @remediation_types.setter
+    def remediation_types(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__badc32ecfa75b42f613106c567a87838b0d41f56d15482c8dc388641897b80ff)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "remediationTypes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Tags to be applied to the landing zone.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__74f7c6529f7d31ad5ed3d98ad190f8c0fed87380c25f04fc3e960c88ff73bdaf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_controltower.CfnLandingZoneProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "manifest": "manifest",
+        "version": "version",
+        "remediation_types": "remediationTypes",
+        "tags": "tags",
+    },
+)
+class CfnLandingZoneProps:
+    def __init__(
+        self,
+        *,
+        manifest: typing.Any,
+        version: builtins.str,
+        remediation_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLandingZone``.
+
+        :param manifest: The landing zone manifest JSON text file that specifies the landing zone configurations.
+        :param version: The landing zone's current deployed version.
+        :param remediation_types: The types of remediation actions configured for the landing zone, such as automatic drift correction or compliance enforcement.
+        :param tags: Tags to be applied to the landing zone.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-landingzone.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_controltower as controltower
+            
+            # manifest: Any
+            
+            cfn_landing_zone_props = controltower.CfnLandingZoneProps(
+                manifest=manifest,
+                version="version",
+            
+                # the properties below are optional
+                remediation_types=["remediationTypes"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__19c72c4436a305fc4b4dfd189564d877d145ce92e0c75f37eafddc778100f13e)
+            check_type(argname="argument manifest", value=manifest, expected_type=type_hints["manifest"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            check_type(argname="argument remediation_types", value=remediation_types, expected_type=type_hints["remediation_types"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "manifest": manifest,
+            "version": version,
+        }
+        if remediation_types is not None:
+            self._values["remediation_types"] = remediation_types
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def manifest(self) -> typing.Any:
+        '''The landing zone manifest JSON text file that specifies the landing zone configurations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-landingzone.html#cfn-controltower-landingzone-manifest
+        '''
+        result = self._values.get("manifest")
+        assert result is not None, "Required property 'manifest' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def version(self) -> builtins.str:
+        '''The landing zone's current deployed version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-landingzone.html#cfn-controltower-landingzone-version
+        '''
+        result = self._values.get("version")
+        assert result is not None, "Required property 'version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def remediation_types(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The types of remediation actions configured for the landing zone, such as automatic drift correction or compliance enforcement.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-landingzone.html#cfn-controltower-landingzone-remediationtypes
+        '''
+        result = self._values.get("remediation_types")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags to be applied to the landing zone.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-controltower-landingzone.html#cfn-controltower-landingzone-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLandingZoneProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 __all__ = [
@@ -1437,68 +1243,9 @@ __all__ = [
     "CfnEnabledControlProps",
     "CfnLandingZone",
     "CfnLandingZoneProps",
-    "EnabledBaselineReference",
-    "EnabledControlReference",
-    "IEnabledBaselineRef",
-    "IEnabledControlRef",
-    "ILandingZoneRef",
-    "LandingZoneReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__cee7d036bdad40a28b228f1094b7badfc14178a44cd291977e709bfab8981cec(
-    *,
-    baseline_identifier: builtins.str,
-    baseline_version: builtins.str,
-    target_identifier: builtins.str,
-    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnabledBaseline.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__23e0009029d159859294a7c6bf2b14974d61fd34884bdb5a993abbb2d14cff4f(
-    *,
-    control_identifier: builtins.str,
-    target_identifier: builtins.str,
-    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnabledControl.EnabledControlParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__19c72c4436a305fc4b4dfd189564d877d145ce92e0c75f37eafddc778100f13e(
-    *,
-    manifest: typing.Any,
-    version: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ebcd0d27ece3fa2e7ae6e550d003638623599701dbaf719709816ef9ef09f0e8(
-    *,
-    enabled_baseline_identifier: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2195eb7218142aa3a47b92fec490550d84003692f6d6018697f6f8063f54d58a(
-    *,
-    control_identifier: builtins.str,
-    target_identifier: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1952769df8fb390aae4016abf244a2b4c3a6a0eccb28b073c6aff566d1b42c8d(
-    *,
-    landing_zone_arn: builtins.str,
-    landing_zone_identifier: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__1ea8761029fec1b3c1fb5fb985be9ac741a889e29fe3445cfb5a962436cab528(
     scope: _constructs_77d1e7e8.Construct,
@@ -1509,6 +1256,12 @@ def _typecheckingstub__1ea8761029fec1b3c1fb5fb985be9ac741a889e29fe3445cfb5a96243
     target_identifier: builtins.str,
     parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnabledBaseline.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e09a5dba630535a2f8d2e5d15a3d49c069893b08b0228a19c8000f2a78fe220(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1563,6 +1316,17 @@ def _typecheckingstub__29cd4b6989b5df874eedae62a39653d1a63188dc5b543225343818396
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cee7d036bdad40a28b228f1094b7badfc14178a44cd291977e709bfab8981cec(
+    *,
+    baseline_identifier: builtins.str,
+    baseline_version: builtins.str,
+    target_identifier: builtins.str,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnabledBaseline.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1f147c3cf3aed5100105feba92fb41fa040a90e250e566c4f852830a75cfc586(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1571,6 +1335,12 @@ def _typecheckingstub__1f147c3cf3aed5100105feba92fb41fa040a90e250e566c4f852830a7
     target_identifier: builtins.str,
     parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnabledControl.EnabledControlParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9e764ea81c10e2fcb4b5c9268a99900232bdfe55916559ad3f65773288d27ef(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1619,13 +1389,36 @@ def _typecheckingstub__4fcf81607a6c1e1854e0f8d566886b58dcc76d98bca786eda233fcfda
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__23e0009029d159859294a7c6bf2b14974d61fd34884bdb5a993abbb2d14cff4f(
+    *,
+    control_identifier: builtins.str,
+    target_identifier: builtins.str,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnabledControl.EnabledControlParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__af3c2c6625c6aae1afd50bbbd83dafe3289d77c3e128938fa7a5e5c8c7ddf150(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     manifest: typing.Any,
     version: builtins.str,
+    remediation_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36638b5e73ae0759a65f449689a9ef46f9b511d7843e7813f777d3775441d74e(
+    resource: _ILandingZoneRef_c378ff0b,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0fbf2e6c872dcc975b073b7baf401268403ffd771bd9a450b5d5ac60e3101f75(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1654,8 +1447,24 @@ def _typecheckingstub__e32b3e7b64f2950f24c12755b01848b9ebe791c11c2152b740f8f6225
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__badc32ecfa75b42f613106c567a87838b0d41f56d15482c8dc388641897b80ff(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__74f7c6529f7d31ad5ed3d98ad190f8c0fed87380c25f04fc3e960c88ff73bdaf(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19c72c4436a305fc4b4dfd189564d877d145ce92e0c75f37eafddc778100f13e(
+    *,
+    manifest: typing.Any,
+    version: builtins.str,
+    remediation_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,5 +1,5 @@
+from collections.abc import Sequence
 import typing
-from typing import Sequence, Tuple
 
 import ase
 from ase.data import atomic_numbers
@@ -51,7 +51,7 @@ class SystemChange(AttrSavable):
         """
         _apply_symbol_to_index(atoms, self.index, self.old_symb)
 
-    def astuple(self) -> Tuple[int, str, str, str]:
+    def astuple(self) -> tuple[int, str, str, str]:
         """Return the tuple representation of the SystemChange."""
         return attr.astuple(self, recurse=False)
 

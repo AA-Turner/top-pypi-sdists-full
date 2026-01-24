@@ -55,7 +55,9 @@ class DataBackend(AbstractDataBackend):
             params["symbols"] = ",".join(obj_external_ids)
         res = []
         for _date in pd.date_range(start, execution_date, freq="B"):
-            r = requests.get(f'{self.ENDPOINT}/{_date.strftime("%Y-%m-%d")}?', params=params, headers=self.HEADERS)
+            r = requests.get(
+                f'{self.ENDPOINT}/{_date.strftime("%Y-%m-%d")}?', params=params, headers=self.HEADERS, timeout=10
+            )
             if r.status_code == requests.codes.ok:
                 res_json = r.json()
                 if res_json and res_json["success"]:

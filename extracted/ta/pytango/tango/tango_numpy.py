@@ -12,8 +12,8 @@ __docformat__ = "restructuredtext"
 import collections.abc
 import numpy
 
-from tango._tango import Except, Attribute, AttributeInfo
-from tango._tango import CmdArgType as ArgType
+from tango import Except, Attribute, AttributeInfo
+from tango import CmdArgType as ArgType
 
 from tango.attribute_proxy import AttributeProxy
 

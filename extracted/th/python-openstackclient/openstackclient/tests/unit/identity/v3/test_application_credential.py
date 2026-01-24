@@ -120,7 +120,7 @@ class TestApplicationCredentialCreate(identity_fakes.TestIdentityv3):
         verifylist = [
             ('name', self.application_credential.name),
             ('secret', 'moresecuresecret'),
-            ('role', [self.roles.id]),
+            ('roles', [self.roles.id]),
             ('expiration', '2024-01-01T00:00:00'),
             ('description', 'credential for testing'),
         ]
@@ -302,7 +302,7 @@ class TestApplicationCredentialDelete(identity_fakes.TestIdentityv3):
 
         calls = []
         for a in arglist:
-            calls.append(call(user_id, a))
+            calls.append(call(user_id, a, ignore_missing=False))
 
         self.identity_sdk_client.find_application_credential.assert_has_calls(
             calls
@@ -457,7 +457,7 @@ class TestApplicationCredentialShow(identity_fakes.TestIdentityv3):
         columns, data = self.cmd.take_action(parsed_args)
 
         self.identity_sdk_client.find_application_credential.assert_called_with(
-            user_id, self.application_credential.id
+            user_id, self.application_credential.id, ignore_missing=False
         )
 
         self.assertEqual(self.columns, columns)

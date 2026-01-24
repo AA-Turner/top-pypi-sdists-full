@@ -1,64 +1,52 @@
 Metadata-Version: 2.4
 Name: arm_pyart
-Version: 2.1.1
+Version: 2.2.0
 Summary: Py-ART: Python ARM Radar Toolkit
-Home-page: https://github.com/ARM-DOE/pyart
-Author: Scott Collis, Jonathan Helmus
-Author-email: scollis@anl.gov
-Maintainer: Py-ART Developers
-Maintainer-email: zsherman@anl.gov, scollis@anl.gov, mgrover@anl.gov
-License: BSD
+Author: Jonathan Helmus
+Author-email: Scott Collis <scollis@anl.gov>
+Maintainer-email: Py-ART Developers <zsherman@anl.gov>, scollis@anl.gov, mgrover@anl.gov
+License-Expression: BSD-3-Clause
+Project-URL: Homepage, https://github.com/ARM-DOE/pyart
 Platform: Linux
 Platform: Mac OS-X
 Platform: Unix
 Platform: Windows
-Classifier:     Development Status :: 5 - Production/Stable
-Classifier:     Intended Audience :: Science/Research
-Classifier:     Intended Audience :: Developers
-Classifier:     License :: OSI Approved :: BSD License
-Classifier:     Programming Language :: Python
-Classifier:     Programming Language :: Python :: 3
-Classifier:     Programming Language :: Python :: 3.9
-Classifier:     Programming Language :: Python :: 3.10
-Classifier:     Programming Language :: Python :: 3.11
-Classifier:     Programming Language :: C
-Classifier:     Programming Language :: Cython
-Classifier:     Topic :: Scientific/Engineering
-Classifier:     Topic :: Scientific/Engineering :: Atmospheric Science
-Classifier:     Operating System :: POSIX :: Linux
-Classifier:     Operating System :: MacOS :: MacOS X
-Classifier:     Operating System :: Microsoft :: Windows
-Classifier:     Framework :: Matplotlib
-Requires-Python: >=3.9
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: C
+Classifier: Programming Language :: Cython
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Atmospheric Science
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Framework :: Matplotlib
+Requires-Python: >=3.10
 License-File: LICENSE.txt
-Requires-Dist: numpy
-Requires-Dist: scipy
-Requires-Dist: netCDF4>=1.7.0
-Requires-Dist: matplotlib
-Requires-Dist: pooch
-Requires-Dist: cftime
-Requires-Dist: fsspec
-Requires-Dist: s3fs
-Requires-Dist: open_radar_data
-Requires-Dist: xradar>=0.8.0
-Requires-Dist: pandas
-Requires-Dist: mda-xdrlib
+Requires-Dist: cartopy>=0.22.0
+Requires-Dist: cftime>=1.5.1.1
+Requires-Dist: fsspec>=2021.11.0
+Requires-Dist: matplotlib>=3.5.0
+Requires-Dist: mda-xdrlib>=0.2.0
+Requires-Dist: netcdf4>=1.7.2
+Requires-Dist: numpy>=1.21.2
+Requires-Dist: open-radar-data>=0.5.0
+Requires-Dist: pandas>=1.3.4
+Requires-Dist: pint>=0.18.0
+Requires-Dist: pooch>=1.5.2
+Requires-Dist: s3fs>=2021.11.0
+Requires-Dist: scipy>=1.7.3
 Requires-Dist: xarray>=2024.10.0
-Requires-Dist: cartopy
-Requires-Dist: pint
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
+Requires-Dist: xradar>=0.8.0
 Dynamic: description
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: maintainer
-Dynamic: maintainer-email
-Dynamic: platform
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 a growing collection of weather radar algorithms and utilities build on top of
 the Scientific Python stack and distributed under the 3-Clause BSD license.

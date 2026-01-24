@@ -26,7 +26,7 @@ class UpdateKafkaTriggerJsonBody:
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, UpdateKafkaTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, UpdateKafkaTriggerJsonBodyRetry]):
+        retry (Union[Unset, UpdateKafkaTriggerJsonBodyRetry]): Retry configuration for failed module executions
     """
 
     kafka_resource_path: str

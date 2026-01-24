@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -262,9 +262,9 @@ class WafConfiguration(TypedDict, total=False):
     in the *Amplify User Guide*.
     """
 
-    webAclArn: Optional[WebAclArn]
-    wafStatus: Optional[WafStatus]
-    statusReason: Optional[StatusReason]
+    webAclArn: WebAclArn | None
+    wafStatus: WafStatus | None
+    statusReason: StatusReason | None
 
 
 webhookCreateTime = datetime
@@ -274,35 +274,35 @@ class CacheConfig(TypedDict, total=False):
     type: CacheConfigType
 
 
-EnvironmentVariables = Dict[EnvKey, EnvValue]
+EnvironmentVariables = dict[EnvKey, EnvValue]
 
 
 class AutoBranchCreationConfig(TypedDict, total=False):
     """Describes the automated branch creation configuration."""
 
-    stage: Optional[Stage]
-    framework: Optional[Framework]
-    enableAutoBuild: Optional[EnableAutoBuild]
-    environmentVariables: Optional[EnvironmentVariables]
-    basicAuthCredentials: Optional[BasicAuthCredentials]
-    enableBasicAuth: Optional[EnableBasicAuth]
-    enablePerformanceMode: Optional[EnablePerformanceMode]
-    buildSpec: Optional[BuildSpec]
-    enablePullRequestPreview: Optional[EnablePullRequestPreview]
-    pullRequestEnvironmentName: Optional[PullRequestEnvironmentName]
+    stage: Stage | None
+    framework: Framework | None
+    enableAutoBuild: EnableAutoBuild | None
+    environmentVariables: EnvironmentVariables | None
+    basicAuthCredentials: BasicAuthCredentials | None
+    enableBasicAuth: EnableBasicAuth | None
+    enablePerformanceMode: EnablePerformanceMode | None
+    buildSpec: BuildSpec | None
+    enablePullRequestPreview: EnablePullRequestPreview | None
+    pullRequestEnvironmentName: PullRequestEnvironmentName | None
 
 
-AutoBranchCreationPatterns = List[AutoBranchCreationPattern]
+AutoBranchCreationPatterns = list[AutoBranchCreationPattern]
 LastDeployTime = datetime
 
 
 class ProductionBranch(TypedDict, total=False):
     """Describes the information about a production branch for an Amplify app."""
 
-    lastDeployTime: Optional[LastDeployTime]
-    status: Optional[Status]
-    thumbnailUrl: Optional[ThumbnailUrl]
-    branchName: Optional[BranchName]
+    lastDeployTime: LastDeployTime | None
+    status: Status | None
+    thumbnailUrl: ThumbnailUrl | None
+    branchName: BranchName | None
 
 
 class CustomRule(TypedDict, total=False):
@@ -310,14 +310,14 @@ class CustomRule(TypedDict, total=False):
 
     source: Source
     target: Target
-    status: Optional[Status]
-    condition: Optional[Condition]
+    status: Status | None
+    condition: Condition | None
 
 
-CustomRules = List[CustomRule]
+CustomRules = list[CustomRule]
 UpdateTime = datetime
 CreateTime = datetime
-TagMap = Dict[TagKey, TagValue]
+TagMap = dict[TagKey, TagValue]
 
 
 class App(TypedDict, total=False):
@@ -328,35 +328,35 @@ class App(TypedDict, total=False):
     appId: AppId
     appArn: AppArn
     name: Name
-    tags: Optional[TagMap]
+    tags: TagMap | None
     description: Description
     repository: Repository
     platform: Platform
     createTime: CreateTime
     updateTime: UpdateTime
-    computeRoleArn: Optional[ComputeRoleArn]
-    iamServiceRoleArn: Optional[ServiceRoleArn]
+    computeRoleArn: ComputeRoleArn | None
+    iamServiceRoleArn: ServiceRoleArn | None
     environmentVariables: EnvironmentVariables
     defaultDomain: DefaultDomain
     enableBranchAutoBuild: EnableBranchAutoBuild
-    enableBranchAutoDeletion: Optional[EnableBranchAutoDeletion]
+    enableBranchAutoDeletion: EnableBranchAutoDeletion | None
     enableBasicAuth: EnableBasicAuth
-    basicAuthCredentials: Optional[BasicAuthCredentials]
-    customRules: Optional[CustomRules]
-    productionBranch: Optional[ProductionBranch]
-    buildSpec: Optional[BuildSpec]
-    customHeaders: Optional[CustomHeaders]
-    enableAutoBranchCreation: Optional[EnableAutoBranchCreation]
-    autoBranchCreationPatterns: Optional[AutoBranchCreationPatterns]
-    autoBranchCreationConfig: Optional[AutoBranchCreationConfig]
-    repositoryCloneMethod: Optional[RepositoryCloneMethod]
-    cacheConfig: Optional[CacheConfig]
-    webhookCreateTime: Optional[webhookCreateTime]
-    wafConfiguration: Optional[WafConfiguration]
-    jobConfig: Optional[JobConfig]
+    basicAuthCredentials: BasicAuthCredentials | None
+    customRules: CustomRules | None
+    productionBranch: ProductionBranch | None
+    buildSpec: BuildSpec | None
+    customHeaders: CustomHeaders | None
+    enableAutoBranchCreation: EnableAutoBranchCreation | None
+    autoBranchCreationPatterns: AutoBranchCreationPatterns | None
+    autoBranchCreationConfig: AutoBranchCreationConfig | None
+    repositoryCloneMethod: RepositoryCloneMethod | None
+    cacheConfig: CacheConfig | None
+    webhookCreateTime: webhookCreateTime | None
+    wafConfiguration: WafConfiguration | None
+    jobConfig: JobConfig | None
 
 
-Apps = List[App]
+Apps = list[App]
 
 
 class Artifact(TypedDict, total=False):
@@ -366,9 +366,9 @@ class Artifact(TypedDict, total=False):
     artifactId: ArtifactId
 
 
-Artifacts = List[Artifact]
-AssociatedResources = List[AssociatedResource]
-AutoSubDomainCreationPatterns = List[AutoSubDomainCreationPattern]
+Artifacts = list[Artifact]
+AssociatedResources = list[AssociatedResource]
+AutoSubDomainCreationPatterns = list[AutoSubDomainCreationPattern]
 
 
 class Backend(TypedDict, total=False):
@@ -379,7 +379,7 @@ class Backend(TypedDict, total=False):
     infrastructure using Typescript code.
     """
 
-    stackArn: Optional[StackArn]
+    stackArn: StackArn | None
 
 
 class BackendEnvironment(TypedDict, total=False):
@@ -390,14 +390,14 @@ class BackendEnvironment(TypedDict, total=False):
 
     backendEnvironmentArn: BackendEnvironmentArn
     environmentName: EnvironmentName
-    stackName: Optional[StackName]
-    deploymentArtifacts: Optional[DeploymentArtifacts]
+    stackName: StackName | None
+    deploymentArtifacts: DeploymentArtifacts | None
     createTime: CreateTime
     updateTime: UpdateTime
 
 
-BackendEnvironments = List[BackendEnvironment]
-CustomDomains = List[CustomDomain]
+BackendEnvironments = list[BackendEnvironment]
+CustomDomains = list[CustomDomain]
 
 
 class Branch(TypedDict, total=False):
@@ -408,7 +408,7 @@ class Branch(TypedDict, total=False):
     branchArn: BranchArn
     branchName: BranchName
     description: Description
-    tags: Optional[TagMap]
+    tags: TagMap | None
     stage: Stage
     displayName: DisplayName
     enableNotification: EnableNotification
@@ -416,39 +416,39 @@ class Branch(TypedDict, total=False):
     updateTime: UpdateTime
     environmentVariables: EnvironmentVariables
     enableAutoBuild: EnableAutoBuild
-    enableSkewProtection: Optional[EnableSkewProtection]
+    enableSkewProtection: EnableSkewProtection | None
     customDomains: CustomDomains
     framework: Framework
     activeJobId: ActiveJobId
     totalNumberOfJobs: TotalNumberOfJobs
     enableBasicAuth: EnableBasicAuth
-    enablePerformanceMode: Optional[EnablePerformanceMode]
-    thumbnailUrl: Optional[ThumbnailUrl]
-    basicAuthCredentials: Optional[BasicAuthCredentials]
-    buildSpec: Optional[BuildSpec]
+    enablePerformanceMode: EnablePerformanceMode | None
+    thumbnailUrl: ThumbnailUrl | None
+    basicAuthCredentials: BasicAuthCredentials | None
+    buildSpec: BuildSpec | None
     ttl: TTL
-    associatedResources: Optional[AssociatedResources]
+    associatedResources: AssociatedResources | None
     enablePullRequestPreview: EnablePullRequestPreview
-    pullRequestEnvironmentName: Optional[PullRequestEnvironmentName]
-    destinationBranch: Optional[BranchName]
-    sourceBranch: Optional[BranchName]
-    backendEnvironmentArn: Optional[BackendEnvironmentArn]
-    backend: Optional[Backend]
-    computeRoleArn: Optional[ComputeRoleArn]
+    pullRequestEnvironmentName: PullRequestEnvironmentName | None
+    destinationBranch: BranchName | None
+    sourceBranch: BranchName | None
+    backendEnvironmentArn: BackendEnvironmentArn | None
+    backend: Backend | None
+    computeRoleArn: ComputeRoleArn | None
 
 
-Branches = List[Branch]
+Branches = list[Branch]
 
 
 class Certificate(TypedDict, total=False):
     type: CertificateType
-    customCertificateArn: Optional[CertificateArn]
-    certificateVerificationDNSRecord: Optional[CertificateVerificationDNSRecord]
+    customCertificateArn: CertificateArn | None
+    certificateVerificationDNSRecord: CertificateVerificationDNSRecord | None
 
 
 class CertificateSettings(TypedDict, total=False):
     type: CertificateType
-    customCertificateArn: Optional[CertificateArn]
+    customCertificateArn: CertificateArn | None
 
 
 CommitTime = datetime
@@ -458,27 +458,27 @@ class CreateAppRequest(ServiceRequest):
     """The request structure used to create apps in Amplify."""
 
     name: Name
-    description: Optional[Description]
-    repository: Optional[Repository]
-    platform: Optional[Platform]
-    computeRoleArn: Optional[ComputeRoleArn]
-    iamServiceRoleArn: Optional[ServiceRoleArn]
-    oauthToken: Optional[OauthToken]
-    accessToken: Optional[AccessToken]
-    environmentVariables: Optional[EnvironmentVariables]
-    enableBranchAutoBuild: Optional[EnableBranchAutoBuild]
-    enableBranchAutoDeletion: Optional[EnableBranchAutoDeletion]
-    enableBasicAuth: Optional[EnableBasicAuth]
-    basicAuthCredentials: Optional[BasicAuthCredentials]
-    customRules: Optional[CustomRules]
-    tags: Optional[TagMap]
-    buildSpec: Optional[BuildSpec]
-    customHeaders: Optional[CustomHeaders]
-    enableAutoBranchCreation: Optional[EnableAutoBranchCreation]
-    autoBranchCreationPatterns: Optional[AutoBranchCreationPatterns]
-    autoBranchCreationConfig: Optional[AutoBranchCreationConfig]
-    jobConfig: Optional[JobConfig]
-    cacheConfig: Optional[CacheConfig]
+    description: Description | None
+    repository: Repository | None
+    platform: Platform | None
+    computeRoleArn: ComputeRoleArn | None
+    iamServiceRoleArn: ServiceRoleArn | None
+    oauthToken: OauthToken | None
+    accessToken: AccessToken | None
+    environmentVariables: EnvironmentVariables | None
+    enableBranchAutoBuild: EnableBranchAutoBuild | None
+    enableBranchAutoDeletion: EnableBranchAutoDeletion | None
+    enableBasicAuth: EnableBasicAuth | None
+    basicAuthCredentials: BasicAuthCredentials | None
+    customRules: CustomRules | None
+    tags: TagMap | None
+    buildSpec: BuildSpec | None
+    customHeaders: CustomHeaders | None
+    enableAutoBranchCreation: EnableAutoBranchCreation | None
+    autoBranchCreationPatterns: AutoBranchCreationPatterns | None
+    autoBranchCreationConfig: AutoBranchCreationConfig | None
+    jobConfig: JobConfig | None
+    cacheConfig: CacheConfig | None
 
 
 class CreateAppResult(TypedDict, total=False):
@@ -490,8 +490,8 @@ class CreateBackendEnvironmentRequest(ServiceRequest):
 
     appId: AppId
     environmentName: EnvironmentName
-    stackName: Optional[StackName]
-    deploymentArtifacts: Optional[DeploymentArtifacts]
+    stackName: StackName | None
+    deploymentArtifacts: DeploymentArtifacts | None
 
 
 class CreateBackendEnvironmentResult(TypedDict, total=False):
@@ -505,25 +505,25 @@ class CreateBranchRequest(ServiceRequest):
 
     appId: AppId
     branchName: BranchName
-    description: Optional[Description]
-    stage: Optional[Stage]
-    framework: Optional[Framework]
-    enableNotification: Optional[EnableNotification]
-    enableAutoBuild: Optional[EnableAutoBuild]
-    enableSkewProtection: Optional[EnableSkewProtection]
-    environmentVariables: Optional[EnvironmentVariables]
-    basicAuthCredentials: Optional[BasicAuthCredentials]
-    enableBasicAuth: Optional[EnableBasicAuth]
-    enablePerformanceMode: Optional[EnablePerformanceMode]
-    tags: Optional[TagMap]
-    buildSpec: Optional[BuildSpec]
-    ttl: Optional[TTL]
-    displayName: Optional[DisplayName]
-    enablePullRequestPreview: Optional[EnablePullRequestPreview]
-    pullRequestEnvironmentName: Optional[PullRequestEnvironmentName]
-    backendEnvironmentArn: Optional[BackendEnvironmentArn]
-    backend: Optional[Backend]
-    computeRoleArn: Optional[ComputeRoleArn]
+    description: Description | None
+    stage: Stage | None
+    framework: Framework | None
+    enableNotification: EnableNotification | None
+    enableAutoBuild: EnableAutoBuild | None
+    enableSkewProtection: EnableSkewProtection | None
+    environmentVariables: EnvironmentVariables | None
+    basicAuthCredentials: BasicAuthCredentials | None
+    enableBasicAuth: EnableBasicAuth | None
+    enablePerformanceMode: EnablePerformanceMode | None
+    tags: TagMap | None
+    buildSpec: BuildSpec | None
+    ttl: TTL | None
+    displayName: DisplayName | None
+    enablePullRequestPreview: EnablePullRequestPreview | None
+    pullRequestEnvironmentName: PullRequestEnvironmentName | None
+    backendEnvironmentArn: BackendEnvironmentArn | None
+    backend: Backend | None
+    computeRoleArn: ComputeRoleArn | None
 
 
 class CreateBranchResult(TypedDict, total=False):
@@ -532,7 +532,7 @@ class CreateBranchResult(TypedDict, total=False):
     branch: Branch
 
 
-FileMap = Dict[FileName, MD5Hash]
+FileMap = dict[FileName, MD5Hash]
 
 
 class CreateDeploymentRequest(ServiceRequest):
@@ -540,16 +540,16 @@ class CreateDeploymentRequest(ServiceRequest):
 
     appId: AppId
     branchName: BranchName
-    fileMap: Optional[FileMap]
+    fileMap: FileMap | None
 
 
-FileUploadUrls = Dict[FileName, UploadUrl]
+FileUploadUrls = dict[FileName, UploadUrl]
 
 
 class CreateDeploymentResult(TypedDict, total=False):
     """The result structure for the create a new deployment request."""
 
-    jobId: Optional[JobId]
+    jobId: JobId | None
     fileUploadUrls: FileUploadUrls
     zipUploadUrl: UploadUrl
 
@@ -561,7 +561,7 @@ class SubDomainSetting(TypedDict, total=False):
     branchName: BranchName
 
 
-SubDomainSettings = List[SubDomainSetting]
+SubDomainSettings = list[SubDomainSetting]
 
 
 class CreateDomainAssociationRequest(ServiceRequest):
@@ -569,11 +569,11 @@ class CreateDomainAssociationRequest(ServiceRequest):
 
     appId: AppId
     domainName: DomainName
-    enableAutoSubDomain: Optional[EnableAutoSubDomain]
+    enableAutoSubDomain: EnableAutoSubDomain | None
     subDomainSettings: SubDomainSettings
-    autoSubDomainCreationPatterns: Optional[AutoSubDomainCreationPatterns]
-    autoSubDomainIAMRole: Optional[AutoSubDomainIAMRole]
-    certificateSettings: Optional[CertificateSettings]
+    autoSubDomainCreationPatterns: AutoSubDomainCreationPatterns | None
+    autoSubDomainIAMRole: AutoSubDomainIAMRole | None
+    certificateSettings: CertificateSettings | None
 
 
 class SubDomain(TypedDict, total=False):
@@ -584,7 +584,7 @@ class SubDomain(TypedDict, total=False):
     dnsRecord: DNSRecord
 
 
-SubDomains = List[SubDomain]
+SubDomains = list[SubDomain]
 
 
 class DomainAssociation(TypedDict, total=False):
@@ -593,14 +593,14 @@ class DomainAssociation(TypedDict, total=False):
     domainAssociationArn: DomainAssociationArn
     domainName: DomainName
     enableAutoSubDomain: EnableAutoSubDomain
-    autoSubDomainCreationPatterns: Optional[AutoSubDomainCreationPatterns]
-    autoSubDomainIAMRole: Optional[AutoSubDomainIAMRole]
+    autoSubDomainCreationPatterns: AutoSubDomainCreationPatterns | None
+    autoSubDomainIAMRole: AutoSubDomainIAMRole | None
     domainStatus: DomainStatus
-    updateStatus: Optional[UpdateStatus]
+    updateStatus: UpdateStatus | None
     statusReason: StatusReason
-    certificateVerificationDNSRecord: Optional[CertificateVerificationDNSRecord]
+    certificateVerificationDNSRecord: CertificateVerificationDNSRecord | None
     subDomains: SubDomains
-    certificate: Optional[Certificate]
+    certificate: Certificate | None
 
 
 class CreateDomainAssociationResult(TypedDict, total=False):
@@ -614,7 +614,7 @@ class CreateWebhookRequest(ServiceRequest):
 
     appId: AppId
     branchName: BranchName
-    description: Optional[Description]
+    description: Description | None
 
 
 class Webhook(TypedDict, total=False):
@@ -623,7 +623,7 @@ class Webhook(TypedDict, total=False):
     webhookArn: WebhookArn
     webhookId: WebhookId
     webhookUrl: WebhookUrl
-    appId: Optional[AppId]
+    appId: AppId | None
     branchName: BranchName
     description: Description
     createTime: CreateTime
@@ -707,10 +707,10 @@ class JobSummary(TypedDict, total=False):
     commitTime: CommitTime
     startTime: StartTime
     status: JobStatus
-    endTime: Optional[EndTime]
+    endTime: EndTime | None
     jobType: JobType
-    sourceUrl: Optional[SourceUrl]
-    sourceUrlType: Optional[SourceUrlType]
+    sourceUrl: SourceUrl | None
+    sourceUrlType: SourceUrlType | None
 
 
 class DeleteJobResult(TypedDict, total=False):
@@ -731,14 +731,14 @@ class DeleteWebhookResult(TypedDict, total=False):
     webhook: Webhook
 
 
-DomainAssociations = List[DomainAssociation]
+DomainAssociations = list[DomainAssociation]
 
 
 class GenerateAccessLogsRequest(ServiceRequest):
     """The request structure for the generate access logs request."""
 
-    startTime: Optional[StartTime]
-    endTime: Optional[EndTime]
+    startTime: StartTime | None
+    endTime: EndTime | None
     domainName: DomainName
     appId: AppId
 
@@ -746,7 +746,7 @@ class GenerateAccessLogsRequest(ServiceRequest):
 class GenerateAccessLogsResult(TypedDict, total=False):
     """The result structure for the generate access logs request."""
 
-    logUrl: Optional[LogUrl]
+    logUrl: LogUrl | None
 
 
 class GetAppRequest(ServiceRequest):
@@ -817,7 +817,7 @@ class GetJobRequest(ServiceRequest):
     jobId: JobId
 
 
-Screenshots = Dict[ThumbnailName, ThumbnailUrl]
+Screenshots = dict[ThumbnailName, ThumbnailUrl]
 
 
 class Step(TypedDict, total=False):
@@ -827,16 +827,16 @@ class Step(TypedDict, total=False):
     startTime: StartTime
     status: JobStatus
     endTime: EndTime
-    logUrl: Optional[LogUrl]
-    artifactsUrl: Optional[ArtifactsUrl]
-    testArtifactsUrl: Optional[TestArtifactsUrl]
-    testConfigUrl: Optional[TestConfigUrl]
-    screenshots: Optional[Screenshots]
-    statusReason: Optional[StatusReason]
-    context: Optional[Context]
+    logUrl: LogUrl | None
+    artifactsUrl: ArtifactsUrl | None
+    testArtifactsUrl: TestArtifactsUrl | None
+    testConfigUrl: TestConfigUrl | None
+    screenshots: Screenshots | None
+    statusReason: StatusReason | None
+    context: Context | None
 
 
-Steps = List[Step]
+Steps = list[Step]
 
 
 class Job(TypedDict, total=False):
@@ -862,21 +862,21 @@ class GetWebhookResult(TypedDict, total=False):
     webhook: Webhook
 
 
-JobSummaries = List[JobSummary]
+JobSummaries = list[JobSummary]
 
 
 class ListAppsRequest(ServiceRequest):
     """The request structure for the list apps request."""
 
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResultsForListApps]
+    nextToken: NextToken | None
+    maxResults: MaxResultsForListApps | None
 
 
 class ListAppsResult(TypedDict, total=False):
     """The result structure for an Amplify app list request."""
 
     apps: Apps
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListArtifactsRequest(ServiceRequest):
@@ -885,61 +885,61 @@ class ListArtifactsRequest(ServiceRequest):
     appId: AppId
     branchName: BranchName
     jobId: JobId
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListArtifactsResult(TypedDict, total=False):
     """The result structure for the list artifacts request."""
 
     artifacts: Artifacts
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListBackendEnvironmentsRequest(ServiceRequest):
     """The request structure for the list backend environments request."""
 
     appId: AppId
-    environmentName: Optional[EnvironmentName]
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    environmentName: EnvironmentName | None
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListBackendEnvironmentsResult(TypedDict, total=False):
     """The result structure for the list backend environments result."""
 
     backendEnvironments: BackendEnvironments
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListBranchesRequest(ServiceRequest):
     """The request structure for the list branches request."""
 
     appId: AppId
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListBranchesResult(TypedDict, total=False):
     """The result structure for the list branches request."""
 
     branches: Branches
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListDomainAssociationsRequest(ServiceRequest):
     """The request structure for the list domain associations request."""
 
     appId: AppId
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListDomainAssociationsResult(TypedDict, total=False):
     """The result structure for the list domain association request."""
 
     domainAssociations: DomainAssociations
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListJobsRequest(ServiceRequest):
@@ -947,15 +947,15 @@ class ListJobsRequest(ServiceRequest):
 
     appId: AppId
     branchName: BranchName
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListJobsResult(TypedDict, total=False):
     """The maximum number of records to list in a single response."""
 
     jobSummaries: JobSummaries
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -967,25 +967,25 @@ class ListTagsForResourceRequest(ServiceRequest):
 class ListTagsForResourceResponse(TypedDict, total=False):
     """The response for the list tags for resource request."""
 
-    tags: Optional[TagMap]
+    tags: TagMap | None
 
 
 class ListWebhooksRequest(ServiceRequest):
     """The request structure for the list webhooks request."""
 
     appId: AppId
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
-Webhooks = List[Webhook]
+Webhooks = list[Webhook]
 
 
 class ListWebhooksResult(TypedDict, total=False):
     """The result structure for the list webhooks request."""
 
     webhooks: Webhooks
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class StartDeploymentRequest(ServiceRequest):
@@ -993,9 +993,9 @@ class StartDeploymentRequest(ServiceRequest):
 
     appId: AppId
     branchName: BranchName
-    jobId: Optional[JobId]
-    sourceUrl: Optional[SourceUrl]
-    sourceUrlType: Optional[SourceUrlType]
+    jobId: JobId | None
+    sourceUrl: SourceUrl | None
+    sourceUrlType: SourceUrlType | None
 
 
 class StartDeploymentResult(TypedDict, total=False):
@@ -1009,12 +1009,12 @@ class StartJobRequest(ServiceRequest):
 
     appId: AppId
     branchName: BranchName
-    jobId: Optional[JobId]
+    jobId: JobId | None
     jobType: JobType
-    jobReason: Optional[JobReason]
-    commitId: Optional[CommitId]
-    commitMessage: Optional[CommitMessage]
-    commitTime: Optional[CommitTime]
+    jobReason: JobReason | None
+    commitId: CommitId | None
+    commitMessage: CommitMessage | None
+    commitTime: CommitTime | None
 
 
 class StartJobResult(TypedDict, total=False):
@@ -1037,7 +1037,7 @@ class StopJobResult(TypedDict, total=False):
     jobSummary: JobSummary
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -1070,27 +1070,27 @@ class UpdateAppRequest(ServiceRequest):
     """The request structure for the update app request."""
 
     appId: AppId
-    name: Optional[Name]
-    description: Optional[Description]
-    platform: Optional[Platform]
-    computeRoleArn: Optional[ComputeRoleArn]
-    iamServiceRoleArn: Optional[ServiceRoleArn]
-    environmentVariables: Optional[EnvironmentVariables]
-    enableBranchAutoBuild: Optional[EnableAutoBuild]
-    enableBranchAutoDeletion: Optional[EnableBranchAutoDeletion]
-    enableBasicAuth: Optional[EnableBasicAuth]
-    basicAuthCredentials: Optional[BasicAuthCredentials]
-    customRules: Optional[CustomRules]
-    buildSpec: Optional[BuildSpec]
-    customHeaders: Optional[CustomHeaders]
-    enableAutoBranchCreation: Optional[EnableAutoBranchCreation]
-    autoBranchCreationPatterns: Optional[AutoBranchCreationPatterns]
-    autoBranchCreationConfig: Optional[AutoBranchCreationConfig]
-    repository: Optional[Repository]
-    oauthToken: Optional[OauthToken]
-    accessToken: Optional[AccessToken]
-    jobConfig: Optional[JobConfig]
-    cacheConfig: Optional[CacheConfig]
+    name: Name | None
+    description: Description | None
+    platform: Platform | None
+    computeRoleArn: ComputeRoleArn | None
+    iamServiceRoleArn: ServiceRoleArn | None
+    environmentVariables: EnvironmentVariables | None
+    enableBranchAutoBuild: EnableAutoBuild | None
+    enableBranchAutoDeletion: EnableBranchAutoDeletion | None
+    enableBasicAuth: EnableBasicAuth | None
+    basicAuthCredentials: BasicAuthCredentials | None
+    customRules: CustomRules | None
+    buildSpec: BuildSpec | None
+    customHeaders: CustomHeaders | None
+    enableAutoBranchCreation: EnableAutoBranchCreation | None
+    autoBranchCreationPatterns: AutoBranchCreationPatterns | None
+    autoBranchCreationConfig: AutoBranchCreationConfig | None
+    repository: Repository | None
+    oauthToken: OauthToken | None
+    accessToken: AccessToken | None
+    jobConfig: JobConfig | None
+    cacheConfig: CacheConfig | None
 
 
 class UpdateAppResult(TypedDict, total=False):
@@ -1104,24 +1104,24 @@ class UpdateBranchRequest(ServiceRequest):
 
     appId: AppId
     branchName: BranchName
-    description: Optional[Description]
-    framework: Optional[Framework]
-    stage: Optional[Stage]
-    enableNotification: Optional[EnableNotification]
-    enableAutoBuild: Optional[EnableAutoBuild]
-    enableSkewProtection: Optional[EnableSkewProtection]
-    environmentVariables: Optional[EnvironmentVariables]
-    basicAuthCredentials: Optional[BasicAuthCredentials]
-    enableBasicAuth: Optional[EnableBasicAuth]
-    enablePerformanceMode: Optional[EnablePerformanceMode]
-    buildSpec: Optional[BuildSpec]
-    ttl: Optional[TTL]
-    displayName: Optional[DisplayName]
-    enablePullRequestPreview: Optional[EnablePullRequestPreview]
-    pullRequestEnvironmentName: Optional[PullRequestEnvironmentName]
-    backendEnvironmentArn: Optional[BackendEnvironmentArn]
-    backend: Optional[Backend]
-    computeRoleArn: Optional[ComputeRoleArn]
+    description: Description | None
+    framework: Framework | None
+    stage: Stage | None
+    enableNotification: EnableNotification | None
+    enableAutoBuild: EnableAutoBuild | None
+    enableSkewProtection: EnableSkewProtection | None
+    environmentVariables: EnvironmentVariables | None
+    basicAuthCredentials: BasicAuthCredentials | None
+    enableBasicAuth: EnableBasicAuth | None
+    enablePerformanceMode: EnablePerformanceMode | None
+    buildSpec: BuildSpec | None
+    ttl: TTL | None
+    displayName: DisplayName | None
+    enablePullRequestPreview: EnablePullRequestPreview | None
+    pullRequestEnvironmentName: PullRequestEnvironmentName | None
+    backendEnvironmentArn: BackendEnvironmentArn | None
+    backend: Backend | None
+    computeRoleArn: ComputeRoleArn | None
 
 
 class UpdateBranchResult(TypedDict, total=False):
@@ -1135,11 +1135,11 @@ class UpdateDomainAssociationRequest(ServiceRequest):
 
     appId: AppId
     domainName: DomainName
-    enableAutoSubDomain: Optional[EnableAutoSubDomain]
-    subDomainSettings: Optional[SubDomainSettings]
-    autoSubDomainCreationPatterns: Optional[AutoSubDomainCreationPatterns]
-    autoSubDomainIAMRole: Optional[AutoSubDomainIAMRole]
-    certificateSettings: Optional[CertificateSettings]
+    enableAutoSubDomain: EnableAutoSubDomain | None
+    subDomainSettings: SubDomainSettings | None
+    autoSubDomainCreationPatterns: AutoSubDomainCreationPatterns | None
+    autoSubDomainIAMRole: AutoSubDomainIAMRole | None
+    certificateSettings: CertificateSettings | None
 
 
 class UpdateDomainAssociationResult(TypedDict, total=False):
@@ -1152,8 +1152,8 @@ class UpdateWebhookRequest(ServiceRequest):
     """The request structure for the update webhook request."""
 
     webhookId: WebhookId
-    branchName: Optional[BranchName]
-    description: Optional[Description]
+    branchName: BranchName | None
+    description: Description | None
 
 
 class UpdateWebhookResult(TypedDict, total=False):
@@ -1163,8 +1163,8 @@ class UpdateWebhookResult(TypedDict, total=False):
 
 
 class AmplifyApi:
-    service = "amplify"
-    version = "2017-07-25"
+    service: str = "amplify"
+    version: str = "2017-07-25"
 
     @handler("CreateApp")
     def create_app(

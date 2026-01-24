@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Unified-python-sdk
-Version: 0.50.0
+Version: 0.56.22
 Summary: Python Client SDK for Unified.to
 License-File: LICENSE.md
 Author: Unified API Inc.
@@ -26,7 +26,9 @@ Description-Content-Type: text/markdown
 <!-- Start Summary [summary] -->
 ## Summary
 
-Unified.to API: One API to Rule Them All
+Unified.to  API: One API to Rule Them All
+
+For more information about the API: [API Documentation](https://docs.unified.to)
 <!-- End Summary [summary] -->
 
 <!-- Start Table of Contents [toc] -->
@@ -154,6 +156,7 @@ with UnifiedTo(
 </br>
 
 The same SDK client can also be used to make asynchronous requests by importing asyncio.
+
 ```python
 # Asynchronous Example
 import asyncio
@@ -188,7 +191,7 @@ asyncio.run(main())
 <details open>
 <summary>Available methods</summary>
 
-### [account](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/account/README.md)
+### [Account](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/account/README.md)
 
 * [create_accounting_account](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/account/README.md#create_accounting_account) - Create an account
 * [get_accounting_account](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/account/README.md#get_accounting_account) - Retrieve an account
@@ -197,13 +200,14 @@ asyncio.run(main())
 * [remove_accounting_account](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/account/README.md#remove_accounting_account) - Remove an account
 * [update_accounting_account](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/account/README.md#update_accounting_account) - Update an account
 
-### [accounting](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md)
+### [Accounting](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md)
 
 * [create_accounting_account](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#create_accounting_account) - Create an account
 * [create_accounting_bill](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#create_accounting_bill) - Create a bill
 * [create_accounting_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#create_accounting_category) - Create a category
 * [create_accounting_contact](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#create_accounting_contact) - Create a contact
 * [create_accounting_creditmemo](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#create_accounting_creditmemo) - Create a creditmemo
+* [create_accounting_expense](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#create_accounting_expense) - Create an expense
 * [create_accounting_invoice](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#create_accounting_invoice) - Create an invoice
 * [create_accounting_journal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#create_accounting_journal) - Create a journal
 * [create_accounting_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#create_accounting_order) - Create an order
@@ -214,9 +218,11 @@ asyncio.run(main())
 * [get_accounting_account](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_account) - Retrieve an account
 * [get_accounting_balancesheet](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_balancesheet) - Retrieve a balancesheet
 * [get_accounting_bill](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_bill) - Retrieve a bill
+* [get_accounting_cashflow](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_cashflow) - Retrieve a cashflow
 * [get_accounting_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_category) - Retrieve a category
 * [get_accounting_contact](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_contact) - Retrieve a contact
 * [get_accounting_creditmemo](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_creditmemo) - Retrieve a creditmemo
+* [get_accounting_expense](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_expense) - Retrieve an expense
 * [get_accounting_invoice](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_invoice) - Retrieve an invoice
 * [get_accounting_journal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_journal) - Retrieve a journal
 * [get_accounting_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_order) - Retrieve an order
@@ -231,9 +237,11 @@ asyncio.run(main())
 * [list_accounting_accounts](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_accounts) - List all accounts
 * [list_accounting_balancesheets](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_balancesheets) - List all balancesheets
 * [list_accounting_bills](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_bills) - List all bills
+* [list_accounting_cashflows](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_cashflows) - List all cashflows
 * [list_accounting_categories](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_categories) - List all categories
 * [list_accounting_contacts](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_contacts) - List all contacts
 * [list_accounting_creditmemoes](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_creditmemoes) - List all creditmemoes
+* [list_accounting_expenses](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_expenses) - List all expenses
 * [list_accounting_invoices](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_invoices) - List all invoices
 * [list_accounting_journals](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_journals) - List all journals
 * [list_accounting_orders](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_orders) - List all orders
@@ -250,6 +258,7 @@ asyncio.run(main())
 * [patch_accounting_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#patch_accounting_category) - Update a category
 * [patch_accounting_contact](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#patch_accounting_contact) - Update a contact
 * [patch_accounting_creditmemo](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#patch_accounting_creditmemo) - Update a creditmemo
+* [patch_accounting_expense](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#patch_accounting_expense) - Update an expense
 * [patch_accounting_invoice](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#patch_accounting_invoice) - Update an invoice
 * [patch_accounting_journal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#patch_accounting_journal) - Update a journal
 * [patch_accounting_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#patch_accounting_order) - Update an order
@@ -262,6 +271,7 @@ asyncio.run(main())
 * [remove_accounting_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#remove_accounting_category) - Remove a category
 * [remove_accounting_contact](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#remove_accounting_contact) - Remove a contact
 * [remove_accounting_creditmemo](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#remove_accounting_creditmemo) - Remove a creditmemo
+* [remove_accounting_expense](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#remove_accounting_expense) - Remove an expense
 * [remove_accounting_invoice](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#remove_accounting_invoice) - Remove an invoice
 * [remove_accounting_journal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#remove_accounting_journal) - Remove a journal
 * [remove_accounting_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#remove_accounting_order) - Remove an order
@@ -274,6 +284,7 @@ asyncio.run(main())
 * [update_accounting_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#update_accounting_category) - Update a category
 * [update_accounting_contact](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#update_accounting_contact) - Update a contact
 * [update_accounting_creditmemo](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#update_accounting_creditmemo) - Update a creditmemo
+* [update_accounting_expense](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#update_accounting_expense) - Update an expense
 * [update_accounting_invoice](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#update_accounting_invoice) - Update an invoice
 * [update_accounting_journal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#update_accounting_journal) - Update a journal
 * [update_accounting_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#update_accounting_order) - Update an order
@@ -282,7 +293,7 @@ asyncio.run(main())
 * [update_accounting_taxrate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#update_accounting_taxrate) - Update a taxrate
 * [update_accounting_transaction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#update_accounting_transaction) - Update a transaction
 
-### [activity](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/activity/README.md)
+### [Activity](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/activity/README.md)
 
 * [create_ats_activity](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/activity/README.md#create_ats_activity) - Create an activity
 * [get_ats_activity](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/activity/README.md#get_ats_activity) - Retrieve an activity
@@ -291,12 +302,61 @@ asyncio.run(main())
 * [remove_ats_activity](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/activity/README.md#remove_ats_activity) - Remove an activity
 * [update_ats_activity](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/activity/README.md#update_ats_activity) - Update an activity
 
-### [apicall](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/apicall/README.md)
+### [Ad](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ad/README.md)
+
+* [create_ads_ad](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ad/README.md#create_ads_ad) - Create an ad
+* [get_ads_ad](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ad/README.md#get_ads_ad) - Retrieve an ad
+* [list_ads_ads](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ad/README.md#list_ads_ads) - List all ads
+* [patch_ads_ad](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ad/README.md#patch_ads_ad) - Update an ad
+* [remove_ads_ad](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ad/README.md#remove_ads_ad) - Remove an ad
+* [update_ads_ad](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ad/README.md#update_ads_ad) - Update an ad
+
+### [Ads](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md)
+
+* [create_ads_ad](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#create_ads_ad) - Create an ad
+* [create_ads_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#create_ads_campaign) - Create a campaign
+* [create_ads_creative](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#create_ads_creative) - Create a creative
+* [create_ads_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#create_ads_group) - Create a group
+* [create_ads_insertionorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#create_ads_insertionorder) - Create an insertionorder
+* [create_ads_organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#create_ads_organization) - Create an organization
+* [get_ads_ad](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#get_ads_ad) - Retrieve an ad
+* [get_ads_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#get_ads_campaign) - Retrieve a campaign
+* [get_ads_creative](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#get_ads_creative) - Retrieve a creative
+* [get_ads_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#get_ads_group) - Retrieve a group
+* [get_ads_insertionorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#get_ads_insertionorder) - Retrieve an insertionorder
+* [get_ads_organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#get_ads_organization) - Retrieve an organization
+* [list_ads_ads](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#list_ads_ads) - List all ads
+* [list_ads_campaigns](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#list_ads_campaigns) - List all campaigns
+* [list_ads_creatives](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#list_ads_creatives) - List all creatives
+* [list_ads_groups](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#list_ads_groups) - List all groups
+* [list_ads_insertionorders](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#list_ads_insertionorders) - List all insertionorders
+* [list_ads_organizations](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#list_ads_organizations) - List all organizations
+* [list_ads_reports](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#list_ads_reports) - List all reports
+* [patch_ads_ad](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#patch_ads_ad) - Update an ad
+* [patch_ads_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#patch_ads_campaign) - Update a campaign
+* [patch_ads_creative](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#patch_ads_creative) - Update a creative
+* [patch_ads_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#patch_ads_group) - Update a group
+* [patch_ads_insertionorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#patch_ads_insertionorder) - Update an insertionorder
+* [patch_ads_organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#patch_ads_organization) - Update an organization
+* [remove_ads_ad](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#remove_ads_ad) - Remove an ad
+* [remove_ads_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#remove_ads_campaign) - Remove a campaign
+* [remove_ads_creative](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#remove_ads_creative) - Remove a creative
+* [remove_ads_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#remove_ads_group) - Remove a group
+* [remove_ads_insertionorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#remove_ads_insertionorder) - Remove an insertionorder
+* [remove_ads_organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#remove_ads_organization) - Remove an organization
+* [update_ads_ad](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#update_ads_ad) - Update an ad
+* [update_ads_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#update_ads_campaign) - Update a campaign
+* [update_ads_creative](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#update_ads_creative) - Update a creative
+* [update_ads_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#update_ads_group) - Update a group
+* [update_ads_insertionorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#update_ads_insertionorder) - Update an insertionorder
+* [update_ads_organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ads/README.md#update_ads_organization) - Update an organization
+
+### [Apicall](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/apicall/README.md)
 
 * [get_unified_apicall](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/apicall/README.md#get_unified_apicall) - Retrieve specific API Call by its ID
 * [list_unified_apicalls](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/apicall/README.md#list_unified_apicalls) - Returns API Calls
 
-### [application](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/application/README.md)
+### [Application](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/application/README.md)
 
 * [create_ats_application](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/application/README.md#create_ats_application) - Create an application
 * [get_ats_application](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/application/README.md#get_ats_application) - Retrieve an application
@@ -305,11 +365,11 @@ asyncio.run(main())
 * [remove_ats_application](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/application/README.md#remove_ats_application) - Remove an application
 * [update_ats_application](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/application/README.md#update_ats_application) - Update an application
 
-### [applicationstatus](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/applicationstatus/README.md)
+### [Applicationstatus](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/applicationstatus/README.md)
 
 * [list_ats_applicationstatuses](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/applicationstatus/README.md#list_ats_applicationstatuses) - List all applicationstatuses
 
-### [ats](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ats/README.md)
+### [Ats](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ats/README.md)
 
 * [create_ats_activity](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ats/README.md#create_ats_activity) - Create an activity
 * [create_ats_application](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ats/README.md#create_ats_application) - Create an application
@@ -361,17 +421,26 @@ asyncio.run(main())
 * [update_ats_job](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ats/README.md#update_ats_job) - Update a job
 * [update_ats_scorecard](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ats/README.md#update_ats_scorecard) - Update a scorecard
 
-### [auth](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/auth/README.md)
+### [Auth](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/auth/README.md)
 
 * [get_unified_integration_auth](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/auth/README.md#get_unified_integration_auth) - Authorize new connection
 * [get_unified_integration_login](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/auth/README.md#get_unified_integration_login) - Sign in a user
 
-### [balancesheet](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/balancesheet/README.md)
+### [Balancesheet](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/balancesheet/README.md)
 
 * [get_accounting_balancesheet](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/balancesheet/README.md#get_accounting_balancesheet) - Retrieve a balancesheet
 * [list_accounting_balancesheets](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/balancesheet/README.md#list_accounting_balancesheets) - List all balancesheets
 
-### [bill](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/bill/README.md)
+### [Benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/benefit/README.md)
+
+* [create_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/benefit/README.md#create_hris_benefit) - Create a benefit
+* [get_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/benefit/README.md#get_hris_benefit) - Retrieve a benefit
+* [list_hris_benefits](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/benefit/README.md#list_hris_benefits) - List all benefits
+* [patch_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/benefit/README.md#patch_hris_benefit) - Update a benefit
+* [remove_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/benefit/README.md#remove_hris_benefit) - Remove a benefit
+* [update_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/benefit/README.md#update_hris_benefit) - Update a benefit
+
+### [Bill](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/bill/README.md)
 
 * [create_accounting_bill](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/bill/README.md#create_accounting_bill) - Create a bill
 * [get_accounting_bill](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/bill/README.md#get_accounting_bill) - Retrieve a bill
@@ -380,7 +449,7 @@ asyncio.run(main())
 * [remove_accounting_bill](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/bill/README.md#remove_accounting_bill) - Remove a bill
 * [update_accounting_bill](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/bill/README.md#update_accounting_bill) - Update a bill
 
-### [branch](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/branch/README.md)
+### [Branch](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/branch/README.md)
 
 * [create_repo_branch](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/branch/README.md#create_repo_branch) - Create a branch
 * [get_repo_branch](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/branch/README.md#get_repo_branch) - Retrieve a branch
@@ -389,11 +458,11 @@ asyncio.run(main())
 * [remove_repo_branch](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/branch/README.md#remove_repo_branch) - Remove a branch
 * [update_repo_branch](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/branch/README.md#update_repo_branch) - Update a branch
 
-### [busy](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/busy/README.md)
+### [Busy](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/busy/README.md)
 
 * [list_calendar_busies](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/busy/README.md#list_calendar_busies) - List all busies
 
-### [calendar](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/calendar/README.md)
+### [Calendar](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/calendar/README.md)
 
 * [create_calendar_calendar](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/calendar/README.md#create_calendar_calendar) - Create a calendar
 * [create_calendar_event](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/calendar/README.md#create_calendar_event) - Create an event
@@ -417,11 +486,21 @@ asyncio.run(main())
 * [update_calendar_event](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/calendar/README.md#update_calendar_event) - Update an event
 * [update_calendar_link](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/calendar/README.md#update_calendar_link) - Update a link
 
-### [call](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/call/README.md)
+### [Call](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/call/README.md)
 
+* [get_uc_call](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/call/README.md#get_uc_call) - Retrieve a call
 * [list_uc_calls](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/call/README.md#list_uc_calls) - List all calls
 
-### [candidate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/candidate/README.md)
+### [Campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md)
+
+* [create_ads_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#create_ads_campaign) - Create a campaign
+* [get_ads_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#get_ads_campaign) - Retrieve a campaign
+* [list_ads_campaigns](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#list_ads_campaigns) - List all campaigns
+* [patch_ads_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#patch_ads_campaign) - Update a campaign
+* [remove_ads_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#remove_ads_campaign) - Remove a campaign
+* [update_ads_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#update_ads_campaign) - Update a campaign
+
+### [Candidate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/candidate/README.md)
 
 * [create_ats_candidate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/candidate/README.md#create_ats_candidate) - Create a candidate
 * [get_ats_candidate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/candidate/README.md#get_ats_candidate) - Retrieve a candidate
@@ -430,7 +509,17 @@ asyncio.run(main())
 * [remove_ats_candidate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/candidate/README.md#remove_ats_candidate) - Remove a candidate
 * [update_ats_candidate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/candidate/README.md#update_ats_candidate) - Update a candidate
 
-### [category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md)
+### [Carrier](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/carrier/README.md)
+
+* [get_shipping_carrier](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/carrier/README.md#get_shipping_carrier) - Retrieve a carrier
+* [list_shipping_carriers](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/carrier/README.md#list_shipping_carriers) - List all carriers
+
+### [Cashflow](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/cashflow/README.md)
+
+* [get_accounting_cashflow](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/cashflow/README.md#get_accounting_cashflow) - Retrieve a cashflow
+* [list_accounting_cashflows](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/cashflow/README.md#list_accounting_cashflows) - List all cashflows
+
+### [Category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md)
 
 * [create_accounting_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#create_accounting_category) - Create a category
 * [create_ticketing_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#create_ticketing_category) - Create a category
@@ -445,17 +534,17 @@ asyncio.run(main())
 * [update_accounting_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#update_accounting_category) - Update a category
 * [update_ticketing_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#update_ticketing_category) - Update a category
 
-### [change](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/change/README.md)
+### [Change](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/change/README.md)
 
 * [get_task_change](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/change/README.md#get_task_change) - Retrieve a change
 * [list_task_changes](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/change/README.md#list_task_changes) - List all changes
 
-### [channel](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/channel/README.md)
+### [Channel](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/channel/README.md)
 
 * [get_messaging_channel](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/channel/README.md#get_messaging_channel) - Retrieve a channel
 * [list_messaging_channels](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/channel/README.md#list_messaging_channels) - List all channels
 
-### [class_](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/class/README.md)
+### [Class](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/class/README.md)
 
 * [create_lms_class](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/class/README.md#create_lms_class) - Create a class
 * [get_lms_class](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/class/README.md#get_lms_class) - Retrieve a class
@@ -464,7 +553,7 @@ asyncio.run(main())
 * [remove_lms_class](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/class/README.md#remove_lms_class) - Remove a class
 * [update_lms_class](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/class/README.md#update_lms_class) - Update a class
 
-### [collection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/collection/README.md)
+### [Collection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/collection/README.md)
 
 * [create_commerce_collection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/collection/README.md#create_commerce_collection) - Create a collection
 * [get_commerce_collection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/collection/README.md#get_commerce_collection) - Retrieve a collection
@@ -473,7 +562,7 @@ asyncio.run(main())
 * [remove_commerce_collection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/collection/README.md#remove_commerce_collection) - Remove a collection
 * [update_commerce_collection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/collection/README.md#update_commerce_collection) - Update a collection
 
-### [comment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/comment/README.md)
+### [Comment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/comment/README.md)
 
 * [create_kms_comment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/comment/README.md#create_kms_comment) - Create a comment
 * [create_task_comment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/comment/README.md#create_task_comment) - Create a comment
@@ -494,40 +583,52 @@ asyncio.run(main())
 * [update_task_comment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/comment/README.md#update_task_comment) - Update a comment
 * [update_uc_comment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/comment/README.md#update_uc_comment) - Update a comment
 
-### [commerce](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md)
+### [Commerce](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md)
 
 * [create_commerce_collection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#create_commerce_collection) - Create a collection
 * [create_commerce_inventory](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#create_commerce_inventory) - Create an inventory
 * [create_commerce_item](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#create_commerce_item) - Create an item
+* [create_commerce_itemvariant](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#create_commerce_itemvariant) - Create an itemvariant
 * [create_commerce_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#create_commerce_location) - Create a location
 * [create_commerce_review](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#create_commerce_review) - Create a review
+* [create_commerce_saleschannel](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#create_commerce_saleschannel) - Create a saleschannel
 * [get_commerce_collection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#get_commerce_collection) - Retrieve a collection
 * [get_commerce_inventory](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#get_commerce_inventory) - Retrieve an inventory
 * [get_commerce_item](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#get_commerce_item) - Retrieve an item
+* [get_commerce_itemvariant](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#get_commerce_itemvariant) - Retrieve an itemvariant
 * [get_commerce_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#get_commerce_location) - Retrieve a location
 * [get_commerce_review](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#get_commerce_review) - Retrieve a review
+* [get_commerce_saleschannel](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#get_commerce_saleschannel) - Retrieve a saleschannel
 * [list_commerce_collections](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#list_commerce_collections) - List all collections
 * [list_commerce_inventories](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#list_commerce_inventories) - List all inventories
 * [list_commerce_items](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#list_commerce_items) - List all items
+* [list_commerce_itemvariants](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#list_commerce_itemvariants) - List all itemvariants
 * [list_commerce_locations](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#list_commerce_locations) - List all locations
 * [list_commerce_reviews](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#list_commerce_reviews) - List all reviews
+* [list_commerce_saleschannels](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#list_commerce_saleschannels) - List all saleschannels
 * [patch_commerce_collection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#patch_commerce_collection) - Update a collection
 * [patch_commerce_inventory](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#patch_commerce_inventory) - Update an inventory
 * [patch_commerce_item](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#patch_commerce_item) - Update an item
+* [patch_commerce_itemvariant](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#patch_commerce_itemvariant) - Update an itemvariant
 * [patch_commerce_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#patch_commerce_location) - Update a location
 * [patch_commerce_review](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#patch_commerce_review) - Update a review
+* [patch_commerce_saleschannel](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#patch_commerce_saleschannel) - Update a saleschannel
 * [remove_commerce_collection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#remove_commerce_collection) - Remove a collection
 * [remove_commerce_inventory](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#remove_commerce_inventory) - Remove an inventory
 * [remove_commerce_item](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#remove_commerce_item) - Remove an item
+* [remove_commerce_itemvariant](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#remove_commerce_itemvariant) - Remove an itemvariant
 * [remove_commerce_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#remove_commerce_location) - Remove a location
 * [remove_commerce_review](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#remove_commerce_review) - Remove a review
+* [remove_commerce_saleschannel](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#remove_commerce_saleschannel) - Remove a saleschannel
 * [update_commerce_collection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#update_commerce_collection) - Update a collection
 * [update_commerce_inventory](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#update_commerce_inventory) - Update an inventory
 * [update_commerce_item](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#update_commerce_item) - Update an item
+* [update_commerce_itemvariant](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#update_commerce_itemvariant) - Update an itemvariant
 * [update_commerce_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#update_commerce_location) - Update a location
 * [update_commerce_review](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#update_commerce_review) - Update a review
+* [update_commerce_saleschannel](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commerce/README.md#update_commerce_saleschannel) - Update a saleschannel
 
-### [commit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commit/README.md)
+### [Commit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commit/README.md)
 
 * [create_repo_commit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commit/README.md#create_repo_commit) - Create a commit
 * [get_repo_commit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commit/README.md#get_repo_commit) - Retrieve a commit
@@ -536,7 +637,7 @@ asyncio.run(main())
 * [remove_repo_commit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commit/README.md#remove_repo_commit) - Remove a commit
 * [update_repo_commit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/commit/README.md#update_repo_commit) - Update a commit
 
-### [company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/company/README.md)
+### [Company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/company/README.md)
 
 * [create_ats_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/company/README.md#create_ats_company) - Create a company
 * [create_crm_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/company/README.md#create_crm_company) - Create a company
@@ -558,7 +659,7 @@ asyncio.run(main())
 * [update_crm_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/company/README.md#update_crm_company) - Update a company
 * [update_hris_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/company/README.md#update_hris_company) - Update a company
 
-### [connection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/connection/README.md)
+### [Connection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/connection/README.md)
 
 * [create_unified_connection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/connection/README.md#create_unified_connection) - Create connection
 * [get_unified_connection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/connection/README.md#get_unified_connection) - Retrieve connection
@@ -567,7 +668,7 @@ asyncio.run(main())
 * [remove_unified_connection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/connection/README.md#remove_unified_connection) - Remove connection
 * [update_unified_connection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/connection/README.md#update_unified_connection) - Update connection
 
-### [contact](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/contact/README.md)
+### [Contact](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/contact/README.md)
 
 * [create_accounting_contact](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/contact/README.md#create_accounting_contact) - Create a contact
 * [create_crm_contact](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/contact/README.md#create_crm_contact) - Create a contact
@@ -588,7 +689,7 @@ asyncio.run(main())
 * [update_crm_contact](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/contact/README.md#update_crm_contact) - Update a contact
 * [update_uc_contact](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/contact/README.md#update_uc_contact) - Update a contact
 
-### [course](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/course/README.md)
+### [Course](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/course/README.md)
 
 * [create_lms_course](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/course/README.md#create_lms_course) - Create a course
 * [get_lms_course](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/course/README.md#get_lms_course) - Retrieve a course
@@ -597,7 +698,16 @@ asyncio.run(main())
 * [remove_lms_course](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/course/README.md#remove_lms_course) - Remove a course
 * [update_lms_course](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/course/README.md#update_lms_course) - Update a course
 
-### [creditmemo](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/creditmemo/README.md)
+### [Creative](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/creative/README.md)
+
+* [create_ads_creative](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/creative/README.md#create_ads_creative) - Create a creative
+* [get_ads_creative](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/creative/README.md#get_ads_creative) - Retrieve a creative
+* [list_ads_creatives](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/creative/README.md#list_ads_creatives) - List all creatives
+* [patch_ads_creative](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/creative/README.md#patch_ads_creative) - Update a creative
+* [remove_ads_creative](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/creative/README.md#remove_ads_creative) - Remove a creative
+* [update_ads_creative](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/creative/README.md#update_ads_creative) - Update a creative
+
+### [Creditmemo](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/creditmemo/README.md)
 
 * [create_accounting_creditmemo](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/creditmemo/README.md#create_accounting_creditmemo) - Create a creditmemo
 * [get_accounting_creditmemo](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/creditmemo/README.md#get_accounting_creditmemo) - Retrieve a creditmemo
@@ -606,7 +716,7 @@ asyncio.run(main())
 * [remove_accounting_creditmemo](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/creditmemo/README.md#remove_accounting_creditmemo) - Remove a creditmemo
 * [update_accounting_creditmemo](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/creditmemo/README.md#update_accounting_creditmemo) - Update a creditmemo
 
-### [crm](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/crm/README.md)
+### [Crm](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/crm/README.md)
 
 * [create_crm_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/crm/README.md#create_crm_company) - Create a company
 * [create_crm_contact](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/crm/README.md#create_crm_contact) - Create a contact
@@ -645,7 +755,7 @@ asyncio.run(main())
 * [update_crm_lead](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/crm/README.md#update_crm_lead) - Update a lead
 * [update_crm_pipeline](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/crm/README.md#update_crm_pipeline) - Update a pipeline
 
-### [customer](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/customer/README.md)
+### [Customer](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/customer/README.md)
 
 * [create_ticketing_customer](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/customer/README.md#create_ticketing_customer) - Create a customer
 * [get_ticketing_customer](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/customer/README.md#get_ticketing_customer) - Retrieve a customer
@@ -654,7 +764,7 @@ asyncio.run(main())
 * [remove_ticketing_customer](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/customer/README.md#remove_ticketing_customer) - Remove a customer
 * [update_ticketing_customer](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/customer/README.md#update_ticketing_customer) - Update a customer
 
-### [deal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/deal/README.md)
+### [Deal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/deal/README.md)
 
 * [create_crm_deal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/deal/README.md#create_crm_deal) - Create a deal
 * [get_crm_deal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/deal/README.md#get_crm_deal) - Retrieve a deal
@@ -663,7 +773,16 @@ asyncio.run(main())
 * [remove_crm_deal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/deal/README.md#remove_crm_deal) - Remove a deal
 * [update_crm_deal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/deal/README.md#update_crm_deal) - Update a deal
 
-### [device](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/device/README.md)
+### [Deduction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/deduction/README.md)
+
+* [create_hris_deduction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/deduction/README.md#create_hris_deduction) - Create a deduction
+* [get_hris_deduction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/deduction/README.md#get_hris_deduction) - Retrieve a deduction
+* [list_hris_deductions](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/deduction/README.md#list_hris_deductions) - List all deductions
+* [patch_hris_deduction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/deduction/README.md#patch_hris_deduction) - Update a deduction
+* [remove_hris_deduction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/deduction/README.md#remove_hris_deduction) - Remove a deduction
+* [update_hris_deduction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/deduction/README.md#update_hris_deduction) - Update a deduction
+
+### [Device](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/device/README.md)
 
 * [create_hris_device](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/device/README.md#create_hris_device) - Create a device
 * [get_hris_device](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/device/README.md#get_hris_device) - Retrieve a device
@@ -672,7 +791,7 @@ asyncio.run(main())
 * [remove_hris_device](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/device/README.md#remove_hris_device) - Remove a device
 * [update_hris_device](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/device/README.md#update_hris_device) - Update a device
 
-### [document](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/document/README.md)
+### [Document](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/document/README.md)
 
 * [create_ats_document](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/document/README.md#create_ats_document) - Create a document
 * [get_ats_document](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/document/README.md#get_ats_document) - Retrieve a document
@@ -681,11 +800,11 @@ asyncio.run(main())
 * [remove_ats_document](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/document/README.md#remove_ats_document) - Remove a document
 * [update_ats_document](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/document/README.md#update_ats_document) - Update a document
 
-### [embedding](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/embedding/README.md)
+### [Embedding](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/embedding/README.md)
 
 * [create_genai_embedding](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/embedding/README.md#create_genai_embedding) - Create an embedding
 
-### [employee](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/employee/README.md)
+### [Employee](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/employee/README.md)
 
 * [create_hris_employee](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/employee/README.md#create_hris_employee) - Create an employee
 * [get_hris_employee](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/employee/README.md#get_hris_employee) - Retrieve an employee
@@ -694,12 +813,18 @@ asyncio.run(main())
 * [remove_hris_employee](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/employee/README.md#remove_hris_employee) - Remove an employee
 * [update_hris_employee](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/employee/README.md#update_hris_employee) - Update an employee
 
-### [enrich](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/enrich/README.md)
+### [Enrich](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/enrich/README.md)
 
 * [list_enrich_companies](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/enrich/README.md#list_enrich_companies) - Retrieve enrichment information for a company
 * [list_enrich_people](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/enrich/README.md#list_enrich_people) - Retrieve enrichment information for a person
 
-### [event](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/event/README.md)
+### [Environment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/environment/README.md)
+
+* [create_unified_environment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/environment/README.md#create_unified_environment) - Create new environments
+* [list_unified_environments](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/environment/README.md#list_unified_environments) - Returns all environments
+* [remove_unified_environment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/environment/README.md#remove_unified_environment) - Remove an environment
+
+### [Event](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/event/README.md)
 
 * [create_calendar_event](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/event/README.md#create_calendar_event) - Create an event
 * [create_crm_event](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/event/README.md#create_crm_event) - Create an event
@@ -709,12 +834,23 @@ asyncio.run(main())
 * [list_crm_events](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/event/README.md#list_crm_events) - List all events
 * [patch_calendar_event](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/event/README.md#patch_calendar_event) - Update an event
 * [patch_crm_event](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/event/README.md#patch_crm_event) - Update an event
+* [patch_messaging_event](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/event/README.md#patch_messaging_event) - Update an event
 * [remove_calendar_event](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/event/README.md#remove_calendar_event) - Remove an event
 * [remove_crm_event](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/event/README.md#remove_crm_event) - Remove an event
 * [update_calendar_event](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/event/README.md#update_calendar_event) - Update an event
 * [update_crm_event](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/event/README.md#update_crm_event) - Update an event
+* [update_messaging_event](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/event/README.md#update_messaging_event) - Update an event
 
-### [file](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/file/README.md)
+### [Expense](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/expense/README.md)
+
+* [create_accounting_expense](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/expense/README.md#create_accounting_expense) - Create an expense
+* [get_accounting_expense](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/expense/README.md#get_accounting_expense) - Retrieve an expense
+* [list_accounting_expenses](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/expense/README.md#list_accounting_expenses) - List all expenses
+* [patch_accounting_expense](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/expense/README.md#patch_accounting_expense) - Update an expense
+* [remove_accounting_expense](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/expense/README.md#remove_accounting_expense) - Remove an expense
+* [update_accounting_expense](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/expense/README.md#update_accounting_expense) - Update an expense
+
+### [File](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/file/README.md)
 
 * [create_storage_file](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/file/README.md#create_storage_file) - Create a file
 * [get_storage_file](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/file/README.md#get_storage_file) - Retrieve a file
@@ -723,37 +859,67 @@ asyncio.run(main())
 * [remove_storage_file](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/file/README.md#remove_storage_file) - Remove a file
 * [update_storage_file](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/file/README.md#update_storage_file) - Update a file
 
-### [genai](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/genai/README.md)
+### [Form](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/form/README.md)
+
+* [create_forms_form](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/form/README.md#create_forms_form) - Create a form
+* [get_forms_form](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/form/README.md#get_forms_form) - Retrieve a form
+* [list_forms_forms](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/form/README.md#list_forms_forms) - List all forms
+* [patch_forms_form](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/form/README.md#patch_forms_form) - Update a form
+* [remove_forms_form](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/form/README.md#remove_forms_form) - Remove a form
+* [update_forms_form](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/form/README.md#update_forms_form) - Update a form
+
+### [Forms](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/forms/README.md)
+
+* [create_forms_form](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/forms/README.md#create_forms_form) - Create a form
+* [get_forms_form](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/forms/README.md#get_forms_form) - Retrieve a form
+* [get_forms_submission](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/forms/README.md#get_forms_submission) - Retrieve a submission
+* [list_forms_forms](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/forms/README.md#list_forms_forms) - List all forms
+* [list_forms_submissions](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/forms/README.md#list_forms_submissions) - List all submissions
+* [patch_forms_form](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/forms/README.md#patch_forms_form) - Update a form
+* [remove_forms_form](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/forms/README.md#remove_forms_form) - Remove a form
+* [update_forms_form](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/forms/README.md#update_forms_form) - Update a form
+
+### [Genai](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/genai/README.md)
 
 * [create_genai_embedding](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/genai/README.md#create_genai_embedding) - Create an embedding
 * [create_genai_prompt](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/genai/README.md#create_genai_prompt) - Create a prompt
 * [get_genai_model](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/genai/README.md#get_genai_model) - Retrieve a model
 * [list_genai_models](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/genai/README.md#list_genai_models) - List all models
 
-### [group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md)
+### [Group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md)
 
+* [create_ads_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#create_ads_group) - Create a group
 * [create_hris_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#create_hris_group) - Create a group
 * [create_scim_groups](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#create_scim_groups) - Create group
+* [get_ads_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#get_ads_group) - Retrieve a group
 * [get_hris_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#get_hris_group) - Retrieve a group
 * [get_scim_groups](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#get_scim_groups) - Get group
+* [list_ads_groups](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#list_ads_groups) - List all groups
 * [list_hris_groups](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#list_hris_groups) - List all groups
 * [list_scim_groups](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#list_scim_groups) - List groups
+* [patch_ads_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#patch_ads_group) - Update a group
 * [patch_hris_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#patch_hris_group) - Update a group
 * [patch_scim_groups](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#patch_scim_groups) - Update group
+* [remove_ads_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#remove_ads_group) - Remove a group
 * [remove_hris_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#remove_hris_group) - Remove a group
 * [remove_scim_groups](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#remove_scim_groups) - Delete group
+* [update_ads_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#update_ads_group) - Update a group
 * [update_hris_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#update_hris_group) - Update a group
 * [update_scim_groups](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/group/README.md#update_scim_groups) - Update group
 
-### [hris](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md)
+### [Hris](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md)
 
+* [create_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_benefit) - Create a benefit
 * [create_hris_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_company) - Create a company
+* [create_hris_deduction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_deduction) - Create a deduction
 * [create_hris_device](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_device) - Create a device
 * [create_hris_employee](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_employee) - Create an employee
 * [create_hris_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_group) - Create a group
 * [create_hris_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_location) - Create a location
 * [create_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_timeshift) - Create a timeshift
+* [get_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_benefit) - Retrieve a benefit
 * [get_hris_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_company) - Retrieve a company
+* [get_hris_deduction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_deduction) - Retrieve a deduction
 * [get_hris_device](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_device) - Retrieve a device
 * [get_hris_employee](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_employee) - Retrieve an employee
 * [get_hris_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_group) - Retrieve a group
@@ -761,7 +927,9 @@ asyncio.run(main())
 * [get_hris_payslip](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_payslip) - Retrieve a payslip
 * [get_hris_timeoff](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_timeoff) - Retrieve a timeoff
 * [get_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_timeshift) - Retrieve a timeshift
+* [list_hris_benefits](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_benefits) - List all benefits
 * [list_hris_companies](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_companies) - List all companies
+* [list_hris_deductions](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_deductions) - List all deductions
 * [list_hris_devices](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_devices) - List all devices
 * [list_hris_employees](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_employees) - List all employees
 * [list_hris_groups](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_groups) - List all groups
@@ -769,26 +937,41 @@ asyncio.run(main())
 * [list_hris_payslips](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_payslips) - List all payslips
 * [list_hris_timeoffs](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_timeoffs) - List all timeoffs
 * [list_hris_timeshifts](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_timeshifts) - List all timeshifts
+* [patch_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_benefit) - Update a benefit
 * [patch_hris_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_company) - Update a company
+* [patch_hris_deduction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_deduction) - Update a deduction
 * [patch_hris_device](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_device) - Update a device
 * [patch_hris_employee](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_employee) - Update an employee
 * [patch_hris_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_group) - Update a group
 * [patch_hris_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_location) - Update a location
 * [patch_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_timeshift) - Update a timeshift
+* [remove_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_benefit) - Remove a benefit
 * [remove_hris_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_company) - Remove a company
+* [remove_hris_deduction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_deduction) - Remove a deduction
 * [remove_hris_device](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_device) - Remove a device
 * [remove_hris_employee](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_employee) - Remove an employee
 * [remove_hris_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_group) - Remove a group
 * [remove_hris_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_location) - Remove a location
 * [remove_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_timeshift) - Remove a timeshift
+* [update_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#update_hris_benefit) - Update a benefit
 * [update_hris_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#update_hris_company) - Update a company
+* [update_hris_deduction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#update_hris_deduction) - Update a deduction
 * [update_hris_device](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#update_hris_device) - Update a device
 * [update_hris_employee](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#update_hris_employee) - Update an employee
 * [update_hris_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#update_hris_group) - Update a group
 * [update_hris_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#update_hris_location) - Update a location
 * [update_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#update_hris_timeshift) - Update a timeshift
 
-### [instructor](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/instructor/README.md)
+### [Insertionorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/insertionorder/README.md)
+
+* [create_ads_insertionorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/insertionorder/README.md#create_ads_insertionorder) - Create an insertionorder
+* [get_ads_insertionorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/insertionorder/README.md#get_ads_insertionorder) - Retrieve an insertionorder
+* [list_ads_insertionorders](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/insertionorder/README.md#list_ads_insertionorders) - List all insertionorders
+* [patch_ads_insertionorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/insertionorder/README.md#patch_ads_insertionorder) - Update an insertionorder
+* [remove_ads_insertionorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/insertionorder/README.md#remove_ads_insertionorder) - Remove an insertionorder
+* [update_ads_insertionorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/insertionorder/README.md#update_ads_insertionorder) - Update an insertionorder
+
+### [Instructor](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/instructor/README.md)
 
 * [create_lms_instructor](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/instructor/README.md#create_lms_instructor) - Create an instructor
 * [get_lms_instructor](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/instructor/README.md#get_lms_instructor) - Retrieve an instructor
@@ -797,13 +980,13 @@ asyncio.run(main())
 * [remove_lms_instructor](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/instructor/README.md#remove_lms_instructor) - Remove an instructor
 * [update_lms_instructor](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/instructor/README.md#update_lms_instructor) - Update an instructor
 
-### [integration](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/integration/README.md)
+### [Integration](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/integration/README.md)
 
 * [get_unified_integration_auth](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/integration/README.md#get_unified_integration_auth) - Authorize new connection
 * [list_unified_integration_workspaces](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/integration/README.md#list_unified_integration_workspaces) - Returns all activated integrations in a workspace
 * [list_unified_integrations](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/integration/README.md#list_unified_integrations) - Returns all integrations
 
-### [interview](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/interview/README.md)
+### [Interview](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/interview/README.md)
 
 * [create_ats_interview](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/interview/README.md#create_ats_interview) - Create an interview
 * [get_ats_interview](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/interview/README.md#get_ats_interview) - Retrieve an interview
@@ -812,7 +995,7 @@ asyncio.run(main())
 * [remove_ats_interview](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/interview/README.md#remove_ats_interview) - Remove an interview
 * [update_ats_interview](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/interview/README.md#update_ats_interview) - Update an interview
 
-### [inventory](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/inventory/README.md)
+### [Inventory](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/inventory/README.md)
 
 * [create_commerce_inventory](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/inventory/README.md#create_commerce_inventory) - Create an inventory
 * [get_commerce_inventory](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/inventory/README.md#get_commerce_inventory) - Retrieve an inventory
@@ -821,7 +1004,7 @@ asyncio.run(main())
 * [remove_commerce_inventory](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/inventory/README.md#remove_commerce_inventory) - Remove an inventory
 * [update_commerce_inventory](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/inventory/README.md#update_commerce_inventory) - Update an inventory
 
-### [invoice](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/invoice/README.md)
+### [Invoice](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/invoice/README.md)
 
 * [create_accounting_invoice](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/invoice/README.md#create_accounting_invoice) - Create an invoice
 * [get_accounting_invoice](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/invoice/README.md#get_accounting_invoice) - Retrieve an invoice
@@ -830,11 +1013,12 @@ asyncio.run(main())
 * [remove_accounting_invoice](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/invoice/README.md#remove_accounting_invoice) - Remove an invoice
 * [update_accounting_invoice](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/invoice/README.md#update_accounting_invoice) - Update an invoice
 
-### [issue](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/issue/README.md)
+### [Issue](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/issue/README.md)
 
+* [get_unified_issue](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/issue/README.md#get_unified_issue) - Retrieve support issue
 * [list_unified_issues](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/issue/README.md#list_unified_issues) - List support issues
 
-### [item](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/item/README.md)
+### [Item](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/item/README.md)
 
 * [create_commerce_item](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/item/README.md#create_commerce_item) - Create an item
 * [get_commerce_item](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/item/README.md#get_commerce_item) - Retrieve an item
@@ -843,7 +1027,16 @@ asyncio.run(main())
 * [remove_commerce_item](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/item/README.md#remove_commerce_item) - Remove an item
 * [update_commerce_item](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/item/README.md#update_commerce_item) - Update an item
 
-### [job](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/job/README.md)
+### [Itemvariant](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/itemvariant/README.md)
+
+* [create_commerce_itemvariant](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/itemvariant/README.md#create_commerce_itemvariant) - Create an itemvariant
+* [get_commerce_itemvariant](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/itemvariant/README.md#get_commerce_itemvariant) - Retrieve an itemvariant
+* [list_commerce_itemvariants](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/itemvariant/README.md#list_commerce_itemvariants) - List all itemvariants
+* [patch_commerce_itemvariant](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/itemvariant/README.md#patch_commerce_itemvariant) - Update an itemvariant
+* [remove_commerce_itemvariant](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/itemvariant/README.md#remove_commerce_itemvariant) - Remove an itemvariant
+* [update_commerce_itemvariant](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/itemvariant/README.md#update_commerce_itemvariant) - Update an itemvariant
+
+### [Job](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/job/README.md)
 
 * [create_ats_job](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/job/README.md#create_ats_job) - Create a job
 * [get_ats_job](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/job/README.md#get_ats_job) - Retrieve a job
@@ -852,7 +1045,7 @@ asyncio.run(main())
 * [remove_ats_job](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/job/README.md#remove_ats_job) - Remove a job
 * [update_ats_job](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/job/README.md#update_ats_job) - Update a job
 
-### [journal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/journal/README.md)
+### [Journal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/journal/README.md)
 
 * [create_accounting_journal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/journal/README.md#create_accounting_journal) - Create a journal
 * [get_accounting_journal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/journal/README.md#get_accounting_journal) - Retrieve a journal
@@ -861,7 +1054,7 @@ asyncio.run(main())
 * [remove_accounting_journal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/journal/README.md#remove_accounting_journal) - Remove a journal
 * [update_accounting_journal](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/journal/README.md#update_accounting_journal) - Update a journal
 
-### [kms](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/kms/README.md)
+### [Kms](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/kms/README.md)
 
 * [create_kms_comment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/kms/README.md#create_kms_comment) - Create a comment
 * [create_kms_page](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/kms/README.md#create_kms_page) - Create a page
@@ -882,7 +1075,14 @@ asyncio.run(main())
 * [update_kms_page](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/kms/README.md#update_kms_page) - Update a page
 * [update_kms_space](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/kms/README.md#update_kms_space) - Update a space
 
-### [lead](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/lead/README.md)
+### [Label](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/label/README.md)
+
+* [create_shipping_label](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/label/README.md#create_shipping_label) - Create a label
+* [get_shipping_label](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/label/README.md#get_shipping_label) - Retrieve a label
+* [list_shipping_labels](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/label/README.md#list_shipping_labels) - List all labels
+* [remove_shipping_label](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/label/README.md#remove_shipping_label) - Remove a label
+
+### [Lead](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/lead/README.md)
 
 * [create_crm_lead](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/lead/README.md#create_crm_lead) - Create a lead
 * [get_crm_lead](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/lead/README.md#get_crm_lead) - Retrieve a lead
@@ -891,7 +1091,7 @@ asyncio.run(main())
 * [remove_crm_lead](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/lead/README.md#remove_crm_lead) - Remove a lead
 * [update_crm_lead](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/lead/README.md#update_crm_lead) - Update a lead
 
-### [link](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/link/README.md)
+### [Link](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/link/README.md)
 
 * [create_calendar_link](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/link/README.md#create_calendar_link) - Create a link
 * [create_payment_link](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/link/README.md#create_payment_link) - Create a link
@@ -906,7 +1106,7 @@ asyncio.run(main())
 * [update_calendar_link](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/link/README.md#update_calendar_link) - Update a link
 * [update_payment_link](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/link/README.md#update_payment_link) - Update a link
 
-### [list](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/list/README.md)
+### [List](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/list/README.md)
 
 * [create_martech_list](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/list/README.md#create_martech_list) - Create a list
 * [get_martech_list](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/list/README.md#get_martech_list) - Retrieve a list
@@ -915,7 +1115,7 @@ asyncio.run(main())
 * [remove_martech_list](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/list/README.md#remove_martech_list) - Remove a list
 * [update_martech_list](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/list/README.md#update_martech_list) - Update a list
 
-### [lms](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/lms/README.md)
+### [Lms](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/lms/README.md)
 
 * [create_lms_class](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/lms/README.md#create_lms_class) - Create a class
 * [create_lms_course](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/lms/README.md#create_lms_course) - Create a course
@@ -942,7 +1142,7 @@ asyncio.run(main())
 * [update_lms_instructor](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/lms/README.md#update_lms_instructor) - Update an instructor
 * [update_lms_student](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/lms/README.md#update_lms_student) - Update a student
 
-### [location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/location/README.md)
+### [Location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/location/README.md)
 
 * [create_commerce_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/location/README.md#create_commerce_location) - Create a location
 * [create_hris_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/location/README.md#create_hris_location) - Create a location
@@ -957,11 +1157,11 @@ asyncio.run(main())
 * [update_commerce_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/location/README.md#update_commerce_location) - Update a location
 * [update_hris_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/location/README.md#update_hris_location) - Update a location
 
-### [login](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/login/README.md)
+### [Login](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/login/README.md)
 
 * [get_unified_integration_login](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/login/README.md#get_unified_integration_login) - Sign in a user
 
-### [martech](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md)
+### [Martech](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md)
 
 * [create_martech_list](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#create_martech_list) - Create a list
 * [create_martech_member](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#create_martech_member) - Create a member
@@ -976,7 +1176,7 @@ asyncio.run(main())
 * [update_martech_list](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#update_martech_list) - Update a list
 * [update_martech_member](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#update_martech_member) - Update a member
 
-### [member](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/member/README.md)
+### [Member](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/member/README.md)
 
 * [create_martech_member](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/member/README.md#create_martech_member) - Create a member
 * [get_martech_member](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/member/README.md#get_martech_member) - Retrieve a member
@@ -985,7 +1185,7 @@ asyncio.run(main())
 * [remove_martech_member](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/member/README.md#remove_martech_member) - Remove a member
 * [update_martech_member](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/member/README.md#update_martech_member) - Update a member
 
-### [message](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/message/README.md)
+### [Message](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/message/README.md)
 
 * [create_messaging_message](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/message/README.md#create_messaging_message) - Create a message
 * [get_messaging_message](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/message/README.md#get_messaging_message) - Retrieve a message
@@ -994,18 +1194,20 @@ asyncio.run(main())
 * [remove_messaging_message](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/message/README.md#remove_messaging_message) - Remove a message
 * [update_messaging_message](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/message/README.md#update_messaging_message) - Update a message
 
-### [messaging](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/messaging/README.md)
+### [Messaging](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/messaging/README.md)
 
 * [create_messaging_message](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/messaging/README.md#create_messaging_message) - Create a message
 * [get_messaging_channel](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/messaging/README.md#get_messaging_channel) - Retrieve a channel
 * [get_messaging_message](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/messaging/README.md#get_messaging_message) - Retrieve a message
 * [list_messaging_channels](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/messaging/README.md#list_messaging_channels) - List all channels
 * [list_messaging_messages](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/messaging/README.md#list_messaging_messages) - List all messages
+* [patch_messaging_event](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/messaging/README.md#patch_messaging_event) - Update an event
 * [patch_messaging_message](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/messaging/README.md#patch_messaging_message) - Update a message
 * [remove_messaging_message](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/messaging/README.md#remove_messaging_message) - Remove a message
+* [update_messaging_event](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/messaging/README.md#update_messaging_event) - Update an event
 * [update_messaging_message](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/messaging/README.md#update_messaging_message) - Update a message
 
-### [metadata](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/metadata/README.md)
+### [Metadata](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/metadata/README.md)
 
 * [create_metadata_metadata](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/metadata/README.md#create_metadata_metadata) - Create a metadata
 * [get_metadata_metadata](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/metadata/README.md#get_metadata_metadata) - Retrieve a metadata
@@ -1014,12 +1216,12 @@ asyncio.run(main())
 * [remove_metadata_metadata](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/metadata/README.md#remove_metadata_metadata) - Remove a metadata
 * [update_metadata_metadata](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/metadata/README.md#update_metadata_metadata) - Update a metadata
 
-### [model](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/model/README.md)
+### [Model](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/model/README.md)
 
 * [get_genai_model](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/model/README.md#get_genai_model) - Retrieve a model
 * [list_genai_models](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/model/README.md#list_genai_models) - List all models
 
-### [note](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/note/README.md)
+### [Note](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/note/README.md)
 
 * [create_ticketing_note](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/note/README.md#create_ticketing_note) - Create a note
 * [get_ticketing_note](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/note/README.md#get_ticketing_note) - Retrieve a note
@@ -1028,7 +1230,7 @@ asyncio.run(main())
 * [remove_ticketing_note](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/note/README.md#remove_ticketing_note) - Remove a note
 * [update_ticketing_note](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/note/README.md#update_ticketing_note) - Update a note
 
-### [order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md)
+### [Order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md)
 
 * [create_accounting_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#create_accounting_order) - Create an order
 * [get_accounting_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#get_accounting_order) - Retrieve an order
@@ -1037,23 +1239,29 @@ asyncio.run(main())
 * [remove_accounting_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#remove_accounting_order) - Remove an order
 * [update_accounting_order](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/order/README.md#update_accounting_order) - Update an order
 
-### [organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/organization/README.md)
+### [Organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/organization/README.md)
 
+* [create_ads_organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/organization/README.md#create_ads_organization) - Create an organization
 * [create_repo_organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/organization/README.md#create_repo_organization) - Create an organization
 * [get_accounting_organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/organization/README.md#get_accounting_organization) - Retrieve an organization
+* [get_ads_organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/organization/README.md#get_ads_organization) - Retrieve an organization
 * [get_repo_organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/organization/README.md#get_repo_organization) - Retrieve an organization
 * [list_accounting_organizations](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/organization/README.md#list_accounting_organizations) - List all organizations
+* [list_ads_organizations](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/organization/README.md#list_ads_organizations) - List all organizations
 * [list_repo_organizations](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/organization/README.md#list_repo_organizations) - List all organizations
+* [patch_ads_organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/organization/README.md#patch_ads_organization) - Update an organization
 * [patch_repo_organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/organization/README.md#patch_repo_organization) - Update an organization
+* [remove_ads_organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/organization/README.md#remove_ads_organization) - Remove an organization
 * [remove_repo_organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/organization/README.md#remove_repo_organization) - Remove an organization
+* [update_ads_organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/organization/README.md#update_ads_organization) - Update an organization
 * [update_repo_organization](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/organization/README.md#update_repo_organization) - Update an organization
 
-### [package](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/package/README.md)
+### [Package](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/package/README.md)
 
 * [get_verification_package](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/package/README.md#get_verification_package) - Retrieve a package
 * [list_verification_packages](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/package/README.md#list_verification_packages) - List all packages
 
-### [page](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/page/README.md)
+### [Page](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/page/README.md)
 
 * [create_kms_page](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/page/README.md#create_kms_page) - Create a page
 * [get_kms_page](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/page/README.md#get_kms_page) - Retrieve a page
@@ -1062,7 +1270,7 @@ asyncio.run(main())
 * [remove_kms_page](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/page/README.md#remove_kms_page) - Remove a page
 * [update_kms_page](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/page/README.md#update_kms_page) - Update a page
 
-### [passthrough](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/passthrough/README.md)
+### [Passthrough](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/passthrough/README.md)
 
 * [create_passthrough_json](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/passthrough/README.md#create_passthrough_json) - Passthrough POST
 * [create_passthrough_raw](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/passthrough/README.md#create_passthrough_raw) - Passthrough POST
@@ -1073,7 +1281,7 @@ asyncio.run(main())
 * [update_passthrough_json](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/passthrough/README.md#update_passthrough_json) - Passthrough PUT
 * [update_passthrough_raw](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/passthrough/README.md#update_passthrough_raw) - Passthrough PUT
 
-### [payment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/payment/README.md)
+### [Payment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/payment/README.md)
 
 * [create_payment_link](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/payment/README.md#create_payment_link) - Create a link
 * [create_payment_payment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/payment/README.md#create_payment_payment) - Create a payment
@@ -1098,21 +1306,21 @@ asyncio.run(main())
 * [update_payment_payment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/payment/README.md#update_payment_payment) - Update a payment
 * [update_payment_subscription](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/payment/README.md#update_payment_subscription) - Update a subscription
 
-### [payout](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/payout/README.md)
+### [Payout](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/payout/README.md)
 
 * [get_payment_payout](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/payout/README.md#get_payment_payout) - Retrieve a payout
 * [list_payment_payouts](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/payout/README.md#list_payment_payouts) - List all payouts
 
-### [payslip](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/payslip/README.md)
+### [Payslip](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/payslip/README.md)
 
 * [get_hris_payslip](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/payslip/README.md#get_hris_payslip) - Retrieve a payslip
 * [list_hris_payslips](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/payslip/README.md#list_hris_payslips) - List all payslips
 
-### [person](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/person/README.md)
+### [Person](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/person/README.md)
 
 * [list_enrich_people](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/person/README.md#list_enrich_people) - Retrieve enrichment information for a person
 
-### [pipeline](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/pipeline/README.md)
+### [Pipeline](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/pipeline/README.md)
 
 * [create_crm_pipeline](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/pipeline/README.md#create_crm_pipeline) - Create a pipeline
 * [get_crm_pipeline](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/pipeline/README.md#get_crm_pipeline) - Retrieve a pipeline
@@ -1121,12 +1329,12 @@ asyncio.run(main())
 * [remove_crm_pipeline](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/pipeline/README.md#remove_crm_pipeline) - Remove a pipeline
 * [update_crm_pipeline](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/pipeline/README.md#update_crm_pipeline) - Update a pipeline
 
-### [profitloss](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/profitloss/README.md)
+### [Profitloss](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/profitloss/README.md)
 
 * [get_accounting_profitloss](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/profitloss/README.md#get_accounting_profitloss) - Retrieve a profitloss
 * [list_accounting_profitlosses](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/profitloss/README.md#list_accounting_profitlosses) - List all profitlosses
 
-### [project](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/project/README.md)
+### [Project](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/project/README.md)
 
 * [create_task_project](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/project/README.md#create_task_project) - Create a project
 * [get_task_project](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/project/README.md#get_task_project) - Retrieve a project
@@ -1135,11 +1343,11 @@ asyncio.run(main())
 * [remove_task_project](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/project/README.md#remove_task_project) - Remove a project
 * [update_task_project](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/project/README.md#update_task_project) - Update a project
 
-### [prompt](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/prompt/README.md)
+### [Prompt](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/prompt/README.md)
 
 * [create_genai_prompt](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/prompt/README.md#create_genai_prompt) - Create a prompt
 
-### [pullrequest](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/pullrequest/README.md)
+### [Pullrequest](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/pullrequest/README.md)
 
 * [create_repo_pullrequest](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/pullrequest/README.md#create_repo_pullrequest) - Create a pullrequest
 * [get_repo_pullrequest](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/pullrequest/README.md#get_repo_pullrequest) - Retrieve a pullrequest
@@ -1148,7 +1356,7 @@ asyncio.run(main())
 * [remove_repo_pullrequest](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/pullrequest/README.md#remove_repo_pullrequest) - Remove a pullrequest
 * [update_repo_pullrequest](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/pullrequest/README.md#update_repo_pullrequest) - Update a pullrequest
 
-### [purchaseorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/purchaseorder/README.md)
+### [Purchaseorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/purchaseorder/README.md)
 
 * [create_accounting_purchaseorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/purchaseorder/README.md#create_accounting_purchaseorder) - Create a purchaseorder
 * [get_accounting_purchaseorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/purchaseorder/README.md#get_accounting_purchaseorder) - Retrieve a purchaseorder
@@ -1157,7 +1365,12 @@ asyncio.run(main())
 * [remove_accounting_purchaseorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/purchaseorder/README.md#remove_accounting_purchaseorder) - Remove a purchaseorder
 * [update_accounting_purchaseorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/purchaseorder/README.md#update_accounting_purchaseorder) - Update a purchaseorder
 
-### [recording](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/recording/README.md)
+### [Rate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/rate/README.md)
+
+* [create_shipping_rate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/rate/README.md#create_shipping_rate) - Create a rate
+* [get_shipping_rate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/rate/README.md#get_shipping_rate) - Retrieve a rate
+
+### [Recording](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/recording/README.md)
 
 * [create_uc_recording](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/recording/README.md#create_uc_recording) - Create a recording
 * [get_calendar_recording](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/recording/README.md#get_calendar_recording) - Retrieve a recording
@@ -1168,12 +1381,12 @@ asyncio.run(main())
 * [remove_uc_recording](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/recording/README.md#remove_uc_recording) - Remove a recording
 * [update_uc_recording](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/recording/README.md#update_uc_recording) - Update a recording
 
-### [refund](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/refund/README.md)
+### [Refund](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/refund/README.md)
 
 * [get_payment_refund](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/refund/README.md#get_payment_refund) - Retrieve a refund
 * [list_payment_refunds](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/refund/README.md#list_payment_refunds) - List all refunds
 
-### [repo](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repo/README.md)
+### [Repo](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repo/README.md)
 
 * [create_repo_branch](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repo/README.md#create_repo_branch) - Create a branch
 * [create_repo_commit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repo/README.md#create_repo_commit) - Create a commit
@@ -1206,12 +1419,13 @@ asyncio.run(main())
 * [update_repo_pullrequest](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repo/README.md#update_repo_pullrequest) - Update a pullrequest
 * [update_repo_repository](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repo/README.md#update_repo_repository) - Update a repository
 
-### [report](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/report/README.md)
+### [Report](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/report/README.md)
 
 * [get_accounting_report](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/report/README.md#get_accounting_report) - Retrieve a report
 * [list_accounting_reports](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/report/README.md#list_accounting_reports) - List all reports
+* [list_ads_reports](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/report/README.md#list_ads_reports) - List all reports
 
-### [repository](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repository/README.md)
+### [Repository](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repository/README.md)
 
 * [create_repo_repository](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repository/README.md#create_repo_repository) - Create a repository
 * [get_repo_repository](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repository/README.md#get_repo_repository) - Retrieve a repository
@@ -1220,7 +1434,7 @@ asyncio.run(main())
 * [remove_repo_repository](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repository/README.md#remove_repo_repository) - Remove a repository
 * [update_repo_repository](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repository/README.md#update_repo_repository) - Update a repository
 
-### [request](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/request/README.md)
+### [Request](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/request/README.md)
 
 * [create_verification_request](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/request/README.md#create_verification_request) - Create a request
 * [get_verification_request](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/request/README.md#get_verification_request) - Retrieve a request
@@ -1229,7 +1443,7 @@ asyncio.run(main())
 * [remove_verification_request](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/request/README.md#remove_verification_request) - Remove a request
 * [update_verification_request](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/request/README.md#update_verification_request) - Update a request
 
-### [review](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/review/README.md)
+### [Review](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/review/README.md)
 
 * [create_commerce_review](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/review/README.md#create_commerce_review) - Create a review
 * [get_commerce_review](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/review/README.md#get_commerce_review) - Retrieve a review
@@ -1238,7 +1452,16 @@ asyncio.run(main())
 * [remove_commerce_review](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/review/README.md#remove_commerce_review) - Remove a review
 * [update_commerce_review](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/review/README.md#update_commerce_review) - Update a review
 
-### [salesorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/salesorder/README.md)
+### [Saleschannel](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/saleschannel/README.md)
+
+* [create_commerce_saleschannel](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/saleschannel/README.md#create_commerce_saleschannel) - Create a saleschannel
+* [get_commerce_saleschannel](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/saleschannel/README.md#get_commerce_saleschannel) - Retrieve a saleschannel
+* [list_commerce_saleschannels](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/saleschannel/README.md#list_commerce_saleschannels) - List all saleschannels
+* [patch_commerce_saleschannel](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/saleschannel/README.md#patch_commerce_saleschannel) - Update a saleschannel
+* [remove_commerce_saleschannel](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/saleschannel/README.md#remove_commerce_saleschannel) - Remove a saleschannel
+* [update_commerce_saleschannel](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/saleschannel/README.md#update_commerce_saleschannel) - Update a saleschannel
+
+### [Salesorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/salesorder/README.md)
 
 * [create_accounting_salesorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/salesorder/README.md#create_accounting_salesorder) - Create a salesorder
 * [get_accounting_salesorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/salesorder/README.md#get_accounting_salesorder) - Retrieve a salesorder
@@ -1247,7 +1470,7 @@ asyncio.run(main())
 * [remove_accounting_salesorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/salesorder/README.md#remove_accounting_salesorder) - Remove a salesorder
 * [update_accounting_salesorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/salesorder/README.md#update_accounting_salesorder) - Update a salesorder
 
-### [scim](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/scim/README.md)
+### [Scim](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/scim/README.md)
 
 * [create_scim_groups](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/scim/README.md#create_scim_groups) - Create group
 * [create_scim_users](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/scim/README.md#create_scim_users) - Create user
@@ -1262,7 +1485,7 @@ asyncio.run(main())
 * [update_scim_groups](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/scim/README.md#update_scim_groups) - Update group
 * [update_scim_users](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/scim/README.md#update_scim_users) - Update user
 
-### [scorecard](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/scorecard/README.md)
+### [Scorecard](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/scorecard/README.md)
 
 * [create_ats_scorecard](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/scorecard/README.md#create_ats_scorecard) - Create a scorecard
 * [get_ats_scorecard](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/scorecard/README.md#get_ats_scorecard) - Retrieve a scorecard
@@ -1271,7 +1494,36 @@ asyncio.run(main())
 * [remove_ats_scorecard](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/scorecard/README.md#remove_ats_scorecard) - Remove a scorecard
 * [update_ats_scorecard](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/scorecard/README.md#update_ats_scorecard) - Update a scorecard
 
-### [space](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/space/README.md)
+### [Shipment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipment/README.md)
+
+* [create_shipping_shipment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipment/README.md#create_shipping_shipment) - Create a shipment
+* [get_shipping_shipment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipment/README.md#get_shipping_shipment) - Retrieve a shipment
+* [list_shipping_shipments](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipment/README.md#list_shipping_shipments) - List all shipments
+* [patch_shipping_shipment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipment/README.md#patch_shipping_shipment) - Update a shipment
+* [remove_shipping_shipment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipment/README.md#remove_shipping_shipment) - Remove a shipment
+* [update_shipping_shipment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipment/README.md#update_shipping_shipment) - Update a shipment
+
+### [Shipping](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md)
+
+* [create_shipping_label](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#create_shipping_label) - Create a label
+* [create_shipping_rate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#create_shipping_rate) - Create a rate
+* [create_shipping_shipment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#create_shipping_shipment) - Create a shipment
+* [create_shipping_tracking](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#create_shipping_tracking) - Create a tracking
+* [get_shipping_carrier](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#get_shipping_carrier) - Retrieve a carrier
+* [get_shipping_label](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#get_shipping_label) - Retrieve a label
+* [get_shipping_rate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#get_shipping_rate) - Retrieve a rate
+* [get_shipping_shipment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#get_shipping_shipment) - Retrieve a shipment
+* [get_shipping_tracking](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#get_shipping_tracking) - Retrieve a tracking
+* [list_shipping_carriers](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#list_shipping_carriers) - List all carriers
+* [list_shipping_labels](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#list_shipping_labels) - List all labels
+* [list_shipping_shipments](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#list_shipping_shipments) - List all shipments
+* [list_shipping_trackings](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#list_shipping_trackings) - List all trackings
+* [patch_shipping_shipment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#patch_shipping_shipment) - Update a shipment
+* [remove_shipping_label](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#remove_shipping_label) - Remove a label
+* [remove_shipping_shipment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#remove_shipping_shipment) - Remove a shipment
+* [update_shipping_shipment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/shipping/README.md#update_shipping_shipment) - Update a shipment
+
+### [Space](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/space/README.md)
 
 * [create_kms_space](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/space/README.md#create_kms_space) - Create a space
 * [get_kms_space](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/space/README.md#get_kms_space) - Retrieve a space
@@ -1280,7 +1532,7 @@ asyncio.run(main())
 * [remove_kms_space](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/space/README.md#remove_kms_space) - Remove a space
 * [update_kms_space](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/space/README.md#update_kms_space) - Update a space
 
-### [storage](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/storage/README.md)
+### [Storage](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/storage/README.md)
 
 * [create_storage_file](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/storage/README.md#create_storage_file) - Create a file
 * [get_storage_file](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/storage/README.md#get_storage_file) - Retrieve a file
@@ -1289,7 +1541,7 @@ asyncio.run(main())
 * [remove_storage_file](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/storage/README.md#remove_storage_file) - Remove a file
 * [update_storage_file](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/storage/README.md#update_storage_file) - Update a file
 
-### [student](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/student/README.md)
+### [Student](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/student/README.md)
 
 * [create_lms_student](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/student/README.md#create_lms_student) - Create a student
 * [get_lms_student](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/student/README.md#get_lms_student) - Retrieve a student
@@ -1298,7 +1550,12 @@ asyncio.run(main())
 * [remove_lms_student](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/student/README.md#remove_lms_student) - Remove a student
 * [update_lms_student](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/student/README.md#update_lms_student) - Update a student
 
-### [subscription](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/subscription/README.md)
+### [Submission](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/submission/README.md)
+
+* [get_forms_submission](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/submission/README.md#get_forms_submission) - Retrieve a submission
+* [list_forms_submissions](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/submission/README.md#list_forms_submissions) - List all submissions
+
+### [Subscription](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/subscription/README.md)
 
 * [create_payment_subscription](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/subscription/README.md#create_payment_subscription) - Create a subscription
 * [get_payment_subscription](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/subscription/README.md#get_payment_subscription) - Retrieve a subscription
@@ -1307,7 +1564,7 @@ asyncio.run(main())
 * [remove_payment_subscription](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/subscription/README.md#remove_payment_subscription) - Remove a subscription
 * [update_payment_subscription](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/subscription/README.md#update_payment_subscription) - Update a subscription
 
-### [task](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md)
+### [Task](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md)
 
 * [create_task_comment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#create_task_comment) - Create a comment
 * [create_task_project](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#create_task_project) - Create a project
@@ -1330,7 +1587,7 @@ asyncio.run(main())
 * [update_task_project](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#update_task_project) - Update a project
 * [update_task_task](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#update_task_task) - Update a task
 
-### [taxrate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/taxrate/README.md)
+### [Taxrate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/taxrate/README.md)
 
 * [create_accounting_taxrate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/taxrate/README.md#create_accounting_taxrate) - Create a taxrate
 * [get_accounting_taxrate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/taxrate/README.md#get_accounting_taxrate) - Retrieve a taxrate
@@ -1339,7 +1596,7 @@ asyncio.run(main())
 * [remove_accounting_taxrate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/taxrate/README.md#remove_accounting_taxrate) - Remove a taxrate
 * [update_accounting_taxrate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/taxrate/README.md#update_accounting_taxrate) - Update a taxrate
 
-### [ticket](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticket/README.md)
+### [Ticket](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticket/README.md)
 
 * [create_ticketing_ticket](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticket/README.md#create_ticketing_ticket) - Create a ticket
 * [get_ticketing_ticket](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticket/README.md#get_ticketing_ticket) - Retrieve a ticket
@@ -1348,7 +1605,7 @@ asyncio.run(main())
 * [remove_ticketing_ticket](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticket/README.md#remove_ticketing_ticket) - Remove a ticket
 * [update_ticketing_ticket](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticket/README.md#update_ticketing_ticket) - Update a ticket
 
-### [ticketing](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md)
+### [Ticketing](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md)
 
 * [create_ticketing_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#create_ticketing_category) - Create a category
 * [create_ticketing_customer](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#create_ticketing_customer) - Create a customer
@@ -1375,12 +1632,12 @@ asyncio.run(main())
 * [update_ticketing_note](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#update_ticketing_note) - Update a note
 * [update_ticketing_ticket](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ticketing/README.md#update_ticketing_ticket) - Update a ticket
 
-### [timeoff](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/timeoff/README.md)
+### [Timeoff](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/timeoff/README.md)
 
 * [get_hris_timeoff](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/timeoff/README.md#get_hris_timeoff) - Retrieve a timeoff
 * [list_hris_timeoffs](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/timeoff/README.md#list_hris_timeoffs) - List all timeoffs
 
-### [timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/timeshift/README.md)
+### [Timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/timeshift/README.md)
 
 * [create_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/timeshift/README.md#create_hris_timeshift) - Create a timeshift
 * [get_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/timeshift/README.md#get_hris_timeshift) - Retrieve a timeshift
@@ -1389,7 +1646,13 @@ asyncio.run(main())
 * [remove_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/timeshift/README.md#remove_hris_timeshift) - Remove a timeshift
 * [update_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/timeshift/README.md#update_hris_timeshift) - Update a timeshift
 
-### [transaction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/transaction/README.md)
+### [Tracking](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/tracking/README.md)
+
+* [create_shipping_tracking](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/tracking/README.md#create_shipping_tracking) - Create a tracking
+* [get_shipping_tracking](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/tracking/README.md#get_shipping_tracking) - Retrieve a tracking
+* [list_shipping_trackings](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/tracking/README.md#list_shipping_trackings) - List all trackings
+
+### [Transaction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/transaction/README.md)
 
 * [create_accounting_transaction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/transaction/README.md#create_accounting_transaction) - Create a transaction
 * [get_accounting_transaction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/transaction/README.md#get_accounting_transaction) - Retrieve a transaction
@@ -1398,16 +1661,17 @@ asyncio.run(main())
 * [remove_accounting_transaction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/transaction/README.md#remove_accounting_transaction) - Remove a transaction
 * [update_accounting_transaction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/transaction/README.md#update_accounting_transaction) - Update a transaction
 
-### [trialbalance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/trialbalance/README.md)
+### [Trialbalance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/trialbalance/README.md)
 
 * [get_accounting_trialbalance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/trialbalance/README.md#get_accounting_trialbalance) - Retrieve a trialbalance
 * [list_accounting_trialbalances](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/trialbalance/README.md#list_accounting_trialbalances) - List all trialbalances
 
-### [uc](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/uc/README.md)
+### [Uc](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/uc/README.md)
 
 * [create_uc_comment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/uc/README.md#create_uc_comment) - Create a comment
 * [create_uc_contact](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/uc/README.md#create_uc_contact) - Create a contact
 * [create_uc_recording](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/uc/README.md#create_uc_recording) - Create a recording
+* [get_uc_call](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/uc/README.md#get_uc_call) - Retrieve a call
 * [get_uc_comment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/uc/README.md#get_uc_comment) - Retrieve a comment
 * [get_uc_contact](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/uc/README.md#get_uc_contact) - Retrieve a contact
 * [get_uc_recording](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/uc/README.md#get_uc_recording) - Retrieve a recording
@@ -1425,16 +1689,19 @@ asyncio.run(main())
 * [update_uc_contact](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/uc/README.md#update_uc_contact) - Update a contact
 * [update_uc_recording](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/uc/README.md#update_uc_recording) - Update a recording
 
-### [unified](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md)
+### [Unified](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md)
 
 * [create_unified_connection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#create_unified_connection) - Create connection
+* [create_unified_environment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#create_unified_environment) - Create new environments
 * [create_unified_webhook](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#create_unified_webhook) - Create webhook subscription
 * [get_unified_apicall](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#get_unified_apicall) - Retrieve specific API Call by its ID
 * [get_unified_connection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#get_unified_connection) - Retrieve connection
 * [get_unified_integration_auth](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#get_unified_integration_auth) - Authorize new connection
+* [get_unified_issue](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#get_unified_issue) - Retrieve support issue
 * [get_unified_webhook](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#get_unified_webhook) - Retrieve webhook by its ID
 * [list_unified_apicalls](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#list_unified_apicalls) - Returns API Calls
 * [list_unified_connections](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#list_unified_connections) - List all connections
+* [list_unified_environments](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#list_unified_environments) - Returns all environments
 * [list_unified_integration_workspaces](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#list_unified_integration_workspaces) - Returns all activated integrations in a workspace
 * [list_unified_integrations](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#list_unified_integrations) - Returns all integrations
 * [list_unified_issues](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#list_unified_issues) - List support issues
@@ -1443,13 +1710,13 @@ asyncio.run(main())
 * [patch_unified_webhook](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#patch_unified_webhook) - Update webhook subscription
 * [patch_unified_webhook_trigger](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#patch_unified_webhook_trigger) - Trigger webhook
 * [remove_unified_connection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#remove_unified_connection) - Remove connection
+* [remove_unified_environment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#remove_unified_environment) - Remove an environment
 * [remove_unified_webhook](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#remove_unified_webhook) - Remove webhook subscription
 * [update_unified_connection](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#update_unified_connection) - Update connection
 * [update_unified_webhook](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#update_unified_webhook) - Update webhook subscription
 * [update_unified_webhook_trigger](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/unified/README.md#update_unified_webhook_trigger) - Trigger webhook
 
-
-### [user](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/user/README.md)
+### [User](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/user/README.md)
 
 * [create_scim_users](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/user/README.md#create_scim_users) - Create user
 * [get_scim_users](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/user/README.md#get_scim_users) - Get user
@@ -1458,7 +1725,7 @@ asyncio.run(main())
 * [remove_scim_users](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/user/README.md#remove_scim_users) - Delete user
 * [update_scim_users](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/user/README.md#update_scim_users) - Update user
 
-### [verification](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/verification/README.md)
+### [Verification](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/verification/README.md)
 
 * [create_verification_request](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/verification/README.md#create_verification_request) - Create a request
 * [get_verification_package](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/verification/README.md#get_verification_package) - Retrieve a package
@@ -1469,7 +1736,7 @@ asyncio.run(main())
 * [remove_verification_request](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/verification/README.md#remove_verification_request) - Remove a request
 * [update_verification_request](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/verification/README.md#update_verification_request) - Update a request
 
-### [webhook](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/webhook/README.md)
+### [Webhook](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/webhook/README.md)
 
 * [create_unified_webhook](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/webhook/README.md#create_unified_webhook) - Create webhook subscription
 * [get_unified_webhook](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/webhook/README.md#get_unified_webhook) - Retrieve webhook by its ID
@@ -1672,7 +1939,7 @@ from unified_python_sdk.models import shared
 
 
 with UnifiedTo(
-    server_idx=2,
+    server_idx=0,
     security=shared.Security(
         jwt="<YOUR_API_KEY_HERE>",
     ),

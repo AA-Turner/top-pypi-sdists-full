@@ -31,7 +31,7 @@ def set_authorization_context(authorization_context: Dict[str, Any]) -> None:
 
 
 def get_authorization_context() -> Dict[str, Any]:
-    return authorization_context_var.get()
+    return authorization_context_var.get({})
 
 
 class ToolAuth(Enum):
@@ -77,7 +77,6 @@ def datarobot_tool_auth(
     """
 
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
-
         @wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             if not is_injection_possible(func, "token"):
@@ -129,12 +128,9 @@ class OAuthAccessTokenProvider:
         supported_auth_types = ", ".join(str(t) for t in ToolAuth)
 
         if auth_type == ToolAuth.OBO:
-            token_data = oauth_client.refresh_access_token(
-                identity_id=identity.provider_identity_id
-            )
+            token_data = oauth_client.refresh_access_token(identity_id=identity.provider_identity_id)
             return token_data.access_token
 
         raise ValueError(
-            f"Unsupported tool auth type: {auth_type}. Please "
-            f"use one of supported ones: {supported_auth_types}"
+            f"Unsupported tool auth type: {auth_type}. Please use one of supported ones: {supported_auth_types}"
         )

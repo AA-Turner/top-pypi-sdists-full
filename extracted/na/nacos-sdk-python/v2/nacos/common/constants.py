@@ -3,6 +3,8 @@ class Constants:
 
     CONFIG_MODULE = "config"
 
+    AI_MODULE = "ai"
+
     LABEL_SOURCE = "source"
 
     LABEL_SOURCE_SDK = "sdk"
@@ -11,7 +13,7 @@ class Constants:
 
     LABEL_MODULE = "module"
 
-    CLIENT_VERSION = "Nacos-Python-Client:v2.0.0"
+    CLIENT_VERSION = "Nacos-Python-Client:v3.0.4"
 
     DATA_IN_BODY_VERSION = 204
 
@@ -150,6 +152,8 @@ class Constants:
 
     DEFAULT_NAMESPACE_ID = ""
 
+    NAMING_DEFAULT_NAMESPACE_ID = "public"
+
     DEFAULT_USE_CLOUD_NAMESPACE_PARSING = True
 
     WRITE_REDIRECT_CODE = 307
@@ -215,6 +219,10 @@ class Constants:
     INTERNAL_TIME_MILLS = 3000
 
     DEFAULT_GRPC_TIMEOUT_MILLS = 3000
+
+    GRPC_CAPABILITY_NEGOTIATION_TIMEOUT = 5000
+
+    GRPC_PORT_OFFSET = 1000  # gRPC port = HTTP port + offset
 
     DEFAULT_TIMEOUT_MILLS = 10000
 

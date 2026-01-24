@@ -4,12 +4,14 @@ import warnings
 from typing import (
     TYPE_CHECKING,
     ClassVar,
-    Optional,
-    Union,
+    TypeGuard,
 )
-from typing_extensions import TypeGuard
 
-from lia import AsyncFlaskHTTPRequestAdapter, FlaskHTTPRequestAdapter, HTTPException
+from cross_web import (
+    AsyncFlaskHTTPRequestAdapter,
+    FlaskHTTPRequestAdapter,
+    HTTPException,
+)
 
 from flask import Request, Response, render_template_string, request
 from flask.views import View
@@ -19,19 +21,20 @@ from strawberry.http.typevars import Context, RootValue
 
 if TYPE_CHECKING:
     from flask.typing import ResponseReturnValue
+
     from strawberry.http import GraphQLHTTPResponse
     from strawberry.http.ides import GraphQL_IDE
     from strawberry.schema.base import BaseSchema
 
 
 class BaseGraphQLView:
-    graphql_ide: Optional[GraphQL_IDE]
+    graphql_ide: GraphQL_IDE | None
 
     def __init__(
         self,
         schema: BaseSchema,
-        graphiql: Optional[bool] = None,
-        graphql_ide: Optional[GraphQL_IDE] = "graphiql",
+        graphiql: bool | None = None,
+        graphql_ide: GraphQL_IDE | None = "graphiql",
         allow_queries_via_get: bool = True,
         multipart_uploads_enabled: bool = False,
     ) -> None:
@@ -52,7 +55,7 @@ class BaseGraphQLView:
 
     def create_response(
         self,
-        response_data: Union[GraphQLHTTPResponse, list[GraphQLHTTPResponse]],
+        response_data: GraphQLHTTPResponse | list[GraphQLHTTPResponse],
         sub_response: Response,
     ) -> Response:
         sub_response.set_data(self.encode_json(response_data))  # type: ignore
@@ -72,7 +75,7 @@ class GraphQLView(
     def get_context(self, request: Request, response: Response) -> Context:
         return {"request": request, "response": response}  # type: ignore
 
-    def get_root_value(self, request: Request) -> Optional[RootValue]:
+    def get_root_value(self, request: Request) -> RootValue | None:
         return None
 
     def get_sub_response(self, request: Request) -> Response:
@@ -85,6 +88,7 @@ class GraphQLView(
             return Response(
                 response=e.reason,
                 status=e.status_code,
+                content_type="text/plain",
             )
 
     def render_graphql_ide(self, request: Request) -> Response:
@@ -105,7 +109,7 @@ class AsyncGraphQLView(
     async def get_context(self, request: Request, response: Response) -> Context:
         return {"request": request, "response": response}  # type: ignore
 
-    async def get_root_value(self, request: Request) -> Optional[RootValue]:
+    async def get_root_value(self, request: Request) -> RootValue | None:
         return None
 
     async def get_sub_response(self, request: Request) -> Response:
@@ -118,6 +122,7 @@ class AsyncGraphQLView(
             return Response(
                 response=e.reason,
                 status=e.status_code,
+                content_type="text/plain",
             )
 
     async def render_graphql_ide(self, request: Request) -> Response:
@@ -127,11 +132,11 @@ class AsyncGraphQLView(
     def is_websocket_request(self, request: Request) -> TypeGuard[Request]:
         return False
 
-    async def pick_websocket_subprotocol(self, request: Request) -> Optional[str]:
+    async def pick_websocket_subprotocol(self, request: Request) -> str | None:
         raise NotImplementedError
 
     async def create_websocket_response(
-        self, request: Request, subprotocol: Optional[str]
+        self, request: Request, subprotocol: str | None
     ) -> Response:
         raise NotImplementedError
 

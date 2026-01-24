@@ -24,30 +24,22 @@ from datarobot.models.api_object import APIObject
 VALID_RELEVANCE_CONFIGURATIONS = {(0, 0), (0, 1), (1, 0), (1, 1)}
 
 
-class PairwiseStatisticsBase(
-    APIObject, metaclass=ABCMeta
-):  # pylint: disable=missing-class-docstring
-    _converter = t.Dict(
-        {
-            t.Key("feature_name"): String,
-            t.Key("data"): t.List(
-                t.Dict(
-                    {
-                        t.Key("label_configuration"): t.List(
-                            t.Dict(
-                                {t.Key("relevance", optional=True): Int, t.Key("label"): String}
-                            ),
-                            min_length=2,
-                            max_length=2,
-                        ),
-                        # In case of missing values we will have None here, which gets removed in
-                        # from_location call (keep_atters can not be used because data is a list)
-                        t.Key("statistic_value", optional=True): t.Float,
-                    }
-                ).allow_extra("*")
-            ),
-        }
-    ).allow_extra("*")
+class PairwiseStatisticsBase(APIObject, metaclass=ABCMeta):  # pylint: disable=missing-class-docstring
+    _converter = t.Dict({
+        t.Key("feature_name"): String,
+        t.Key("data"): t.List(
+            t.Dict({
+                t.Key("label_configuration"): t.List(
+                    t.Dict({t.Key("relevance", optional=True): Int, t.Key("label"): String}),
+                    min_length=2,
+                    max_length=2,
+                ),
+                # In case of missing values we will have None here, which gets removed in
+                # from_location call (keep_atters can not be used because data is a list)
+                t.Key("statistic_value", optional=True): t.Float,
+            }).allow_extra("*")
+        ),
+    }).allow_extra("*")
 
     def __init__(self, feature_name, data):
         self.feature_name = feature_name
@@ -70,8 +62,8 @@ class PairwiseStatisticsBase(
         The dataframe is expected to have a shape of (num_labels, num_labels) and to have the same
         label_names in the index and the columns.
         """
-        df = df.sort_index()
-        df = df[df.index]
+        df = df.sort_index()  # noqa: PD901
+        df = df[df.index]  # noqa: PD901
         return df
 
 
@@ -165,9 +157,7 @@ class PairwiseCorrelations(PairwiseStatisticsBase):
         return self.statistic_dataframe
 
 
-class PairwiseProbabilitiesBase(
-    PairwiseStatisticsBase, metaclass=ABCMeta
-):  # pylint: disable=missing-class-docstring
+class PairwiseProbabilitiesBase(PairwiseStatisticsBase, metaclass=ABCMeta):  # pylint: disable=missing-class-docstring
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.statistic_dataframes = self._to_statistic_dataframes(self.values)
@@ -199,21 +189,20 @@ class PairwiseProbabilitiesBase(
             )
             row_label = str(statistic_value["label_configuration"][0]["label"])
             column_label = str(statistic_value["label_configuration"][1]["label"])
-            grouped_statistic_values[relevance_configuration][column_label][row_label] = (
-                statistic_value.get("statistic_value", np.nan)
+            grouped_statistic_values[relevance_configuration][column_label][row_label] = statistic_value.get(
+                "statistic_value", np.nan
             )
         statistic_dataframes = {}
         for relevance_configuration, columns in grouped_statistic_values.items():
-            df = pd.DataFrame(columns)
-            df = PairwiseProbabilitiesBase._sort_index_and_columns(df)
+            df = pd.DataFrame(columns)  # noqa: PD901
+            df = PairwiseProbabilitiesBase._sort_index_and_columns(df)  # noqa: PD901
             statistic_dataframes[relevance_configuration] = df
         return statistic_dataframes
 
     def _as_dataframe(self, relevance_configuration):
         if relevance_configuration not in VALID_RELEVANCE_CONFIGURATIONS:
             raise ValueError(
-                "You have passed an invalid label configuration. "
-                "Valid options are (0, 0), (0, 1), (1, 0) and (1, 1)"
+                "You have passed an invalid label configuration. Valid options are (0, 0), (0, 1), (1, 0) and (1, 1)"
             )
         return self.statistic_dataframes[relevance_configuration]
 

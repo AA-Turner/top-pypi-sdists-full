@@ -1,6 +1,6 @@
 import logging
 from functools import partial
-from typing import IO, TYPE_CHECKING, Any, Optional, Union
+from typing import IO, TYPE_CHECKING, Any
 from warnings import warn
 
 import requests
@@ -74,7 +74,7 @@ class Client:
         self,
         source=None,
         *,
-        session: Optional["requests.Session"] = None,
+        session: "requests.Session | None" = None,
         log_level=None,
         **session_opts,
     ):
@@ -247,7 +247,7 @@ class Client:
             "get", url.join(with_query=False), params=url.query, headers=headers
         )
 
-    def _request_from_url(self, kwargs):
+    def _request_from_url(self, kwargs) -> "requests.Request":
         url = kwargs.pop("url")
         parameters = kwargs.pop("params", {})
         headers = kwargs.pop("headers", {})
@@ -333,13 +333,13 @@ class Client:
 
     def get(
         self,
-        resource_type: Union[str, Resource, None] = None,
-        resource_id: Optional[str] = None,
-        tofile: Union["os.PathLike", IO, None] = None,
+        resource_type: str | Resource | None = None,
+        resource_id: str | None = None,
+        tofile: "os.PathLike | IO | None" = None,
         use_cache: bool = False,
         dry_run: bool = False,
         **kwargs,
-    ) -> "sdmx.message.Message":
+    ) -> "sdmx.message.Message | requests.Request":
         """Retrieve SDMX data or metadata.
 
         (Meta)data is retrieved from the :attr:`source` of the current Client. The
@@ -455,26 +455,25 @@ class Client:
         else:
             req = self._request_from_args(kwargs)
 
-        req = self.session.prepare_request(req)
+        req_prepared = self.session.prepare_request(req)
+        if dry_run:
+            return req_prepared  # type: ignore [return-value]
 
         # Now get the SDMX message via HTTP
-        log.info(f"Request {req.url}")
-        log.info(f"with headers {req.headers}")
+        log.info(f"Request {req_prepared.url}")
+        log.info(f"with headers {req_prepared.headers}")
 
         # Try to get resource from memory cache if specified
-        if use_cache:
+        if use_cache and req_prepared.url:
             try:
-                return self.cache[req.url]
+                return self.cache[req_prepared.url]
             except KeyError:
                 log.info("Not found in cache")
                 pass
 
-        if dry_run:
-            return req
-
         try:
             # Send the request
-            response = self.session.send(req, **self._send_kwargs)
+            response = self.session.send(req_prepared, **self._send_kwargs)
             response.raise_for_status()
         except requests.exceptions.ConnectionError as e:
             raise e from None
@@ -517,8 +516,8 @@ class Client:
         msg = self.source.finish_message(msg, self, **kwargs)
 
         # store in memory cache if needed
-        if use_cache:
-            self.cache[req.url] = msg
+        if use_cache and req_prepared.url:
+            self.cache[req_prepared.url] = msg
 
         return msg
 

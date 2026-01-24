@@ -3,10 +3,12 @@
 # Copyright 2007-2021 by the Sphinx team (sphinx-doc/sphinx#AUTHORS)
 
 from collections import defaultdict
+from collections.abc import Set as AbstractSet
 from docutils import nodes
 from docutils.io import StringOutput
 from pathlib import Path
 from sphinx import addnodes
+from sphinx import version_info as sphinx_version_info
 from sphinx.builders import Builder
 from sphinx.locale import _ as SL
 from sphinx.util.display import status_iterator
@@ -38,7 +40,6 @@ from sphinxcontrib.confluencebuilder.storage.translator import ConfluenceStorage
 from sphinxcontrib.confluencebuilder.transmute import doctree_transmute
 from sphinxcontrib.confluencebuilder.util import ConfluenceUtil
 from sphinxcontrib.confluencebuilder.util import ascii_quote
-from sphinxcontrib.confluencebuilder.util import detect_cloud
 from sphinxcontrib.confluencebuilder.util import extract_strings_from_file
 from sphinxcontrib.confluencebuilder.util import first
 from sphinxcontrib.confluencebuilder.util import handle_cli_file_subset
@@ -61,7 +62,6 @@ class ConfluenceBuilder(Builder):
         super().__init__(app, env)
 
         self.cache_doctrees = {}
-        self.cloud = False
         self.domain_indices = {}
         self.file_suffix = '.conf'
         self.info = ConfluenceLogger.info
@@ -100,6 +100,16 @@ class ConfluenceBuilder(Builder):
         # state tracking is set at initialization (not cleanup) so its content's
         # can be checked/validated on after the builder has executed (testing)
         self.state.reset()
+
+        # if running an older version of sphinx and plantuml is detected,
+        # re-flag the build as non-parallel safe since we only support a
+        # lazy asset building on Sphinx v8.1+
+        if sphinx_version_info < (8, 1, 0):
+            for ext in app.extensions.values():
+                if ext.name == 'sphinxcontrib.plantuml':
+                    self.verbose('flag non-parallel-safe for older sphinx')
+                    self.allow_parallel = False
+                    break
 
     def init(self):
         apply_env_overrides(self.__app)
@@ -151,16 +161,10 @@ class ConfluenceBuilder(Builder):
             self.warn(f'normalizing confluence url from {old_url} to {new_url}')
             self.config.confluence_server_url = new_url
 
-        # track if operating with a Confluence Cloud target
-        if self.config.confluence_adv_cloud is not None:
-            self.cloud = self.config.confluence_adv_cloud
-        else:
-            self.cloud = detect_cloud(new_url)
-
-        self.assets = ConfluenceAssetManager(config, self.env, self.out_dir)
+        self.assets = ConfluenceAssetManager(self.env, self.out_dir)
         self.writer = ConfluenceWriter(self)
         self.config.sphinx_verbosity = self._verbose
-        self.publisher.init(self.config, self.cloud)
+        self.publisher.init(self.config)
 
         # With the configuration finalizes, generate a Confluence-specific
         # configuration hash that is applicable to this run
@@ -241,6 +245,9 @@ class ConfluenceBuilder(Builder):
         return self.link_transform(docname)
 
     def prepare_writing(self, docnames):
+        if self._verbose:
+            print()
+
         ordered_docnames = []
         traversed = [self.config.root_doc]
 
@@ -402,7 +409,15 @@ class ConfluenceBuilder(Builder):
         # images and other late-injected assets are processed in a translator
         # when needed.
         if self.name != 'singleconfluence':
-            self.assets.process(ordered_docnames)
+            if not self._verbose:
+                self.info(' done')
+            for docname in status_iterator(
+                    ordered_docnames, 'pre-process assets... ',
+                    length=len(ordered_docnames),
+                    verbosity=self._verbose):
+                doctree = self.env.get_doctree(docname)
+                self.assets.preprocess_doctree(doctree, docname)
+            self.note('pre-process assets: ', nonl=True)
 
     def _prepare_doctree_writing(self, docname, doctree):
         # extract metadata information
@@ -426,6 +441,18 @@ class ConfluenceBuilder(Builder):
                     traversed.append(child)
 
                     self.process_tree_structure(ordered, child, traversed)
+
+    def write_documents(self, docnames: AbstractSet[str]) -> None:
+        # (note: this call only applies to sphinx v8.1+)
+
+        # if parallel, prepare a multiprocessing list to help track assets
+        if self.parallel_ok:
+            with self.assets.multiprocessing_asset_tracking():
+                super().write_documents(docnames)
+            return
+
+        # non-parallel, perform a default write
+        super().write_documents(docnames)
 
     def write_doc(self, docname, doctree):
         if docname in self.omitted_docnames:
@@ -500,6 +527,7 @@ class ConfluenceBuilder(Builder):
             if self.config.root_doc != docname:
                 parent = self.state.parent_docname(docname)
                 parent_id = self.state.upload_id(parent)
+                parent_id = str(parent_id) if parent_id else None
         if not parent_id:
             parent_id = self.parent_id
 
@@ -539,7 +567,10 @@ class ConfluenceBuilder(Builder):
                     parent_id = new_parent_id
 
             uploaded_id = self.publisher.store_page(title, data, parent_id)
-        self.state.register_upload_id(docname, uploaded_id)
+
+        # TMP: interim cast logic until we can cleanup all the ids to be int
+        uploaded_id_int = int(uploaded_id) if uploaded_id else uploaded_id
+        self.state.register_upload_id(docname, uploaded_id_int)
 
         self._cache_info.track_last_page_id(docname, uploaded_id)
 
@@ -549,7 +580,7 @@ class ConfluenceBuilder(Builder):
             # populate ancestors to be used to pre-check ancestors assignments
             # on new pages (`uploaded_id` may not be set if dry run)
             if uploaded_id:
-                root_ancestors = self.publisher.get_ancestors(uploaded_id)
+                root_ancestors = self.publisher.get_ancestors(int(uploaded_id))
                 self.publisher.restrict_ancestors(root_ancestors)
 
         # if purging is enabled and we have yet to populate a list of legacy
@@ -670,6 +701,7 @@ class ConfluenceBuilder(Builder):
 
         title = self.state.title(docname)
         page_id = self.state.upload_id(docname)
+        page_id = str(page_id) if page_id else None
 
         if not page_id and not conf.confluence_publish_dryrun:
             # A page identifier may not be tracked in cases where only a subset
@@ -678,7 +710,7 @@ class ConfluenceBuilder(Builder):
             # Confluence instance what the target page's identifier is.
             page_id, _ = publisher.get_page(title)
             if page_id:
-                self.state.register_upload_id(docname, page_id)
+                self.state.register_upload_id(docname, int(page_id))
             else:
                 self.warn('cannot publish asset since publishing '
                     f'point cannot be found ({key}): {docname}')
@@ -722,7 +754,7 @@ class ConfluenceBuilder(Builder):
                 if not self._verbose:
                     self.info('done')
 
-            if self.cloud:
+            if self.config.confluence_cloud:
                 point_url_fmt = '{0}spaces/{1}/pages/{2}'
             else:
                 point_url_fmt = '{0}pages/viewpage.action?pageId={2}'
@@ -861,13 +893,13 @@ class ConfluenceBuilder(Builder):
             def to_asset_name(asset):
                 return asset[0]
 
-            assets = self.assets.build()
+            assets = self.assets.finalize_assets()
             for asset in status_iterator(assets, 'publishing assets... ',
                     length=len(assets), verbosity=self._verbose,
                     stringify_func=to_asset_name):
                 key, abs_file, type_, hash_, docname = asset
                 if self._check_publish_skip(docname):
-                    self.verbose(key + ' skipped due to configuration')
+                    self.verbose(f'{key}-{docname} skipped due to configuration')
                     continue
 
                 try:
@@ -891,7 +923,7 @@ class ConfluenceBuilder(Builder):
             self.publish_cleanup()
             self.publish_finalize()
         else:
-            assets = self.assets.build()
+            assets = self.assets.finalize_assets()
 
         # track all referenced assets into the manifest
         for asset in assets:
@@ -1058,7 +1090,7 @@ class ConfluenceBuilder(Builder):
                 # add fixed width if not configured for full width on v1
                 # (see also: ConfluenceStorageFormatTranslator.pre_body_data)
                 if is_wrapped and not is_v2:
-                    if self.cloud:
+                    if self.config.confluence_cloud:
                         wrap_pre = (
                             '<ac:layout>'
                             '<ac:layout-section ac:type="fixed-width">'
@@ -1075,7 +1107,7 @@ class ConfluenceBuilder(Builder):
                 generator(self, docname, f)
 
                 if is_wrapped and not is_v2:
-                    if self.cloud:
+                    if self.config.confluence_cloud:
                         wrap_post = (
                             '</ac:layout-cell>'
                             '</ac:layout-section>'

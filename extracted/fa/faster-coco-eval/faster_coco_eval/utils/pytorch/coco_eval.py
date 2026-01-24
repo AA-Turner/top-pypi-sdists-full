@@ -39,7 +39,17 @@ class FasterCocoEvaluator:
         lvis_style (bool, optional): Whether to use LVIS-style evaluation. Defaults to False.
     """
 
-    def __init__(self, coco_gt: COCO, iou_types: List[str], lvis_style: bool = False):
+    def __init__(
+        self,
+        coco_gt: COCO,
+        iou_types: List[str],
+        lvis_style: bool = False,
+        ranges={
+            "small": [0**2, 32**2],
+            "medium": [32**2, 96**2],
+            "large": [96**2, 1e5**2],
+        },
+    ) -> None:
         """Initializes the FasterCocoEvaluator.
 
         Args:
@@ -55,10 +65,16 @@ class FasterCocoEvaluator:
         self.lvis_style = lvis_style
 
         self.iou_types = iou_types
+        self.ranges = ranges
         self.coco_eval: Dict[str, COCOeval_faster] = {}
         for iou_type in iou_types:
             self.coco_eval[iou_type] = COCOeval_faster(
-                coco_gt, iouType=iou_type, lvis_style=lvis_style, print_function=print, separate_eval=True
+                coco_gt,
+                iouType=iou_type,
+                ranges=ranges,
+                lvis_style=lvis_style,
+                print_function=print,
+                separate_eval=True,
             )
 
         self.img_ids = []
@@ -75,7 +91,12 @@ class FasterCocoEvaluator:
         self.coco_eval = {}
         for iou_type in self.iou_types:
             self.coco_eval[iou_type] = COCOeval_faster(
-                self.coco_gt, iouType=iou_type, lvis_style=self.lvis_style, print_function=print, separate_eval=True
+                self.coco_gt,
+                iouType=iou_type,
+                ranges=self.ranges,
+                lvis_style=self.lvis_style,
+                print_function=print,
+                separate_eval=True,
             )
         self.img_ids = []
         self.eval_imgs = {k: [] for k in self.iou_types}
@@ -105,7 +126,9 @@ class FasterCocoEvaluator:
 
             self.eval_imgs[iou_type].append(
                 np.array(coco_eval._evalImgs_cpp).reshape(
-                    len(coco_eval.params.catIds), len(coco_eval.params.areaRng), len(coco_eval.params.imgIds)
+                    len(coco_eval.params.catIds),
+                    len(coco_eval.params.areaRng),
+                    len(coco_eval.params.imgIds),
                 )
             )
 

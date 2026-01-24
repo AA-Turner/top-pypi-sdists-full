@@ -106,6 +106,8 @@ class MechDriverSetupBase(abc.ABC):
         neutron_agent.AgentCache().get_agents.return_value = [agent1]
         self.mock_vp_parents = mock.patch.object(
             ovn_utils, 'get_virtual_port_parents', return_value=None).start()
+        mock.patch.object(ovn_utils, 'ovs_persist_uuid_supported',
+                          return_value=True).start()
 
     def _add_chassis_private(self, nb_cfg, name=None):
         chassis_private = mock.Mock()
@@ -178,8 +180,6 @@ class TestOVNMechanismDriverBase(MechDriverSetupBase,
         # Need to register here for 'vlan_transparent' config before
         # setting up test_plugin
         config.register_common_config_options()
-        cfg.CONF.set_override('vlan_transparent', True)
-        cfg.CONF.set_override('vlan_qinq', True)
         cfg.CONF.set_override('ovsdb_connection_timeout', 30, group='ovn')
         mock.patch.object(impl_idl_ovn.Backend, 'schema_helper').start()
         super().setUp()
@@ -881,15 +881,19 @@ class TestOVNMechanismDriver(TestOVNMechanismDriverBase):
                           self.mech_driver.update_network_precommit,
                           fake_network_context)
 
+    def _verify_ls_add(self, net_id, may_exist=True, **kwargs):
+        ls_add = self.mech_driver._ovn_client._nb_idl.ls_add
+        ls_add.assert_called_once_with(
+            external_ids=mock.ANY,
+            may_exist=may_exist, network_id=net_id, **kwargs)
+
     def _create_network_igmp_snoop(self, enabled):
         cfg.CONF.set_override('igmp_snooping_enable', enabled, group='OVS')
-        nb_idl = self.mech_driver._ovn_client._nb_idl
         net = self._make_network(self.fmt, name='net1',
                                  admin_state_up=True)['network']
         value = 'true' if enabled else 'false'
-        nb_idl.ls_add.assert_called_once_with(
-            ovn_utils.ovn_name(net['id']), external_ids=mock.ANY,
-            may_exist=True,
+        self._verify_ls_add(
+            net_id=net['id'],
             other_config={ovn_const.MCAST_SNOOP: value,
                           ovn_const.MCAST_FLOOD_UNREGISTERED: 'false',
                           ovn_const.VLAN_PASSTHRU: 'false'})
@@ -901,7 +905,6 @@ class TestOVNMechanismDriver(TestOVNMechanismDriverBase):
         self._create_network_igmp_snoop(enabled=False)
 
     def _create_network_vlan_passthru(self, vlan_transparent, qinq):
-        nb_idl = self.mech_driver._ovn_client._nb_idl
         net = self._make_network(
             self.fmt, name='net1',
             as_admin=True,
@@ -917,9 +920,8 @@ class TestOVNMechanismDriver(TestOVNMechanismDriverBase):
                'provider:physical_network': 'physnet1'})['network']
         value = 'true' if vlan_transparent or qinq else 'false'
         expected_fdb_age_treshold = ovn_conf.get_fdb_age_threshold()
-        nb_idl.ls_add.assert_called_once_with(
-            ovn_utils.ovn_name(net['id']), external_ids=mock.ANY,
-            may_exist=True,
+        self._verify_ls_add(
+            net_id=net['id'],
             other_config={
                 ovn_const.MCAST_SNOOP: 'false',
                 ovn_const.MCAST_FLOOD_UNREGISTERED: 'false',
@@ -938,8 +940,7 @@ class TestOVNMechanismDriver(TestOVNMechanismDriverBase):
 
     def test_create_network_create_localnet_port_tunnel_network_type(self):
         nb_idl = self.mech_driver._ovn_client._nb_idl
-        self._make_network(self.fmt, name='net1',
-                           admin_state_up=True)['network']
+        self._make_network(self.fmt, name='net1', admin_state_up=True)
         # net1 is not physical network
         nb_idl.create_lswitch_port.assert_not_called()
 
@@ -958,6 +959,7 @@ class TestOVNMechanismDriver(TestOVNMechanismDriverBase):
             self.context, net['id'])
         nb_idl.create_lswitch_port.assert_called_once_with(
             addresses=[ovn_const.UNKNOWN_ADDR],
+            network_id=net['id'],
             external_ids={},
             lport_name=ovn_utils.ovn_provnet_port_name(segments[0]['id']),
             lswitch_name=ovn_utils.ovn_name(net['id']),
@@ -3183,6 +3185,47 @@ class TestOVNMechanismDriver(TestOVNMechanismDriverBase):
     def test_node_uuid_no_worker_id(self, *args):
         self.assertEqual(123456789, self.mech_driver.node_uuid)
 
+    def test_create_port_with_allowed_address_pairs(self):
+        with self.network() as network:
+            with self.subnet(network, cidr='10.0.0.0/24'):
+                self._make_port(
+                    self.fmt, network['network']['id'],
+                    device_owner=const.DEVICE_OWNER_DISTRIBUTED,
+                    fixed_ips=[{'ip_address': '10.0.0.2'}],
+                    as_admin=True,
+                    arg_list=('device_owner', 'fixed_ips'))
+                port1 = self._make_port(
+                    self.fmt, network['network']['id'],
+                    allowed_address_pairs=[{'ip_address': '10.0.0.3'}],
+                    as_admin=True,
+                    arg_list=('allowed_address_pairs',))['port']
+                self.assertEqual(
+                    [{'ip_address': '10.0.0.3',
+                      'mac_address': port1['mac_address']}],
+                    port1['allowed_address_pairs'])
+                self._make_port(
+                    self.fmt, network['network']['id'],
+                    allowed_address_pairs=[{'ip_address': '10.0.0.2'}],
+                    expected_res_status=exc.HTTPBadRequest.code,
+                    arg_list=('allowed_address_pairs',))
+                port2 = self._show('ports', port1['id'])['port']
+                self.assertEqual(
+                    [{'ip_address': '10.0.0.3',
+                      'mac_address': port2['mac_address']}],
+                    port2['allowed_address_pairs'])
+
+                # Now test the same but giving a subnet as allowed address pair
+                self._make_port(
+                    self.fmt, network['network']['id'],
+                    allowed_address_pairs=[{'ip_address': '10.0.0.2/26'}],
+                    expected_res_status=exc.HTTPBadRequest.code,
+                    arg_list=('allowed_address_pairs',))
+                port3 = self._show('ports', port1['id'])['port']
+                self.assertEqual(
+                    [{'ip_address': '10.0.0.3',
+                      'mac_address': port3['mac_address']}],
+                    port3['allowed_address_pairs'])
+
 
 class OVNMechanismDriverTestCase(MechDriverSetupBase,
                                  test_plugin.Ml2PluginV2TestCase):
@@ -3436,6 +3479,7 @@ class TestOVNMechanismDriverSegment(MechDriverSetupBase,
             segmentation_id=200, network_type='vlan')['segment']
         ovn_nb_api.create_lswitch_port.assert_called_once_with(
             addresses=[ovn_const.UNKNOWN_ADDR],
+            network_id=net['id'],
             external_ids={},
             lport_name=ovn_utils.ovn_provnet_port_name(new_segment['id']),
             lswitch_name=ovn_utils.ovn_name(net['id']),
@@ -3454,6 +3498,7 @@ class TestOVNMechanismDriverSegment(MechDriverSetupBase,
             segmentation_id=300, network_type='vlan')['segment']
         ovn_nb_api.create_lswitch_port.assert_called_once_with(
             addresses=[ovn_const.UNKNOWN_ADDR],
+            network_id=net['id'],
             external_ids={},
             lport_name=ovn_utils.ovn_provnet_port_name(new_segment['id']),
             lswitch_name=ovn_utils.ovn_name(net['id']),

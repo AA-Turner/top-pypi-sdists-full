@@ -33,9 +33,10 @@ class EventLevel(object):
     ERROR = "ERROR"
     TRACE = "TRACE"
     DEBUG = "DEBUG"
+    CRITICAL = "CRITICAL"
     UNKNOWN = "UNKNOWN"
 
-    allowable_values = [INFO, WARNING, ERROR, TRACE, DEBUG, UNKNOWN]  # noqa: E501
+    allowable_values = [INFO, WARNING, ERROR, TRACE, DEBUG, CRITICAL, UNKNOWN]  # noqa: E501
 
     """
     Attributes:

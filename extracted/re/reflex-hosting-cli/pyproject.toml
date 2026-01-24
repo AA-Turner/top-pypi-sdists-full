@@ -1,6 +1,6 @@
 [project]
 name = "reflex-hosting-cli"
-version = "0.1.55"
+version = "0.1.61"
 description = "Reflex Hosting CLI"
 license = "Apache-2.0"
 authors = [
@@ -88,7 +88,6 @@ lint.ignore = [
     "RUF008",
     "RUF012",
     "TRY0",
-    "UP038",
 ]
 lint.pydocstyle.convention = "google"
 target-version = "py310"

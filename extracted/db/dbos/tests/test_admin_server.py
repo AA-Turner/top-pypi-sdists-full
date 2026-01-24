@@ -12,14 +12,7 @@ import sqlalchemy as sa
 from requests.exceptions import ConnectionError
 
 # Public API
-from dbos import (
-    DBOS,
-    DBOSConfig,
-    Queue,
-    SetWorkflowID,
-    WorkflowHandle,
-    _workflow_commands,
-)
+from dbos import DBOS, DBOSConfig, Queue, SetWorkflowID, WorkflowHandle
 from dbos._error import DBOSAwaitedWorkflowCancelledError
 from dbos._schemas.system_database import SystemSchema
 from dbos._sys_db import WorkflowStatusString
@@ -296,7 +289,7 @@ def test_admin_workflow_resume(dbos: DBOS) -> None:
     assert len(output) == 1
     assert output[0] != None
     wfid = output[0].workflow_id
-    info = _workflow_commands.get_workflow(dbos._sys_db, wfid)
+    info = DBOS.get_workflow_status(wfid)
     assert info is not None
     assert info.status == "PENDING"
 
@@ -308,7 +301,7 @@ def test_admin_workflow_resume(dbos: DBOS) -> None:
     event.set()
     with pytest.raises(DBOSAwaitedWorkflowCancelledError):
         handle.get_result()
-    info = _workflow_commands.get_workflow(dbos._sys_db, wfid)
+    info = DBOS.get_workflow_status(wfid)
     assert info is not None
     assert info.status == "CANCELLED"
 
@@ -330,7 +323,7 @@ def test_admin_workflow_resume(dbos: DBOS) -> None:
     assert response.status_code == 204
     # Wait for the workflow to finish
     DBOS.retrieve_workflow(wfid).get_result()
-    info = _workflow_commands.get_workflow(dbos._sys_db, wfid)
+    info = DBOS.get_workflow_status(wfid)
     assert info is not None
     assert info.status == "SUCCESS"
     assert info.executor_id == GlobalParams.executor_id
@@ -355,7 +348,7 @@ def test_admin_workflow_restart(dbos: DBOS) -> None:
 
     wfUuid = output[0].workflow_id
 
-    info = _workflow_commands.get_workflow(dbos._sys_db, wfUuid)
+    info = DBOS.get_workflow_status(wfUuid)
     assert info is not None, "Expected output to be not None"
 
     assert info.status == "SUCCESS", f"Expected status to be SUCCESS"
@@ -373,7 +366,7 @@ def test_admin_workflow_restart(dbos: DBOS) -> None:
     count = 0
     while count < 5:
         # Check if the workflow is in the database
-        info = _workflow_commands.get_workflow(dbos._sys_db, new_workflow_id)
+        info = DBOS.get_workflow_status(new_workflow_id)
         assert info is not None, "Expected output to be not None"
         if info.status == "SUCCESS":
             worked = True
@@ -402,7 +395,7 @@ def test_admin_workflow_fork(dbos: DBOS) -> None:
 
     wfUuid = output[0].workflow_id
 
-    info = _workflow_commands.get_workflow(dbos._sys_db, wfUuid)
+    info = DBOS.get_workflow_status(wfUuid)
     assert info is not None, "Expected output to be not None"
 
     assert info.status == "SUCCESS", f"Expected status to be SUCCESS"
@@ -424,7 +417,7 @@ def test_admin_workflow_fork(dbos: DBOS) -> None:
     count = 0
     while count < 5:
         # Check if the workflow is in the database
-        info = _workflow_commands.get_workflow(dbos._sys_db, new_workflow_id)
+        info = DBOS.get_workflow_status(new_workflow_id)
         assert info is not None, "Expected output to be not None"
         if info.status == "SUCCESS":
             worked = True
@@ -471,16 +464,16 @@ def test_list_workflows(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -> No
     handle_1 = DBOS.start_workflow(test_workflow_1)
     time.sleep(2)  # Sleep for 2 seconds between workflows
     handle_2 = DBOS.start_workflow(test_workflow_2, datetime.now())
+    handle_3 = DBOS.fork_workflow(handle_1.workflow_id, 0)
 
     # Wait for workflows to complete
     handle_1.get_result()
     handle_2.get_result()
+    handle_3.get_result()
 
     # List workflows and dynamically set the filter "name"
     workflows_list = DBOS.list_workflows()
-    assert (
-        len(workflows_list) >= 2
-    ), f"Expected at least 2 workflows, but got {len(workflows_list)}"
+    assert len(workflows_list) >= 3
 
     workflow_ids = [w.workflow_id for w in workflows_list]
 
@@ -493,7 +486,6 @@ def test_list_workflows(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -> No
         created_at_second_workflow / 1000, tz=timezone.utc
     ).isoformat()
 
-    # Test POST /workflows with filters
     filters: Dict[str, Any] = {
         "workflow_uuids": workflow_ids,
         "start_time": start_time_filter,
@@ -502,7 +494,7 @@ def test_list_workflows(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -> No
     assert response.status_code == 200
 
     workflows = response.json()
-    assert len(workflows) == 1, f"Expected 1 workflows, but got {len(workflows)}"
+    assert len(workflows) == 2
 
     # Make sure it contains all the expected fields
     assert workflows[0]["WorkflowUUID"] == handle_2.workflow_id, "Workflow ID mismatch"
@@ -520,8 +512,14 @@ def test_list_workflows(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -> No
     assert workflows[0]["CreatedAt"] is not None and len(workflows[0]["CreatedAt"]) > 0
     assert workflows[0]["UpdatedAt"] is not None and len(workflows[0]["UpdatedAt"]) > 0
     assert workflows[0]["QueueName"] is None
-    assert workflows[0]["ApplicationVersion"] == GlobalParams.app_version
+    assert workflows[0]["ApplicationVersion"] == DBOS.application_version
     assert workflows[0]["ExecutorID"] == GlobalParams.executor_id
+    assert workflows[0]["WorkflowTimeoutMS"] is None
+    assert workflows[0]["WorkflowDeadlineEpochMS"] is None
+    assert workflows[0]["DeduplicationID"] is None
+    assert workflows[0]["Priority"] == "0"
+    assert workflows[0]["QueuePartitionKey"] is None
+    assert workflows[0]["ForkedFrom"] is None
 
     # Only load input and output as requested
     filters = {
@@ -534,7 +532,7 @@ def test_list_workflows(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -> No
     assert response.status_code == 200
 
     workflows = response.json()
-    assert len(workflows) == 1
+    assert len(workflows) == 2
     assert workflows[0]["Output"] is not None and len(workflows[0]["Output"]) > 0
     assert workflows[0]["Input"] is not None and len(workflows[0]["Input"]) > 0
 
@@ -557,9 +555,7 @@ def test_list_workflows(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -> No
     assert response.status_code == 200
     workflows = response.json()
     assert len(workflows) == len(workflows_list)
-    assert (
-        workflows[0]["WorkflowUUID"] == handle_2.workflow_id
-    ), "First workflow should be the last one started"
+    assert workflows[0]["WorkflowUUID"] == handle_3.workflow_id
 
     # Test all filters
     filters = {
@@ -586,14 +582,18 @@ def test_list_workflows(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -> No
     workflows = response.json()
     assert len(workflows) == 0
 
+    # Test the workflow name filter, and also test fork data is correct
     filters = {
         "workflow_name": test_workflow_1.__qualname__,
     }
     response = requests.post("http://localhost:3001/workflows", json=filters, timeout=5)
     assert response.status_code == 200
     workflows = response.json()
-    assert len(workflows) == 1
+    assert len(workflows) == 2
     assert workflows[0]["WorkflowUUID"] == handle_1.workflow_id
+    assert workflows[0]["ForkedFrom"] == None
+    assert workflows[1]["WorkflowUUID"] == handle_3.workflow_id
+    assert workflows[1]["ForkedFrom"] == handle_1.workflow_id
 
     filters = {
         "end_time": (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
@@ -612,20 +612,28 @@ def test_list_workflows(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -> No
     assert len(workflows) == 0
 
     filters = {
+        "forked_from": "not-an-id",
+    }
+    response = requests.post("http://localhost:3001/workflows", json=filters, timeout=5)
+    assert response.status_code == 200
+    workflows = response.json()
+    assert len(workflows) == 0
+
+    filters = {
         "status": ["SUCCESS", "CANCELLED"],
     }
     response = requests.post("http://localhost:3001/workflows", json=filters, timeout=5)
     assert response.status_code == 200
     workflows = response.json()
-    assert len(workflows) == 2
+    assert len(workflows) == 3
 
     filters = {
-        "application_version": GlobalParams.app_version,
+        "application_version": DBOS.application_version,
     }
     response = requests.post("http://localhost:3001/workflows", json=filters, timeout=5)
     assert response.status_code == 200
     workflows = response.json()
-    assert len(workflows) == 2
+    assert len(workflows) == 3
 
     filters = {
         "limit": 1,
@@ -638,9 +646,7 @@ def test_list_workflows(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -> No
     assert workflows[0]["WorkflowUUID"] == handle_2.workflow_id
 
     filters = {
-        "workflow_id_prefix": handle_1.workflow_id[
-            :10
-        ],  # First 10 characters of the workflow name
+        "workflow_id_prefix": handle_1.workflow_id,
     }
     response = requests.post("http://localhost:3001/workflows", json=filters, timeout=5)
     assert response.status_code == 200
@@ -699,7 +705,7 @@ def test_get_workflow_by_id(dbos: DBOS) -> None:
         workflow_data["UpdatedAt"] is not None and len(workflow_data["UpdatedAt"]) > 0
     )
     assert workflow_data["QueueName"] is None
-    assert workflow_data["ApplicationVersion"] == GlobalParams.app_version
+    assert workflow_data["ApplicationVersion"] == DBOS.application_version
     assert workflow_data["ExecutorID"] == GlobalParams.executor_id
 
     # Test GET /workflows/:workflow_id for a non-existing workflow
@@ -812,7 +818,7 @@ def test_queued_workflows_endpoint(
         and len(queued_workflows[0]["UpdatedAt"]) > 0
     )
     assert queued_workflows[0]["QueueName"] == test_queue1.name
-    assert queued_workflows[0]["ApplicationVersion"] == GlobalParams.app_version
+    assert queued_workflows[0]["ApplicationVersion"] == DBOS.application_version
     assert queued_workflows[0]["ExecutorID"] == GlobalParams.executor_id
 
     # Verify sort_desc inverts the order
@@ -899,3 +905,51 @@ def test_queued_workflows_endpoint(
         empty_result, list
     ), "Response should be a list even for non-existent queue"
     assert len(empty_result) == 0, "Expected no workflows for non-existent queue"
+
+
+def test_list_workflow_steps(dbos: DBOS) -> None:
+    """Test the /workflows/:workflow_id/steps endpoint."""
+
+    @DBOS.workflow()
+    def workflow_with_steps() -> str:
+        step1_result = test_step("hello")
+        step2_result = test_step("world")
+        return step1_result + " " + step2_result
+
+    @DBOS.step()
+    def test_step(value: str) -> str:
+        return value + "!"
+
+    # Execute the workflow
+    handle = DBOS.start_workflow(workflow_with_steps)
+    result = handle.get_result()
+    assert result == "hello! world!"
+
+    # Get the workflow ID
+    workflow_id = handle.workflow_id
+
+    # Test GET /workflows/:workflow_id/steps
+    response = requests.get(
+        f"http://localhost:3001/workflows/{workflow_id}/steps", timeout=5
+    )
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+
+    steps = response.json()
+    assert isinstance(steps, list), "Response should be a list"
+    assert len(steps) == 2, f"Expected 2 steps, got {len(steps)}"
+
+    # Verify first step
+    assert steps[0]["function_name"] == test_step.__qualname__
+    assert steps[0]["output"] is not None
+    assert "hello!" in steps[0]["output"]
+    assert steps[0]["error"] is None
+    assert steps[0]["started_at_epoch_ms"]
+    assert steps[0]["completed_at_epoch_ms"]
+
+    # Verify second step
+    assert steps[1]["function_name"] == test_step.__qualname__
+    assert steps[1]["output"] is not None
+    assert "world!" in steps[1]["output"]
+    assert steps[1]["error"] is None
+    assert steps[1]["started_at_epoch_ms"]
+    assert steps[1]["completed_at_epoch_ms"]

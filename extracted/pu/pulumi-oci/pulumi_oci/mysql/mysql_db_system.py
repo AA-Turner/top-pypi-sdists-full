@@ -34,6 +34,7 @@ class MysqlDbSystemArgs:
                  customer_contacts: Optional[pulumi.Input[Sequence[pulumi.Input['MysqlDbSystemCustomerContactArgs']]]] = None,
                  data_storage: Optional[pulumi.Input['MysqlDbSystemDataStorageArgs']] = None,
                  data_storage_size_in_gb: Optional[pulumi.Input[_builtins.int]] = None,
+                 database_console: Optional[pulumi.Input['MysqlDbSystemDatabaseConsoleArgs']] = None,
                  database_management: Optional[pulumi.Input[_builtins.str]] = None,
                  database_mode: Optional[pulumi.Input[_builtins.str]] = None,
                  defined_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
@@ -54,6 +55,7 @@ class MysqlDbSystemArgs:
                  read_endpoint: Optional[pulumi.Input['MysqlDbSystemReadEndpointArgs']] = None,
                  rest: Optional[pulumi.Input['MysqlDbSystemRestArgs']] = None,
                  secure_connections: Optional[pulumi.Input['MysqlDbSystemSecureConnectionsArgs']] = None,
+                 security_attributes: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  shutdown_type: Optional[pulumi.Input[_builtins.str]] = None,
                  source: Optional[pulumi.Input['MysqlDbSystemSourceArgs']] = None,
                  state: Optional[pulumi.Input[_builtins.str]] = None):
@@ -79,6 +81,7 @@ class MysqlDbSystemArgs:
         :param pulumi.Input[Sequence[pulumi.Input['MysqlDbSystemCustomerContactArgs']]] customer_contacts: (Updatable) The list of customer email addresses that receive information from Oracle about the specified Oracle Cloud Infrastructure DB System resource.  Oracle uses these email addresses to send notifications about planned and unplanned software maintenance updates, information about system hardware, and other information needed by administrators.  Up to 10 email addresses can be added to the customer contacts for a DB System.
         :param pulumi.Input['MysqlDbSystemDataStorageArgs'] data_storage: (Updatable) Data Storage configuration properties.
         :param pulumi.Input[_builtins.int] data_storage_size_in_gb: (Updatable) Initial size of the data volume in GBs that will be created and attached. Keep in mind that this only specifies the size of the database data volume, the log volume for the database will be scaled appropriately with its shape. It is required if you are creating a new database. It cannot be set if you are creating a database from a backup.
+        :param pulumi.Input['MysqlDbSystemDatabaseConsoleArgs'] database_console: (Updatable) Details required to configure the database console while creating a DB System.
         :param pulumi.Input[_builtins.str] database_management: (Updatable) Whether to enable monitoring via the Database Management service.
         :param pulumi.Input[_builtins.str] database_mode: (Updatable) The database mode indicating the types of statements that will be allowed to run in the DB system. This mode will apply only to statements run by user connections. Replicated write statements will continue  to be allowed regardless of the DatabaseMode.
                * READ_WRITE (default): allow running read and write statements on the DB system;
@@ -111,6 +114,7 @@ class MysqlDbSystemArgs:
         :param pulumi.Input['MysqlDbSystemReadEndpointArgs'] read_endpoint: (Updatable) Details required to create a Read Endpoint.
         :param pulumi.Input['MysqlDbSystemRestArgs'] rest: (Updatable) Details required to configure REST while creating a DB System.
         :param pulumi.Input['MysqlDbSystemSecureConnectionsArgs'] secure_connections: (Updatable) Secure connection configuration details.
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] security_attributes: (Updatable) Security Attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [ZPR Artifacts](https://docs.oracle.com/en-us/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm). Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "audit"}}}`
         :param pulumi.Input[_builtins.str] shutdown_type: It is applicable only for stopping a DB System. Could be set to `FAST`, `SLOW` or `IMMEDIATE`. Default value is `FAST`.
                
                ** IMPORTANT **
@@ -140,6 +144,8 @@ class MysqlDbSystemArgs:
             pulumi.set(__self__, "data_storage", data_storage)
         if data_storage_size_in_gb is not None:
             pulumi.set(__self__, "data_storage_size_in_gb", data_storage_size_in_gb)
+        if database_console is not None:
+            pulumi.set(__self__, "database_console", database_console)
         if database_management is not None:
             pulumi.set(__self__, "database_management", database_management)
         if database_mode is not None:
@@ -180,6 +186,8 @@ class MysqlDbSystemArgs:
             pulumi.set(__self__, "rest", rest)
         if secure_connections is not None:
             pulumi.set(__self__, "secure_connections", secure_connections)
+        if security_attributes is not None:
+            pulumi.set(__self__, "security_attributes", security_attributes)
         if shutdown_type is not None:
             pulumi.set(__self__, "shutdown_type", shutdown_type)
         if source is not None:
@@ -349,6 +357,18 @@ class MysqlDbSystemArgs:
     @data_storage_size_in_gb.setter
     def data_storage_size_in_gb(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "data_storage_size_in_gb", value)
+
+    @_builtins.property
+    @pulumi.getter(name="databaseConsole")
+    def database_console(self) -> Optional[pulumi.Input['MysqlDbSystemDatabaseConsoleArgs']]:
+        """
+        (Updatable) Details required to configure the database console while creating a DB System.
+        """
+        return pulumi.get(self, "database_console")
+
+    @database_console.setter
+    def database_console(self, value: Optional[pulumi.Input['MysqlDbSystemDatabaseConsoleArgs']]):
+        pulumi.set(self, "database_console", value)
 
     @_builtins.property
     @pulumi.getter(name="databaseManagement")
@@ -603,6 +623,18 @@ class MysqlDbSystemArgs:
         pulumi.set(self, "secure_connections", value)
 
     @_builtins.property
+    @pulumi.getter(name="securityAttributes")
+    def security_attributes(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        """
+        (Updatable) Security Attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [ZPR Artifacts](https://docs.oracle.com/en-us/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm). Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "audit"}}}`
+        """
+        return pulumi.get(self, "security_attributes")
+
+    @security_attributes.setter
+    def security_attributes(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "security_attributes", value)
+
+    @_builtins.property
     @pulumi.getter(name="shutdownType")
     def shutdown_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -658,6 +690,7 @@ class _MysqlDbSystemState:
                  customer_contacts: Optional[pulumi.Input[Sequence[pulumi.Input['MysqlDbSystemCustomerContactArgs']]]] = None,
                  data_storage: Optional[pulumi.Input['MysqlDbSystemDataStorageArgs']] = None,
                  data_storage_size_in_gb: Optional[pulumi.Input[_builtins.int]] = None,
+                 database_console: Optional[pulumi.Input['MysqlDbSystemDatabaseConsoleArgs']] = None,
                  database_management: Optional[pulumi.Input[_builtins.str]] = None,
                  database_mode: Optional[pulumi.Input[_builtins.str]] = None,
                  defined_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
@@ -683,6 +716,7 @@ class _MysqlDbSystemState:
                  read_endpoint: Optional[pulumi.Input['MysqlDbSystemReadEndpointArgs']] = None,
                  rest: Optional[pulumi.Input['MysqlDbSystemRestArgs']] = None,
                  secure_connections: Optional[pulumi.Input['MysqlDbSystemSecureConnectionsArgs']] = None,
+                 security_attributes: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  shape_name: Optional[pulumi.Input[_builtins.str]] = None,
                  shutdown_type: Optional[pulumi.Input[_builtins.str]] = None,
                  source: Optional[pulumi.Input['MysqlDbSystemSourceArgs']] = None,
@@ -712,6 +746,7 @@ class _MysqlDbSystemState:
         :param pulumi.Input[Sequence[pulumi.Input['MysqlDbSystemCustomerContactArgs']]] customer_contacts: (Updatable) The list of customer email addresses that receive information from Oracle about the specified Oracle Cloud Infrastructure DB System resource.  Oracle uses these email addresses to send notifications about planned and unplanned software maintenance updates, information about system hardware, and other information needed by administrators.  Up to 10 email addresses can be added to the customer contacts for a DB System.
         :param pulumi.Input['MysqlDbSystemDataStorageArgs'] data_storage: (Updatable) Data Storage configuration properties.
         :param pulumi.Input[_builtins.int] data_storage_size_in_gb: (Updatable) Initial size of the data volume in GBs that will be created and attached. Keep in mind that this only specifies the size of the database data volume, the log volume for the database will be scaled appropriately with its shape. It is required if you are creating a new database. It cannot be set if you are creating a database from a backup.
+        :param pulumi.Input['MysqlDbSystemDatabaseConsoleArgs'] database_console: (Updatable) Details required to configure the database console while creating a DB System.
         :param pulumi.Input[_builtins.str] database_management: (Updatable) Whether to enable monitoring via the Database Management service.
         :param pulumi.Input[_builtins.str] database_mode: (Updatable) The database mode indicating the types of statements that will be allowed to run in the DB system. This mode will apply only to statements run by user connections. Replicated write statements will continue  to be allowed regardless of the DatabaseMode.
                * READ_WRITE (default): allow running read and write statements on the DB system;
@@ -749,6 +784,7 @@ class _MysqlDbSystemState:
         :param pulumi.Input['MysqlDbSystemReadEndpointArgs'] read_endpoint: (Updatable) Details required to create a Read Endpoint.
         :param pulumi.Input['MysqlDbSystemRestArgs'] rest: (Updatable) Details required to configure REST while creating a DB System.
         :param pulumi.Input['MysqlDbSystemSecureConnectionsArgs'] secure_connections: (Updatable) Secure connection configuration details.
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] security_attributes: (Updatable) Security Attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [ZPR Artifacts](https://docs.oracle.com/en-us/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm). Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "audit"}}}`
         :param pulumi.Input[_builtins.str] shape_name: (Updatable) The name of the shape. The shape determines the resources allocated
                * CPU cores and memory for VM shapes; CPU cores, memory and storage for non-VM (or bare metal) shapes. To get a list of shapes, use the [ListShapes](https://docs.cloud.oracle.com/iaas/api/#/en/mysql/20190415/ShapeSummary/ListShapes) operation.
         :param pulumi.Input[_builtins.str] shutdown_type: It is applicable only for stopping a DB System. Could be set to `FAST`, `SLOW` or `IMMEDIATE`. Default value is `FAST`.
@@ -788,6 +824,8 @@ class _MysqlDbSystemState:
             pulumi.set(__self__, "data_storage", data_storage)
         if data_storage_size_in_gb is not None:
             pulumi.set(__self__, "data_storage_size_in_gb", data_storage_size_in_gb)
+        if database_console is not None:
+            pulumi.set(__self__, "database_console", database_console)
         if database_management is not None:
             pulumi.set(__self__, "database_management", database_management)
         if database_mode is not None:
@@ -838,6 +876,8 @@ class _MysqlDbSystemState:
             pulumi.set(__self__, "rest", rest)
         if secure_connections is not None:
             pulumi.set(__self__, "secure_connections", secure_connections)
+        if security_attributes is not None:
+            pulumi.set(__self__, "security_attributes", security_attributes)
         if shape_name is not None:
             pulumi.set(__self__, "shape_name", shape_name)
         if shutdown_type is not None:
@@ -1016,6 +1056,18 @@ class _MysqlDbSystemState:
     @data_storage_size_in_gb.setter
     def data_storage_size_in_gb(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "data_storage_size_in_gb", value)
+
+    @_builtins.property
+    @pulumi.getter(name="databaseConsole")
+    def database_console(self) -> Optional[pulumi.Input['MysqlDbSystemDatabaseConsoleArgs']]:
+        """
+        (Updatable) Details required to configure the database console while creating a DB System.
+        """
+        return pulumi.get(self, "database_console")
+
+    @database_console.setter
+    def database_console(self, value: Optional[pulumi.Input['MysqlDbSystemDatabaseConsoleArgs']]):
+        pulumi.set(self, "database_console", value)
 
     @_builtins.property
     @pulumi.getter(name="databaseManagement")
@@ -1330,6 +1382,18 @@ class _MysqlDbSystemState:
         pulumi.set(self, "secure_connections", value)
 
     @_builtins.property
+    @pulumi.getter(name="securityAttributes")
+    def security_attributes(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        """
+        (Updatable) Security Attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [ZPR Artifacts](https://docs.oracle.com/en-us/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm). Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "audit"}}}`
+        """
+        return pulumi.get(self, "security_attributes")
+
+    @security_attributes.setter
+    def security_attributes(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "security_attributes", value)
+
+    @_builtins.property
     @pulumi.getter(name="shapeName")
     def shape_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -1447,6 +1511,7 @@ class MysqlDbSystem(pulumi.CustomResource):
                  customer_contacts: Optional[pulumi.Input[Sequence[pulumi.Input[Union['MysqlDbSystemCustomerContactArgs', 'MysqlDbSystemCustomerContactArgsDict']]]]] = None,
                  data_storage: Optional[pulumi.Input[Union['MysqlDbSystemDataStorageArgs', 'MysqlDbSystemDataStorageArgsDict']]] = None,
                  data_storage_size_in_gb: Optional[pulumi.Input[_builtins.int]] = None,
+                 database_console: Optional[pulumi.Input[Union['MysqlDbSystemDatabaseConsoleArgs', 'MysqlDbSystemDatabaseConsoleArgsDict']]] = None,
                  database_management: Optional[pulumi.Input[_builtins.str]] = None,
                  database_mode: Optional[pulumi.Input[_builtins.str]] = None,
                  defined_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
@@ -1467,6 +1532,7 @@ class MysqlDbSystem(pulumi.CustomResource):
                  read_endpoint: Optional[pulumi.Input[Union['MysqlDbSystemReadEndpointArgs', 'MysqlDbSystemReadEndpointArgsDict']]] = None,
                  rest: Optional[pulumi.Input[Union['MysqlDbSystemRestArgs', 'MysqlDbSystemRestArgsDict']]] = None,
                  secure_connections: Optional[pulumi.Input[Union['MysqlDbSystemSecureConnectionsArgs', 'MysqlDbSystemSecureConnectionsArgsDict']]] = None,
+                 security_attributes: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  shape_name: Optional[pulumi.Input[_builtins.str]] = None,
                  shutdown_type: Optional[pulumi.Input[_builtins.str]] = None,
                  source: Optional[pulumi.Input[Union['MysqlDbSystemSourceArgs', 'MysqlDbSystemSourceArgsDict']]] = None,
@@ -1474,10 +1540,6 @@ class MysqlDbSystem(pulumi.CustomResource):
                  subnet_id: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        This resource provides the Mysql Db System resource in Oracle Cloud Infrastructure MySQL Database service.
-
-        Creates and launches a DB System.
-
         ## Example Usage
 
         ```python
@@ -1521,6 +1583,10 @@ class MysqlDbSystem(pulumi.CustomResource):
                 "max_storage_size_in_gbs": mysql_db_system_data_storage_max_storage_size_in_gbs,
             },
             data_storage_size_in_gb=mysql_db_system_data_storage_size_in_gb,
+            database_console={
+                "status": mysql_db_system_database_console_status,
+                "port": mysql_db_system_database_console_port,
+            },
             database_management=mysql_db_system_database_management,
             database_mode=mysql_db_system_database_mode,
             defined_tags={
@@ -1546,6 +1612,9 @@ class MysqlDbSystem(pulumi.CustomResource):
             is_highly_available=mysql_db_system_is_highly_available,
             maintenance={
                 "window_start_time": mysql_db_system_maintenance_window_start_time,
+                "maintenance_schedule_type": mysql_db_system_maintenance_maintenance_schedule_type,
+                "version_preference": mysql_db_system_maintenance_version_preference,
+                "version_track_preference": mysql_db_system_maintenance_version_track_preference,
             },
             nsg_ids=mysql_db_system_nsg_ids,
             port=mysql_db_system_port,
@@ -1564,6 +1633,7 @@ class MysqlDbSystem(pulumi.CustomResource):
                 "certificate_generation_type": mysql_db_system_secure_connections_certificate_generation_type,
                 "certificate_id": test_certificate["id"],
             },
+            security_attributes=mysql_db_system_security_attributes,
             source={
                 "source_type": mysql_db_system_source_source_type,
                 "backup_id": test_backup["id"],
@@ -1597,6 +1667,7 @@ class MysqlDbSystem(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['MysqlDbSystemCustomerContactArgs', 'MysqlDbSystemCustomerContactArgsDict']]]] customer_contacts: (Updatable) The list of customer email addresses that receive information from Oracle about the specified Oracle Cloud Infrastructure DB System resource.  Oracle uses these email addresses to send notifications about planned and unplanned software maintenance updates, information about system hardware, and other information needed by administrators.  Up to 10 email addresses can be added to the customer contacts for a DB System.
         :param pulumi.Input[Union['MysqlDbSystemDataStorageArgs', 'MysqlDbSystemDataStorageArgsDict']] data_storage: (Updatable) Data Storage configuration properties.
         :param pulumi.Input[_builtins.int] data_storage_size_in_gb: (Updatable) Initial size of the data volume in GBs that will be created and attached. Keep in mind that this only specifies the size of the database data volume, the log volume for the database will be scaled appropriately with its shape. It is required if you are creating a new database. It cannot be set if you are creating a database from a backup.
+        :param pulumi.Input[Union['MysqlDbSystemDatabaseConsoleArgs', 'MysqlDbSystemDatabaseConsoleArgsDict']] database_console: (Updatable) Details required to configure the database console while creating a DB System.
         :param pulumi.Input[_builtins.str] database_management: (Updatable) Whether to enable monitoring via the Database Management service.
         :param pulumi.Input[_builtins.str] database_mode: (Updatable) The database mode indicating the types of statements that will be allowed to run in the DB system. This mode will apply only to statements run by user connections. Replicated write statements will continue  to be allowed regardless of the DatabaseMode.
                * READ_WRITE (default): allow running read and write statements on the DB system;
@@ -1629,6 +1700,7 @@ class MysqlDbSystem(pulumi.CustomResource):
         :param pulumi.Input[Union['MysqlDbSystemReadEndpointArgs', 'MysqlDbSystemReadEndpointArgsDict']] read_endpoint: (Updatable) Details required to create a Read Endpoint.
         :param pulumi.Input[Union['MysqlDbSystemRestArgs', 'MysqlDbSystemRestArgsDict']] rest: (Updatable) Details required to configure REST while creating a DB System.
         :param pulumi.Input[Union['MysqlDbSystemSecureConnectionsArgs', 'MysqlDbSystemSecureConnectionsArgsDict']] secure_connections: (Updatable) Secure connection configuration details.
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] security_attributes: (Updatable) Security Attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [ZPR Artifacts](https://docs.oracle.com/en-us/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm). Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "audit"}}}`
         :param pulumi.Input[_builtins.str] shape_name: (Updatable) The name of the shape. The shape determines the resources allocated
                * CPU cores and memory for VM shapes; CPU cores, memory and storage for non-VM (or bare metal) shapes. To get a list of shapes, use the [ListShapes](https://docs.cloud.oracle.com/iaas/api/#/en/mysql/20190415/ShapeSummary/ListShapes) operation.
         :param pulumi.Input[_builtins.str] shutdown_type: It is applicable only for stopping a DB System. Could be set to `FAST`, `SLOW` or `IMMEDIATE`. Default value is `FAST`.
@@ -1646,10 +1718,6 @@ class MysqlDbSystem(pulumi.CustomResource):
                  args: MysqlDbSystemArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Mysql Db System resource in Oracle Cloud Infrastructure MySQL Database service.
-
-        Creates and launches a DB System.
-
         ## Example Usage
 
         ```python
@@ -1693,6 +1761,10 @@ class MysqlDbSystem(pulumi.CustomResource):
                 "max_storage_size_in_gbs": mysql_db_system_data_storage_max_storage_size_in_gbs,
             },
             data_storage_size_in_gb=mysql_db_system_data_storage_size_in_gb,
+            database_console={
+                "status": mysql_db_system_database_console_status,
+                "port": mysql_db_system_database_console_port,
+            },
             database_management=mysql_db_system_database_management,
             database_mode=mysql_db_system_database_mode,
             defined_tags={
@@ -1718,6 +1790,9 @@ class MysqlDbSystem(pulumi.CustomResource):
             is_highly_available=mysql_db_system_is_highly_available,
             maintenance={
                 "window_start_time": mysql_db_system_maintenance_window_start_time,
+                "maintenance_schedule_type": mysql_db_system_maintenance_maintenance_schedule_type,
+                "version_preference": mysql_db_system_maintenance_version_preference,
+                "version_track_preference": mysql_db_system_maintenance_version_track_preference,
             },
             nsg_ids=mysql_db_system_nsg_ids,
             port=mysql_db_system_port,
@@ -1736,6 +1811,7 @@ class MysqlDbSystem(pulumi.CustomResource):
                 "certificate_generation_type": mysql_db_system_secure_connections_certificate_generation_type,
                 "certificate_id": test_certificate["id"],
             },
+            security_attributes=mysql_db_system_security_attributes,
             source={
                 "source_type": mysql_db_system_source_source_type,
                 "backup_id": test_backup["id"],
@@ -1776,6 +1852,7 @@ class MysqlDbSystem(pulumi.CustomResource):
                  customer_contacts: Optional[pulumi.Input[Sequence[pulumi.Input[Union['MysqlDbSystemCustomerContactArgs', 'MysqlDbSystemCustomerContactArgsDict']]]]] = None,
                  data_storage: Optional[pulumi.Input[Union['MysqlDbSystemDataStorageArgs', 'MysqlDbSystemDataStorageArgsDict']]] = None,
                  data_storage_size_in_gb: Optional[pulumi.Input[_builtins.int]] = None,
+                 database_console: Optional[pulumi.Input[Union['MysqlDbSystemDatabaseConsoleArgs', 'MysqlDbSystemDatabaseConsoleArgsDict']]] = None,
                  database_management: Optional[pulumi.Input[_builtins.str]] = None,
                  database_mode: Optional[pulumi.Input[_builtins.str]] = None,
                  defined_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
@@ -1796,6 +1873,7 @@ class MysqlDbSystem(pulumi.CustomResource):
                  read_endpoint: Optional[pulumi.Input[Union['MysqlDbSystemReadEndpointArgs', 'MysqlDbSystemReadEndpointArgsDict']]] = None,
                  rest: Optional[pulumi.Input[Union['MysqlDbSystemRestArgs', 'MysqlDbSystemRestArgsDict']]] = None,
                  secure_connections: Optional[pulumi.Input[Union['MysqlDbSystemSecureConnectionsArgs', 'MysqlDbSystemSecureConnectionsArgsDict']]] = None,
+                 security_attributes: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  shape_name: Optional[pulumi.Input[_builtins.str]] = None,
                  shutdown_type: Optional[pulumi.Input[_builtins.str]] = None,
                  source: Optional[pulumi.Input[Union['MysqlDbSystemSourceArgs', 'MysqlDbSystemSourceArgsDict']]] = None,
@@ -1825,6 +1903,7 @@ class MysqlDbSystem(pulumi.CustomResource):
             __props__.__dict__["customer_contacts"] = customer_contacts
             __props__.__dict__["data_storage"] = data_storage
             __props__.__dict__["data_storage_size_in_gb"] = data_storage_size_in_gb
+            __props__.__dict__["database_console"] = database_console
             __props__.__dict__["database_management"] = database_management
             __props__.__dict__["database_mode"] = database_mode
             __props__.__dict__["defined_tags"] = defined_tags
@@ -1845,6 +1924,7 @@ class MysqlDbSystem(pulumi.CustomResource):
             __props__.__dict__["read_endpoint"] = read_endpoint
             __props__.__dict__["rest"] = rest
             __props__.__dict__["secure_connections"] = secure_connections
+            __props__.__dict__["security_attributes"] = security_attributes
             if shape_name is None and not opts.urn:
                 raise TypeError("Missing required property 'shape_name'")
             __props__.__dict__["shape_name"] = shape_name
@@ -1889,6 +1969,7 @@ class MysqlDbSystem(pulumi.CustomResource):
             customer_contacts: Optional[pulumi.Input[Sequence[pulumi.Input[Union['MysqlDbSystemCustomerContactArgs', 'MysqlDbSystemCustomerContactArgsDict']]]]] = None,
             data_storage: Optional[pulumi.Input[Union['MysqlDbSystemDataStorageArgs', 'MysqlDbSystemDataStorageArgsDict']]] = None,
             data_storage_size_in_gb: Optional[pulumi.Input[_builtins.int]] = None,
+            database_console: Optional[pulumi.Input[Union['MysqlDbSystemDatabaseConsoleArgs', 'MysqlDbSystemDatabaseConsoleArgsDict']]] = None,
             database_management: Optional[pulumi.Input[_builtins.str]] = None,
             database_mode: Optional[pulumi.Input[_builtins.str]] = None,
             defined_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
@@ -1914,6 +1995,7 @@ class MysqlDbSystem(pulumi.CustomResource):
             read_endpoint: Optional[pulumi.Input[Union['MysqlDbSystemReadEndpointArgs', 'MysqlDbSystemReadEndpointArgsDict']]] = None,
             rest: Optional[pulumi.Input[Union['MysqlDbSystemRestArgs', 'MysqlDbSystemRestArgsDict']]] = None,
             secure_connections: Optional[pulumi.Input[Union['MysqlDbSystemSecureConnectionsArgs', 'MysqlDbSystemSecureConnectionsArgsDict']]] = None,
+            security_attributes: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             shape_name: Optional[pulumi.Input[_builtins.str]] = None,
             shutdown_type: Optional[pulumi.Input[_builtins.str]] = None,
             source: Optional[pulumi.Input[Union['MysqlDbSystemSourceArgs', 'MysqlDbSystemSourceArgsDict']]] = None,
@@ -1948,6 +2030,7 @@ class MysqlDbSystem(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['MysqlDbSystemCustomerContactArgs', 'MysqlDbSystemCustomerContactArgsDict']]]] customer_contacts: (Updatable) The list of customer email addresses that receive information from Oracle about the specified Oracle Cloud Infrastructure DB System resource.  Oracle uses these email addresses to send notifications about planned and unplanned software maintenance updates, information about system hardware, and other information needed by administrators.  Up to 10 email addresses can be added to the customer contacts for a DB System.
         :param pulumi.Input[Union['MysqlDbSystemDataStorageArgs', 'MysqlDbSystemDataStorageArgsDict']] data_storage: (Updatable) Data Storage configuration properties.
         :param pulumi.Input[_builtins.int] data_storage_size_in_gb: (Updatable) Initial size of the data volume in GBs that will be created and attached. Keep in mind that this only specifies the size of the database data volume, the log volume for the database will be scaled appropriately with its shape. It is required if you are creating a new database. It cannot be set if you are creating a database from a backup.
+        :param pulumi.Input[Union['MysqlDbSystemDatabaseConsoleArgs', 'MysqlDbSystemDatabaseConsoleArgsDict']] database_console: (Updatable) Details required to configure the database console while creating a DB System.
         :param pulumi.Input[_builtins.str] database_management: (Updatable) Whether to enable monitoring via the Database Management service.
         :param pulumi.Input[_builtins.str] database_mode: (Updatable) The database mode indicating the types of statements that will be allowed to run in the DB system. This mode will apply only to statements run by user connections. Replicated write statements will continue  to be allowed regardless of the DatabaseMode.
                * READ_WRITE (default): allow running read and write statements on the DB system;
@@ -1985,6 +2068,7 @@ class MysqlDbSystem(pulumi.CustomResource):
         :param pulumi.Input[Union['MysqlDbSystemReadEndpointArgs', 'MysqlDbSystemReadEndpointArgsDict']] read_endpoint: (Updatable) Details required to create a Read Endpoint.
         :param pulumi.Input[Union['MysqlDbSystemRestArgs', 'MysqlDbSystemRestArgsDict']] rest: (Updatable) Details required to configure REST while creating a DB System.
         :param pulumi.Input[Union['MysqlDbSystemSecureConnectionsArgs', 'MysqlDbSystemSecureConnectionsArgsDict']] secure_connections: (Updatable) Secure connection configuration details.
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] security_attributes: (Updatable) Security Attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [ZPR Artifacts](https://docs.oracle.com/en-us/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm). Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "audit"}}}`
         :param pulumi.Input[_builtins.str] shape_name: (Updatable) The name of the shape. The shape determines the resources allocated
                * CPU cores and memory for VM shapes; CPU cores, memory and storage for non-VM (or bare metal) shapes. To get a list of shapes, use the [ListShapes](https://docs.cloud.oracle.com/iaas/api/#/en/mysql/20190415/ShapeSummary/ListShapes) operation.
         :param pulumi.Input[_builtins.str] shutdown_type: It is applicable only for stopping a DB System. Could be set to `FAST`, `SLOW` or `IMMEDIATE`. Default value is `FAST`.
@@ -2015,6 +2099,7 @@ class MysqlDbSystem(pulumi.CustomResource):
         __props__.__dict__["customer_contacts"] = customer_contacts
         __props__.__dict__["data_storage"] = data_storage
         __props__.__dict__["data_storage_size_in_gb"] = data_storage_size_in_gb
+        __props__.__dict__["database_console"] = database_console
         __props__.__dict__["database_management"] = database_management
         __props__.__dict__["database_mode"] = database_mode
         __props__.__dict__["defined_tags"] = defined_tags
@@ -2040,6 +2125,7 @@ class MysqlDbSystem(pulumi.CustomResource):
         __props__.__dict__["read_endpoint"] = read_endpoint
         __props__.__dict__["rest"] = rest
         __props__.__dict__["secure_connections"] = secure_connections
+        __props__.__dict__["security_attributes"] = security_attributes
         __props__.__dict__["shape_name"] = shape_name
         __props__.__dict__["shutdown_type"] = shutdown_type
         __props__.__dict__["source"] = source
@@ -2159,6 +2245,14 @@ class MysqlDbSystem(pulumi.CustomResource):
         (Updatable) Initial size of the data volume in GBs that will be created and attached. Keep in mind that this only specifies the size of the database data volume, the log volume for the database will be scaled appropriately with its shape. It is required if you are creating a new database. It cannot be set if you are creating a database from a backup.
         """
         return pulumi.get(self, "data_storage_size_in_gb")
+
+    @_builtins.property
+    @pulumi.getter(name="databaseConsole")
+    def database_console(self) -> pulumi.Output['outputs.MysqlDbSystemDatabaseConsole']:
+        """
+        (Updatable) Details required to configure the database console while creating a DB System.
+        """
+        return pulumi.get(self, "database_console")
 
     @_builtins.property
     @pulumi.getter(name="databaseManagement")
@@ -2371,6 +2465,14 @@ class MysqlDbSystem(pulumi.CustomResource):
         (Updatable) Secure connection configuration details.
         """
         return pulumi.get(self, "secure_connections")
+
+    @_builtins.property
+    @pulumi.getter(name="securityAttributes")
+    def security_attributes(self) -> pulumi.Output[Mapping[str, _builtins.str]]:
+        """
+        (Updatable) Security Attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [ZPR Artifacts](https://docs.oracle.com/en-us/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm). Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "audit"}}}`
+        """
+        return pulumi.get(self, "security_attributes")
 
     @_builtins.property
     @pulumi.getter(name="shapeName")

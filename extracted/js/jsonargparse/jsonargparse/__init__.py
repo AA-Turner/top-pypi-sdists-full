@@ -14,12 +14,14 @@ from ._common import *  # noqa: F403
 from ._core import *  # noqa: F403
 from ._deprecated import *  # noqa: F403
 from ._formatters import *  # noqa: F403
+from ._from_config import *  # noqa: F403
 from ._jsonnet import *  # noqa: F403
 from ._jsonschema import *  # noqa: F403
 from ._link_arguments import *  # noqa: F403
 from ._loaders_dumpers import *  # noqa: F403
 from ._namespace import *  # noqa: F403
 from ._optionals import *  # noqa: F403
+from ._paths import Path  # noqa: F401
 from ._signatures import *  # noqa: F403
 from ._typehints import *  # noqa: F403
 from ._util import *  # noqa: F403
@@ -70,4 +72,4 @@ __all__ += _util.__all__
 __all__ += _deprecated.__all__
 
 
-__version__ = "4.41.0"
+__version__ = "4.45.0"

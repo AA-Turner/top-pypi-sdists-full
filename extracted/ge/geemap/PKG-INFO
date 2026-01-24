@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geemap
-Version: 0.36.3
+Version: 0.37.1
 Summary: A Python package for interactive mapping using Google Earth Engine and ipyleaflet
 Project-URL: Homepage, https://github.com/gee-community/geemap
 Author-email: Qiusheng Wu <giswqs@gmail.com>
@@ -10,15 +10,14 @@ Keywords: geemap
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: anywidget
 Requires-Dist: bqplot
-Requires-Dist: earthengine-api>=1.5.12
+Requires-Dist: earthengine-api>=1.6.12
 Requires-Dist: eerepr>=0.1.0
 Requires-Dist: folium>=0.17.0
 Requires-Dist: geocoder
@@ -32,6 +31,7 @@ Requires-Dist: plotly
 Requires-Dist: pyperclip
 Requires-Dist: pyshp>=2.3.1
 Requires-Dist: python-box
+Requires-Dist: requests
 Requires-Dist: scooby
 Provides-Extra: ai
 Requires-Dist: google-api-core; extra == 'ai'
@@ -158,6 +158,8 @@ Requires-Dist: rioxarray; extra == 'raster'
 Provides-Extra: sql
 Requires-Dist: psycopg2; extra == 'sql'
 Requires-Dist: sqlalchemy; extra == 'sql'
+Provides-Extra: tests
+Requires-Dist: psutil; extra == 'tests'
 Provides-Extra: vector
 Requires-Dist: geopandas; extra == 'vector'
 Requires-Dist: osmnx; extra == 'vector'

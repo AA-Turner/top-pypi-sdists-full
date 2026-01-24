@@ -249,9 +249,8 @@ class DynamicTableCollection(DynamicTableCollectionBase):
 class DynamicTableResource(DynamicTableResourceBase):
     """Represents a reference to a Snowflake dynamic table.
 
-    With this dynamic table reference, you can create, drop, undrop, suspend, resume, swap_with other table,
-    suspend recluster, resume recluster and fetch information about dynamic tables, as well
-    as perform certain actions on them.
+    With this dynamic table reference, you can fetch information about a dynamic table, as well
+    as perform certain actions on it.
     """
 
     _plural_name = "dynamic_tables"

@@ -57,7 +57,7 @@ class TextArea(components.Textbox):
         type: Literal["text", "password", "email"] = "text",
         text_align: Literal["left", "right"] | None = None,
         rtl: bool = False,
-        show_copy_button: bool = False,
+        buttons: list[Literal["fullscreen", "copy"]] | None = None,
         max_length: int | None = None,
         submit_btn: str | bool | None = False,
         stop_btn: str | bool | None = False,
@@ -88,7 +88,7 @@ class TextArea(components.Textbox):
             type=type,
             text_align=text_align,
             rtl=rtl,
-            show_copy_button=show_copy_button,
+            buttons=buttons,  # type: ignore
             max_length=max_length,
             submit_btn=submit_btn,
             stop_btn=stop_btn,
@@ -128,7 +128,7 @@ class Sketchpad(components.ImageEditor):
             | None
         ) = None,
         show_label: bool | None = None,
-        show_download_button: bool = True,
+        buttons: list[Literal["download", "share", "fullscreen"]] | None = None,
         container: bool = True,
         scale: int | None = None,
         min_width: int = 160,
@@ -140,18 +140,14 @@ class Sketchpad(components.ImageEditor):
         key: int | str | tuple[int | str, ...] | None = None,
         preserved_by_key: list[str] | str | None = "value",
         placeholder: str | None = None,
-        mirror_webcam: bool | None = None,
         webcam_options: WebcamOptions | None = None,
-        show_share_button: bool | None = None,
         _selectable: bool = False,
-        crop_size: tuple[int | float, int | float] | str | None = None,
         transforms: Iterable[Literal["crop"]] = ("crop",),
         eraser: Eraser | None = None,
         brush: Brush | None = None,
         format: str = "webp",
         canvas_size: tuple[int, int] = (800, 800),
         fixed_canvas: bool = False,
-        show_fullscreen_button: bool = True,
         layers: LayerOptions | bool = True,
     ):
         if not brush:
@@ -167,7 +163,7 @@ class Sketchpad(components.ImageEditor):
             every=every,
             inputs=inputs,
             show_label=show_label,
-            show_download_button=show_download_button,
+            buttons=buttons,  # type: ignore
             container=container,
             scale=scale,
             min_width=min_width,
@@ -179,18 +175,14 @@ class Sketchpad(components.ImageEditor):
             key=key,
             preserved_by_key=preserved_by_key,
             placeholder=placeholder,
-            mirror_webcam=mirror_webcam,
             webcam_options=webcam_options,
-            show_share_button=show_share_button,
             _selectable=_selectable,
-            crop_size=crop_size,
             transforms=transforms,
             eraser=eraser,
             brush=brush,
             format=format,
             layers=layers,
             canvas_size=canvas_size,
-            show_fullscreen_button=show_fullscreen_button,
             fixed_canvas=fixed_canvas,
         )
     from typing import Callable, Literal, Sequence, Any, TYPE_CHECKING
@@ -227,7 +219,7 @@ class Paint(components.ImageEditor):
             | None
         ) = None,
         show_label: bool | None = None,
-        show_download_button: bool = True,
+        buttons: list[Literal["download", "share", "fullscreen"]] | None = None,
         container: bool = True,
         scale: int | None = None,
         min_width: int = 160,
@@ -238,11 +230,8 @@ class Paint(components.ImageEditor):
         render: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         preserved_by_key: list[str] | str | None = "value",
-        mirror_webcam: bool | None = None,
         webcam_options: WebcamOptions | None = None,
-        show_share_button: bool | None = None,
         _selectable: bool = False,
-        crop_size: tuple[int | float, int | float] | str | None = None,
         transforms: Iterable[Literal["crop"]] = ("crop",),
         eraser: Eraser | None = None,
         brush: Brush | None = None,
@@ -250,7 +239,6 @@ class Paint(components.ImageEditor):
         layers: LayerOptions | bool = True,
         canvas_size: tuple[int, int] = (800, 800),
         fixed_canvas: bool = False,
-        show_fullscreen_button: bool = True,
         placeholder: str | None = None,
     ):
         super().__init__(
@@ -264,7 +252,7 @@ class Paint(components.ImageEditor):
             every=every,
             inputs=inputs,
             show_label=show_label,
-            show_download_button=show_download_button,
+            buttons=buttons,  # type: ignore
             container=container,
             scale=scale,
             min_width=min_width,
@@ -275,18 +263,14 @@ class Paint(components.ImageEditor):
             render=render,
             key=key,
             preserved_by_key=preserved_by_key,
-            mirror_webcam=mirror_webcam,
             webcam_options=webcam_options,
-            show_share_button=show_share_button,
             _selectable=_selectable,
-            crop_size=crop_size,
             transforms=transforms,
             eraser=eraser,
             brush=brush,
             format=format,
             layers=layers,
             canvas_size=canvas_size,
-            show_fullscreen_button=show_fullscreen_button,
             placeholder=placeholder,
             fixed_canvas=fixed_canvas,
         )
@@ -328,7 +312,7 @@ class ImageMask(components.ImageEditor):
             | None
         ) = None,
         show_label: bool | None = None,
-        show_download_button: bool = True,
+        buttons: list[Literal["download", "share", "fullscreen"]] | None = None,
         container: bool = True,
         scale: int | None = None,
         min_width: int = 160,
@@ -340,10 +324,7 @@ class ImageMask(components.ImageEditor):
         key: int | str | tuple[int | str, ...] | None = None,
         preserved_by_key: list[str] | str | None = "value",
         placeholder: str | None = None,
-        mirror_webcam: bool | None = None,
-        show_share_button: bool | None = None,
         _selectable: bool = False,
-        crop_size: tuple[int | float, int | float] | str | None = None,
         transforms: Iterable[Literal["crop"]] = ("crop",),
         eraser: Eraser | None = None,
         brush: Brush | None = None,
@@ -351,7 +332,6 @@ class ImageMask(components.ImageEditor):
         layers: LayerOptions | bool = False,
         canvas_size: tuple[int, int] = (800, 800),
         fixed_canvas: bool = False,
-        show_fullscreen_button: bool = True,
         webcam_options: WebcamOptions | None = None,
     ):
         if not brush:
@@ -367,7 +347,7 @@ class ImageMask(components.ImageEditor):
             every=every,
             inputs=inputs,
             show_label=show_label,
-            show_download_button=show_download_button,
+            buttons=buttons,  # type: ignore
             container=container,
             scale=scale,
             min_width=min_width,
@@ -379,18 +359,14 @@ class ImageMask(components.ImageEditor):
             key=key,
             preserved_by_key=preserved_by_key,
             placeholder=placeholder,
-            mirror_webcam=mirror_webcam,
             webcam_options=webcam_options,
-            show_share_button=show_share_button,
             _selectable=_selectable,
-            crop_size=crop_size,
             transforms=transforms,
             eraser=eraser,
             brush=brush,
             format=format,
             layers=layers,
             canvas_size=canvas_size,
-            show_fullscreen_button=show_fullscreen_button,
             fixed_canvas=fixed_canvas,
         )
     from typing import Callable, Literal, Sequence, Any, TYPE_CHECKING
@@ -438,22 +414,19 @@ class PlayableVideo(components.Video):
         render: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
         preserved_by_key: list[str] | str | None = "value",
-        mirror_webcam: bool | None = None,
         webcam_options: WebcamOptions | None = None,
         include_audio: bool | None = None,
         autoplay: bool = False,
-        show_share_button: bool | None = None,
-        show_download_button: bool | None = None,
-        min_length: int | None = None,
-        max_length: int | None = None,
+        buttons: list[Literal["download", "share"]] | None = None,
         loop: bool = False,
         streaming: bool = False,
         watermark: str | Path | None = None,
-        webcam_constraints: dict[str, dict[str, int | str]] | None = None,
+        subtitles: str | Path | None = None,
+        playback_position: int = 0,
     ):
         sources = ["upload"]
         super().__init__(
-            value=value,
+            value=value,  # type: ignore
             format=format,
             sources=sources,  # type: ignore
             height=height,
@@ -472,18 +445,15 @@ class PlayableVideo(components.Video):
             render=render,
             key=key,
             preserved_by_key=preserved_by_key,
-            mirror_webcam=mirror_webcam,
             include_audio=include_audio,
             autoplay=autoplay,
-            show_share_button=show_share_button,
-            show_download_button=show_download_button,
-            min_length=min_length,
-            max_length=max_length,
+            buttons=buttons,  # type: ignore
             loop=loop,
             streaming=streaming,
-            watermark=watermark,
-            webcam_constraints=webcam_constraints,
+            watermark=watermark,  # type: ignore
             webcam_options=webcam_options,
+            subtitles=subtitles,
+            playback_position=playback_position,
         )
     from typing import Callable, Literal, Sequence, Any, TYPE_CHECKING
     from gradio.blocks import Block
@@ -531,15 +501,13 @@ class Microphone(components.Audio):
         preserved_by_key: list[str] | str | None = "value",
         format: Literal["wav", "mp3"] = "wav",
         autoplay: bool = False,
-        show_download_button: bool | None = None,
-        show_share_button: bool | None = None,
+        buttons: list[Literal["download", "share"]] | None = None,
         editable: bool = True,
-        min_length: int | None = None,
-        max_length: int | None = None,
         waveform_options: WaveformOptions | dict | None = None,
         loop: bool = False,
         recording: bool = False,
         subtitles: str | Path | None = None,
+        playback_position: int = 0,
     ):
         sources = ["microphone"]
         super().__init__(
@@ -563,15 +531,13 @@ class Microphone(components.Audio):
             preserved_by_key=preserved_by_key,
             format=format,
             autoplay=autoplay,
-            show_download_button=show_download_button,
-            show_share_button=show_share_button,
+            buttons=buttons,  # type: ignore
             editable=editable,
-            min_length=min_length,
-            max_length=max_length,
             waveform_options=waveform_options,
             loop=loop,
             recording=recording,
             subtitles=subtitles,
+            playback_position=playback_position,
         )
     from typing import Callable, Literal, Sequence, Any, TYPE_CHECKING
     from gradio.blocks import Block
@@ -615,6 +581,7 @@ class Files(components.File):
         key: int | str | tuple[int | str, ...] | None = None,
         preserved_by_key: list[str] | str | None = "value",
         allow_reordering: bool = False,
+        buttons: list[components.Button] | None = None,
     ):
         super().__init__(
             value,
@@ -636,6 +603,7 @@ class Files(components.File):
             render=render,
             key=key,
             preserved_by_key=preserved_by_key,
+            buttons=buttons,  # type: ignore
             allow_reordering=allow_reordering,
         )
     from typing import Callable, Literal, Sequence, Any, TYPE_CHECKING
@@ -658,7 +626,10 @@ class Numpy(components.Dataframe):
         *,
         headers: list[str] | None = None,
         row_count: int | tuple[int, str] = (1, "dynamic"),
+        row_limits: tuple[int | None, int | None] | None = None,
         col_count: int | tuple[int, str] | None = None,
+        column_count: int | tuple[int, str] | None = None,
+        column_limits: tuple[int | None, int | None] | None = None,
         datatype: (
             Literal["str", "number", "bool", "date", "markdown", "html"]
             | Sequence[Literal["str", "number", "bool", "date", "markdown", "html"]]
@@ -691,15 +662,17 @@ class Numpy(components.Dataframe):
         show_search: Literal["none", "search", "filter"] = "none",
         static_columns: list[int] | None = None,
         pinned_columns: int | None = None,
-        show_fullscreen_button: bool = False,
         max_chars: int | None = None,
-        show_copy_button: bool = False,
+        buttons: list[Literal["fullscreen", "copy"]] | None = None,
     ):
         super().__init__(
             value=value,
             headers=headers,
-            row_count=row_count,
-            col_count=col_count,
+            row_count=row_count,  # type: ignore
+            row_limits=row_limits,
+            col_count=col_count,  # type: ignore
+            column_count=column_count,  # type: ignore
+            column_limits=column_limits,
             datatype=datatype,
             type=type,
             label=label,
@@ -723,10 +696,9 @@ class Numpy(components.Dataframe):
             show_row_numbers=show_row_numbers,
             show_search=show_search,
             pinned_columns=pinned_columns,
-            show_fullscreen_button=show_fullscreen_button,
-            max_chars=max_chars,
-            show_copy_button=show_copy_button,
+            buttons=buttons,  # type: ignore
             static_columns=static_columns,
+            max_chars=max_chars,
         )
     from typing import Callable, Literal, Sequence, Any, TYPE_CHECKING
     from gradio.blocks import Block
@@ -748,7 +720,10 @@ class Matrix(components.Dataframe):
         *,
         headers: list[str] | None = None,
         row_count: int | tuple[int, str] = (1, "dynamic"),
+        row_limits: tuple[int | None, int | None] | None = None,
         col_count: int | tuple[int, str] | None = None,
+        column_count: int | tuple[int, str] | None = None,
+        column_limits: tuple[int | None, int | None] | None = None,
         datatype: (
             Literal["str", "number", "bool", "date", "markdown", "html"]
             | Sequence[Literal["str", "number", "bool", "date", "markdown", "html"]]
@@ -780,16 +755,18 @@ class Matrix(components.Dataframe):
         show_row_numbers: bool = False,
         show_search: Literal["none", "search", "filter"] = "none",
         pinned_columns: int | None = None,
-        show_fullscreen_button: bool = False,
         max_chars: int | None = None,
-        show_copy_button: bool = False,
+        buttons: list[Literal["fullscreen", "copy"]] | None = None,
         static_columns: list[int] | None = None,
     ):
         super().__init__(
             value=value,
             headers=headers,
-            row_count=row_count,
-            col_count=col_count,
+            row_count=row_count,  # type: ignore
+            row_limits=row_limits,
+            col_count=col_count,  # type: ignore
+            column_count=column_count,  # type: ignore
+            column_limits=column_limits,
             datatype=datatype,
             type=type,
             label=label,
@@ -813,10 +790,9 @@ class Matrix(components.Dataframe):
             show_row_numbers=show_row_numbers,
             show_search=show_search,
             pinned_columns=pinned_columns,
-            show_fullscreen_button=show_fullscreen_button,
-            max_chars=max_chars,
-            show_copy_button=show_copy_button,
+            buttons=buttons,  # type: ignore
             static_columns=static_columns,
+            max_chars=max_chars,
         )
     from typing import Callable, Literal, Sequence, Any, TYPE_CHECKING
     from gradio.blocks import Block
@@ -838,7 +814,10 @@ class List(components.Dataframe):
         *,
         headers: list[str] | None = None,
         row_count: int | tuple[int, str] = (1, "dynamic"),
+        row_limits: tuple[int | None, int | None] | None = None,
         col_count: Literal[1] = 1,
+        column_count: Literal[1] | None = None,
+        column_limits: tuple[int | None, int | None] | None = None,
         datatype: (
             Literal["str", "number", "bool", "date", "markdown", "html"]
             | Sequence[Literal["str", "number", "bool", "date", "markdown", "html"]]
@@ -870,16 +849,18 @@ class List(components.Dataframe):
         show_row_numbers: bool = False,
         show_search: Literal["none", "search", "filter"] = "none",
         pinned_columns: int | None = None,
-        show_fullscreen_button: bool = False,
         max_chars: int | None = None,
-        show_copy_button: bool = False,
+        buttons: list[Literal["fullscreen", "copy"]] | None = None,
         static_columns: list[int] | None = None,
     ):
         super().__init__(
             value=value,
             headers=headers,
-            row_count=row_count,
-            col_count=col_count,
+            row_count=row_count,  # type: ignore
+            row_limits=row_limits,
+            col_count=col_count,  # type: ignore
+            column_count=column_count,  # type: ignore
+            column_limits=column_limits,
             datatype=datatype,
             type=type,
             label=label,
@@ -904,9 +885,8 @@ class List(components.Dataframe):
             show_search=show_search,
             static_columns=static_columns,
             pinned_columns=pinned_columns,
-            show_fullscreen_button=show_fullscreen_button,
+            buttons=buttons,  # type: ignore
             max_chars=max_chars,
-            show_copy_button=show_copy_button,
         )
     from typing import Callable, Literal, Sequence, Any, TYPE_CHECKING
     from gradio.blocks import Block

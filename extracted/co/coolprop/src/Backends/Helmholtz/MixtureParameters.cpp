@@ -29,8 +29,8 @@ class PredefinedMixturesLibrary
         load_from_JSON(doc);
     }
 
-    void load_from_JSON(rapidjson::Document & doc){
-        if (!doc.IsArray() || !doc[0].IsObject()){
+    void load_from_JSON(rapidjson::Document& doc) {
+        if (!doc.IsArray() || !doc[0].IsObject()) {
             throw ValueError("You must provide an array of objects");
         }
         // Iterate over the papers in the listing
@@ -88,10 +88,7 @@ class MixtureBinaryPairLibrary
 
    public:
     std::map<std::vector<std::string>, std::vector<Dictionary>>& binary_pair_map() {
-        // Set the default departure functions if none have been provided yet
-        if (m_binary_pair_map.size() == 0) {
-            load_defaults();
-        }
+        load_defaults_if_needed();
         return m_binary_pair_map;
     };
 
@@ -103,6 +100,12 @@ class MixtureBinaryPairLibrary
             throw ValueError("Unable to parse binary interaction function string");
         }
         load_from_JSON(doc);
+    }
+
+    void load_defaults_if_needed() {
+        if (m_binary_pair_map.size() == 0) {
+            load_defaults();
+        }
     }
 
     // Load the defaults that come from the JSON-encoded string compiled into library
@@ -284,11 +287,10 @@ class MixtureBinaryPairLibrary
 };
 // The modifiable parameter library
 static MixtureBinaryPairLibrary mixturebinarypairlibrary;
-// A fixed parameter library containing the default values
-static MixtureBinaryPairLibrary mixturebinarypairlibrary_default;
 
 /// Add a simple mixing rule
 void apply_simple_mixing_rule(const std::string& identifier1, const std::string& identifier2, const std::string& rule) {
+    mixturebinarypairlibrary.load_defaults_if_needed();
     mixturebinarypairlibrary.add_simple_mixing_rule(identifier1, identifier2, rule);
 }
 
@@ -410,10 +412,7 @@ class MixtureDepartureFunctionsLibrary
 
    public:
     std::map<std::string, Dictionary>& departure_function_map() {
-        // Set the default departure functions if none have been provided yet
-        if (m_departure_function_map.size() == 0) {
-            load_defaults();
-        }
+        load_defaults_if_needed();
         return m_departure_function_map;
     };
 
@@ -505,6 +504,11 @@ class MixtureDepartureFunctionsLibrary
                 throw ValueError(format("Name of departure function [%s] is already loaded. Current departure function names are: %s", name.c_str(),
                                         strjoin(names, ",").c_str()));
             }
+        }
+    }
+    void load_defaults_if_needed() {
+        if (m_departure_function_map.size() == 0) {
+            load_defaults();
         }
     }
     // Load the defaults that come from the JSON-encoded string compiled into library
@@ -774,7 +778,7 @@ void parse_HMX_BNC(const std::string& s, std::vector<REFPROP_binary_element>& BI
                         dep.e.push_back(string2double(bits[3]));
                     }
                     if (dep.Nspecial > 0) {
-                        if (dep.a.size() - 1 < dep.Npower) {
+                        if (dep.a.size() - 1 < static_cast<size_t>(dep.Npower)) {
                             dep.eta.push_back(0);
                             dep.epsilon.push_back(0);
                             dep.beta.push_back(0);

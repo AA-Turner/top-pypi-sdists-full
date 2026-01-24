@@ -6,16 +6,23 @@ import os
 import numpy as np
 import pytest
 import requests
+from requests_cache import CachedSession
 
 from ..client import (
     compute_base_url_prefix,
     consolidate_metadata,
+    data_check,
+    fetch_batched,
+    fetch_consolidated,
+    get_batch_data,
     get_cmr_urls,
     open_dmr,
     open_dods_url,
     open_file,
     open_url,
     patch_session_for_shared_dap_cache,
+    recover_missing_url,
+    register_all_for_batch,
 )
 from ..handlers.lib import BaseHandler
 from ..lib import _quote
@@ -26,6 +33,7 @@ from .datasets import SimpleGrid, SimpleSequence, SimpleStructure
 DODS = os.path.join(os.path.dirname(__file__), "data/test.01.dods")
 DAS = os.path.join(os.path.dirname(__file__), "data/test.01.das")
 SimpleGroupdmr = os.path.join(os.path.dirname(__file__), "data/dmrs/SimpleGroup.dmr")
+sqlite_db = os.path.join(os.path.dirname(__file__), "data/climatology_test")
 
 
 @pytest.fixture
@@ -83,6 +91,13 @@ def test_open_url_dap4_shape():
     assert data.shape == (100,)
 
 
+def test_open_url_batch_dap2_raises():
+    url = "dap2://test.opendap.org/opendap/"
+    filename = "netcdf/examples/200803061600_HFRadar_USEGC_6km_rtv_SIO.nc"
+    with pytest.raises(RuntimeError):
+        open_url(url + filename, batch=True)
+
+
 def test_open_url_seqCE(remote_url):
     seq_url = remote_url + "ff/gsodock.dat"
     data_original = open_url(seq_url)
@@ -129,13 +144,13 @@ def test_output_grid(output_grid, remote_url):
     "session",
     [None, requests.session()],
 )
-def test_session_client(session):
+def test_session_client(cache_tmp_dir, session):
     """Test that session is passed correctly from user and no changes are made
     to it.
     """
     url = "http://test.opendap.org:8080/opendap/data/nc/123bears.nc"
     cache_kwargs = {
-        "cache_name": "http_cache",
+        "cache_name": cache_tmp_dir / "http_cache",
         "backend": "sqlite",
         "use_temp": True,
         "expire_after": 100,  # seconds
@@ -356,13 +371,13 @@ def test_uint16(structure_app):
     "use_cache",
     [False, True],
 )
-def test_cache(use_cache):
+def test_cache(cache_tmp_dir, use_cache):
     """Test that caching is passed from user correctly"""
     url = "http://test.opendap.org:8080/opendap/data/nc/123bears.nc"
     # cache_kwargs are being set, but only used when use_cache is True
     # thus - raise a warning if cache_kwargs are set and use_cache is False
     cache_kwargs = {
-        "cache_name": "http_cache",
+        "cache_name": cache_tmp_dir / "http_cache",
         "backend": "sqlite",
         "use_temp": True,
         "expire_after": 100,  # seconds
@@ -379,23 +394,21 @@ def test_cache(use_cache):
         assert isinstance(ds, DatasetType)
 
 
-@pytest.fixture
-def cached_session():
-    """Fixture to create a cached session."""
-    return create_session(use_cache=True)
-
-
 @pytest.mark.parametrize(
     "urls",
     ["not a list", ["A", "B", "C", 1], ["http://localhost:8001/"]],
 )
-def test_typerror_consolidate_metadata(urls, cached_session):
+def test_typerror_consolidate_metadata(cache_tmp_dir, urls):
     """Test that TypeError is raised when `consolidate_metadata` takes an argument that
     is not a list, or a list of a single element.
     """
+    cached_session = create_session(
+        use_cache=True, cache_kwargs={"cache_name": cache_tmp_dir / "test"}
+    )
     cached_session.cache.clear()  # clears any existing cache
     with pytest.raises(TypeError):
         consolidate_metadata(urls, cached_session)
+    cached_session.cache.clear()
 
 
 def test_warning_consolidate_metadata():
@@ -414,13 +427,17 @@ def test_warning_consolidate_metadata():
         ["dap2://localhost:8001/", "dap4://localhost:8001/"],
     ],
 )
-def test_valueerror_consolidate_metadata(urls, cached_session):
+def test_valueerror_consolidate_metadata(cache_tmp_dir, urls):
     """Test that ValueError is raised when `consolidate_metadata` takes a list of
     urls that are not all the same type.
     """
+    cached_session = create_session(
+        use_cache=True, cache_kwargs={"cache_name": cache_tmp_dir / "test2"}
+    )
     cached_session.cache.clear()
     with pytest.raises(ValueError):
         consolidate_metadata(urls, cached_session)
+    cached_session.cache.clear()
 
 
 @pytest.mark.parametrize(
@@ -430,34 +447,39 @@ def test_valueerror_consolidate_metadata(urls, cached_session):
         ["dap2://localhost:8001/", "dap2://localhost:8002/", "dap2://localhost:8003/"],
     ],
 )
-def test_warning_nondap4urls_consolidate_metadata(urls, cached_session):
+def test_warning_nondap4urls_consolidate_metadata(cache_tmp_dir, urls):
     """Test that a warning is raised when `consolidate_metadata` takes a list of urls
     that are do not have `dap4` as their scheme.
     """
+    cached_session = create_session(
+        use_cache=True, cache_kwargs={"cache_name": cache_tmp_dir / "test3"}
+    )
     cached_session.cache.clear()
     with pytest.warns(UserWarning):
         consolidate_metadata(urls, cached_session)
-
-
-ce1 = "?dap4.ce=/i;/j;/l;/bears"
-ce2 = "?dap4.ce=/i;/j;/l;/order"
+    cached_session.cache.clear()
 
 
 # @pytest.mark.skipif(
 #     os.getenv("LOCAL_DEV") != "1", reason="This test only runs on local development"
 # )
+@pytest.mark.parametrize("batch", [True])
 @pytest.mark.parametrize(
     "urls",
     [
         [
             "dap4://test.opendap.org/opendap/data/nc/123bears.nc",
-            "dap4://test.opendap.org/opendap/data/nc/123bears.nc" + ce1,
-            "dap4://test.opendap.org/opendap/data/nc/123bears.nc" + ce2,
+            "dap4://test.opendap.org/opendap/data/nc/123bears.nc"
+            + "?dap4.ce=/i;/j;/l;/bears",
+            "dap4://test.opendap.org/opendap/data/nc/123bears.nc"
+            + "?dap4.ce=/i;/j;/l;/order",
         ],
     ],
 )
 @pytest.mark.parametrize("safe_mode", [True])
-def test_cached_consolidate_metadata_matching_dims(urls, safe_mode):
+def test_cached_consolidate_metadata_matching_dims(
+    cache_tmp_dir, urls, safe_mode, batch
+):
     """Test the behavior of the chaching implemented in `consolidate_metadata`.
     the `safe_mode` parameter means that all dmr urls are cached, and
     the dimensions of each dmr_url are checked for consistency.
@@ -468,11 +490,14 @@ def test_cached_consolidate_metadata_matching_dims(urls, safe_mode):
 
     In both scenarios, the dap urls of the dimensions are cached
     """
-    cached_session = create_session(use_cache=True, cache_kwargs={"backend": "memory"})
+    cached_session = create_session(
+        use_cache=True,
+        cache_kwargs={"cache_name": cache_tmp_dir / "test3"},
+    )
     cached_session.cache.clear()
     pyds = open_dmr(urls[0].replace("dap4", "http") + ".dmr")
     dims = sorted(list(pyds.dimensions))  # dimensions of full dataset
-    consolidate_metadata(urls, session=cached_session, safe_mode=safe_mode)
+    consolidate_metadata(urls, session=cached_session, safe_mode=safe_mode, batch=batch)
 
     # check that the cached session has all the dmr urls and
     # caches the dap response of the dimensions only once
@@ -486,24 +511,26 @@ def test_cached_consolidate_metadata_matching_dims(urls, safe_mode):
     ce_dims = cached_session.cache.urls()[0].split("=")[1].split("&")[0].split("%3B")
 
     assert [item.split("%5B")[0] for item in ce_dims] == dims
+    cached_session.cache.clear()
 
 
-ce1 = "?dap4.ce=/i;/j;/bears"
-ce2 = "?dap4.ce=/i;/j;/order"
-
-
+@pytest.mark.parametrize("batch", [True])
 @pytest.mark.parametrize(
     "urls",
     [
         [
             "dap4://test.opendap.org/opendap/data/nc/123bears.nc",
-            "dap4://test.opendap.org/opendap/data/nc/123bears.nc" + ce1,
-            "dap4://test.opendap.org/opendap/data/nc/123bears.nc" + ce2,
+            "dap4://test.opendap.org/opendap/data/nc/123bears.nc"
+            + "?dap4.ce=/i;/j;/bears",
+            "dap4://test.opendap.org/opendap/data/nc/123bears.nc"
+            + "?dap4.ce=/i;/j;/order",
         ],
     ],
 )
 @pytest.mark.parametrize("safe_mode", [True])
-def test_cached_consolidate_metadata_inconsistent_dims(urls, safe_mode):
+def test_cached_consolidate_metadata_inconsistent_dims(
+    cache_tmp_dir, urls, safe_mode, batch
+):
     """Test the behavior of the chaching implemented in `consolidate_metadata`.
     the `safe_mode` parameter means that all dmr urls are cached, and
     the dimensions of each dmr_url are checked for consistency.
@@ -514,25 +541,34 @@ def test_cached_consolidate_metadata_inconsistent_dims(urls, safe_mode):
 
     In both scenarios, the dap urls of the dimensions are cached
     """
-    cached_session = create_session(use_cache=True, cache_kwargs={"backend": "memory"})
+    cached_session = create_session(
+        use_cache=True,
+        cache_kwargs={"cache_name": cache_tmp_dir / "test4"},
+    )
     cached_session.cache.clear()
     pyds = open_dmr(urls[0].replace("dap4", "http") + ".dmr")
     dims = list(pyds.dimensions)  # here there are 3 dimensions
     if safe_mode:
         with pytest.warns(UserWarning):
-            consolidate_metadata(urls, session=cached_session, safe_mode=safe_mode)
+            consolidate_metadata(
+                urls, session=cached_session, safe_mode=safe_mode, batch=batch
+            )
         assert len(cached_session.cache.urls()) == len(urls)
         # dmrs where cached, but not the dimensions
     else:
-        consolidate_metadata(urls, session=cached_session, safe_mode=safe_mode)
+        consolidate_metadata(
+            urls, session=cached_session, safe_mode=safe_mode, batch=batch
+        )
         # caches all DMRs and caches the dap responses of the dimensions
         # of the first URL
         assert len(cached_session.cache.urls()) == len(urls) + len(dims)
+    cached_session.cache.clear()
 
 
 # @pytest.mark.skipif(
 #     os.getenv("LOCAL_DEV") != "1", reason="This test only runs on local development"
 # )
+@pytest.mark.parametrize("batch", [True])
 @pytest.mark.parametrize(
     "urls",
     [
@@ -543,7 +579,7 @@ def test_cached_consolidate_metadata_inconsistent_dims(urls, safe_mode):
     ],
 )
 @pytest.mark.parametrize("concat_dim", [None, "TIME"])
-def test_consolidate_metadata_concat_dim(urls, concat_dim):
+def test_consolidate_metadata_concat_dim(cache_tmp_dir, urls, concat_dim, batch):
     """Test the behavior of the chaching implemented in `consolidate_metadata`
     when there is a concat dimension, and (extra) this concat_dim may be an array
     of length >= 1.
@@ -555,11 +591,18 @@ def test_consolidate_metadata_concat_dim(urls, concat_dim):
     None.
 
     """
-    cached_session = create_session(use_cache=True, cache_kwargs={"backend": "memory"})
+    cached_session = create_session(
+        use_cache=True,
+        cache_kwargs={"cache_name": cache_tmp_dir / "test5"},
+    )
     cached_session.cache.clear()
     # download all dmr for testing - not most performant
     consolidate_metadata(
-        urls, session=cached_session, safe_mode=True, concat_dim=concat_dim
+        urls,
+        session=cached_session,
+        safe_mode=True,
+        concat_dim=concat_dim,
+        batch=batch,
     )
 
     N_dmr_urls = len(urls)  # Since `safe_mode=False`, only 1 DMR is downloaded
@@ -577,6 +620,7 @@ def test_consolidate_metadata_concat_dim(urls, concat_dim):
             len(cached_session.cache.urls())
             == N_dmr_urls + N_concat_dims + N_non_concat_dims
         )
+    cached_session.cache.clear()
 
 
 @pytest.mark.parametrize(
@@ -605,30 +649,31 @@ def test_ValueErrors_compute_base_url_prefix(urls):
         compute_base_url_prefix(urls)
 
 
-cloud_common = "/providers/POCLOUD/collections/granules"
-cloud_urls = "https://opendap.earthdata.nasa.gov"
-posix_urls = "http://localhost:8001"
-posix_common = "/common/path"
-
-
 @pytest.mark.parametrize(
     "urls, common_path",
     [
         (
             [
-                posix_urls + posix_common + "/data.nc",
-                posix_urls + posix_common + "/data.nc",
-                posix_urls + posix_common + "/data.nc",
+                "http://localhost:8001/common/path/data.nc",
+                "http://localhost:8001/common/path/data.nc",
+                "http://localhost:8001/common/path/data.nc",
             ],
-            posix_urls + posix_common,
+            "http://localhost:8001/common/path",
         ),
         (
             [
-                cloud_urls + cloud_common + "/fileA.nc",
-                cloud_urls + cloud_common + "/fileC.nc",
-                cloud_urls + cloud_common + "/fileB.nc",
+                "https://opendap.earthdata.nasa.gov"
+                + "/providers/POCLOUD/collections/granules"
+                + "/fileA.nc",
+                "https://opendap.earthdata.nasa.gov"
+                + "/providers/POCLOUD/collections/granules"
+                + "/fileC.nc",
+                "https://opendap.earthdata.nasa.gov"
+                + "/providers/POCLOUD/collections/granules"
+                + "/fileB.nc",
             ],
-            cloud_urls + cloud_common,
+            "https://opendap.earthdata.nasa.gov"
+            + "/providers/POCLOUD/collections/granules",
         ),
     ],
 )
@@ -674,40 +719,44 @@ def test_open_dmr(url, expected):
         ],
     ],
 )
-def test_patch_session_for_shared_dap_cache(urls, cached_session):
+def test_patch_session_for_shared_dap_cache(cache_tmp_dir, urls):
     """Test that the session is patched correctly for shared dap cache."""
     # Clear any existing cache
-    cached_session.cache.clear()
+    my_session = create_session(
+        use_cache=True,
+        cache_kwargs={"cache_name": cache_tmp_dir / "test_debug"},
+    )
+    my_session.cache.clear()
     # Create custom cache key for each of the dimensions
     dimensions = ["i[0:1:1]", "j[0:1:2]", "l[0:1:2]"]
 
     patch_session_for_shared_dap_cache(
-        cached_session, shared_vars=dimensions, concat_dim=None, known_url_list=urls
+        my_session, shared_vars=dimensions, concat_dim=None, known_url_list=urls
     )
-    assert len(cached_session.cache.urls()) == 0
+    assert len(my_session.cache.urls()) == 0
 
     # construct urls to create cache keys
     test_urls = [urls[0] + ".dap?dap4.ce=" + dim for dim in dimensions]
     # create cache keys for the urls - discard the list
-    _ = [cached_session.get(url) for url in test_urls]
+    _ = [my_session.get(url) for url in test_urls]
 
     # make sure that the urls are cached for each dimension
-    assert len(cached_session.cache.urls()) == len(dimensions)
+    assert len(my_session.cache.urls()) == len(dimensions)
 
     for dim in dimensions:
         test_url2 = urls[1] + ".dap?dap4.ce=" + dim
         test_url3 = urls[2] + ".dap?dap4.ce=" + dim
 
         # test that the urls are being cached
-        r2 = cached_session.get(test_url2)
-        r3 = cached_session.get(test_url3)
+        r2 = my_session.get(test_url2)
+        r3 = my_session.get(test_url3)
 
         # assert that data was cached - otherwise 404 (Non-existent URLS!)
         assert r2.from_cache
         assert r3.from_cache
 
     # assert that there is no new cached key
-    assert len(cached_session.cache.urls()) == len(dimensions)
+    assert len(my_session.cache.urls()) == len(dimensions)
 
 
 ccid = "concept_id=C2076114664-LPCLOUD"
@@ -901,9 +950,13 @@ bbox2 = "bounding_box%5B%5D=-11%2C-6%2C11%2C6"
         ],
     ],
 )
-def test_get_cmr_urls(param, expected):
+def test_get_cmr_urls(cache_tmp_dir, param, expected):
     """Test that get_cmr_urls returns the correct urls."""
-    session = create_session(use_cache=True, cache_kwargs={"backend": "memory"})
+    session = create_session(
+        use_cache=True,
+        cache_kwargs={"cache_name": cache_tmp_dir / "debug_get_cmr_urls"},
+    )
+    session.cache.clear()
     cmr_urls = get_cmr_urls(**param, session=session)
     assert isinstance(cmr_urls, list)
     assert len(cmr_urls) > 0
@@ -922,3 +975,423 @@ def test_get_cmr_urls(param, expected):
         # if page_size is not specified, it defaults to 50
         expected += "&page_size=50"
     assert set(expected.split("&")) == set(cached_urls.split("&"))
+    session.cache.clear()
+
+
+@pytest.mark.parametrize("var", ["SST"])
+@pytest.mark.parametrize(
+    "slice, expected",
+    [
+        (None, None),
+        (
+            (0, slice(None), slice(None)),
+            {"/TIME": "[0:1:0]", "/COADSY": "[0:1:89]", "/COADSX": "[0:1:179]"},
+        ),
+        (
+            (2, slice(0, 10, None), slice(None)),
+            {"/TIME": "[2:1:2]", "/COADSY": "[0:1:9]", "/COADSX": "[0:1:179]"},
+        ),
+    ],
+)
+def test_register_dim_slices(var, slice, expected):
+    """Test that dim slices are registered correctly."""
+    url = "http://test.opendap.org/opendap/data/nc/coads_climatology.nc"
+    session = requests.Session()
+    pyds = open_url(url, session=session, protocol="dap4", batch=True)
+    pyds.register_dim_slices(pyds[var], key=slice)
+    assert pyds._slices == expected
+
+    # reset registered slices and check
+    pyds.register_dim_slices(pyds[var], key=None)
+    assert pyds._slices is None
+
+    pyds.clear_dim_slices()
+    assert pyds._slices is None
+
+
+@pytest.mark.parametrize("var", ["/SimpleGroup/Salinity"])
+@pytest.mark.parametrize(
+    "slice_, expected",
+    [
+        (None, None),
+        ((0, slice(0, 10, None), slice(0, 10, None)), None),
+    ],
+)
+def test_register_dim_slices_dimension_different_hierarchy(var, slice_, expected):
+    """
+    Test for an edge case in which one of the dimension lies on a different hierarchy.
+    This makes sure the slice is handled properly.
+    """
+    url = "dap4://test.opendap.org/opendap/dap4/SimpleGroup.nc4.h5"
+    session = requests.Session()
+    pyds = open_url(url, session=session, batch=True)
+    pyds.register_dim_slices(pyds[var], key=slice_)
+    slices = pyds._slices
+    assert slices == expected
+
+
+@pytest.mark.parametrize(
+    "queries",
+    [
+        [
+            ".dap?dap4.ce="
+            + "COADSX%5B0%3A1%3A179%5D%3BCOADSY%5B0%3A1%3A89%5D&dap4.checksum=true",
+            ".dap?dap4.ce=" + "TIME%5B0%3A1%3A11%5D&dap4.checksum=true",
+            ".dmr",
+        ],
+    ],
+)
+@pytest.mark.parametrize(
+    "baseurl",
+    [
+        "http://test.opendap.org/opendap/hyrax/data/nc/coads_climatology.nc",
+        "http://test.opendap.org/opendap/hyrax/data/nc/coads_climatology2.nc",
+    ],
+)
+def test_recover_missing_url(queries, baseurl):
+    """
+    This test requires emulating the behavior of `consolidate_metadata` with
+    `concat_dim=TIME", for the present list composed of [url1, url2].
+    `consolidate_metadata` caches/creates a list of dap responses one per granule
+    of array `TIME`, but only downloads/caches the response of one of the url
+    for the rest of the dimensions. The function tested recovers the reused dap url
+    for any given `baseurl`, and returns both that reusable dap url, and any present
+    dap url that matches the `baseurl` (e.g. that of `TIME`).
+
+    """
+
+    url1 = "http://test.opendap.org/opendap/hyrax/data/nc/coads_climatology.nc"
+    url2 = "http://test.opendap.org/opendap/hyrax/data/nc/coads_climatology2.nc"
+
+    # the following 4 urls are typically expected:
+    urls1 = [
+        url1 + query for query in queries if not query.startswith(".dap?dap4.ce=COADSX")
+    ]
+    urls2 = [
+        url2 + query for query in queries if not query.startswith(".dap?dap4.ce=COADSX")
+    ]
+    cached_urls = urls1 + urls2
+
+    # we add the dap url that is cached and test that we can recover ir from the
+    # baseurl that is not cached
+    if baseurl == url1:
+        # add url2 to the cached list, with the correct query parameters
+        cached_dap = [
+            url2 + query for query in queries if query.startswith(".dap?dap4.ce=COADSX")
+        ]
+    elif baseurl == url2:
+        # add url1 to the cached list, with the correct query parameters
+        cached_dap = [
+            url1 + query for query in queries if query.startswith(".dap?dap4.ce=COADSX")
+        ]
+
+    cached_urls += cached_dap
+
+    miss_url, current_dap = recover_missing_url(cached_urls, baseurl)
+
+    # assert that simply from base url I can recored the correct cached dap url
+    assert miss_url == cached_dap
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "dap4://test.opendap.org/opendap/hyrax/data/nc/coads_climatology.nc",
+        "dap4://test.opendap.org/opendap/hyrax/data/nc/coads_climatology2.nc",
+    ],
+)
+def test_fetch_consolidated(url):
+    """Test that fetch_consolidated works as expected."""
+    db_session = CachedSession(cache_name=sqlite_db)
+    assert len(db_session.cache.urls()) == 5
+    pyds = open_url(url, session=db_session)
+    fetch_consolidated(pyds)
+    for name in ["TIME", "COADSX", "COADSY"]:
+        var = pyds[name]
+        assert isinstance(var, BaseType)
+        assert hasattr(var, "ndim")
+        assert hasattr(var, "dtype")
+        assert isinstance(var.data, np.ndarray)
+
+
+@pytest.mark.parametrize("group", ["/", "/SimpleGroup"])
+def test_fetched_batched(cache_tmp_dir, group):
+    url = "dap4://test.opendap.org/opendap/dap4/SimpleGroup.nc4.h5"
+    session = create_session(
+        use_cache=True,
+        cache_kwargs={"cache_name": cache_tmp_dir / "debug_fetched_batched"},
+    )
+    session.cache.clear()
+    pyds = open_url(url, session=session, batch=True)
+    session.cache.clear()
+
+    # batch dimensions with fully qualifying names
+    dims = [
+        pyds[group][name].id
+        for name in pyds[group].dimensions
+        if name in pyds[group].keys() and isinstance(pyds[group][name], BaseType)
+    ]
+
+    pyds.register_dim_slices(pyds[dims[0]], key=None)
+    register_all_for_batch(pyds, dims)
+    # assign data to variables
+    fetch_batched(pyds, dims)
+    # checks
+    for var in dims:
+        assert isinstance(pyds[var].data, np.ndarray)
+    assert len(session.cache.urls()) == 1  # single dap url
+    session.cache.clear()
+
+
+@pytest.mark.parametrize("dims", [True, False])
+@pytest.mark.parametrize("group", ["/", "/SimpleGroup"])
+def test_get_batch_data(cache_tmp_dir, dims, group):
+    """
+    Test that `get_batch_data` works as expected.
+    """
+    url = "dap4://test.opendap.org/opendap/dap4/SimpleGroup.nc4.h5"
+    session = create_session(
+        use_cache=True,
+        cache_kwargs={"cache_name": cache_tmp_dir / "debug_get_batch_data"},
+    )
+    session.cache.clear()
+    pyds = open_url(url, session=session, batch=True)
+    session.cache.clear()
+    if dims:
+        var_name = list(pyds[group].dimensions)[0]
+    else:
+        variables = [
+            var
+            for var in pyds[group].variables()
+            if isinstance(pyds[group][var], BaseType)
+            and var not in pyds[group].dimensions
+        ]
+        var_name = variables[0]
+
+    get_batch_data(pyds[group][var_name], checksums=True)
+    assert len(session.cache.urls()) == 1  # single dap url
+
+    if dims:
+        for name in pyds[group].dimensions:
+            if name in pyds[group].keys() and isinstance(pyds[group][name], BaseType):
+                assert pyds[group][name]._is_data_loaded()
+    else:
+        for name in pyds[group].variables():
+            if name not in pyds[group].dimensions and isinstance(
+                pyds[group][name], BaseType
+            ):
+                assert pyds[group][name]._is_data_loaded()
+    session.cache.clear()
+
+
+@pytest.mark.parametrize(
+    "url, group, var, skip_var, key, expected_ce, expected_shape",
+    [
+        (
+            "http://test.opendap.org/opendap/dap4/SimpleGroup.nc4.h5",
+            "/",
+            "/Pressure",
+            "",
+            slice(0, 500, None),
+            "/Z=[0:1:499];/Pressure;/time_bnds",
+            (500,),
+        ),
+        (
+            "http://test.opendap.org/opendap/hyrax/data/nc/coads_climatology.nc",
+            "/",
+            "/SST",
+            "",
+            (0, slice(0, 10, None), slice(10, 20, 2)),
+            "/TIME=[0:1:0];/COADSY=[0:1:9];/COADSX=[10:2:19];/AIRT;/SST;/UWND;/VWND",
+            (1, 10, 5),
+        ),
+        (
+            (
+                "http://test.opendap.org/opendap/hyrax/"
+                + "NSIDC/ATL08_20181016124656_02730110_002_01.h5?dap4.ce="
+                + "/gt1l/land_segments/delta_time;/gt1l/land_segments/delta_time;"
+                + "/gt1l/land_segments/latitude;/gt1l/land_segments/longitude"
+            ),
+            "/gt1l/land_segments",
+            "/gt1l/land_segments/latitude",
+            "",
+            slice(0, 50, None),
+            "/gt1l/land_segments/delta_time=[0:1:49];"
+            + "/gt1l/land_segments/latitude;/gt1l/land_segments/longitude",
+            (50,),
+        ),
+        (
+            "http://test.opendap.org/opendap/dap4/SimpleGroup.nc4.h5",
+            "/SimpleGroup",
+            "/SimpleGroup/Salinity",
+            "Temperature",
+            (0, slice(0, 10, None), slice(10, 20, None)),
+            "/SimpleGroup/Salinity[0:1:0][0:1:39][0:1:39]",
+            (1, 40, 40),  # <------- check this. I think there should be a warning.
+        ),
+    ],
+)
+def test_get_batch_data_sliced_nondims(
+    cache_tmp_dir, url, group, var, skip_var, key, expected_ce, expected_shape
+):
+    """
+    Test that when passing a slice to `get_batch_data`, the correct
+    CE is generated.
+    """
+    session = create_session(
+        use_cache=True,
+        cache_kwargs={
+            "cache_name": cache_tmp_dir / "debug_get_batch_data_sliced_nondims"
+        },
+    )
+    session.cache.clear()
+    pyds = open_url(url, protocol="dap4", session=session, batch=True)
+    session.cache.clear()
+
+    # get all non-dim variables
+    variables = [
+        pyds[group][var].id
+        for var in sorted(pyds[group].variables())
+        if isinstance(pyds[group][var], BaseType)
+        and var not in list(pyds[group].dimensions) + [skip_var]
+    ]
+    assert var in variables
+    # register the slice for the variable
+    pyds.register_dim_slices(pyds[variables[0]], key=key)
+    register_all_for_batch(pyds, variables)
+    fetch_batched(pyds, variables)
+
+    assert pyds[var].shape == expected_shape
+
+    query = session.cache.urls()[-1].split("dap4.ce=")[1].split("&")[0]
+    query = query.replace("%3D", "=").replace("%3B", ";").replace("%2F", "/")
+    assert (
+        query.replace("%5B", "[").replace("%5D", "]").replace("%3A", ":") == expected_ce
+    )
+    session.cache.clear()
+
+
+@pytest.mark.parametrize(
+    "var_batch, key_batch, var_name, var_key, expected_shape",
+    [
+        (
+            "Eta",
+            (slice(None, 1, None), slice(10, 20, None), slice(10, 20, None)),
+            "U",
+            (slice(None, 1, None), slice(10, 20, None), slice(10, 21, None)),
+            (1, 10, 11),
+        ),
+        (
+            "Eta",
+            (slice(None, 1, None), 2, slice(10, 20, None)),
+            "U",
+            (slice(None, 1, None), 2, slice(10, 21, None)),
+            (1, 11),
+        ),
+        (
+            "Eta",
+            (slice(None, 1, None), slice(10, 20, None), slice(10, 20, None)),
+            "V",
+            (slice(None, 1, None), slice(10, 21, None), slice(10, 20, None)),
+            (1, 11, 10),
+        ),
+        (
+            "Eta",
+            (0, slice(10, 20, None), 10),
+            "V",
+            (0, slice(10, 21, None), 10),
+            (11,),
+        ),
+    ],
+)
+def test_data_check(var_batch, key_batch, var_name, var_key, expected_shape):
+    """
+    Tests that
+    """
+    url = "dap4://test.opendap.org/opendap/dap4/StaggeredGrid.nc4"
+    pyds = open_url(url, batch=True)
+
+    # eagerly download data using a shared dimensions contraint expression
+    # the CE only makes use of dimensions in ``ETA``. Other variables
+    # with dimensions NOT shared with ETA are not sliced.
+    get_batch_data(pyds[var_batch], key=key_batch)
+
+    # check data needs to be sliced
+    assert pyds[var_name].shape != expected_shape
+
+    var = np.asarray(pyds[var_name].data)
+    data = data_check(var, var_key)
+
+    assert data.shape == expected_shape
+
+
+def test_consolidate_metadata_non_batch(cache_tmp_dir):
+    """Test that consolidate_metadata raises an error when batch=False"""
+    urls = [
+        "dap4://test.opendap.org/opendap/hyrax/data/nc/coads_climatology.nc",
+        "dap4://test.opendap.org/opendap/hyrax/data/nc/coads_climatology2.nc",
+    ]
+    cache_name = cache_tmp_dir / "test_consolidate_metadata_non_batch"
+    cached_session = create_session(
+        use_cache=True,
+        cache_kwargs={"cache_name": cache_name},
+    )
+    cached_session.cache.clear()
+    consolidate_metadata(
+        urls,
+        session=cached_session,
+        concat_dim="TIME",
+        batch=False,
+    )
+
+    assert cached_session.settings.key_fn._concat_dim == ["TIME"]
+    assert cached_session.settings.key_fn._collapse_vars == {"COADSX", "COADSY"}
+
+    N = len(urls)  # N of DMRS
+    N_non_concat_dims = 2  # COADSX, COADSY
+    N_concat_dims = 3 * len(urls)  # TIME
+    assert len(cached_session.cache.urls()) == N + N_non_concat_dims + N_concat_dims
+
+    # check that all URLS from COADSX and COADSY are cached, even when only 1 of each
+    # was downloaded
+    map1 = _quote("/COADSX[0:1:179]").replace("/", "%2F")
+    map2 = _quote("/COADSY[0:1:89]").replace("/", "%2F")
+
+    dap_urls = [
+        url.replace("dap4", "http") + ".dap?dap4.ce=" + map1 + "&dap4.checksum=true"
+        for url in urls
+    ]
+    dap_urls += [
+        url.replace("dap4", "http") + ".dap?dap4.ce=" + map2 + "&dap4.checksum=true"
+        for url in urls
+    ]
+
+    for url in dap_urls:
+        if url not in cached_session.cache.urls():
+            r = cached_session.get(url)
+            assert r.from_cache
+
+
+def test_consolidate_non_matching_dims(cache_tmp_dir):
+    """Test that consolidate warns when dmrs have non matching dimensions"""
+    urls = [
+        "dap4://test.opendap.org/opendap/hyrax/data/nc/coads_climatology.nc",
+        "dap4://test.opendap.org/opendap/dap4/SimpleGroup.nc4.h5",
+    ]
+    cache_name = cache_tmp_dir / "test_consolidate_non_matching_dims"
+    cached_session = create_session(
+        use_cache=True,
+        cache_kwargs={"cache_name": cache_name},
+    )
+    cached_session.cache.clear()
+    with pytest.warns(
+        UserWarning,
+        match="The dimensions of the datasets are not identical across all datasets",
+    ):
+        consolidate_metadata(
+            urls,
+            session=cached_session,
+            concat_dim="TIME",
+        )
+    assert "consolidated" not in cached_session.headers
+    cached_session.cache.clear()

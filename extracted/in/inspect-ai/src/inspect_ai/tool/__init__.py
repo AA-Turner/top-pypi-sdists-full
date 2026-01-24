@@ -45,22 +45,30 @@ from ._tool_info import ToolInfo
 from ._tool_params import ToolParam, ToolParams
 from ._tool_with import tool_with
 from ._tools._bash_session import bash_session
+from ._tools._code_execution import CodeExecutionProviders, code_execution
 from ._tools._computer import computer
 from ._tools._execute import bash, python
+from ._tools._memory import memory
+from ._tools._skill import Skill, SkillInfo, install_skills, read_skills, skill
 from ._tools._text_editor import text_editor
 from ._tools._think import think
+from ._tools._update_plan import update_plan
 from ._tools._web_browser import web_browser
 from ._tools._web_search import WebSearchProviders, web_search
 
 __all__ = [
     "bash",
     "bash_session",
+    "code_execution",
+    "CodeExecutionProviders",
     "computer",
+    "memory",
     "python",
     "web_browser",
     "web_search",
     "WebSearchProviders",
     "think",
+    "update_plan",
     "text_editor",
     "tool",
     "tool_with",
@@ -104,6 +112,11 @@ __all__ = [
     "DocumentCitation",
     "ContentCitation",
     "UrlCitation",
+    "skill",
+    "install_skills",
+    "read_skills",
+    "Skill",
+    "SkillInfo",
 ]
 
 _UTIL_MODULE_VERSION = "0.3.19"

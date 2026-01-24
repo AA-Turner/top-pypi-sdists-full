@@ -38,13 +38,13 @@ class CalendarItemRepresentationViewSet(viewsets.RepresentationViewSet):
 
 
 class CalendarItemMetaClass(type(viewsets.ModelViewSet)):
-    def __new__(metacls, cls, bases, classdict, **kwds):
-        _class = super().__new__(metacls, cls, bases, classdict, **kwds)
+    def __new__(cls, *args, **kwargs):
+        _class = super().__new__(cls, *args, **kwargs)
         dependant_identifiers = []
         for subclass in get_inheriting_subclasses(_class):
             if identifier := getattr(subclass, "IDENTIFIER", None):
                 dependant_identifiers.append(identifier)
-        setattr(_class, "DEPENDANT_IDENTIFIERS", dependant_identifiers)
+        _class.DEPENDANT_IDENTIFIERS = dependant_identifiers
         return _class
 
 
@@ -68,7 +68,7 @@ class CalendarItemViewSet(viewsets.ModelViewSet, metaclass=CalendarItemMetaClass
         Property to store the unioned queryset of draggable calendar items. Each module inheriting from CalendarItem are expected to define the signal receiver
         """
         qs = CalendarItem.objects.none()
-        for tmp, union_qs in draggable_calendar_item_ids.send(CalendarItem, request=self.request):
+        for _, union_qs in draggable_calendar_item_ids.send(CalendarItem, request=self.request):
             qs = qs.union(union_qs)
         return qs
 
@@ -154,15 +154,15 @@ def get_ics(request):
         min_max_range = TimestamptzRange(minimum_date, maximum_date)
         gen = qs.filter(period__contained_by=min_max_range)
 
-        iCal = Calendar()
+        ical = Calendar()
         for occurence in gen:
             start = occurence.period.lower
             end = occurence.period.upper
             activity = occurence
             event = activity.to_ics(start, end)
             if event:
-                iCal.events.add(event)
-        data = StringIO(str(iCal))
+                ical.events.add(event)
+        data = StringIO(str(ical))
         response = HttpResponse(data, content_type="text/calendar")
         response["Content-Disposition"] = f'attachment; filename="{profile.computed_str}.ics"'
         return response

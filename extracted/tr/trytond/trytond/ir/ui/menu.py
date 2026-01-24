@@ -60,6 +60,9 @@ CLIENT_ICONS = [(x, x) for x in [
         'tryton-log',
         'tryton-menu',
         'tryton-note',
+        'tryton-notification',
+        'tryton-notification-off',
+        'tryton-notification-on',
         'tryton-ok',
         'tryton-open',
         'tryton-print',
@@ -107,7 +110,10 @@ class UIMenu(
             ('keyword', '=', 'tree_open'),
             ])
     groups = fields.Many2Many(
-        'ir.ui.menu-res.group', 'menu', 'group', "Groups")
+        'ir.ui.menu-res.group', 'menu', 'group', "Groups",
+        filter=[
+            ('active', '=', True),
+            ])
     favorite = fields.Function(fields.Boolean('Favorite'), 'get_favorite')
     favorites = fields.Many2Many(
         'ir.ui.menu.favorite', 'menu', 'user', "Favorites")

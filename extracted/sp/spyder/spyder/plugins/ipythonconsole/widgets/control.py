@@ -8,7 +8,7 @@
 
 # Third-party imports
 from qtpy.QtCore import Qt, Signal
-from qtpy.QtGui import QColor, QTextFrameFormat
+from qtpy.QtGui import QColor, QTextFrameFormat, QTextCursor
 from qtpy.QtWidgets import QTextEdit
 
 # Local imports
@@ -67,7 +67,7 @@ class ControlWidget(TracebackLinksMixin, GetHelpMixin,
         ruler.setWidth(10000)
         ruler.setBackground(QColor(SpyderPalette.COLOR_TEXT_1))
         cursor = self.textCursor()
-        cursor.movePosition(cursor.End)
+        cursor.movePosition(QTextCursor.MoveOperation.End)
         cursor.insertFrame(ruler)
 
     # ---- Private methods
@@ -100,12 +100,12 @@ class ControlWidget(TracebackLinksMixin, GetHelpMixin,
     def focusInEvent(self, event):
         """Reimplement Qt method to send focus change notification"""
         self.sig_focus_changed.emit()
-        return super(ControlWidget, self).focusInEvent(event)
+        return super().focusInEvent(event)
 
     def focusOutEvent(self, event):
         """Reimplement Qt method to send focus change notification"""
         self.sig_focus_changed.emit()
-        return super(ControlWidget, self).focusOutEvent(event)
+        return super().focusOutEvent(event)
 
 
 class PageControlWidget(QTextEdit, BaseEditMixin):
@@ -140,9 +140,9 @@ class PageControlWidget(QTextEdit, BaseEditMixin):
     def focusInEvent(self, event):
         """Reimplement Qt method to send focus change notification"""
         self.sig_focus_changed.emit()
-        return super(PageControlWidget, self).focusInEvent(event)
+        return super().focusInEvent(event)
 
     def focusOutEvent(self, event):
         """Reimplement Qt method to send focus change notification"""
         self.sig_focus_changed.emit()
-        return super(PageControlWidget, self).focusOutEvent(event)
+        return super().focusOutEvent(event)

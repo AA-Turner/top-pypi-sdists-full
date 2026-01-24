@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -36,12 +37,6 @@ from .literals import (
     ReviewPolicyLevelType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -194,7 +189,7 @@ class HITLayoutParameterTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -357,7 +352,7 @@ class NotifyWorkersRequestTypeDef(TypedDict):
 
 class ParameterMapEntryOutputTypeDef(TypedDict):
     Key: NotRequired[str]
-    Values: NotRequired[List[str]]
+    Values: NotRequired[list[str]]
 
 class ParameterMapEntryTypeDef(TypedDict):
     Key: NotRequired[str]
@@ -432,13 +427,13 @@ class GetFileUploadURLResponseTypeDef(TypedDict):
 
 class ListAssignmentsForHITResponseTypeDef(TypedDict):
     NumResults: int
-    Assignments: List[AssignmentTypeDef]
+    Assignments: list[AssignmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListBonusPaymentsResponseTypeDef(TypedDict):
     NumResults: int
-    BonusPayments: List[BonusPaymentTypeDef]
+    BonusPayments: list[BonusPaymentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -452,7 +447,7 @@ class GetQualificationTypeResponseTypeDef(TypedDict):
 
 class ListQualificationTypesResponseTypeDef(TypedDict):
     NumResults: int
-    QualificationTypes: List[QualificationTypeTypeDef]
+    QualificationTypes: list[QualificationTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -502,21 +497,21 @@ class ListWorkersWithQualificationTypeRequestPaginateTypeDef(TypedDict):
 
 class ListQualificationRequestsResponseTypeDef(TypedDict):
     NumResults: int
-    QualificationRequests: List[QualificationRequestTypeDef]
+    QualificationRequests: list[QualificationRequestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListWorkerBlocksResponseTypeDef(TypedDict):
     NumResults: int
-    WorkerBlocks: List[WorkerBlockTypeDef]
+    WorkerBlocks: list[WorkerBlockTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class QualificationRequirementOutputTypeDef(TypedDict):
     QualificationTypeId: str
     Comparator: ComparatorType
-    IntegerValues: NotRequired[List[int]]
-    LocaleValues: NotRequired[List[LocaleTypeDef]]
+    IntegerValues: NotRequired[list[int]]
+    LocaleValues: NotRequired[list[LocaleTypeDef]]
     RequiredToPreview: NotRequired[bool]
     ActionsGuarded: NotRequired[HITAccessActionsType]
 
@@ -546,13 +541,13 @@ class UpdateNotificationSettingsRequestTypeDef(TypedDict):
     Active: NotRequired[bool]
 
 class NotifyWorkersResponseTypeDef(TypedDict):
-    NotifyWorkersFailureStatuses: List[NotifyWorkersFailureStatusTypeDef]
+    NotifyWorkersFailureStatuses: list[NotifyWorkersFailureStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PolicyParameterOutputTypeDef(TypedDict):
     Key: NotRequired[str]
-    Values: NotRequired[List[str]]
-    MapEntries: NotRequired[List[ParameterMapEntryOutputTypeDef]]
+    Values: NotRequired[list[str]]
+    MapEntries: NotRequired[list[ParameterMapEntryOutputTypeDef]]
 
 class PolicyParameterTypeDef(TypedDict):
     Key: NotRequired[str]
@@ -560,8 +555,8 @@ class PolicyParameterTypeDef(TypedDict):
     MapEntries: NotRequired[Sequence[ParameterMapEntryTypeDef]]
 
 class ReviewReportTypeDef(TypedDict):
-    ReviewResults: NotRequired[List[ReviewResultDetailTypeDef]]
-    ReviewActions: NotRequired[List[ReviewActionDetailTypeDef]]
+    ReviewResults: NotRequired[list[ReviewResultDetailTypeDef]]
+    ReviewActions: NotRequired[list[ReviewActionDetailTypeDef]]
 
 class UpdateExpirationForHITRequestTypeDef(TypedDict):
     HITId: str
@@ -584,7 +579,7 @@ class HITTypeDef(TypedDict):
     Expiration: NotRequired[datetime]
     AssignmentDurationInSeconds: NotRequired[int]
     RequesterAnnotation: NotRequired[str]
-    QualificationRequirements: NotRequired[List[QualificationRequirementOutputTypeDef]]
+    QualificationRequirements: NotRequired[list[QualificationRequirementOutputTypeDef]]
     HITReviewStatus: NotRequired[HITReviewStatusType]
     NumberOfAssignmentsPending: NotRequired[int]
     NumberOfAssignmentsAvailable: NotRequired[int]
@@ -600,13 +595,13 @@ class GetQualificationScoreResponseTypeDef(TypedDict):
 
 class ListWorkersWithQualificationTypeResponseTypeDef(TypedDict):
     NumResults: int
-    Qualifications: List[QualificationTypeDef]
+    Qualifications: list[QualificationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ReviewPolicyOutputTypeDef(TypedDict):
     PolicyName: str
-    Parameters: NotRequired[List[PolicyParameterOutputTypeDef]]
+    Parameters: NotRequired[list[PolicyParameterOutputTypeDef]]
 
 class ReviewPolicyTypeDef(TypedDict):
     PolicyName: str
@@ -631,19 +626,19 @@ class GetHITResponseTypeDef(TypedDict):
 
 class ListHITsForQualificationTypeResponseTypeDef(TypedDict):
     NumResults: int
-    HITs: List[HITTypeDef]
+    HITs: list[HITTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListHITsResponseTypeDef(TypedDict):
     NumResults: int
-    HITs: List[HITTypeDef]
+    HITs: list[HITTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListReviewableHITsResponseTypeDef(TypedDict):
     NumResults: int
-    HITs: List[HITTypeDef]
+    HITs: list[HITTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

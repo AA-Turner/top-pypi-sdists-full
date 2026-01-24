@@ -10,8 +10,11 @@ from datetime import timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, Iterator, List, Optional
 
+from databricks.sdk.common.types.fieldmask import FieldMask
+from databricks.sdk.service._internal import (Wait, _enum, _from_dict,
+                                              _repeated_dict, _repeated_enum)
+
 from ..errors import OperationFailed
-from ._internal import Wait, _enum, _from_dict, _repeated_dict, _repeated_enum
 
 _LOG = logging.getLogger("databricks.sdk")
 
@@ -329,6 +332,12 @@ class AlertEvaluationState(Enum):
     UNKNOWN = "UNKNOWN"
 
 
+class AlertLifecycleState(Enum):
+
+    ACTIVE = "ACTIVE"
+    DELETED = "DELETED"
+
+
 @dataclass
 class AlertOperandColumn:
     name: Optional[str] = None
@@ -634,6 +643,19 @@ class AlertState(Enum):
 
 @dataclass
 class AlertV2:
+    display_name: str
+    """The display name of the alert."""
+
+    query_text: str
+    """Text of the query to be run."""
+
+    warehouse_id: str
+    """ID of the SQL warehouse attached to the alert."""
+
+    evaluation: AlertV2Evaluation
+
+    schedule: CronSchedule
+
     create_time: Optional[str] = None
     """The timestamp indicating when the alert was created."""
 
@@ -643,19 +665,14 @@ class AlertV2:
     custom_summary: Optional[str] = None
     """Custom summary for the alert. support mustache template."""
 
-    display_name: Optional[str] = None
-    """The display name of the alert."""
-
     effective_run_as: Optional[AlertV2RunAs] = None
     """The actual identity that will be used to execute the alert. This is an output-only field that
     shows the resolved run-as identity after applying permissions and defaults."""
 
-    evaluation: Optional[AlertV2Evaluation] = None
-
     id: Optional[str] = None
     """UUID identifying the alert."""
 
-    lifecycle_state: Optional[LifecycleState] = None
+    lifecycle_state: Optional[AlertLifecycleState] = None
     """Indicates whether the query is trashed."""
 
     owner_user_name: Optional[str] = None
@@ -664,9 +681,6 @@ class AlertV2:
     parent_path: Optional[str] = None
     """The workspace path of the folder containing the alert. Can only be set on create, and cannot be
     updated."""
-
-    query_text: Optional[str] = None
-    """Text of the query to be run."""
 
     run_as: Optional[AlertV2RunAs] = None
     """Specifies the identity that will be used to run the alert. This field allows you to configure
@@ -681,13 +695,8 @@ class AlertV2:
     servicePrincipal/user role. Deprecated: Use `run_as` field instead. This field will be removed
     in a future release."""
 
-    schedule: Optional[CronSchedule] = None
-
     update_time: Optional[str] = None
     """The timestamp indicating when the alert was updated."""
-
-    warehouse_id: Optional[str] = None
-    """ID of the SQL warehouse attached to the alert."""
 
     def as_dict(self) -> dict:
         """Serializes the AlertV2 into a dictionary suitable for use as a JSON request body."""
@@ -774,7 +783,7 @@ class AlertV2:
             effective_run_as=_from_dict(d, "effective_run_as", AlertV2RunAs),
             evaluation=_from_dict(d, "evaluation", AlertV2Evaluation),
             id=d.get("id", None),
-            lifecycle_state=_enum(d, "lifecycle_state", LifecycleState),
+            lifecycle_state=_enum(d, "lifecycle_state", AlertLifecycleState),
             owner_user_name=d.get("owner_user_name", None),
             parent_path=d.get("parent_path", None),
             query_text=d.get("query_text", None),
@@ -788,7 +797,10 @@ class AlertV2:
 
 @dataclass
 class AlertV2Evaluation:
-    comparison_operator: Optional[ComparisonOperator] = None
+    source: AlertV2OperandColumn
+    """Source column from result to use to evaluate alert"""
+
+    comparison_operator: ComparisonOperator
     """Operator used for comparison in alert evaluation."""
 
     empty_result_state: Optional[AlertEvaluationState] = None
@@ -800,9 +812,6 @@ class AlertV2Evaluation:
 
     notification: Optional[AlertV2Notification] = None
     """User or Notification Destination to notify when alert is triggered."""
-
-    source: Optional[AlertV2OperandColumn] = None
-    """Source column from result to use to evaluate alert"""
 
     state: Optional[AlertEvaluationState] = None
     """Latest state of alert evaluation."""
@@ -868,8 +877,11 @@ class AlertV2Notification:
     """Whether to notify alert subscribers when alert returns back to normal."""
 
     retrigger_seconds: Optional[int] = None
-    """Number of seconds an alert must wait after being triggered to rearm itself. After rearming, it
-    can be triggered again. If 0 or not specified, the alert will not be triggered again."""
+    """Number of seconds an alert waits after being triggered before it is allowed to send another
+    notification. If set to 0 or omitted, the alert will not send any further notifications after
+    the first trigger Setting this value to 1 allows the alert to send a notification on every
+    evaluation where the condition is met, effectively making it always retrigger for notification
+    purposes."""
 
     subscriptions: Optional[List[AlertV2Subscription]] = None
 
@@ -939,11 +951,12 @@ class AlertV2Operand:
 
 @dataclass
 class AlertV2OperandColumn:
+    name: str
+
     aggregation: Optional[Aggregation] = None
+    """If not set, the behavior is equivalent to using `First row` in the UI."""
 
     display: Optional[str] = None
-
-    name: Optional[str] = None
 
     def as_dict(self) -> dict:
         """Serializes the AlertV2OperandColumn into a dictionary suitable for use as a JSON request body."""
@@ -1080,9 +1093,6 @@ class AlertV2Subscription:
 
 @dataclass
 class BaseChunkInfo:
-    """Describes metadata for a particular chunk, within a result set; this structure is used both
-    within a manifest, and when fetching individual chunk data or links."""
-
     byte_count: Optional[int] = None
     """The number of bytes in the result chunk. This field is not available when using `INLINE`
     disposition."""
@@ -1131,24 +1141,6 @@ class BaseChunkInfo:
             row_count=d.get("row_count", None),
             row_offset=d.get("row_offset", None),
         )
-
-
-@dataclass
-class CancelExecutionResponse:
-    def as_dict(self) -> dict:
-        """Serializes the CancelExecutionResponse into a dictionary suitable for use as a JSON request body."""
-        body = {}
-        return body
-
-    def as_shallow_dict(self) -> dict:
-        """Serializes the CancelExecutionResponse into a shallow dictionary of its immediate attributes."""
-        body = {}
-        return body
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> CancelExecutionResponse:
-        """Deserializes the CancelExecutionResponse from a dictionary."""
-        return cls()
 
 
 @dataclass
@@ -1686,8 +1678,6 @@ class CreateVisualizationRequestVisualization:
 
 
 class CreateWarehouseRequestWarehouseType(Enum):
-    """Warehouse type: `PRO` or `CLASSIC`. If you want to use serverless compute, you must set to `PRO`
-    and also set the field `enable_serverless_compute` to `true`."""
 
     CLASSIC = "CLASSIC"
     PRO = "PRO"
@@ -1721,19 +1711,19 @@ class CreateWarehouseResponse:
 
 @dataclass
 class CronSchedule:
-    pause_status: Optional[SchedulePauseStatus] = None
-    """Indicate whether this schedule is paused or not."""
-
-    quartz_cron_schedule: Optional[str] = None
+    quartz_cron_schedule: str
     """A cron expression using quartz syntax that specifies the schedule for this pipeline. Should use
     the quartz format described here:
     http://www.quartz-scheduler.org/documentation/quartz-2.1.7/tutorials/tutorial-lesson-06.html"""
 
-    timezone_id: Optional[str] = None
+    timezone_id: str
     """A Java timezone id. The schedule will be resolved using this timezone. This will be combined
     with the quartz_cron_schedule to determine the schedule. See
     https://docs.databricks.com/sql/language-manual/sql-ref-syntax-aux-conf-mgmt-set-timezone.html
     for details."""
+
+    pause_status: Optional[SchedulePauseStatus] = None
+    """Indicate whether this schedule is paused or not."""
 
     def as_dict(self) -> dict:
         """Serializes the CronSchedule into a dictionary suitable for use as a JSON request body."""
@@ -2209,6 +2199,69 @@ class DateValueDynamicDate(Enum):
 
 
 @dataclass
+class DefaultWarehouseOverride:
+    """Represents a per-user default warehouse override configuration. This resource allows users or
+    administrators to customize how a user's default warehouse is selected for SQL operations. If no
+    override exists for a user, the workspace default warehouse will be used."""
+
+    type: DefaultWarehouseOverrideType
+    """The type of override behavior."""
+
+    default_warehouse_override_id: Optional[str] = None
+    """The ID component of the resource name (user ID)."""
+
+    name: Optional[str] = None
+    """The resource name of the default warehouse override. Format:
+    default-warehouse-overrides/{default_warehouse_override_id}"""
+
+    warehouse_id: Optional[str] = None
+    """The specific warehouse ID when type is CUSTOM. Not set for LAST_SELECTED type."""
+
+    def as_dict(self) -> dict:
+        """Serializes the DefaultWarehouseOverride into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.default_warehouse_override_id is not None:
+            body["default_warehouse_override_id"] = self.default_warehouse_override_id
+        if self.name is not None:
+            body["name"] = self.name
+        if self.type is not None:
+            body["type"] = self.type.value
+        if self.warehouse_id is not None:
+            body["warehouse_id"] = self.warehouse_id
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the DefaultWarehouseOverride into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.default_warehouse_override_id is not None:
+            body["default_warehouse_override_id"] = self.default_warehouse_override_id
+        if self.name is not None:
+            body["name"] = self.name
+        if self.type is not None:
+            body["type"] = self.type
+        if self.warehouse_id is not None:
+            body["warehouse_id"] = self.warehouse_id
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> DefaultWarehouseOverride:
+        """Deserializes the DefaultWarehouseOverride from a dictionary."""
+        return cls(
+            default_warehouse_override_id=d.get("default_warehouse_override_id", None),
+            name=d.get("name", None),
+            type=_enum(d, "type", DefaultWarehouseOverrideType),
+            warehouse_id=d.get("warehouse_id", None),
+        )
+
+
+class DefaultWarehouseOverrideType(Enum):
+    """Type of default warehouse override behavior."""
+
+    CUSTOM = "CUSTOM"
+    LAST_SELECTED = "LAST_SELECTED"
+
+
+@dataclass
 class DeleteResponse:
     def as_dict(self) -> dict:
         """Serializes the DeleteResponse into a dictionary suitable for use as a JSON request body."""
@@ -2251,8 +2304,6 @@ class Disposition(Enum):
 
 
 class EditWarehouseRequestWarehouseType(Enum):
-    """Warehouse type: `PRO` or `CLASSIC`. If you want to use serverless compute, you must set to `PRO`
-    and also set the field `enable_serverless_compute` to `true`."""
 
     CLASSIC = "CLASSIC"
     PRO = "PRO"
@@ -2341,6 +2392,7 @@ class EndpointHealth:
     """Deprecated. split into summary and details for security"""
 
     status: Optional[Status] = None
+    """Health status of the endpoint."""
 
     summary: Optional[str] = None
     """A short summary of the health status in case of degraded/failed warehouses."""
@@ -2434,7 +2486,7 @@ class EndpointInfo:
     max_num_clusters: Optional[int] = None
     """Maximum number of clusters that the autoscaler will create to handle concurrent queries.
     
-    Supported values: - Must be >= min_num_clusters - Must be <= 30.
+    Supported values: - Must be >= min_num_clusters - Must be <= 40.
     
     Defaults to min_clusters if unset."""
 
@@ -2463,8 +2515,10 @@ class EndpointInfo:
     """ODBC parameters for the SQL warehouse"""
 
     spot_instance_policy: Optional[SpotInstancePolicy] = None
+    """Configurations whether the endpoint should use spot instances."""
 
     state: Optional[State] = None
+    """state of the endpoint"""
 
     tags: Optional[EndpointTags] = None
     """A set of key-value pairs that will be tagged on all resources (e.g., AWS instances and EBS
@@ -2594,8 +2648,6 @@ class EndpointInfo:
 
 
 class EndpointInfoWarehouseType(Enum):
-    """Warehouse type: `PRO` or `CLASSIC`. If you want to use serverless compute, you must set to `PRO`
-    and also set the field `enable_serverless_compute` to `true`."""
 
     CLASSIC = "CLASSIC"
     PRO = "PRO"
@@ -2725,6 +2777,9 @@ class ExternalLink:
     which point a new `external_link` must be requested."""
 
     external_link: Optional[str] = None
+    """A URL pointing to a chunk of result data, hosted by an external service, with a short expiration
+    time (<= 15 minutes). As this URL contains a temporary credential, it should be considered
+    sensitive and the client should not expose this URL in a log."""
 
     http_headers: Optional[Dict[str, str]] = None
     """HTTP headers that must be included with a GET request to the `external_link`. Each header is
@@ -2735,7 +2790,7 @@ class ExternalLink:
     next_chunk_index: Optional[int] = None
     """When fetching, provides the `chunk_index` for the _next_ chunk. If absent, indicates there are
     no more chunks. The next chunk can be fetched with a
-    :method:statementexecution/getStatementResultChunkN request."""
+    :method:statementexecution/getstatementresultchunkn request."""
 
     next_chunk_internal_link: Optional[str] = None
     """When fetching, provides a link to fetch the _next_ chunk. If absent, indicates there are no more
@@ -3048,7 +3103,7 @@ class GetWarehouseResponse:
     max_num_clusters: Optional[int] = None
     """Maximum number of clusters that the autoscaler will create to handle concurrent queries.
     
-    Supported values: - Must be >= min_num_clusters - Must be <= 30.
+    Supported values: - Must be >= min_num_clusters - Must be <= 40.
     
     Defaults to min_clusters if unset."""
 
@@ -3077,8 +3132,10 @@ class GetWarehouseResponse:
     """ODBC parameters for the SQL warehouse"""
 
     spot_instance_policy: Optional[SpotInstancePolicy] = None
+    """Configurations whether the endpoint should use spot instances."""
 
     state: Optional[State] = None
+    """state of the endpoint"""
 
     tags: Optional[EndpointTags] = None
     """A set of key-value pairs that will be tagged on all resources (e.g., AWS instances and EBS
@@ -3087,6 +3144,8 @@ class GetWarehouseResponse:
     Supported values: - Number of tags < 45."""
 
     warehouse_type: Optional[GetWarehouseResponseWarehouseType] = None
+    """Warehouse type: `PRO` or `CLASSIC`. If you want to use serverless compute, you must set to `PRO`
+    and also set the field `enable_serverless_compute` to `true`."""
 
     def as_dict(self) -> dict:
         """Serializes the GetWarehouseResponse into a dictionary suitable for use as a JSON request body."""
@@ -3206,8 +3265,6 @@ class GetWarehouseResponse:
 
 
 class GetWarehouseResponseWarehouseType(Enum):
-    """Warehouse type: `PRO` or `CLASSIC`. If you want to use serverless compute, you must set to `PRO`
-    and also set the field `enable_serverless_compute` to `true`."""
 
     CLASSIC = "CLASSIC"
     PRO = "PRO"
@@ -3226,6 +3283,9 @@ class GetWorkspaceWarehouseConfigResponse:
     """Spark confs for external hive metastore configuration JSON serialized size must be less than <=
     512K"""
 
+    enable_serverless_compute: Optional[bool] = None
+    """Enable Serverless compute for SQL warehouses"""
+
     enabled_warehouse_types: Optional[List[WarehouseTypePair]] = None
     """List of Warehouse Types allowed in this workspace (limits allowed value of the type field in
     CreateWarehouse and EditWarehouse). Note: Some types cannot be disabled, they don't need to be
@@ -3240,7 +3300,8 @@ class GetWorkspaceWarehouseConfigResponse:
     """GCP only: Google Service Account used to pass to cluster to access Google Cloud Storage"""
 
     instance_profile_arn: Optional[str] = None
-    """AWS Only: Instance profile used to pass IAM role to the cluster"""
+    """AWS Only: The instance profile used to pass an IAM role to the SQL warehouses. This
+    configuration is also applied to the workspace's serverless compute for notebooks and jobs."""
 
     security_policy: Optional[GetWorkspaceWarehouseConfigResponseSecurityPolicy] = None
     """Security policy for warehouses"""
@@ -3257,6 +3318,8 @@ class GetWorkspaceWarehouseConfigResponse:
             body["config_param"] = self.config_param.as_dict()
         if self.data_access_config:
             body["data_access_config"] = [v.as_dict() for v in self.data_access_config]
+        if self.enable_serverless_compute is not None:
+            body["enable_serverless_compute"] = self.enable_serverless_compute
         if self.enabled_warehouse_types:
             body["enabled_warehouse_types"] = [v.as_dict() for v in self.enabled_warehouse_types]
         if self.global_param:
@@ -3280,6 +3343,8 @@ class GetWorkspaceWarehouseConfigResponse:
             body["config_param"] = self.config_param
         if self.data_access_config:
             body["data_access_config"] = self.data_access_config
+        if self.enable_serverless_compute is not None:
+            body["enable_serverless_compute"] = self.enable_serverless_compute
         if self.enabled_warehouse_types:
             body["enabled_warehouse_types"] = self.enabled_warehouse_types
         if self.global_param:
@@ -3301,6 +3366,7 @@ class GetWorkspaceWarehouseConfigResponse:
             channel=_from_dict(d, "channel", Channel),
             config_param=_from_dict(d, "config_param", RepeatedEndpointConfPairs),
             data_access_config=_repeated_dict(d, "data_access_config", EndpointConfPair),
+            enable_serverless_compute=d.get("enable_serverless_compute", None),
             enabled_warehouse_types=_repeated_dict(d, "enabled_warehouse_types", WarehouseTypePair),
             global_param=_from_dict(d, "global_param", RepeatedEndpointConfPairs),
             google_service_account=d.get("google_service_account", None),
@@ -3311,7 +3377,7 @@ class GetWorkspaceWarehouseConfigResponse:
 
 
 class GetWorkspaceWarehouseConfigResponseSecurityPolicy(Enum):
-    """Security policy for warehouses"""
+    """Security policy to be used for warehouses"""
 
     DATA_ACCESS_CONTROL = "DATA_ACCESS_CONTROL"
     NONE = "NONE"
@@ -3919,9 +3985,6 @@ class ListAlertsV2Response:
 
     next_page_token: Optional[str] = None
 
-    results: Optional[List[AlertV2]] = None
-    """Deprecated. Use `alerts` instead."""
-
     def as_dict(self) -> dict:
         """Serializes the ListAlertsV2Response into a dictionary suitable for use as a JSON request body."""
         body = {}
@@ -3929,8 +3992,6 @@ class ListAlertsV2Response:
             body["alerts"] = [v.as_dict() for v in self.alerts]
         if self.next_page_token is not None:
             body["next_page_token"] = self.next_page_token
-        if self.results:
-            body["results"] = [v.as_dict() for v in self.results]
         return body
 
     def as_shallow_dict(self) -> dict:
@@ -3940,17 +4001,49 @@ class ListAlertsV2Response:
             body["alerts"] = self.alerts
         if self.next_page_token is not None:
             body["next_page_token"] = self.next_page_token
-        if self.results:
-            body["results"] = self.results
         return body
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> ListAlertsV2Response:
         """Deserializes the ListAlertsV2Response from a dictionary."""
+        return cls(alerts=_repeated_dict(d, "alerts", AlertV2), next_page_token=d.get("next_page_token", None))
+
+
+@dataclass
+class ListDefaultWarehouseOverridesResponse:
+    """Response message for ListDefaultWarehouseOverrides."""
+
+    default_warehouse_overrides: Optional[List[DefaultWarehouseOverride]] = None
+    """The default warehouse overrides in the workspace."""
+
+    next_page_token: Optional[str] = None
+    """A token, which can be sent as `page_token` to retrieve the next page. If this field is omitted,
+    there are no subsequent pages."""
+
+    def as_dict(self) -> dict:
+        """Serializes the ListDefaultWarehouseOverridesResponse into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.default_warehouse_overrides:
+            body["default_warehouse_overrides"] = [v.as_dict() for v in self.default_warehouse_overrides]
+        if self.next_page_token is not None:
+            body["next_page_token"] = self.next_page_token
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the ListDefaultWarehouseOverridesResponse into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.default_warehouse_overrides:
+            body["default_warehouse_overrides"] = self.default_warehouse_overrides
+        if self.next_page_token is not None:
+            body["next_page_token"] = self.next_page_token
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> ListDefaultWarehouseOverridesResponse:
+        """Deserializes the ListDefaultWarehouseOverridesResponse from a dictionary."""
         return cls(
-            alerts=_repeated_dict(d, "alerts", AlertV2),
+            default_warehouse_overrides=_repeated_dict(d, "default_warehouse_overrides", DefaultWarehouseOverride),
             next_page_token=d.get("next_page_token", None),
-            results=_repeated_dict(d, "results", AlertV2),
         )
 
 
@@ -4264,12 +4357,18 @@ class ListVisualizationsForQueryResponse:
 
 @dataclass
 class ListWarehousesResponse:
+    next_page_token: Optional[str] = None
+    """A token, which can be sent as `page_token` to retrieve the next page. If this field is omitted,
+    there are no subsequent pages."""
+
     warehouses: Optional[List[EndpointInfo]] = None
     """A list of warehouses and their configurations."""
 
     def as_dict(self) -> dict:
         """Serializes the ListWarehousesResponse into a dictionary suitable for use as a JSON request body."""
         body = {}
+        if self.next_page_token is not None:
+            body["next_page_token"] = self.next_page_token
         if self.warehouses:
             body["warehouses"] = [v.as_dict() for v in self.warehouses]
         return body
@@ -4277,6 +4376,8 @@ class ListWarehousesResponse:
     def as_shallow_dict(self) -> dict:
         """Serializes the ListWarehousesResponse into a shallow dictionary of its immediate attributes."""
         body = {}
+        if self.next_page_token is not None:
+            body["next_page_token"] = self.next_page_token
         if self.warehouses:
             body["warehouses"] = self.warehouses
         return body
@@ -4284,7 +4385,9 @@ class ListWarehousesResponse:
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> ListWarehousesResponse:
         """Deserializes the ListWarehousesResponse from a dictionary."""
-        return cls(warehouses=_repeated_dict(d, "warehouses", EndpointInfo))
+        return cls(
+            next_page_token=d.get("next_page_token", None), warehouses=_repeated_dict(d, "warehouses", EndpointInfo)
+        )
 
 
 @dataclass
@@ -4853,6 +4956,10 @@ class QueryInfo:
     rows_produced: Optional[int] = None
     """The number of results returned by the query."""
 
+    session_id: Optional[str] = None
+    """The spark session UUID that query ran on. This is either the Spark Connect, DBSQL, or SDP
+    session ID."""
+
     spark_ui_url: Optional[str] = None
     """URL to the Spark UI query plan."""
 
@@ -4916,6 +5023,8 @@ class QueryInfo:
             body["query_text"] = self.query_text
         if self.rows_produced is not None:
             body["rows_produced"] = self.rows_produced
+        if self.session_id is not None:
+            body["session_id"] = self.session_id
         if self.spark_ui_url is not None:
             body["spark_ui_url"] = self.spark_ui_url
         if self.statement_type is not None:
@@ -4971,6 +5080,8 @@ class QueryInfo:
             body["query_text"] = self.query_text
         if self.rows_produced is not None:
             body["rows_produced"] = self.rows_produced
+        if self.session_id is not None:
+            body["session_id"] = self.session_id
         if self.spark_ui_url is not None:
             body["spark_ui_url"] = self.spark_ui_url
         if self.statement_type is not None:
@@ -5008,6 +5119,7 @@ class QueryInfo:
             query_start_time_ms=d.get("query_start_time_ms", None),
             query_text=d.get("query_text", None),
             rows_produced=d.get("rows_produced", None),
+            session_id=d.get("session_id", None),
             spark_ui_url=d.get("spark_ui_url", None),
             statement_type=_enum(d, "statement_type", QueryStatementType),
             status=_enum(d, "status", QueryStatus),
@@ -5102,7 +5214,7 @@ class QueryMetrics:
     queue."""
 
     pruned_bytes: Optional[int] = None
-    """Total number of bytes in all tables not read due to pruning"""
+    """Total number of file bytes in all tables not read due to pruning"""
 
     pruned_files_count: Optional[int] = None
     """Total number of files from all tables not read due to pruning"""
@@ -5115,6 +5227,9 @@ class QueryMetrics:
 
     read_cache_bytes: Optional[int] = None
     """Size of persistent data read from the cache, in bytes."""
+
+    read_files_bytes: Optional[int] = None
+    """Total number of file bytes in all tables read"""
 
     read_files_count: Optional[int] = None
     """Number of files read after pruning"""
@@ -5195,6 +5310,8 @@ class QueryMetrics:
             body["read_bytes"] = self.read_bytes
         if self.read_cache_bytes is not None:
             body["read_cache_bytes"] = self.read_cache_bytes
+        if self.read_files_bytes is not None:
+            body["read_files_bytes"] = self.read_files_bytes
         if self.read_files_count is not None:
             body["read_files_count"] = self.read_files_count
         if self.read_partitions_count is not None:
@@ -5256,6 +5373,8 @@ class QueryMetrics:
             body["read_bytes"] = self.read_bytes
         if self.read_cache_bytes is not None:
             body["read_cache_bytes"] = self.read_cache_bytes
+        if self.read_files_bytes is not None:
+            body["read_files_bytes"] = self.read_files_bytes
         if self.read_files_count is not None:
             body["read_files_count"] = self.read_files_count
         if self.read_partitions_count is not None:
@@ -5305,6 +5424,7 @@ class QueryMetrics:
             query_compilation_start_timestamp=d.get("query_compilation_start_timestamp", None),
             read_bytes=d.get("read_bytes", None),
             read_cache_bytes=d.get("read_cache_bytes", None),
+            read_files_bytes=d.get("read_files_bytes", None),
             read_files_count=d.get("read_files_count", None),
             read_partitions_count=d.get("read_partitions_count", None),
             read_remote_bytes=d.get("read_remote_bytes", None),
@@ -5551,6 +5671,12 @@ class RestoreResponse:
 
 @dataclass
 class ResultData:
+    """Contains the result data of a single chunk when using `INLINE` disposition. When using
+    `EXTERNAL_LINKS` disposition, the array `external_links` is used instead to provide URLs to the
+    result data in cloud storage. Exactly one of these alternatives is used. (While the
+    `external_links` array prepares the API to return multiple links in a single response. Currently
+    only a single link is returned.)"""
+
     byte_count: Optional[int] = None
     """The number of bytes in the result chunk. This field is not available when using `INLINE`
     disposition."""
@@ -5567,7 +5693,7 @@ class ResultData:
     next_chunk_index: Optional[int] = None
     """When fetching, provides the `chunk_index` for the _next_ chunk. If absent, indicates there are
     no more chunks. The next chunk can be fetched with a
-    :method:statementexecution/getStatementResultChunkN request."""
+    :method:statementexecution/getstatementresultchunkn request."""
 
     next_chunk_internal_link: Optional[str] = None
     """When fetching, provides a link to fetch the _next_ chunk. If absent, indicates there are no more
@@ -5855,7 +5981,7 @@ class SetResponse:
 
 
 class SetWorkspaceWarehouseConfigRequestSecurityPolicy(Enum):
-    """Security policy for warehouses"""
+    """Security policy to be used for warehouses"""
 
     DATA_ACCESS_CONTROL = "DATA_ACCESS_CONTROL"
     NONE = "NONE"
@@ -5881,7 +6007,20 @@ class SetWorkspaceWarehouseConfigResponse:
 
 
 class SpotInstancePolicy(Enum):
-    """Configurations whether the warehouse should use spot instances."""
+    """EndpointSpotInstancePolicy configures whether the endpoint should use spot instances.
+
+    The breakdown of how the EndpointSpotInstancePolicy converts to per cloud configurations is:
+
+    +-------+--------------------------------------+--------------------------------+ | Cloud |
+    COST_OPTIMIZED | RELIABILITY_OPTIMIZED |
+    +-------+--------------------------------------+--------------------------------+ | AWS | On
+    Demand Driver with Spot Executors | On Demand Driver and Executors | | AZURE | On Demand Driver
+    and Executors | On Demand Driver and Executors |
+    +-------+--------------------------------------+--------------------------------+
+
+    While including "spot" in the enum name may limit the the future extensibility of this field
+    because it limits this enum to denoting "spot or not", this is the field that PM recommends
+    after discussion with customers per SC-48783."""
 
     COST_OPTIMIZED = "COST_OPTIMIZED"
     POLICY_UNSPECIFIED = "POLICY_UNSPECIFIED"
@@ -5907,7 +6046,7 @@ class StartWarehouseResponse:
 
 
 class State(Enum):
-    """State of the warehouse"""
+    """* State of a warehouse."""
 
     DELETED = "DELETED"
     DELETING = "DELETING"
@@ -6011,11 +6150,6 @@ class StatementResponse:
 
 
 class StatementState(Enum):
-    """Statement execution state: - `PENDING`: waiting for warehouse - `RUNNING`: running -
-    `SUCCEEDED`: execution was successful, result data available for fetch - `FAILED`: execution
-    failed; reason for failure described in accomanying error message - `CANCELED`: user canceled;
-    can come from explicit cancel call, or timeout with `on_wait_timeout=CANCEL` - `CLOSED`:
-    execution successful, and statement closed; result no longer available for fetch"""
 
     CANCELED = "CANCELED"
     CLOSED = "CLOSED"
@@ -6032,6 +6166,11 @@ class StatementStatus:
     error: Optional[ServiceError] = None
 
     state: Optional[StatementState] = None
+    """Statement execution state: - `PENDING`: waiting for warehouse - `RUNNING`: running -
+    `SUCCEEDED`: execution was successful, result data available for fetch - `FAILED`: execution
+    failed; reason for failure described in accompanying error message - `CANCELED`: user canceled;
+    can come from explicit cancel call, or timeout with `on_wait_timeout=CANCEL` - `CLOSED`:
+    execution successful, and statement closed; result no longer available for fetch"""
 
     def as_dict(self) -> dict:
         """Serializes the StatementStatus into a dictionary suitable for use as a JSON request body."""
@@ -6058,12 +6197,10 @@ class StatementStatus:
 
 
 class Status(Enum):
-    """Health status of the warehouse."""
 
     DEGRADED = "DEGRADED"
     FAILED = "FAILED"
     HEALTHY = "HEALTHY"
-    STATUS_UNSPECIFIED = "STATUS_UNSPECIFIED"
 
 
 @dataclass
@@ -6214,20 +6351,35 @@ class TerminationReason:
 
 
 class TerminationReasonCode(Enum):
-    """status code indicating why the cluster was terminated"""
+    """The status code indicating why the cluster was terminated"""
 
     ABUSE_DETECTED = "ABUSE_DETECTED"
+    ACCESS_TOKEN_FAILURE = "ACCESS_TOKEN_FAILURE"
+    ALLOCATION_TIMEOUT = "ALLOCATION_TIMEOUT"
+    ALLOCATION_TIMEOUT_NODE_DAEMON_NOT_READY = "ALLOCATION_TIMEOUT_NODE_DAEMON_NOT_READY"
+    ALLOCATION_TIMEOUT_NO_HEALTHY_AND_WARMED_UP_CLUSTERS = "ALLOCATION_TIMEOUT_NO_HEALTHY_AND_WARMED_UP_CLUSTERS"
+    ALLOCATION_TIMEOUT_NO_HEALTHY_CLUSTERS = "ALLOCATION_TIMEOUT_NO_HEALTHY_CLUSTERS"
+    ALLOCATION_TIMEOUT_NO_MATCHED_CLUSTERS = "ALLOCATION_TIMEOUT_NO_MATCHED_CLUSTERS"
+    ALLOCATION_TIMEOUT_NO_READY_CLUSTERS = "ALLOCATION_TIMEOUT_NO_READY_CLUSTERS"
+    ALLOCATION_TIMEOUT_NO_UNALLOCATED_CLUSTERS = "ALLOCATION_TIMEOUT_NO_UNALLOCATED_CLUSTERS"
+    ALLOCATION_TIMEOUT_NO_WARMED_UP_CLUSTERS = "ALLOCATION_TIMEOUT_NO_WARMED_UP_CLUSTERS"
     ATTACH_PROJECT_FAILURE = "ATTACH_PROJECT_FAILURE"
     AWS_AUTHORIZATION_FAILURE = "AWS_AUTHORIZATION_FAILURE"
+    AWS_INACCESSIBLE_KMS_KEY_FAILURE = "AWS_INACCESSIBLE_KMS_KEY_FAILURE"
+    AWS_INSTANCE_PROFILE_UPDATE_FAILURE = "AWS_INSTANCE_PROFILE_UPDATE_FAILURE"
     AWS_INSUFFICIENT_FREE_ADDRESSES_IN_SUBNET_FAILURE = "AWS_INSUFFICIENT_FREE_ADDRESSES_IN_SUBNET_FAILURE"
     AWS_INSUFFICIENT_INSTANCE_CAPACITY_FAILURE = "AWS_INSUFFICIENT_INSTANCE_CAPACITY_FAILURE"
+    AWS_INVALID_KEY_PAIR = "AWS_INVALID_KEY_PAIR"
+    AWS_INVALID_KMS_KEY_STATE = "AWS_INVALID_KMS_KEY_STATE"
     AWS_MAX_SPOT_INSTANCE_COUNT_EXCEEDED_FAILURE = "AWS_MAX_SPOT_INSTANCE_COUNT_EXCEEDED_FAILURE"
     AWS_REQUEST_LIMIT_EXCEEDED = "AWS_REQUEST_LIMIT_EXCEEDED"
+    AWS_RESOURCE_QUOTA_EXCEEDED = "AWS_RESOURCE_QUOTA_EXCEEDED"
     AWS_UNSUPPORTED_FAILURE = "AWS_UNSUPPORTED_FAILURE"
     AZURE_BYOK_KEY_PERMISSION_FAILURE = "AZURE_BYOK_KEY_PERMISSION_FAILURE"
     AZURE_EPHEMERAL_DISK_FAILURE = "AZURE_EPHEMERAL_DISK_FAILURE"
     AZURE_INVALID_DEPLOYMENT_TEMPLATE = "AZURE_INVALID_DEPLOYMENT_TEMPLATE"
     AZURE_OPERATION_NOT_ALLOWED_EXCEPTION = "AZURE_OPERATION_NOT_ALLOWED_EXCEPTION"
+    AZURE_PACKED_DEPLOYMENT_PARTIAL_FAILURE = "AZURE_PACKED_DEPLOYMENT_PARTIAL_FAILURE"
     AZURE_QUOTA_EXCEEDED_EXCEPTION = "AZURE_QUOTA_EXCEEDED_EXCEPTION"
     AZURE_RESOURCE_MANAGER_THROTTLING = "AZURE_RESOURCE_MANAGER_THROTTLING"
     AZURE_RESOURCE_PROVIDER_THROTTLING = "AZURE_RESOURCE_PROVIDER_THROTTLING"
@@ -6236,65 +6388,160 @@ class TerminationReasonCode(Enum):
     AZURE_VNET_CONFIGURATION_FAILURE = "AZURE_VNET_CONFIGURATION_FAILURE"
     BOOTSTRAP_TIMEOUT = "BOOTSTRAP_TIMEOUT"
     BOOTSTRAP_TIMEOUT_CLOUD_PROVIDER_EXCEPTION = "BOOTSTRAP_TIMEOUT_CLOUD_PROVIDER_EXCEPTION"
+    BOOTSTRAP_TIMEOUT_DUE_TO_MISCONFIG = "BOOTSTRAP_TIMEOUT_DUE_TO_MISCONFIG"
+    BUDGET_POLICY_LIMIT_ENFORCEMENT_ACTIVATED = "BUDGET_POLICY_LIMIT_ENFORCEMENT_ACTIVATED"
+    BUDGET_POLICY_RESOLUTION_FAILURE = "BUDGET_POLICY_RESOLUTION_FAILURE"
+    CLOUD_ACCOUNT_POD_QUOTA_EXCEEDED = "CLOUD_ACCOUNT_POD_QUOTA_EXCEEDED"
+    CLOUD_ACCOUNT_SETUP_FAILURE = "CLOUD_ACCOUNT_SETUP_FAILURE"
+    CLOUD_OPERATION_CANCELLED = "CLOUD_OPERATION_CANCELLED"
     CLOUD_PROVIDER_DISK_SETUP_FAILURE = "CLOUD_PROVIDER_DISK_SETUP_FAILURE"
+    CLOUD_PROVIDER_INSTANCE_NOT_LAUNCHED = "CLOUD_PROVIDER_INSTANCE_NOT_LAUNCHED"
     CLOUD_PROVIDER_LAUNCH_FAILURE = "CLOUD_PROVIDER_LAUNCH_FAILURE"
+    CLOUD_PROVIDER_LAUNCH_FAILURE_DUE_TO_MISCONFIG = "CLOUD_PROVIDER_LAUNCH_FAILURE_DUE_TO_MISCONFIG"
     CLOUD_PROVIDER_RESOURCE_STOCKOUT = "CLOUD_PROVIDER_RESOURCE_STOCKOUT"
+    CLOUD_PROVIDER_RESOURCE_STOCKOUT_DUE_TO_MISCONFIG = "CLOUD_PROVIDER_RESOURCE_STOCKOUT_DUE_TO_MISCONFIG"
     CLOUD_PROVIDER_SHUTDOWN = "CLOUD_PROVIDER_SHUTDOWN"
+    CLUSTER_OPERATION_THROTTLED = "CLUSTER_OPERATION_THROTTLED"
+    CLUSTER_OPERATION_TIMEOUT = "CLUSTER_OPERATION_TIMEOUT"
     COMMUNICATION_LOST = "COMMUNICATION_LOST"
     CONTAINER_LAUNCH_FAILURE = "CONTAINER_LAUNCH_FAILURE"
+    CONTROL_PLANE_CONNECTION_FAILURE = "CONTROL_PLANE_CONNECTION_FAILURE"
+    CONTROL_PLANE_CONNECTION_FAILURE_DUE_TO_MISCONFIG = "CONTROL_PLANE_CONNECTION_FAILURE_DUE_TO_MISCONFIG"
     CONTROL_PLANE_REQUEST_FAILURE = "CONTROL_PLANE_REQUEST_FAILURE"
+    CONTROL_PLANE_REQUEST_FAILURE_DUE_TO_MISCONFIG = "CONTROL_PLANE_REQUEST_FAILURE_DUE_TO_MISCONFIG"
     DATABASE_CONNECTION_FAILURE = "DATABASE_CONNECTION_FAILURE"
+    DATA_ACCESS_CONFIG_CHANGED = "DATA_ACCESS_CONFIG_CHANGED"
     DBFS_COMPONENT_UNHEALTHY = "DBFS_COMPONENT_UNHEALTHY"
+    DBR_IMAGE_RESOLUTION_FAILURE = "DBR_IMAGE_RESOLUTION_FAILURE"
+    DISASTER_RECOVERY_REPLICATION = "DISASTER_RECOVERY_REPLICATION"
+    DNS_RESOLUTION_ERROR = "DNS_RESOLUTION_ERROR"
+    DOCKER_CONTAINER_CREATION_EXCEPTION = "DOCKER_CONTAINER_CREATION_EXCEPTION"
     DOCKER_IMAGE_PULL_FAILURE = "DOCKER_IMAGE_PULL_FAILURE"
+    DOCKER_IMAGE_TOO_LARGE_FOR_INSTANCE_EXCEPTION = "DOCKER_IMAGE_TOO_LARGE_FOR_INSTANCE_EXCEPTION"
+    DOCKER_INVALID_OS_EXCEPTION = "DOCKER_INVALID_OS_EXCEPTION"
+    DRIVER_EVICTION = "DRIVER_EVICTION"
+    DRIVER_LAUNCH_TIMEOUT = "DRIVER_LAUNCH_TIMEOUT"
+    DRIVER_NODE_UNREACHABLE = "DRIVER_NODE_UNREACHABLE"
+    DRIVER_OUT_OF_DISK = "DRIVER_OUT_OF_DISK"
+    DRIVER_OUT_OF_MEMORY = "DRIVER_OUT_OF_MEMORY"
+    DRIVER_POD_CREATION_FAILURE = "DRIVER_POD_CREATION_FAILURE"
+    DRIVER_UNEXPECTED_FAILURE = "DRIVER_UNEXPECTED_FAILURE"
+    DRIVER_UNHEALTHY = "DRIVER_UNHEALTHY"
     DRIVER_UNREACHABLE = "DRIVER_UNREACHABLE"
     DRIVER_UNRESPONSIVE = "DRIVER_UNRESPONSIVE"
+    DYNAMIC_SPARK_CONF_SIZE_EXCEEDED = "DYNAMIC_SPARK_CONF_SIZE_EXCEEDED"
+    EOS_SPARK_IMAGE = "EOS_SPARK_IMAGE"
     EXECUTION_COMPONENT_UNHEALTHY = "EXECUTION_COMPONENT_UNHEALTHY"
+    EXECUTOR_POD_UNSCHEDULED = "EXECUTOR_POD_UNSCHEDULED"
+    GCP_API_RATE_QUOTA_EXCEEDED = "GCP_API_RATE_QUOTA_EXCEEDED"
+    GCP_DENIED_BY_ORG_POLICY = "GCP_DENIED_BY_ORG_POLICY"
+    GCP_FORBIDDEN = "GCP_FORBIDDEN"
+    GCP_IAM_TIMEOUT = "GCP_IAM_TIMEOUT"
+    GCP_INACCESSIBLE_KMS_KEY_FAILURE = "GCP_INACCESSIBLE_KMS_KEY_FAILURE"
+    GCP_INSUFFICIENT_CAPACITY = "GCP_INSUFFICIENT_CAPACITY"
+    GCP_IP_SPACE_EXHAUSTED = "GCP_IP_SPACE_EXHAUSTED"
+    GCP_KMS_KEY_PERMISSION_DENIED = "GCP_KMS_KEY_PERMISSION_DENIED"
+    GCP_NOT_FOUND = "GCP_NOT_FOUND"
     GCP_QUOTA_EXCEEDED = "GCP_QUOTA_EXCEEDED"
+    GCP_RESOURCE_QUOTA_EXCEEDED = "GCP_RESOURCE_QUOTA_EXCEEDED"
+    GCP_SERVICE_ACCOUNT_ACCESS_DENIED = "GCP_SERVICE_ACCOUNT_ACCESS_DENIED"
     GCP_SERVICE_ACCOUNT_DELETED = "GCP_SERVICE_ACCOUNT_DELETED"
+    GCP_SERVICE_ACCOUNT_NOT_FOUND = "GCP_SERVICE_ACCOUNT_NOT_FOUND"
+    GCP_SUBNET_NOT_READY = "GCP_SUBNET_NOT_READY"
+    GCP_TRUSTED_IMAGE_PROJECTS_VIOLATED = "GCP_TRUSTED_IMAGE_PROJECTS_VIOLATED"
+    GKE_BASED_CLUSTER_TERMINATION = "GKE_BASED_CLUSTER_TERMINATION"
     GLOBAL_INIT_SCRIPT_FAILURE = "GLOBAL_INIT_SCRIPT_FAILURE"
     HIVE_METASTORE_PROVISIONING_FAILURE = "HIVE_METASTORE_PROVISIONING_FAILURE"
     IMAGE_PULL_PERMISSION_DENIED = "IMAGE_PULL_PERMISSION_DENIED"
     INACTIVITY = "INACTIVITY"
+    INIT_CONTAINER_NOT_FINISHED = "INIT_CONTAINER_NOT_FINISHED"
     INIT_SCRIPT_FAILURE = "INIT_SCRIPT_FAILURE"
     INSTANCE_POOL_CLUSTER_FAILURE = "INSTANCE_POOL_CLUSTER_FAILURE"
+    INSTANCE_POOL_MAX_CAPACITY_REACHED = "INSTANCE_POOL_MAX_CAPACITY_REACHED"
+    INSTANCE_POOL_NOT_FOUND = "INSTANCE_POOL_NOT_FOUND"
     INSTANCE_UNREACHABLE = "INSTANCE_UNREACHABLE"
+    INSTANCE_UNREACHABLE_DUE_TO_MISCONFIG = "INSTANCE_UNREACHABLE_DUE_TO_MISCONFIG"
+    INTERNAL_CAPACITY_FAILURE = "INTERNAL_CAPACITY_FAILURE"
     INTERNAL_ERROR = "INTERNAL_ERROR"
     INVALID_ARGUMENT = "INVALID_ARGUMENT"
+    INVALID_AWS_PARAMETER = "INVALID_AWS_PARAMETER"
+    INVALID_INSTANCE_PLACEMENT_PROTOCOL = "INVALID_INSTANCE_PLACEMENT_PROTOCOL"
     INVALID_SPARK_IMAGE = "INVALID_SPARK_IMAGE"
+    INVALID_WORKER_IMAGE_FAILURE = "INVALID_WORKER_IMAGE_FAILURE"
+    IN_PENALTY_BOX = "IN_PENALTY_BOX"
     IP_EXHAUSTION_FAILURE = "IP_EXHAUSTION_FAILURE"
     JOB_FINISHED = "JOB_FINISHED"
+    K8S_ACTIVE_POD_QUOTA_EXCEEDED = "K8S_ACTIVE_POD_QUOTA_EXCEEDED"
     K8S_AUTOSCALING_FAILURE = "K8S_AUTOSCALING_FAILURE"
     K8S_DBR_CLUSTER_LAUNCH_TIMEOUT = "K8S_DBR_CLUSTER_LAUNCH_TIMEOUT"
+    LAZY_ALLOCATION_TIMEOUT = "LAZY_ALLOCATION_TIMEOUT"
+    MAINTENANCE_MODE = "MAINTENANCE_MODE"
     METASTORE_COMPONENT_UNHEALTHY = "METASTORE_COMPONENT_UNHEALTHY"
     NEPHOS_RESOURCE_MANAGEMENT = "NEPHOS_RESOURCE_MANAGEMENT"
+    NETVISOR_SETUP_TIMEOUT = "NETVISOR_SETUP_TIMEOUT"
+    NETWORK_CHECK_CONTROL_PLANE_FAILURE = "NETWORK_CHECK_CONTROL_PLANE_FAILURE"
+    NETWORK_CHECK_CONTROL_PLANE_FAILURE_DUE_TO_MISCONFIG = "NETWORK_CHECK_CONTROL_PLANE_FAILURE_DUE_TO_MISCONFIG"
+    NETWORK_CHECK_DNS_SERVER_FAILURE = "NETWORK_CHECK_DNS_SERVER_FAILURE"
+    NETWORK_CHECK_DNS_SERVER_FAILURE_DUE_TO_MISCONFIG = "NETWORK_CHECK_DNS_SERVER_FAILURE_DUE_TO_MISCONFIG"
+    NETWORK_CHECK_METADATA_ENDPOINT_FAILURE = "NETWORK_CHECK_METADATA_ENDPOINT_FAILURE"
+    NETWORK_CHECK_METADATA_ENDPOINT_FAILURE_DUE_TO_MISCONFIG = (
+        "NETWORK_CHECK_METADATA_ENDPOINT_FAILURE_DUE_TO_MISCONFIG"
+    )
+    NETWORK_CHECK_MULTIPLE_COMPONENTS_FAILURE = "NETWORK_CHECK_MULTIPLE_COMPONENTS_FAILURE"
+    NETWORK_CHECK_MULTIPLE_COMPONENTS_FAILURE_DUE_TO_MISCONFIG = (
+        "NETWORK_CHECK_MULTIPLE_COMPONENTS_FAILURE_DUE_TO_MISCONFIG"
+    )
+    NETWORK_CHECK_NIC_FAILURE = "NETWORK_CHECK_NIC_FAILURE"
+    NETWORK_CHECK_NIC_FAILURE_DUE_TO_MISCONFIG = "NETWORK_CHECK_NIC_FAILURE_DUE_TO_MISCONFIG"
+    NETWORK_CHECK_STORAGE_FAILURE = "NETWORK_CHECK_STORAGE_FAILURE"
+    NETWORK_CHECK_STORAGE_FAILURE_DUE_TO_MISCONFIG = "NETWORK_CHECK_STORAGE_FAILURE_DUE_TO_MISCONFIG"
     NETWORK_CONFIGURATION_FAILURE = "NETWORK_CONFIGURATION_FAILURE"
     NFS_MOUNT_FAILURE = "NFS_MOUNT_FAILURE"
+    NO_MATCHED_K8S = "NO_MATCHED_K8S"
+    NO_MATCHED_K8S_TESTING_TAG = "NO_MATCHED_K8S_TESTING_TAG"
     NPIP_TUNNEL_SETUP_FAILURE = "NPIP_TUNNEL_SETUP_FAILURE"
     NPIP_TUNNEL_TOKEN_FAILURE = "NPIP_TUNNEL_TOKEN_FAILURE"
+    POD_ASSIGNMENT_FAILURE = "POD_ASSIGNMENT_FAILURE"
+    POD_SCHEDULING_FAILURE = "POD_SCHEDULING_FAILURE"
+    RATE_LIMITED = "RATE_LIMITED"
     REQUEST_REJECTED = "REQUEST_REJECTED"
     REQUEST_THROTTLED = "REQUEST_THROTTLED"
+    RESOURCE_USAGE_BLOCKED = "RESOURCE_USAGE_BLOCKED"
+    SECRET_CREATION_FAILURE = "SECRET_CREATION_FAILURE"
+    SECRET_PERMISSION_DENIED = "SECRET_PERMISSION_DENIED"
     SECRET_RESOLUTION_ERROR = "SECRET_RESOLUTION_ERROR"
     SECURITY_DAEMON_REGISTRATION_EXCEPTION = "SECURITY_DAEMON_REGISTRATION_EXCEPTION"
     SELF_BOOTSTRAP_FAILURE = "SELF_BOOTSTRAP_FAILURE"
+    SERVERLESS_LONG_RUNNING_TERMINATED = "SERVERLESS_LONG_RUNNING_TERMINATED"
     SKIPPED_SLOW_NODES = "SKIPPED_SLOW_NODES"
     SLOW_IMAGE_DOWNLOAD = "SLOW_IMAGE_DOWNLOAD"
     SPARK_ERROR = "SPARK_ERROR"
     SPARK_IMAGE_DOWNLOAD_FAILURE = "SPARK_IMAGE_DOWNLOAD_FAILURE"
+    SPARK_IMAGE_DOWNLOAD_THROTTLED = "SPARK_IMAGE_DOWNLOAD_THROTTLED"
+    SPARK_IMAGE_NOT_FOUND = "SPARK_IMAGE_NOT_FOUND"
     SPARK_STARTUP_FAILURE = "SPARK_STARTUP_FAILURE"
     SPOT_INSTANCE_TERMINATION = "SPOT_INSTANCE_TERMINATION"
+    SSH_BOOTSTRAP_FAILURE = "SSH_BOOTSTRAP_FAILURE"
     STORAGE_DOWNLOAD_FAILURE = "STORAGE_DOWNLOAD_FAILURE"
+    STORAGE_DOWNLOAD_FAILURE_DUE_TO_MISCONFIG = "STORAGE_DOWNLOAD_FAILURE_DUE_TO_MISCONFIG"
+    STORAGE_DOWNLOAD_FAILURE_SLOW = "STORAGE_DOWNLOAD_FAILURE_SLOW"
+    STORAGE_DOWNLOAD_FAILURE_THROTTLED = "STORAGE_DOWNLOAD_FAILURE_THROTTLED"
     STS_CLIENT_SETUP_FAILURE = "STS_CLIENT_SETUP_FAILURE"
     SUBNET_EXHAUSTED_FAILURE = "SUBNET_EXHAUSTED_FAILURE"
     TEMPORARILY_UNAVAILABLE = "TEMPORARILY_UNAVAILABLE"
     TRIAL_EXPIRED = "TRIAL_EXPIRED"
     UNEXPECTED_LAUNCH_FAILURE = "UNEXPECTED_LAUNCH_FAILURE"
+    UNEXPECTED_POD_RECREATION = "UNEXPECTED_POD_RECREATION"
     UNKNOWN = "UNKNOWN"
     UNSUPPORTED_INSTANCE_TYPE = "UNSUPPORTED_INSTANCE_TYPE"
     UPDATE_INSTANCE_PROFILE_FAILURE = "UPDATE_INSTANCE_PROFILE_FAILURE"
+    USAGE_POLICY_ENTITLEMENT_DENIED = "USAGE_POLICY_ENTITLEMENT_DENIED"
+    USER_INITIATED_VM_TERMINATION = "USER_INITIATED_VM_TERMINATION"
     USER_REQUEST = "USER_REQUEST"
     WORKER_SETUP_FAILURE = "WORKER_SETUP_FAILURE"
     WORKSPACE_CANCELLED_ERROR = "WORKSPACE_CANCELLED_ERROR"
     WORKSPACE_CONFIGURATION_ERROR = "WORKSPACE_CONFIGURATION_ERROR"
+    WORKSPACE_UPDATE = "WORKSPACE_UPDATE"
 
 
 class TerminationReasonType(Enum):
@@ -7008,12 +7255,14 @@ class WarehousePermissionsDescription:
 
 @dataclass
 class WarehouseTypePair:
+    """* Configuration values to enable or disable the access to specific warehouse types in the
+    workspace."""
+
     enabled: Optional[bool] = None
     """If set to false the specific warehouse type will not be be allowed as a value for warehouse_type
     in CreateWarehouse and EditWarehouse"""
 
     warehouse_type: Optional[WarehouseTypePairWarehouseType] = None
-    """Warehouse type: `PRO` or `CLASSIC`."""
 
     def as_dict(self) -> dict:
         """Serializes the WarehouseTypePair into a dictionary suitable for use as a JSON request body."""
@@ -7042,7 +7291,6 @@ class WarehouseTypePair:
 
 
 class WarehouseTypePairWarehouseType(Enum):
-    """Warehouse type: `PRO` or `CLASSIC`."""
 
     CLASSIC = "CLASSIC"
     PRO = "PRO"
@@ -7262,6 +7510,7 @@ class AlertsAPI:
 
         :returns: :class:`Alert`
         """
+
         body = {}
         if alert is not None:
             body["alert"] = alert.as_dict()
@@ -7364,6 +7613,7 @@ class AlertsAPI:
 
         :returns: :class:`Alert`
         """
+
         body = {}
         if alert is not None:
             body["alert"] = alert.as_dict()
@@ -7386,8 +7636,7 @@ class AlertsLegacyAPI:
     notification destinations if the condition was met. Alerts can be scheduled using the `sql_task` type of
     the Jobs API, e.g. :method:jobs/create.
 
-    **Note**: A new version of the Databricks SQL API is now available. Please see the latest version. [Learn
-    more]
+    **Warning**: This API is deprecated. Please see the latest version of the Databricks SQL API. [Learn more]
 
     [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html"""
 
@@ -7406,8 +7655,7 @@ class AlertsLegacyAPI:
         """Creates an alert. An alert is a Databricks SQL object that periodically runs a query, evaluates a
         condition of its result, and notifies users or notification destinations if the condition was met.
 
-        **Note**: A new version of the Databricks SQL API is now available. Please use :method:alerts/create
-        instead. [Learn more]
+        **Warning**: This API is deprecated. Please use :method:alerts/create instead. [Learn more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
@@ -7425,6 +7673,7 @@ class AlertsLegacyAPI:
 
         :returns: :class:`LegacyAlert`
         """
+
         body = {}
         if name is not None:
             body["name"] = name
@@ -7448,8 +7697,7 @@ class AlertsLegacyAPI:
         """Deletes an alert. Deleted alerts are no longer accessible and cannot be restored. **Note**: Unlike
         queries and dashboards, alerts cannot be moved to the trash.
 
-        **Note**: A new version of the Databricks SQL API is now available. Please use :method:alerts/delete
-        instead. [Learn more]
+        **Warning**: This API is deprecated. Please use :method:alerts/delete instead. [Learn more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
@@ -7467,8 +7715,7 @@ class AlertsLegacyAPI:
     def get(self, alert_id: str) -> LegacyAlert:
         """Gets an alert.
 
-        **Note**: A new version of the Databricks SQL API is now available. Please use :method:alerts/get
-        instead. [Learn more]
+        **Warning**: This API is deprecated. Please use :method:alerts/get instead. [Learn more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
@@ -7487,8 +7734,7 @@ class AlertsLegacyAPI:
     def list(self) -> Iterator[LegacyAlert]:
         """Gets a list of alerts.
 
-        **Note**: A new version of the Databricks SQL API is now available. Please use :method:alerts/list
-        instead. [Learn more]
+        **Warning**: This API is deprecated. Please use :method:alerts/list instead. [Learn more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
@@ -7506,8 +7752,7 @@ class AlertsLegacyAPI:
     def update(self, alert_id: str, name: str, options: AlertOptions, query_id: str, *, rearm: Optional[int] = None):
         """Updates an alert.
 
-        **Note**: A new version of the Databricks SQL API is now available. Please use :method:alerts/update
-        instead. [Learn more]
+        **Warning**: This API is deprecated. Please use :method:alerts/update instead. [Learn more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
@@ -7524,6 +7769,7 @@ class AlertsLegacyAPI:
 
 
         """
+
         body = {}
         if name is not None:
             body["name"] = name
@@ -7554,6 +7800,7 @@ class AlertsV2API:
 
         :returns: :class:`AlertV2`
         """
+
         body = alert.as_dict()
         headers = {
             "Accept": "application/json",
@@ -7598,8 +7845,8 @@ class AlertsV2API:
 
         while True:
             json = self._api.do("GET", "/api/2.0/alerts", query=query, headers=headers)
-            if "results" in json:
-                for v in json["results"]:
+            if "alerts" in json:
+                for v in json["alerts"]:
                     yield AlertV2.from_dict(v)
             if "next_page_token" not in json or not json["next_page_token"]:
                 return
@@ -7640,6 +7887,7 @@ class AlertsV2API:
 
         :returns: :class:`AlertV2`
         """
+
         body = alert.as_dict()
         query = {}
         if update_mask is not None:
@@ -7684,6 +7932,7 @@ class DashboardWidgetsAPI:
 
         :returns: :class:`Widget`
         """
+
         body = {}
         if dashboard_id is not None:
             body["dashboard_id"] = dashboard_id
@@ -7745,6 +7994,7 @@ class DashboardWidgetsAPI:
 
         :returns: :class:`Widget`
         """
+
         body = {}
         if dashboard_id is not None:
             body["dashboard_id"] = dashboard_id
@@ -7890,6 +8140,7 @@ class DashboardsAPI:
 
         :returns: :class:`Dashboard`
         """
+
         body = {}
         if name is not None:
             body["name"] = name
@@ -7915,7 +8166,7 @@ class DataSourcesAPI:
     advise you to use any text editor, REST client, or `grep` to search the response from this API for the
     name of your SQL warehouse as it appears in Databricks SQL.
 
-    **Note**: A new version of the Databricks SQL API is now available. [Learn more]
+    **Warning**: This API is deprecated. Please see the latest version of the Databricks SQL API. [Learn more]
 
     [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html"""
 
@@ -7927,8 +8178,7 @@ class DataSourcesAPI:
         API response are enumerated for clarity. However, you need only a SQL warehouse's `id` to create new
         queries against it.
 
-        **Note**: A new version of the Databricks SQL API is now available. Please use :method:warehouses/list
-        instead. [Learn more]
+        **Warning**: This API is deprecated. Please use :method:warehouses/list instead. [Learn more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
@@ -7957,7 +8207,7 @@ class DbsqlPermissionsAPI:
 
     - `CAN_MANAGE`: Allows all actions: read, run, edit, delete, modify permissions (superset of `CAN_RUN`)
 
-    **Note**: A new version of the Databricks SQL API is now available. [Learn more]
+    **Warning**: This API is deprecated. Please see the latest version of the Databricks SQL API. [Learn more]
 
     [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html"""
 
@@ -7967,8 +8217,7 @@ class DbsqlPermissionsAPI:
     def get(self, object_type: ObjectTypePlural, object_id: str) -> GetResponse:
         """Gets a JSON representation of the access control list (ACL) for a specified object.
 
-        **Note**: A new version of the Databricks SQL API is now available. Please use
-        :method:workspace/getpermissions instead. [Learn more]
+        **Warning**: This API is deprecated. Please use :method:workspace/getpermissions instead. [Learn more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
@@ -7997,8 +8246,7 @@ class DbsqlPermissionsAPI:
         """Sets the access control list (ACL) for a specified object. This operation will complete rewrite the
         ACL.
 
-        **Note**: A new version of the Databricks SQL API is now available. Please use
-        :method:workspace/setpermissions instead. [Learn more]
+        **Warning**: This API is deprecated. Please use :method:workspace/setpermissions instead. [Learn more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
@@ -8010,6 +8258,7 @@ class DbsqlPermissionsAPI:
 
         :returns: :class:`SetResponse`
         """
+
         body = {}
         if access_control_list is not None:
             body["access_control_list"] = [v.as_dict() for v in access_control_list]
@@ -8028,8 +8277,8 @@ class DbsqlPermissionsAPI:
     ) -> Success:
         """Transfers ownership of a dashboard, query, or alert to an active user. Requires an admin API key.
 
-        **Note**: A new version of the Databricks SQL API is now available. For queries and alerts, please use
-        :method:queries/update and :method:alerts/update respectively instead. [Learn more]
+        **Warning**: This API is deprecated. For queries and alerts, please use :method:queries/update and
+        :method:alerts/update respectively instead. [Learn more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
@@ -8042,6 +8291,7 @@ class DbsqlPermissionsAPI:
 
         :returns: :class:`Success`
         """
+
         body = {}
         if new_owner is not None:
             body["new_owner"] = new_owner
@@ -8079,6 +8329,7 @@ class QueriesAPI:
 
         :returns: :class:`Query`
         """
+
         body = {}
         if auto_resolve_display_name is not None:
             body["auto_resolve_display_name"] = auto_resolve_display_name
@@ -8211,6 +8462,7 @@ class QueriesAPI:
 
         :returns: :class:`Query`
         """
+
         body = {}
         if auto_resolve_display_name is not None:
             body["auto_resolve_display_name"] = auto_resolve_display_name
@@ -8232,8 +8484,7 @@ class QueriesLegacyAPI:
     SQL warehouse, query text, name, description, tags, parameters, and visualizations. Queries can be
     scheduled using the `sql_task` type of the Jobs API, e.g. :method:jobs/create.
 
-    **Note**: A new version of the Databricks SQL API is now available. Please see the latest version. [Learn
-    more]
+    **Warning**: This API is deprecated. Please see the latest version of the Databricks SQL API. [Learn more]
 
     [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html"""
 
@@ -8261,8 +8512,7 @@ class QueriesLegacyAPI:
 
         **Note**: You cannot add a visualization until you create the query.
 
-        **Note**: A new version of the Databricks SQL API is now available. Please use :method:queries/create
-        instead. [Learn more]
+        **Warning**: This API is deprecated. Please use :method:queries/create instead. [Learn more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
@@ -8290,6 +8540,7 @@ class QueriesLegacyAPI:
 
         :returns: :class:`LegacyQuery`
         """
+
         body = {}
         if data_source_id is not None:
             body["data_source_id"] = data_source_id
@@ -8319,8 +8570,7 @@ class QueriesLegacyAPI:
         """Moves a query to the trash. Trashed queries immediately disappear from searches and list views, and
         they cannot be used for alerts. The trash is deleted after 30 days.
 
-        **Note**: A new version of the Databricks SQL API is now available. Please use :method:queries/delete
-        instead. [Learn more]
+        **Warning**: This API is deprecated. Please use :method:queries/delete instead. [Learn more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
@@ -8339,8 +8589,7 @@ class QueriesLegacyAPI:
         """Retrieve a query object definition along with contextual permissions information about the currently
         authenticated user.
 
-        **Note**: A new version of the Databricks SQL API is now available. Please use :method:queries/get
-        instead. [Learn more]
+        **Warning**: This API is deprecated. Please use :method:queries/get instead. [Learn more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
@@ -8369,8 +8618,7 @@ class QueriesLegacyAPI:
         **Warning**: Calling this API concurrently 10 or more times could result in throttling, service
         degradation, or a temporary ban.
 
-        **Note**: A new version of the Databricks SQL API is now available. Please use :method:queries/list
-        instead. [Learn more]
+        **Warning**: This API is deprecated. Please use :method:queries/list instead. [Learn more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
@@ -8425,8 +8673,7 @@ class QueriesLegacyAPI:
         """Restore a query that has been moved to the trash. A restored query appears in list views and searches.
         You can use restored queries for alerts.
 
-        **Note**: A new version of the Databricks SQL API is now available. Please see the latest version.
-        [Learn more]
+        **Warning**: This API is deprecated. Please see the latest version. [Learn more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
@@ -8457,8 +8704,7 @@ class QueriesLegacyAPI:
 
         **Note**: You cannot undo this operation.
 
-        **Note**: A new version of the Databricks SQL API is now available. Please use :method:queries/update
-        instead. [Learn more]
+        **Warning**: This API is deprecated. Please use :method:queries/update instead. [Learn more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
@@ -8485,6 +8731,7 @@ class QueriesLegacyAPI:
 
         :returns: :class:`LegacyQuery`
         """
+
         body = {}
         if data_source_id is not None:
             body["data_source_id"] = data_source_id
@@ -8578,6 +8825,7 @@ class QueryVisualizationsAPI:
 
         :returns: :class:`Visualization`
         """
+
         body = {}
         if visualization is not None:
             body["visualization"] = visualization.as_dict()
@@ -8623,6 +8871,7 @@ class QueryVisualizationsAPI:
 
         :returns: :class:`Visualization`
         """
+
         body = {}
         if update_mask is not None:
             body["update_mask"] = update_mask
@@ -8641,8 +8890,7 @@ class QueryVisualizationsLegacyAPI:
     """This is an evolving API that facilitates the addition and removal of vizualisations from existing queries
     within the Databricks Workspace. Data structures may change over time.
 
-    **Note**: A new version of the Databricks SQL API is now available. Please see the latest version. [Learn
-    more]
+    **Warning**: This API is deprecated. Please see the latest version of the Databricks SQL API. [Learn more]
 
     [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html"""
 
@@ -8654,8 +8902,8 @@ class QueryVisualizationsLegacyAPI:
     ) -> LegacyVisualization:
         """Creates visualization in the query.
 
-        **Note**: A new version of the Databricks SQL API is now available. Please use
-        :method:queryvisualizations/create instead. [Learn more]
+        **Warning**: This API is deprecated. Please use :method:queryvisualizations/create instead. [Learn
+        more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
@@ -8673,6 +8921,7 @@ class QueryVisualizationsLegacyAPI:
 
         :returns: :class:`LegacyVisualization`
         """
+
         body = {}
         if description is not None:
             body["description"] = description
@@ -8695,8 +8944,8 @@ class QueryVisualizationsLegacyAPI:
     def delete(self, id: str):
         """Removes a visualization from the query.
 
-        **Note**: A new version of the Databricks SQL API is now available. Please use
-        :method:queryvisualizations/delete instead. [Learn more]
+        **Warning**: This API is deprecated. Please use :method:queryvisualizations/delete instead. [Learn
+        more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
@@ -8714,10 +8963,10 @@ class QueryVisualizationsLegacyAPI:
 
     def update(
         self,
-        id: str,
         *,
         created_at: Optional[str] = None,
         description: Optional[str] = None,
+        id: Optional[str] = None,
         name: Optional[str] = None,
         options: Optional[Any] = None,
         query: Optional[LegacyQuery] = None,
@@ -8726,16 +8975,16 @@ class QueryVisualizationsLegacyAPI:
     ) -> LegacyVisualization:
         """Updates visualization in the query.
 
-        **Note**: A new version of the Databricks SQL API is now available. Please use
-        :method:queryvisualizations/update instead. [Learn more]
+        **Warning**: This API is deprecated. Please use :method:queryvisualizations/update instead. [Learn
+        more]
 
         [Learn more]: https://docs.databricks.com/en/sql/dbsql-api-latest.html
 
-        :param id: str
-          The UUID for this visualization.
         :param created_at: str (optional)
         :param description: str (optional)
           A short description of this visualization. This is not displayed in the UI.
+        :param id: str (optional)
+          The UUID for this visualization.
         :param name: str (optional)
           The name of the visualization that appears on dashboards and the query screen.
         :param options: Any (optional)
@@ -8748,11 +8997,14 @@ class QueryVisualizationsLegacyAPI:
 
         :returns: :class:`LegacyVisualization`
         """
+
         body = {}
         if created_at is not None:
             body["created_at"] = created_at
         if description is not None:
             body["description"] = description
+        if id is not None:
+            body["id"] = id
         if name is not None:
             body["name"] = name
         if options is not None:
@@ -8819,17 +9071,17 @@ class StatementExecutionAPI:
     the statement execution has not yet finished. This can be set to either `CONTINUE`, to fallback to
     asynchronous mode, or it can be set to `CANCEL`, which cancels the statement.
 
-    In summary: - Synchronous mode - `wait_timeout=30s` and `on_wait_timeout=CANCEL` - The call waits up to 30
-    seconds; if the statement execution finishes within this time, the result data is returned directly in the
-    response. If the execution takes longer than 30 seconds, the execution is canceled and the call returns
-    with a `CANCELED` state. - Asynchronous mode - `wait_timeout=0s` (`on_wait_timeout` is ignored) - The call
-    doesn't wait for the statement to finish but returns directly with a statement ID. The status of the
-    statement execution can be polled by issuing :method:statementexecution/getStatement with the statement
-    ID. Once the execution has succeeded, this call also returns the result and metadata in the response. -
-    Hybrid mode (default) - `wait_timeout=10s` and `on_wait_timeout=CONTINUE` - The call waits for up to 10
-    seconds; if the statement execution finishes within this time, the result data is returned directly in the
-    response. If the execution takes longer than 10 seconds, a statement ID is returned. The statement ID can
-    be used to fetch status and results in the same way as in the asynchronous mode.
+    In summary: - **Synchronous mode** (`wait_timeout=30s` and `on_wait_timeout=CANCEL`): The call waits up to
+    30 seconds; if the statement execution finishes within this time, the result data is returned directly in
+    the response. If the execution takes longer than 30 seconds, the execution is canceled and the call
+    returns with a `CANCELED` state. - **Asynchronous mode** (`wait_timeout=0s` and `on_wait_timeout` is
+    ignored): The call doesn't wait for the statement to finish but returns directly with a statement ID. The
+    status of the statement execution can be polled by issuing :method:statementexecution/getStatement with
+    the statement ID. Once the execution has succeeded, this call also returns the result and metadata in the
+    response. - **[Default] Hybrid mode** (`wait_timeout=10s` and `on_wait_timeout=CONTINUE`): The call waits
+    for up to 10 seconds; if the statement execution finishes within this time, the result data is returned
+    directly in the response. If the execution takes longer than 10 seconds, a statement ID is returned. The
+    statement ID can be used to fetch status and results in the same way as in the asynchronous mode.
 
     Depending on the size, the result can be split into multiple chunks. If the statement execution is
     successful, the statement response contains a manifest and the first chunk of the result. The manifest
@@ -8884,7 +9136,7 @@ class StatementExecutionAPI:
 
     def cancel_execution(self, statement_id: str):
         """Requests that an executing statement be canceled. Callers must poll for status to see the terminal
-        state.
+        state. Cancel response is empty; receiving response indicates successful receipt.
 
         :param statement_id: str
           The statement ID is returned upon successfully submitting a SQL statement, and is a required
@@ -8912,7 +9164,52 @@ class StatementExecutionAPI:
         schema: Optional[str] = None,
         wait_timeout: Optional[str] = None,
     ) -> StatementResponse:
-        """Execute a SQL statement
+        """Execute a SQL statement and optionally await its results for a specified time.
+
+        **Use case: small result sets with INLINE + JSON_ARRAY**
+
+        For flows that generate small and predictable result sets (<= 25 MiB), `INLINE` responses of
+        `JSON_ARRAY` result data are typically the simplest way to execute and fetch result data.
+
+        **Use case: large result sets with EXTERNAL_LINKS**
+
+        Using `EXTERNAL_LINKS` to fetch result data allows you to fetch large result sets efficiently. The
+        main differences from using `INLINE` disposition are that the result data is accessed with URLs, and
+        that there are 3 supported formats: `JSON_ARRAY`, `ARROW_STREAM` and `CSV` compared to only
+        `JSON_ARRAY` with `INLINE`.
+
+        ** URLs**
+
+        External links point to data stored within your workspace's internal storage, in the form of a URL.
+        The URLs are valid for only a short period, <= 15 minutes. Alongside each `external_link` is an
+        expiration field indicating the time at which the URL is no longer valid. In `EXTERNAL_LINKS` mode,
+        chunks can be resolved and fetched multiple times and in parallel.
+
+        ----
+
+        ### **Warning: Databricks strongly recommends that you protect the URLs that are returned by the
+        `EXTERNAL_LINKS` disposition.**
+
+        When you use the `EXTERNAL_LINKS` disposition, a short-lived, URL is generated, which can be used to
+        download the results directly from . As a short-lived is embedded in this URL, you should protect the
+        URL.
+
+        Because URLs are already generated with embedded temporary s, you must not set an `Authorization`
+        header in the download requests.
+
+        The `EXTERNAL_LINKS` disposition can be disabled upon request by creating a support case.
+
+        See also [Security best practices].
+
+        ----
+
+        StatementResponse contains `statement_id` and `status`; other fields might be absent or present
+        depending on context. If the SQL warehouse fails to execute the provided statement, a 200 response is
+        returned with `status.state` set to `FAILED` (in contrast to a failure when accepting the request,
+        which results in a non-200 response). Details of the error can be found at `status.error` in case of
+        execution failures.
+
+        [Security best practices]: https://docs.databricks.com/sql/admin/sql-execution-tutorial.html#security-best-practices
 
         :param statement: str
           The SQL statement to execute. The statement can optionally be parameterized, see `parameters`. The
@@ -8926,12 +9223,32 @@ class StatementExecutionAPI:
           representations and might not match the final size in the requested `format`. If the result was
           truncated due to the byte limit, then `truncated` in the response is set to `true`. When using
           `EXTERNAL_LINKS` disposition, a default `byte_limit` of 100 GiB is applied if `byte_limit` is not
-          explcitly set.
+          explicitly set.
         :param catalog: str (optional)
           Sets default catalog for statement execution, similar to [`USE CATALOG`] in SQL.
 
           [`USE CATALOG`]: https://docs.databricks.com/sql/language-manual/sql-ref-syntax-ddl-use-catalog.html
         :param disposition: :class:`Disposition` (optional)
+          The fetch disposition provides two modes of fetching results: `INLINE` and `EXTERNAL_LINKS`.
+
+          Statements executed with `INLINE` disposition will return result data inline, in `JSON_ARRAY`
+          format, in a series of chunks. If a given statement produces a result set with a size larger than 25
+          MiB, that statement execution is aborted, and no result set will be available.
+
+          **NOTE** Byte limits are computed based upon internal representations of the result set data, and
+          might not match the sizes visible in JSON responses.
+
+          Statements executed with `EXTERNAL_LINKS` disposition will return result data as external links:
+          URLs that point to cloud storage internal to the workspace. Using `EXTERNAL_LINKS` disposition
+          allows statements to generate arbitrarily sized result sets for fetching up to 100 GiB. The
+          resulting links have two important properties:
+
+          1. They point to resources _external_ to the Databricks compute; therefore any associated
+          authentication information (typically a personal access token, OAuth token, or similar) _must be
+          removed_ when fetching from these links.
+
+          2. These are URLs with a specific expiration, indicated in the response. The behavior when
+          attempting to use an expired link is cloud specific.
         :param format: :class:`Format` (optional)
           Statement execution supports three result formats: `JSON_ARRAY` (default), `ARROW_STREAM`, and
           `CSV`.
@@ -8982,13 +9299,13 @@ class StatementExecutionAPI:
 
           For example, the following statement contains two parameters, `my_name` and `my_date`:
 
-          SELECT * FROM my_table WHERE name = :my_name AND date = :my_date
+          ``` SELECT * FROM my_table WHERE name = :my_name AND date = :my_date ```
 
           The parameters can be passed in the request body as follows:
 
-          { ..., "statement": "SELECT * FROM my_table WHERE name = :my_name AND date = :my_date",
+          ` { ..., "statement": "SELECT * FROM my_table WHERE name = :my_name AND date = :my_date",
           "parameters": [ { "name": "my_name", "value": "the name" }, { "name": "my_date", "value":
-          "2020-01-01", "type": "DATE" } ] }
+          "2020-01-01", "type": "DATE" } ] } `
 
           Currently, positional parameters denoted by a `?` marker are not supported by the Databricks SQL
           Statement Execution API.
@@ -9021,6 +9338,7 @@ class StatementExecutionAPI:
 
         :returns: :class:`StatementResponse`
         """
+
         body = {}
         if byte_limit is not None:
             body["byte_limit"] = byte_limit
@@ -9049,15 +9367,16 @@ class StatementExecutionAPI:
             "Content-Type": "application/json",
         }
 
-        res = self._api.do("POST", "/api/2.0/sql/statements/", body=body, headers=headers)
+        res = self._api.do("POST", "/api/2.0/sql/statements", body=body, headers=headers)
         return StatementResponse.from_dict(res)
 
     def get_statement(self, statement_id: str) -> StatementResponse:
-        """This request can be used to poll for the statement's status. When the `status.state` field is
-        `SUCCEEDED` it will also return the result manifest and the first chunk of the result data. When the
-        statement is in the terminal states `CANCELED`, `CLOSED` or `FAILED`, it returns HTTP 200 with the
-        state set. After at least 12 hours in terminal state, the statement is removed from the warehouse and
-        further calls will receive an HTTP 404 response.
+        """This request can be used to poll for the statement's status. StatementResponse contains `statement_id`
+        and `status`; other fields might be absent or present depending on context. When the `status.state`
+        field is `SUCCEEDED` it will also return the result manifest and the first chunk of the result data.
+        When the statement is in the terminal states `CANCELED`, `CLOSED` or `FAILED`, it returns HTTP 200
+        with the state set. After at least 12 hours in terminal state, the statement is removed from the
+        warehouse and further calls will receive an HTTP 404 response.
 
         **NOTE** This call currently might take up to 5 seconds to get the latest status and result.
 
@@ -9082,6 +9401,7 @@ class StatementExecutionAPI:
         can be used to fetch subsequent chunks. The response structure is identical to the nested `result`
         element described in the :method:statementexecution/getStatement request, and similarly includes the
         `next_chunk_index` and `next_chunk_internal_link` fields for simple iteration through the result set.
+        Depending on `disposition`, the response returns chunks of data either inline, or as links.
 
         :param statement_id: str
           The statement ID is returned upon successfully submitting a SQL statement, and is a required
@@ -9192,8 +9512,7 @@ class WarehousesAPI:
           The amount of time in minutes that a SQL warehouse must be idle (i.e., no RUNNING queries) before it
           is automatically stopped.
 
-          Supported values: - Must be >= 0 mins for serverless warehouses - Must be == 0 or >= 10 mins for
-          non-serverless warehouses - 0 indicates no autostop.
+          Supported values: - Must be == 0 or >= 10 mins - 0 indicates no autostop.
 
           Defaults to 120 mins
         :param channel: :class:`Channel` (optional)
@@ -9218,7 +9537,7 @@ class WarehousesAPI:
         :param max_num_clusters: int (optional)
           Maximum number of clusters that the autoscaler will create to handle concurrent queries.
 
-          Supported values: - Must be >= min_num_clusters - Must be <= 30.
+          Supported values: - Must be >= min_num_clusters - Must be <= 40.
 
           Defaults to min_clusters if unset.
         :param min_num_clusters: int (optional)
@@ -9234,17 +9553,21 @@ class WarehousesAPI:
 
           Supported values: - Must be unique within an org. - Must be less than 100 characters.
         :param spot_instance_policy: :class:`SpotInstancePolicy` (optional)
+          Configurations whether the endpoint should use spot instances.
         :param tags: :class:`EndpointTags` (optional)
           A set of key-value pairs that will be tagged on all resources (e.g., AWS instances and EBS volumes)
           associated with this SQL warehouse.
 
           Supported values: - Number of tags < 45.
         :param warehouse_type: :class:`CreateWarehouseRequestWarehouseType` (optional)
+          Warehouse type: `PRO` or `CLASSIC`. If you want to use serverless compute, you must set to `PRO` and
+          also set the field `enable_serverless_compute` to `true`.
 
         :returns:
           Long-running operation waiter for :class:`GetWarehouseResponse`.
           See :method:wait_get_warehouse_running for more details.
         """
+
         body = {}
         if auto_stop_mins is not None:
             body["auto_stop_mins"] = auto_stop_mins
@@ -9318,6 +9641,35 @@ class WarehousesAPI:
             warehouse_type=warehouse_type,
         ).result(timeout=timeout)
 
+    def create_default_warehouse_override(
+        self, default_warehouse_override: DefaultWarehouseOverride, default_warehouse_override_id: str
+    ) -> DefaultWarehouseOverride:
+        """Creates a new default warehouse override for a user. Users can create their own override. Admins can
+        create overrides for any user.
+
+        :param default_warehouse_override: :class:`DefaultWarehouseOverride`
+          Required. The default warehouse override to create.
+        :param default_warehouse_override_id: str
+          Required. The ID to use for the override, which will become the final component of the override's
+          resource name. Can be a numeric user ID or the literal string "me" for the current user.
+
+        :returns: :class:`DefaultWarehouseOverride`
+        """
+
+        body = default_warehouse_override.as_dict()
+        query = {}
+        if default_warehouse_override_id is not None:
+            query["default_warehouse_override_id"] = default_warehouse_override_id
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+
+        res = self._api.do(
+            "POST", "/api/warehouses/v1/default-warehouse-overrides", query=query, body=body, headers=headers
+        )
+        return DefaultWarehouseOverride.from_dict(res)
+
     def delete(self, id: str):
         """Deletes a SQL warehouse.
 
@@ -9332,6 +9684,24 @@ class WarehousesAPI:
         }
 
         self._api.do("DELETE", f"/api/2.0/sql/warehouses/{id}", headers=headers)
+
+    def delete_default_warehouse_override(self, name: str):
+        """Deletes the default warehouse override for a user. Users can delete their own override. Admins can
+        delete overrides for any user. After deletion, the workspace default warehouse will be used.
+
+        :param name: str
+          Required. The resource name of the default warehouse override to delete. Format:
+          default-warehouse-overrides/{default_warehouse_override_id} The default_warehouse_override_id can be
+          a numeric user ID or the literal string "me" for the current user.
+
+
+        """
+
+        headers = {
+            "Accept": "application/json",
+        }
+
+        self._api.do("DELETE", f"/api/warehouses/v1/{name}", headers=headers)
 
     def edit(
         self,
@@ -9378,13 +9748,13 @@ class WarehousesAPI:
 
           Defaults to false.
         :param enable_serverless_compute: bool (optional)
-          Configures whether the warehouse should use serverless compute.
+          Configures whether the warehouse should use serverless compute
         :param instance_profile_arn: str (optional)
           Deprecated. Instance profile used to pass IAM role to the cluster
         :param max_num_clusters: int (optional)
           Maximum number of clusters that the autoscaler will create to handle concurrent queries.
 
-          Supported values: - Must be >= min_num_clusters - Must be <= 30.
+          Supported values: - Must be >= min_num_clusters - Must be <= 40.
 
           Defaults to min_clusters if unset.
         :param min_num_clusters: int (optional)
@@ -9400,17 +9770,21 @@ class WarehousesAPI:
 
           Supported values: - Must be unique within an org. - Must be less than 100 characters.
         :param spot_instance_policy: :class:`SpotInstancePolicy` (optional)
+          Configurations whether the endpoint should use spot instances.
         :param tags: :class:`EndpointTags` (optional)
           A set of key-value pairs that will be tagged on all resources (e.g., AWS instances and EBS volumes)
           associated with this SQL warehouse.
 
           Supported values: - Number of tags < 45.
         :param warehouse_type: :class:`EditWarehouseRequestWarehouseType` (optional)
+          Warehouse type: `PRO` or `CLASSIC`. If you want to use serverless compute, you must set to `PRO` and
+          also set the field `enable_serverless_compute` to `true`.
 
         :returns:
           Long-running operation waiter for :class:`GetWarehouseResponse`.
           See :method:wait_get_warehouse_running for more details.
         """
+
         body = {}
         if auto_stop_mins is not None:
             body["auto_stop_mins"] = auto_stop_mins
@@ -9444,7 +9818,7 @@ class WarehousesAPI:
         }
 
         op_response = self._api.do("POST", f"/api/2.0/sql/warehouses/{id}/edit", body=body, headers=headers)
-        return Wait(self.wait_get_warehouse_running, response=EditWarehouseResponse.from_dict(op_response), id=id)
+        return Wait(self.wait_get_warehouse_running, id=id)
 
     def edit_and_wait(
         self,
@@ -9498,6 +9872,26 @@ class WarehousesAPI:
         res = self._api.do("GET", f"/api/2.0/sql/warehouses/{id}", headers=headers)
         return GetWarehouseResponse.from_dict(res)
 
+    def get_default_warehouse_override(self, name: str) -> DefaultWarehouseOverride:
+        """Returns the default warehouse override for a user. Users can fetch their own override. Admins can
+        fetch overrides for any user. If no override exists, the UI will fallback to the workspace default
+        warehouse.
+
+        :param name: str
+          Required. The resource name of the default warehouse override to retrieve. Format:
+          default-warehouse-overrides/{default_warehouse_override_id} The default_warehouse_override_id can be
+          a numeric user ID or the literal string "me" for the current user.
+
+        :returns: :class:`DefaultWarehouseOverride`
+        """
+
+        headers = {
+            "Accept": "application/json",
+        }
+
+        res = self._api.do("GET", f"/api/warehouses/v1/{name}", headers=headers)
+        return DefaultWarehouseOverride.from_dict(res)
+
     def get_permission_levels(self, warehouse_id: str) -> GetWarehousePermissionLevelsResponse:
         """Gets the permission levels that a user can have on an object.
 
@@ -9545,26 +9939,83 @@ class WarehousesAPI:
         res = self._api.do("GET", "/api/2.0/sql/config/warehouses", headers=headers)
         return GetWorkspaceWarehouseConfigResponse.from_dict(res)
 
-    def list(self, *, run_as_user_id: Optional[int] = None) -> Iterator[EndpointInfo]:
+    def list(
+        self, *, page_size: Optional[int] = None, page_token: Optional[str] = None, run_as_user_id: Optional[int] = None
+    ) -> Iterator[EndpointInfo]:
         """Lists all SQL warehouses that a user has access to.
 
+        :param page_size: int (optional)
+          The max number of warehouses to return.
+        :param page_token: str (optional)
+          A page token, received from a previous `ListWarehouses` call. Provide this to retrieve the
+          subsequent page; otherwise the first will be retrieved.
+
+          When paginating, all other parameters provided to `ListWarehouses` must match the call that provided
+          the page token.
         :param run_as_user_id: int (optional)
-          Service Principal which will be used to fetch the list of warehouses. If not specified, the user
-          from the session header is used.
+          Service Principal which will be used to fetch the list of endpoints. If not specified, SQL Gateway
+          will use the user from the session header.
 
         :returns: Iterator over :class:`EndpointInfo`
         """
 
         query = {}
+        if page_size is not None:
+            query["page_size"] = page_size
+        if page_token is not None:
+            query["page_token"] = page_token
         if run_as_user_id is not None:
             query["run_as_user_id"] = run_as_user_id
         headers = {
             "Accept": "application/json",
         }
 
-        json = self._api.do("GET", "/api/2.0/sql/warehouses", query=query, headers=headers)
-        parsed = ListWarehousesResponse.from_dict(json).warehouses
-        return parsed if parsed is not None else []
+        while True:
+            json = self._api.do("GET", "/api/2.0/sql/warehouses", query=query, headers=headers)
+            if "warehouses" in json:
+                for v in json["warehouses"]:
+                    yield EndpointInfo.from_dict(v)
+            if "next_page_token" not in json or not json["next_page_token"]:
+                return
+            query["page_token"] = json["next_page_token"]
+
+    def list_default_warehouse_overrides(
+        self, *, page_size: Optional[int] = None, page_token: Optional[str] = None
+    ) -> Iterator[DefaultWarehouseOverride]:
+        """Lists all default warehouse overrides in the workspace. Only workspace administrators can list all
+        overrides.
+
+        :param page_size: int (optional)
+          The maximum number of overrides to return. The service may return fewer than this value. If
+          unspecified, at most 100 overrides will be returned. The maximum value is 1000; values above 1000
+          will be coerced to 1000.
+        :param page_token: str (optional)
+          A page token, received from a previous `ListDefaultWarehouseOverrides` call. Provide this to
+          retrieve the subsequent page.
+
+          When paginating, all other parameters provided to `ListDefaultWarehouseOverrides` must match the
+          call that provided the page token.
+
+        :returns: Iterator over :class:`DefaultWarehouseOverride`
+        """
+
+        query = {}
+        if page_size is not None:
+            query["page_size"] = page_size
+        if page_token is not None:
+            query["page_token"] = page_token
+        headers = {
+            "Accept": "application/json",
+        }
+
+        while True:
+            json = self._api.do("GET", "/api/warehouses/v1/default-warehouse-overrides", query=query, headers=headers)
+            if "default_warehouse_overrides" in json:
+                for v in json["default_warehouse_overrides"]:
+                    yield DefaultWarehouseOverride.from_dict(v)
+            if "next_page_token" not in json or not json["next_page_token"]:
+                return
+            query["page_token"] = json["next_page_token"]
 
     def set_permissions(
         self, warehouse_id: str, *, access_control_list: Optional[List[WarehouseAccessControlRequest]] = None
@@ -9578,6 +10029,7 @@ class WarehousesAPI:
 
         :returns: :class:`WarehousePermissions`
         """
+
         body = {}
         if access_control_list is not None:
             body["access_control_list"] = [v.as_dict() for v in access_control_list]
@@ -9595,6 +10047,7 @@ class WarehousesAPI:
         channel: Optional[Channel] = None,
         config_param: Optional[RepeatedEndpointConfPairs] = None,
         data_access_config: Optional[List[EndpointConfPair]] = None,
+        enable_serverless_compute: Optional[bool] = None,
         enabled_warehouse_types: Optional[List[WarehouseTypePair]] = None,
         global_param: Optional[RepeatedEndpointConfPairs] = None,
         google_service_account: Optional[str] = None,
@@ -9610,6 +10063,8 @@ class WarehousesAPI:
           Deprecated: Use sql_configuration_parameters
         :param data_access_config: List[:class:`EndpointConfPair`] (optional)
           Spark confs for external hive metastore configuration JSON serialized size must be less than <= 512K
+        :param enable_serverless_compute: bool (optional)
+          Enable Serverless compute for SQL warehouses
         :param enabled_warehouse_types: List[:class:`WarehouseTypePair`] (optional)
           List of Warehouse Types allowed in this workspace (limits allowed value of the type field in
           CreateWarehouse and EditWarehouse). Note: Some types cannot be disabled, they don't need to be
@@ -9621,7 +10076,8 @@ class WarehousesAPI:
         :param google_service_account: str (optional)
           GCP only: Google Service Account used to pass to cluster to access Google Cloud Storage
         :param instance_profile_arn: str (optional)
-          AWS Only: Instance profile used to pass IAM role to the cluster
+          AWS Only: The instance profile used to pass an IAM role to the SQL warehouses. This configuration is
+          also applied to the workspace's serverless compute for notebooks and jobs.
         :param security_policy: :class:`SetWorkspaceWarehouseConfigRequestSecurityPolicy` (optional)
           Security policy for warehouses
         :param sql_configuration_parameters: :class:`RepeatedEndpointConfPairs` (optional)
@@ -9629,6 +10085,7 @@ class WarehousesAPI:
 
 
         """
+
         body = {}
         if channel is not None:
             body["channel"] = channel.as_dict()
@@ -9636,6 +10093,8 @@ class WarehousesAPI:
             body["config_param"] = config_param.as_dict()
         if data_access_config is not None:
             body["data_access_config"] = [v.as_dict() for v in data_access_config]
+        if enable_serverless_compute is not None:
+            body["enable_serverless_compute"] = enable_serverless_compute
         if enabled_warehouse_types is not None:
             body["enabled_warehouse_types"] = [v.as_dict() for v in enabled_warehouse_types]
         if global_param is not None:
@@ -9671,7 +10130,7 @@ class WarehousesAPI:
         }
 
         op_response = self._api.do("POST", f"/api/2.0/sql/warehouses/{id}/start", headers=headers)
-        return Wait(self.wait_get_warehouse_running, response=StartWarehouseResponse.from_dict(op_response), id=id)
+        return Wait(self.wait_get_warehouse_running, id=id)
 
     def start_and_wait(self, id: str, timeout=timedelta(minutes=20)) -> GetWarehouseResponse:
         return self.start(id=id).result(timeout=timeout)
@@ -9692,10 +10151,53 @@ class WarehousesAPI:
         }
 
         op_response = self._api.do("POST", f"/api/2.0/sql/warehouses/{id}/stop", headers=headers)
-        return Wait(self.wait_get_warehouse_stopped, response=StopWarehouseResponse.from_dict(op_response), id=id)
+        return Wait(self.wait_get_warehouse_stopped, id=id)
 
     def stop_and_wait(self, id: str, timeout=timedelta(minutes=20)) -> GetWarehouseResponse:
         return self.stop(id=id).result(timeout=timeout)
+
+    def update_default_warehouse_override(
+        self,
+        name: str,
+        default_warehouse_override: DefaultWarehouseOverride,
+        update_mask: FieldMask,
+        *,
+        allow_missing: Optional[bool] = None,
+    ) -> DefaultWarehouseOverride:
+        """Updates an existing default warehouse override for a user. Users can update their own override. Admins
+        can update overrides for any user.
+
+        :param name: str
+          The resource name of the default warehouse override. Format:
+          default-warehouse-overrides/{default_warehouse_override_id}
+        :param default_warehouse_override: :class:`DefaultWarehouseOverride`
+          Required. The default warehouse override to update. The name field must be set in the format:
+          default-warehouse-overrides/{default_warehouse_override_id} The default_warehouse_override_id can be
+          a numeric user ID or the literal string "me" for the current user.
+        :param update_mask: FieldMask
+          Required. Field mask specifying which fields to update. Only the fields specified in the mask will
+          be updated. Use "*" to update all fields. When allow_missing is true, this field is ignored and all
+          fields are applied.
+        :param allow_missing: bool (optional)
+          If set to true, and the override is not found, a new override will be created. In this situation,
+          `update_mask` is ignored and all fields are applied. Defaults to false.
+
+        :returns: :class:`DefaultWarehouseOverride`
+        """
+
+        body = default_warehouse_override.as_dict()
+        query = {}
+        if allow_missing is not None:
+            query["allow_missing"] = allow_missing
+        if update_mask is not None:
+            query["update_mask"] = update_mask.ToJsonString()
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+
+        res = self._api.do("PATCH", f"/api/warehouses/v1/{name}", query=query, body=body, headers=headers)
+        return DefaultWarehouseOverride.from_dict(res)
 
     def update_permissions(
         self, warehouse_id: str, *, access_control_list: Optional[List[WarehouseAccessControlRequest]] = None
@@ -9709,6 +10211,7 @@ class WarehousesAPI:
 
         :returns: :class:`WarehousePermissions`
         """
+
         body = {}
         if access_control_list is not None:
             body["access_control_list"] = [v.as_dict() for v in access_control_list]

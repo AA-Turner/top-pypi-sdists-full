@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cadwyn
-Version: 5.4.4
+Version: 6.0.1
 Summary: Production-ready community-driven modern Stripe-like API versioning in FastAPI
 Project-URL: Source code, https://github.com/zmievsa/cadwyn
 Project-URL: Documentation, https://docs.cadwyn.dev
@@ -35,14 +35,14 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Requires-Dist: backports-strenum<2,>=1.3.1; python_version < '3.11'
-Requires-Dist: fastapi>=0.112.4
+Requires-Dist: fastapi>=0.121.1
 Requires-Dist: jinja2>=3.1.2
 Requires-Dist: pydantic>=2.11.0
 Requires-Dist: starlette>=0.30.0
 Requires-Dist: typing-extensions>=4.8.0
 Requires-Dist: typing-inspection>=0.4.0
 Provides-Extra: standard
-Requires-Dist: fastapi[standard]>=0.112.3; extra == 'standard'
+Requires-Dist: fastapi[standard]>=0.119.0; extra == 'standard'
 Requires-Dist: typer>=0.7.0; extra == 'standard'
 Description-Content-Type: text/markdown
 
@@ -88,26 +88,3 @@ The [documentation](https://docs.cadwyn.dev) has everything you need to succeed.
 ## Sponsors
 
 These are our gorgeous sponsors. They are using Cadwyn and are sponsoring it through various means. Contact [me](https://github.com/zmievsa) if you would like to become one, too!
-
-## Contributors
-
-<details>
-
-<summary>Thanks goes to these wonderful people:</summary>
-<a href="https://allcontributors.org/docs/en/emoji-key">Emoji Key </a>
-
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
-
-<!-- markdownlint-restore -->
-<!-- prettier-ignore-end -->
-
-<!-- ALL-CONTRIBUTORS-LIST:END -->
-
-This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification.
-Contributions are welcome!
-
-</details>
-
-<!-- contributors-end -->

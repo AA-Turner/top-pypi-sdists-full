@@ -3,9 +3,7 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Mapping, Sequence
-
-# MAINTENANCE: remove when deprecating Pydantic v1. Mypy doesn't handle two different code paths that import different
-# versions of a module, so we need to ignore errors here.
+from copy import copy
 from dataclasses import dataclass, is_dataclass
 from typing import TYPE_CHECKING, Any, Deque, FrozenSet, List, Set, Tuple, Union
 
@@ -16,6 +14,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError, create_model
 # We use this for forward reference, as it allows us to handle forward references in type annotations.
 from pydantic._internal._typing_extra import eval_type_lenient
 from pydantic._internal._utils import lenient_issubclass
+from pydantic.fields import FieldInfo as PydanticFieldInfo
 from pydantic_core import PydanticUndefined, PydanticUndefinedType
 from typing_extensions import Annotated, Literal, get_args, get_origin
 
@@ -80,9 +79,19 @@ class ModelField:
         return self.field_info.annotation
 
     def __post_init__(self) -> None:
-        self._type_adapter: TypeAdapter[Any] = TypeAdapter(
-            Annotated[self.field_info.annotation, self.field_info],
-        )
+        # If the field_info.annotation is already an Annotated type with discriminator metadata,
+        # use it directly instead of wrapping it again
+        annotation = self.field_info.annotation
+        if (
+            get_origin(annotation) is Annotated
+            and hasattr(self.field_info, "discriminator")
+            and self.field_info.discriminator is not None
+        ):
+            self._type_adapter: TypeAdapter[Any] = TypeAdapter(annotation)
+        else:
+            self._type_adapter: TypeAdapter[Any] = TypeAdapter(
+                Annotated[annotation, self.field_info],
+            )
 
     def get_default(self) -> Any:
         if self.field_info.is_required():
@@ -176,7 +185,39 @@ def model_rebuild(model: type[BaseModel]) -> None:
 
 
 def copy_field_info(*, field_info: FieldInfo, annotation: Any) -> FieldInfo:
-    return type(field_info).from_annotation(annotation)
+    # Create a shallow copy of the field_info to preserve its type and all attributes
+    new_field = copy(field_info)
+
+    # Recursively extract all metadata from nested Annotated types
+    def extract_metadata(ann: Any) -> tuple[Any, list[Any]]:
+        """Extract base type and all non-FieldInfo metadata from potentially nested Annotated types."""
+        if get_origin(ann) is not Annotated:
+            return ann, []
+
+        args = get_args(ann)
+        base_type = args[0]
+        metadata = list(args[1:])
+
+        # If base type is also Annotated, recursively extract its metadata
+        if get_origin(base_type) is Annotated:
+            inner_base, inner_metadata = extract_metadata(base_type)
+            all_metadata = [m for m in inner_metadata + metadata if not isinstance(m, PydanticFieldInfo)]
+            return inner_base, all_metadata
+        else:
+            constraint_metadata = [m for m in metadata if not isinstance(m, PydanticFieldInfo)]
+            return base_type, constraint_metadata
+
+    # Extract base type and constraints
+    base_type, constraints = extract_metadata(annotation)
+
+    # Set the annotation with base type and all constraint metadata
+    # Use tuple unpacking for Python 3.10+ compatibility
+    if constraints:
+        new_field.annotation = Annotated[(base_type, *constraints)]
+    else:
+        new_field.annotation = base_type
+
+    return new_field
 
 
 def get_missing_field_error(loc: tuple[str, ...]) -> dict[str, Any]:

@@ -1,10 +1,133 @@
 from __future__ import annotations
 
 from difflib import SequenceMatcher
+from typing import List
 
-from argostranslate import package
+import spacy
+import stanza
+
+from argostranslate import package, settings
+from argostranslate.networking import cache_spacy
 from argostranslate.package import Package
-from argostranslate.utils import info
+from argostranslate.utils import info, warning
+
+
+def get_stanza_processors(lang_code: str, resources: dict) -> str:
+    """Get appropriate processors for a language, including MWT if available."""
+    try:
+        return "tokenize,mwt" if resources[lang_code].get("mwt") else "tokenize"
+    except (KeyError, TypeError):
+        return "tokenize"
+
+
+# Cache SpaCy model once at module level
+_cached_spacy_path: str | None = cache_spacy()
+
+
+class ISentenceBoundaryDetectionModel:
+    # https://github.com/argosopentech/sbd/blob/main/main.py
+    pkg: Package
+
+    def split_sentences(self, text: str) -> List[str]:
+        raise NotImplementedError
+
+
+# Spacy sentence boundary detection Sentencizer
+# https://community.libretranslate.com/t/sentence-boundary-detection-for-machine-translation/606/3
+# https://spacy.io/usage/linguistic-features/#sbd
+# Download model:
+# python -m spacy download xx_sent_ud_sm
+class SpacySentencizerSmall(ISentenceBoundaryDetectionModel):
+    def __init__(self, pkg: Package):
+        """
+        Packaging specific spacy when "xx_sent_ud_sm" doesn't cover the language improves performances over stanza.
+        Please use small models ".._core/web_sm" for consistency.
+        """
+        self.pkg = pkg
+        if pkg.packaged_sbd_path is not None and "spacy" in str(pkg.packaged_sbd_path):
+            self.nlp = spacy.load(pkg.packaged_sbd_path, exclude=["parser"])
+        # Case sbd is not packaged, use cached Spacy multilingual (xx_ud_sent_sm)
+        else:
+            if _cached_spacy_path is None:
+                raise RuntimeError("SpaCy cache not initialized")
+            self.nlp = spacy.load(_cached_spacy_path, exclude=["parser"])
+        self.nlp.add_pipe("sentencizer")
+
+    def split_sentences(self, text: str) -> List[str]:
+        info(f"Splitting sentences using SBD Model: ({self.pkg.from_code}) {str(self)}")
+        doc = self.nlp(text)
+        return [sent.text for sent in doc.sents]
+
+    def __str__(self):
+        return "Using Spacy model."
+
+
+class StanzaSentencizer(ISentenceBoundaryDetectionModel):
+    LANGUAGE_CODE_MAPPING = {
+        "zt": "zh-hant",
+        "pb": "pt",
+    }
+
+    def _init_spacy_fallback(self):
+        """Initialize SpaCy fallback using cached multilingual model."""
+        if _cached_spacy_path is None:
+            raise RuntimeError("SpaCy cache not initialized")
+        self.nlp = spacy.load(_cached_spacy_path, exclude=["parser"])
+        self.nlp.add_pipe("sentencizer")
+
+    def __init__(self, pkg: Package):
+        self.pkg = pkg
+        try:
+            stanza_lang_code = self.LANGUAGE_CODE_MAPPING.get(
+                pkg.from_code, pkg.from_code
+            )
+
+            try:
+                resources = stanza.resources.common.load_resources_json()
+            except Exception:
+                warning(f"Could not load Stanza resources for package {str(pkg)}")
+                resources = {}
+
+            self.stanza_pipeline = stanza.Pipeline(
+                lang=stanza_lang_code,
+                processors=get_stanza_processors(stanza_lang_code, resources),
+                use_gpu=settings.device == "cuda",
+                logging_level="WARNING",
+                tokenize_pretokenized=False,
+                download_method=stanza.DownloadMethod.REUSE_RESOURCES,
+            )
+            self.fallback_to_spacy = False
+        except Exception as e:
+            info(f"Stanza pipeline failed for language '{pkg.from_code}': {e}")
+            info(
+                f"Falling back to SpaCy sentence boundary detection for {pkg.from_code}"
+            )
+            self.stanza_pipeline = None
+            self.fallback_to_spacy = True
+            self._init_spacy_fallback()
+
+    def split_sentences(self, text: str) -> List[str]:
+        # TODO do Spacy SBD using a SpacySentencizerSmall object instead of duplicating code
+        info(f"Splitting sentences using SBD Model: ({self.pkg.from_code}) {str(self)}")
+        if self.fallback_to_spacy:
+            doc = self.nlp(text)
+            return [sent.text for sent in doc.sents]
+        else:
+            doc = self.stanza_pipeline(text)
+            return [sent.text for sent in doc.sentences]
+
+    def __str__(self):
+        if self.fallback_to_spacy:
+            return "StanzaSentencizer falling back to Spacy "
+        else:
+            return "StanzaSentencizer"
+
+
+###############################################
+#### Few Shot Sentence Boundary Detection ####
+###############################################
+
+# The Few Shot SBD code mostly isn't used currently
 
 fewshot_prompt = """<detect-sentence-boundaries> I walked down to the river. Then I went to the
 I walked down to the river. <sentence-boundary>
@@ -55,14 +178,14 @@ def process_seq2seq_sbd(input_text: str, sbd_translated_guess: str) -> int:
     if sbd_translated_guess_index != -1:
         sbd_translated_guess = sbd_translated_guess[:sbd_translated_guess_index]
         info("sbd_translated_guess:", sbd_translated_guess)
-        best_index = None
+        best_index = 0
         best_ratio = 0.0
         for i in range(len(input_text)):
             candidate_sentence = input_text[:i]
             sm = SequenceMatcher()
             sm.set_seqs(candidate_sentence, sbd_translated_guess)
             ratio = sm.ratio()
-            if best_index is None or ratio > best_ratio:
+            if i == 0 or ratio > best_ratio:
                 best_index = i
                 best_ratio = ratio
         return best_index

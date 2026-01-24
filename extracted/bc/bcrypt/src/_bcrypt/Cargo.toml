@@ -3,10 +3,12 @@ name = "bcrypt-rust"
 version = "0.1.0"
 authors = ["The bcrypt developers <cryptography-dev@python.org>"]
 edition = "2018"
+# This specifies the MSRV
+rust-version = "1.74.0"
 publish = false
 
 [dependencies]
-pyo3 = { version = "0.23.5", features = ["abi3"] }
+pyo3 = { version = "0.26", features = ["abi3"] }
 bcrypt = "0.17"
 bcrypt-pbkdf = "0.10.0"
 base64 = "0.22.1"

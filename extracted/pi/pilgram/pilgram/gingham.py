@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pilgram import css
-from pilgram import util
+from PIL import Image
+
+from pilgram import css, util
 
 
-def gingham(im):
+def gingham(im: Image.Image) -> Image.Image:
     """Applies Gingham filter.
 
     Arguments:
@@ -26,9 +27,9 @@ def gingham(im):
         The output image.
     """
 
-    cb = util.or_convert(im, 'RGB')
+    cb = util.or_convert(im, "RGB")
 
-    cs = util.fill(cb.size, [230, 230, 250])
+    cs = util.fill(cb.size, (230, 230, 250))
     cr = css.blending.soft_light(cb, cs)
 
     cr = css.brightness(cr, 1.05)

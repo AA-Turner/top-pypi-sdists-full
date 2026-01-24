@@ -1,5 +1,7 @@
 """This module defines the "Figure" class, which is a collection of FourVector objects."""
-from typing import Any, Iterable, Optional, Tuple
+
+from collections.abc import Iterable
+from typing import Any
 
 import ase
 import attr
@@ -42,7 +44,7 @@ class Figure(AttrSavable):
     >>> Figure((fv1, fv2))
     """
 
-    components: Tuple[FourVector] = attr.field(
+    components: tuple[FourVector] = attr.field(
         converter=_convert_figure, validator=attr.validators.instance_of(tuple)
     )
 
@@ -53,12 +55,11 @@ class Figure(AttrSavable):
         for ii, v in enumerate(value):
             if not isinstance(v, FourVector):
                 raise TypeError(
-                    f"All values must FourVector type, got {value} "
-                    f"of type {type(v)} in index {ii}."
+                    f"All values must FourVector type, got {value} of type {type(v)} in index {ii}."
                 )
 
     def to_cartesian(
-        self, prim: ase.Atoms, transposed_cell: Optional[np.ndarray] = None
+        self, prim: ase.Atoms, transposed_cell: np.ndarray | None = None
     ) -> np.ndarray:
         """Get the Figure in terms of the cartesian coordinates, as defined
         by the primitive lattice.
@@ -79,7 +80,7 @@ class Figure(AttrSavable):
             cart[ii, :] = fv.to_cartesian(prim, transposed_cell=transposed_cell)
         return cart
 
-    def get_diameter(self, prim: ase.Atoms, transposed_cell: Optional[np.ndarray] = None) -> float:
+    def get_diameter(self, prim: ase.Atoms, transposed_cell: np.ndarray | None = None) -> float:
         """Calculate the diameter of the figure, as the maximum distance to the
         geometric center of the figure in cartesian coordinates.
 

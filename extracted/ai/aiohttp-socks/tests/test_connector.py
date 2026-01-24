@@ -175,7 +175,9 @@ async def test_http_proxy(url, target_ssl_context):
 @pytest.mark.parametrize('url', (TEST_URL_IPV4, TEST_URL_IPV4_HTTPS))
 @pytest.mark.asyncio
 async def test_chain_proxy_from_url(url, target_ssl_context):
-    connector = ChainProxyConnector.from_urls([SOCKS5_IPV4_URL, SOCKS4_URL, HTTP_PROXY_URL])
+    connector = ChainProxyConnector.from_urls(
+        [SOCKS5_IPV4_URL, SOCKS4_URL, HTTP_PROXY_URL]
+    )
     res = await fetch(
         connector=connector,
         url=url,
@@ -240,7 +242,10 @@ async def test_socks5_open_connection(url, rdns, target_ssl_context):
         server_hostname=url.host if ssl_context else None,
         rdns=rdns,
     )
-    request = "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n" % (url.path_qs, url.host)
+    request = "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n" % (
+        url.path_qs,
+        url.host,
+    )
 
     writer.write(request.encode())
     response = await reader.read(-1)
@@ -253,7 +258,6 @@ async def test_socks5_open_connection(url, rdns, target_ssl_context):
 async def test_socks5_http_create_connection(
     url: str,
     rdns: bool,
-    event_loop: asyncio.AbstractEventLoop,
     target_ssl_context: ssl.SSLContext,
 ):
     url = URL(url)
@@ -262,6 +266,7 @@ async def test_socks5_http_create_connection(
     if url.scheme == 'https':
         ssl_context = target_ssl_context
 
+    event_loop = asyncio.get_running_loop()
     reader = asyncio.StreamReader(loop=event_loop)
     protocol = asyncio.StreamReaderProtocol(reader, loop=event_loop)
 
@@ -277,7 +282,10 @@ async def test_socks5_http_create_connection(
 
     writer = asyncio.StreamWriter(transport, protocol, reader, event_loop)
 
-    request = "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n" % (url.path_qs, url.host)
+    request = "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n" % (
+        url.path_qs,
+        url.host,
+    )
 
     writer.write(request.encode())
     response = await reader.read(-1)

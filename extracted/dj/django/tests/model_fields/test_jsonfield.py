@@ -306,11 +306,9 @@ class TestSaveLoad(TestCase):
 
     @skipUnlessDBFeature("supports_primitives_in_json_field")
     def test_bulk_update_custom_get_prep_value(self):
-        objs = CustomSerializationJSONModel.objects.bulk_create(
-            [CustomSerializationJSONModel(pk=1, json_field={"version": "1"})]
-        )
-        objs[0].json_field["version"] = "1-alpha"
-        CustomSerializationJSONModel.objects.bulk_update(objs, ["json_field"])
+        obj = CustomSerializationJSONModel.objects.create(json_field={"version": "1"})
+        obj.json_field["version"] = "1-alpha"
+        CustomSerializationJSONModel.objects.bulk_update([obj], ["json_field"])
         self.assertSequenceEqual(
             CustomSerializationJSONModel.objects.values("json_field"),
             [{"json_field": '{"version": "1-alpha"}'}],
@@ -787,6 +785,21 @@ class TestQuerying(TestCase):
             [self.objs[5]],
         )
 
+    @skipIfDBFeature("supports_json_negative_indexing")
+    def test_unsupported_negative_lookup(self):
+        msg = (
+            "Using negative JSON array indices is not supported on this database "
+            "backend."
+        )
+        with self.assertRaisesMessage(NotSupportedError, msg):
+            NullableJSONModel.objects.filter(**{"value__-2": 1}).get()
+
+    @skipUnlessDBFeature("supports_json_negative_indexing")
+    def test_shallow_list_negative_lookup(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(**{"value__-2": 1}), [self.objs[5]]
+        )
+
     def test_shallow_obj_lookup(self):
         self.assertCountEqual(
             NullableJSONModel.objects.filter(value__a="b"),
@@ -819,9 +832,23 @@ class TestQuerying(TestCase):
             [self.objs[5]],
         )
 
+    @skipUnlessDBFeature("supports_json_negative_indexing")
+    def test_deep_negative_lookup_array(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(**{"value__-1__0": 2}),
+            [self.objs[5]],
+        )
+
     def test_deep_lookup_mixed(self):
         self.assertSequenceEqual(
             NullableJSONModel.objects.filter(value__d__1__f="g"),
+            [self.objs[4]],
+        )
+
+    @skipUnlessDBFeature("supports_json_negative_indexing")
+    def test_deep_negative_lookup_mixed(self):
+        self.assertSequenceEqual(
+            NullableJSONModel.objects.filter(**{"value__d__-1__f": "g"}),
             [self.objs[4]],
         )
 
@@ -1132,6 +1159,12 @@ class TestQuerying(TestCase):
                     ).exists(),
                     True,
                 )
+
+    def test_cast_with_key_text_transform(self):
+        obj = NullableJSONModel.objects.annotate(
+            json_data=Cast(Value({"foo": "bar"}, JSONField()), JSONField())
+        ).get(pk=self.objs[0].pk, json_data__foo__icontains="bar")
+        self.assertEqual(obj, self.objs[0])
 
     @skipUnlessDBFeature("supports_json_field_contains")
     def test_contains_contained_by_with_key_transform(self):

@@ -31,7 +31,7 @@ classifiers = [
 dependencies = [
   "openjd-model >= 0.8,< 0.9",
   "pywin32 >= 307; platform_system == 'Windows'",
-  "psutil >= 5.9,< 7.1; platform_system == 'Windows'",
+  "psutil >= 5.9,< 7.2; platform_system == 'Windows'",
 ]
 
 [project.urls]
@@ -215,6 +215,7 @@ patch_tags = [
   "feat",
   "fix",
   "refactor",
+  "perf",
 ]
 
 [tool.semantic_release.publish]
@@ -228,4 +229,4 @@ trim_blocks = true
 lstrip_blocks = true
 
 [tool.semantic_release.branches.release]
-match = "(mainline|release)"
+match = "(mainline|release|patch_.*)"

@@ -15,6 +15,7 @@ from rich.theme import Theme
 __all__ = [
     'repr_rich',
     'rich_to_text',
+    'strip_ansi_text',
     'df_to_rich_table',
     'colorize_words',
     'print_xml',
@@ -128,7 +129,7 @@ def repr_rich(renderable, strip_ansi:bool=False, **console_args) -> str:
     return str_output
 
 
-def rich_to_text(rich_object, width:int=None) -> str:
+def rich_to_text(rich_object, width: Optional[int] = None) -> str:
     """
     Convert a Rich renderable object to plain text while preserving layout.
 
@@ -188,7 +189,7 @@ def rich_to_svg(rich_object, width: int = 120) -> str:
     return svg_output
 
 
-def rich_to_png(rich_object, width: int = 120, output_path: str = None) -> Optional[bytes]:
+def rich_to_png(rich_object, width: int = 120, output_path: Optional[str] = None) -> Optional[bytes]:
     """
     Convert a Rich renderable object to PNG format.
 
@@ -302,7 +303,7 @@ class Docs:
     ```
     """
 
-    def __init__(self, obj, docs_content: str = None):
+    def __init__(self, obj, docs_content: Optional[str] = None):
         """
         Initialize the Docs class with an object and optional documentation content.
 
@@ -409,3 +410,77 @@ class Docs:
         Return a string representation of the Docs object.
         """
         return repr_rich(self.__rich__())
+
+    def _split_into_sections(self):
+        """
+        Split markdown content into sections by ## headings.
+
+        Returns:
+            List[str]: List of document sections, each starting with a ## heading
+        """
+        if not self.docs_content:
+            return []
+
+        lines = self.docs_content.split('\n')
+        sections = []
+        current_section = []
+
+        for line in lines:
+            # Check if this is a ## heading (but not # or ### or ####)
+            if line.startswith('## ') and not line.startswith('### '):
+                # Save previous section if it exists
+                if current_section:
+                    sections.append('\n'.join(current_section))
+                # Start new section with this heading
+                current_section = [line]
+            else:
+                # Add line to current section
+                current_section.append(line)
+
+        # Don't forget the last section
+        if current_section:
+            sections.append('\n'.join(current_section))
+
+        return sections
+
+    def search(self, query: str, use_bm25: bool = True):
+        r"""
+        Search documentation content for relevant sections.
+
+        Uses BM25 semantic search by default to find sections matching the query.
+        Splits documentation by ## headings and returns matching sections with scores.
+
+        Args:
+            query: Search query (e.g., "extract revenue", "query by period")
+            use_bm25: Use semantic BM25 search (True) or regex pattern matching (False)
+
+        Returns:
+            SearchResults: Matching documentation sections with scores
+
+        Example:
+            >>> filing.docs.search("get attachments")
+            # Returns sections about accessing filing attachments
+
+            >>> xbrl.docs.search("extract revenue")
+            # Returns sections about extracting revenue from statements
+
+            >>> xbrl.docs.search(r"\.to_dataframe\(\)", use_bm25=False)
+            # Regex search for exact pattern
+        """
+        from edgar.search.textsearch import BM25Search, RegexSearch
+
+        # Split content into searchable sections
+        sections = self._split_into_sections()
+
+        if not sections:
+            # Return empty results if no content
+            from edgar.search.textsearch import SearchResults
+            return SearchResults(query=query, sections=[], tables=False)
+
+        # Use appropriate search method
+        if use_bm25:
+            searcher = BM25Search(sections)
+        else:
+            searcher = RegexSearch(sections)
+
+        return searcher.search(query, tables=False)

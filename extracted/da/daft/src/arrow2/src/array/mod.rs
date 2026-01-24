@@ -29,6 +29,7 @@ mod physical_binary;
 
 /// A trait representing an immutable Arrow array. Arrow arrays are trait objects
 /// that are infallibly downcasted to concrete types according to the [`Array::data_type`].
+#[deprecated(note = "arrow2 migration")]
 pub trait Array: Send + Sync + dyn_clone::DynClone + 'static {
     /// Converts itself to a reference of [`Any`], which enables downcasting to concrete types.
     fn as_any(&self) -> &dyn Any;
@@ -351,6 +352,8 @@ macro_rules! match_integer_type {(
         UInt64 => __with_ty__! { u64 },
     }
 })}
+
+
 
 macro_rules! with_match_primitive_type {(
     $key_type:expr, | $_:tt $T:ident | $($body:tt)*

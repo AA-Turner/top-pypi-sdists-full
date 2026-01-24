@@ -1,7 +1,5 @@
 import json
 import os
-import re
-from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -11,25 +9,12 @@ from uipath._cli import cli
 from uipath._cli.middlewares import MiddlewareResult
 
 
-@pytest.fixture
-def bindings_script() -> str:
-    if os.path.isfile("mocks/bindings_script.py"):
-        with open("mocks/bindings_script.py", "r") as file:
-            data = file.read()
-    else:
-        with open("tests/cli/mocks/bindings_script.py", "r") as file:
-            data = file.read()
-    return data
-
-
 class TestInit:
     def test_init_env_file_creation(self, runner: CliRunner, temp_dir: str) -> None:
         """Test .env file creation scenarios."""
         with runner.isolated_filesystem(temp_dir=temp_dir):
-            with open("main.py", "w") as f:
-                f.write("def main(input): return input")
             # Test creation of new .env
-            result = runner.invoke(cli, ["init"])
+            result = runner.invoke(cli, ["init"], env={})
             assert result.exit_code == 0
             assert "Created '.env' file" in result.output
 
@@ -40,62 +25,56 @@ class TestInit:
             with open(".env", "w") as f:
                 f.write(original_content)
 
-            result = runner.invoke(cli, ["init"])
+            result = runner.invoke(cli, ["init"], env={})
             assert result.exit_code == 0
             with open(".env", "r") as f:
                 assert f.read() == original_content
 
-    def test_init_script_detection(self, runner: CliRunner, temp_dir: str) -> None:
-        """Test Python script detection scenarios."""
+    def test_init_creates_empty_uipath_json(
+        self, runner: CliRunner, temp_dir: str
+    ) -> None:
+        """Test that init creates an empty uipath.json with functions structure."""
         with runner.isolated_filesystem(temp_dir=temp_dir):
-            # Test empty directory
-            result = runner.invoke(cli, ["init"])
-            assert result.exit_code == 1
-            assert "No python files found in the current directory" in result.output
-
-            # Test single Python file
-            with open("main.py", "w") as f:
-                f.write("def main(input): return input")
-
-            result = runner.invoke(cli, ["init"])
+            result = runner.invoke(cli, ["init"], env={})
             assert result.exit_code == 0
             assert os.path.exists("uipath.json")
+            assert "Created 'uipath.json' file" in result.output
 
-            # Test multiple Python files
-            with open("second.py", "w") as f:
-                f.write("def main(input): return input")
-
-            result = runner.invoke(cli, ["init"])
-            assert result.exit_code == 1
-            assert (
-                "Multiple python files found in the current directory" in result.output
-            )
-            assert "Please specify the entrypoint" in result.output
-
-    def test_init_with_entrypoint(self, runner: CliRunner, temp_dir: str) -> None:
-        """Test init with specified entrypoint."""
-        with runner.isolated_filesystem(temp_dir=temp_dir):
-            # Test with non-existent file
-            result = runner.invoke(cli, ["init", "nonexistent.py"])
-            assert result.exit_code == 1
-            assert "does not exist in the current directory" in result.output
-
-            # Test with valid Python file
-            with open("script.py", "w") as f:
-                f.write("def main(input): return input")
-
-            result = runner.invoke(cli, ["init", "script.py"])
-            assert result.exit_code == 0
-            assert os.path.exists("uipath.json")
-
-            # Verify config content
+            # Verify uipath.json has correct empty structure
             with open("uipath.json", "r") as f:
                 config = json.load(f)
-                assert "entryPoints" in config
-                assert len(config["entryPoints"]) == 1
-                assert config["entryPoints"][0]["filePath"] == "script.py"
-                assert config["entryPoints"][0]["type"] == "agent"
-                assert "uniqueId" in config["entryPoints"][0]
+                assert "functions" in config
+                assert isinstance(config["functions"], dict)
+                assert len(config["functions"]) == 0
+
+    def test_init_with_existing_uipath_json(
+        self, runner: CliRunner, temp_dir: str
+    ) -> None:
+        """Test init when uipath.json already exists with functions."""
+        with runner.isolated_filesystem(temp_dir=temp_dir):
+            # Create test script
+            with open("main.py", "w") as f:
+                f.write("def main(input: str) -> str: return input")
+
+            # Create uipath.json with functions
+            uipath_config = {"functions": {"main": "main.py:main"}}
+            with open("uipath.json", "w") as f:
+                json.dump(uipath_config, f)
+
+            result = runner.invoke(cli, ["init"], env={})
+            assert result.exit_code == 0
+
+            # Should generate entry-points.json
+            assert os.path.exists("entry-points.json")
+            assert "Created 'entry-points.json' file" in result.output
+
+            # Verify entry-points.json has correct structure
+            with open("entry-points.json", "r") as f:
+                entry_points = json.load(f)
+                assert "entryPoints" in entry_points
+                assert len(entry_points["entryPoints"]) == 1
+                assert entry_points["entryPoints"][0]["filePath"] == "main"
+                assert "uniqueId" in entry_points["entryPoints"][0]
 
     def test_init_middleware_interaction(
         self, runner: CliRunner, temp_dir: str
@@ -110,10 +89,10 @@ class TestInit:
                     should_include_stacktrace=False,
                 )
 
-                result = runner.invoke(cli, ["init"])
+                result = runner.invoke(cli, ["init"], env={})
                 assert result.exit_code == 1
                 assert "Middleware error" in result.output
-                assert not os.path.exists("uipath.json")
+                assert os.path.exists("uipath.json")
 
                 # Test middleware allowing execution
                 mock_middleware.return_value = MiddlewareResult(
@@ -122,48 +101,32 @@ class TestInit:
                     should_include_stacktrace=False,
                 )
 
-                with open("main.py", "w") as f:
-                    f.write("def main(input): return input")
-
-                result = runner.invoke(cli, ["init"])
+                result = runner.invoke(cli, ["init"], env={})
                 assert result.exit_code == 0
                 assert os.path.exists("uipath.json")
 
     def test_init_error_handling(self, runner: CliRunner, temp_dir: str) -> None:
         """Test error handling in init command."""
         with runner.isolated_filesystem(temp_dir=temp_dir):
-            # Test invalid Python syntax
+            # Create invalid Python file
             with open("invalid.py", "w") as f:
                 f.write("def main(input: return input")  # Invalid syntax
+
+            # Create uipath.json with reference to invalid file
+            uipath_config = {"functions": {"main": "invalid.py:main"}}
+            with open("uipath.json", "w") as f:
+                json.dump(uipath_config, f)
 
             # Mock middleware to allow execution
             with patch("uipath._cli.cli_init.Middlewares.next") as mock_middleware:
                 mock_middleware.return_value = MiddlewareResult(should_continue=True)
 
-                result = runner.invoke(cli, ["init", "invalid.py"])
-                assert result.exit_code == 1
-                assert "Error creating configuration" in result.output
-                assert "invalid syntax" in result.output  # Should show stacktrace
+                result = runner.invoke(cli, ["init"], env={})
 
-            # Test with generate_args raising exception
-            with patch("uipath._cli.cli_init.generate_args") as mock_generate:
-                mock_generate.side_effect = Exception("Generation error")
-                with open("script.py", "w") as f:
-                    f.write("def main(input): return input")
-
-                # Mock middleware to allow execution
-                with patch("uipath._cli.cli_init.Middlewares.next") as mock_middleware:
-                    mock_middleware.return_value = MiddlewareResult(
-                        should_continue=True
-                    )
-
-                    result = runner.invoke(cli, ["init", "script.py"])
-                    assert result.exit_code == 1
-                    # Use regex to match any spinner character followed by the expected message
-                    assert re.search(
-                        r"⠋|⠼|⠇|⠏|⠋|⠙|⠹|⠸|⠼|⠴|⠦|⠧|⠇|⠏ Initializing UiPath project \.\.\.❌ Error creating configuration file:\n Generation error\n",
-                        result.output,
-                    )
+                # The command should fail due to invalid syntax
+                assert result.exit_code == 1, (
+                    f"Expected exit code 1, got {result.exit_code}. Output: {result.output}"
+                )
 
     def test_init_config_generation(self, runner: CliRunner, temp_dir: str) -> None:
         """Test configuration file generation with different input/output schemas."""
@@ -172,9 +135,10 @@ class TestInit:
             script_content = """
 from dataclasses import dataclass
 from typing import Optional
-
+import uuid
 @dataclass
 class Input:
+    uuid_attribute: uuid.UUID
     message: str
     count: Optional[int] = None
 
@@ -188,11 +152,16 @@ def main(input: Input) -> Output:
             with open("test.py", "w") as f:
                 f.write(script_content)
 
-            result = runner.invoke(cli, ["init", "test.py"])
-            assert result.exit_code == 0
-            assert os.path.exists("uipath.json")
+            # Create uipath.json with function reference
+            uipath_config = {"functions": {"main": "test.py:main"}}
+            with open("uipath.json", "w") as f:
+                json.dump(uipath_config, f)
 
-            with open("uipath.json", "r") as f:
+            result = runner.invoke(cli, ["init"], env={})
+            assert result.exit_code == 0
+            assert os.path.exists("entry-points.json")
+
+            with open("entry-points.json", "r") as f:
                 config = json.load(f)
                 entry = config["entryPoints"][0]
 
@@ -203,134 +172,301 @@ def main(input: Input) -> Output:
                 assert "count" in input_schema["properties"]
                 assert "message" in input_schema["required"]
 
+                assert "uuid_attribute" in input_schema["properties"]
+                assert "uuid_attribute" in input_schema["required"]
+                assert input_schema["properties"]["uuid_attribute"]["type"] == "string"
+                assert input_schema["properties"]["uuid_attribute"]["format"] == "uuid"
+
                 # Verify output schema
                 assert "output" in entry
                 output_schema = entry["output"]
                 assert "result" in output_schema["properties"]
 
-    def test_bindings_inference(
-        self,
-        runner: CliRunner,
-        temp_dir: str,
-        mock_env_vars: dict[str, str],
-        bindings_script: str,
+    def test_schema_json_draft07_compliance(
+        self, runner: CliRunner, temp_dir: str
     ) -> None:
-        """Test the inference of UiPath bindings from the code."""
-
+        """Test that generated schemas comply with JSON Schema draft-07 specification."""
         with runner.isolated_filesystem(temp_dir=temp_dir):
-            with open(".env", "w") as f:
-                for key, value in mock_env_vars.items():
-                    f.write(f"{key}={value}\n")
+            # Create a comprehensive test script with all supported types
+            script_content = """
+from dataclasses import dataclass
+from enum import Enum
+from typing import List, Dict, Optional
+from pydantic import BaseModel
 
-            with open("bindings.py", "w") as f:
-                f.write(bindings_script)
-            print(1)
-            result = runner.invoke(cli, ["init", "bindings.py"])
+
+class StringEnum(str, Enum):
+    OPTION_A = "option_a"
+    OPTION_B = "option_b"
+    OPTION_C = "option_c"
+
+
+class IntEnum(int, Enum):
+    ONE = 1
+    TWO = 2
+    THREE = 3
+
+
+class FloatEnum(float, Enum):
+    PI = 3.14
+    E = 2.71
+    GOLDEN = 1.618
+
+
+class BoolEnum(int, Enum):
+    FALSE_VALUE = 0
+    TRUE_VALUE = 1
+
+
+class NestedPydanticModel(BaseModel):
+    nested_field: str
+    nested_number: int
+
+
+@dataclass
+class NestedDataclass:
+    nested_str: str
+    nested_int: int
+
+
+@dataclass
+class Input:
+    string_field: str
+    integer_field: int
+    float_field: float
+    boolean_field: bool
+    list_of_strings: List[str]
+    list_of_integers: List[int]
+    dict_field: Dict[str, str]
+    optional_string: Optional[str]
+    optional_int: Optional[int]
+    optional_list: Optional[List[str]]
+    string_enum_field: StringEnum
+    int_enum_field: IntEnum
+    float_enum_field: FloatEnum
+    bool_enum_field: BoolEnum
+    pydantic_nested: NestedPydanticModel
+    dataclass_nested: NestedDataclass
+    list_of_objects: List[NestedDataclass]
+    nested_list: List[List[str]]
+    optional_with_default: Optional[str] = None
+    int_with_default: int = 42
+
+
+@dataclass
+class Output:
+    result: str
+    success: bool
+
+
+def main(input: Input) -> Output:
+    return Output(result="test", success=True)
+"""
+            with open("comprehensive_types.py", "w") as f:
+                f.write(script_content)
+
+            # Create uipath.json with function reference
+            uipath_config = {"functions": {"main": "comprehensive_types.py:main"}}
+            with open("uipath.json", "w") as f:
+                json.dump(uipath_config, f)
+
+            # Run init command
+            result = runner.invoke(cli, ["init"], env={})
             assert result.exit_code == 0
-            assert "Created 'uipath.json' file" in result.output
-            assert os.path.exists("uipath.json")
+            assert os.path.exists("entry-points.json")
+
+            # Load and validate the generated config
+            with open("entry-points.json", "r") as f:
+                config = json.load(f)
+                entry = config["entryPoints"][0]
+                input_schema = entry["input"]
+                output_schema = entry["output"]
+
+            # Validate top-level structure
+            assert input_schema["type"] == "object"
+            assert "properties" in input_schema
+            assert "required" in input_schema
+
+            props = input_schema["properties"]
+            required = input_schema["required"]
+
+            # Test basic types
+            assert props["string_field"]["type"] == "string"
+            assert props["integer_field"]["type"] == "integer"
+            assert props["float_field"]["type"] == "number"
+            assert props["boolean_field"]["type"] == "boolean"
+
+            # Test collections
+            assert props["list_of_strings"]["type"] == "array"
+            assert props["list_of_strings"]["items"]["type"] == "string"
+            assert props["list_of_integers"]["type"] == "array"
+            assert props["list_of_integers"]["items"]["type"] == "integer"
+            assert props["dict_field"]["type"] == "object"
+
+            # Test Optional types
+            assert props["optional_string"]["type"] == "string"
+            assert props["optional_int"]["type"] == "integer"
+            assert props["optional_list"]["type"] == "array"
+
+            # Test Enum types
+            assert props["string_enum_field"]["type"] == "string"
+            assert set(props["string_enum_field"]["enum"]) == {
+                "option_a",
+                "option_b",
+                "option_c",
+            }
+            assert props["int_enum_field"]["type"] == "integer"
+            assert set(props["int_enum_field"]["enum"]) == {1, 2, 3}
+            assert props["float_enum_field"]["type"] == "number"
+            assert set(props["float_enum_field"]["enum"]) == {3.14, 2.71, 1.618}
+
+            # Test nested objects
+            assert props["pydantic_nested"]["type"] == "object"
+            assert props["dataclass_nested"]["type"] == "object"
+
+            # Test required fields
+            assert "string_field" in required
+            assert "optional_with_default" not in required
+            assert "int_with_default" not in required
+
+            # Validate output schema
+            assert output_schema["type"] == "object"
+            assert output_schema["properties"]["result"]["type"] == "string"
+            assert output_schema["properties"]["success"]["type"] == "boolean"
+
+    def test_bindings_and_entrypoints_files_creation(
+        self, runner: CliRunner, temp_dir: str
+    ) -> None:
+        """Test that bindings.json and entry-points.json files are created correctly."""
+        with runner.isolated_filesystem(temp_dir=temp_dir):
+            # Create a simple Python file
+            with open("main.py", "w") as f:
+                f.write("def main(input: str) -> str: return input")
+
+            # Create uipath.json with function
+            uipath_config = {"functions": {"main": "main.py:main"}}
+            with open("uipath.json", "w") as f:
+                json.dump(uipath_config, f)
+
+            result = runner.invoke(cli, ["init"], env={})
+            assert result.exit_code == 0
+            assert "Created 'bindings.json' file" in result.output
+            assert "Created 'entry-points.json' file" in result.output
+
+            assert os.path.exists("bindings.json")
+            assert os.path.exists("entry-points.json")
+
+            # Verify bindings.json has correct structure
+            with open("bindings.json", "r") as f:
+                bindings_data = json.load(f)
+                assert "version" in bindings_data
+                assert bindings_data["version"] == "2.0"
+                assert "resources" in bindings_data
+                assert isinstance(bindings_data["resources"], list)
+
+            # Verify uipath.json still has functions
             with open("uipath.json", "r") as f:
                 config = json.load(f)
-                assert "bindings" in config
-                bindings = config["bindings"]
-                assert len(bindings) > 0
-                assert "resources" in config["bindings"]
-                resources = config["bindings"]["resources"]
-                assert len(resources) == 12
+                assert "functions" in config
+                assert config["functions"]["main"] == "main.py:main"
 
-                # Helper function to find resource by key
-                def find_resource(key: str) -> dict[str, Any]:
-                    return next((r for r in resources if r["key"] == key), {})
+    @pytest.mark.parametrize(
+        ("input_model", "verify_other_field"),
+        [
+            (
+                """
+# pydantic BaseModel
 
-                assert all(r["metadata"]["BindingsVersion"] == "2.2" for r in resources)
+from pydantic import BaseModel, Field
+class InputModel(BaseModel):
+    input_file: Attachment
+    other_field: int | None = Field(default=None)""",
+                True,
+            ),
+            (
+                """
+# dataclass
 
-                # Test resources with and without async for each type
-                retrieve_resource_types = ["asset", "bucket", "index"]
-                for resource_type in retrieve_resource_types:
-                    # Test async variant
-                    async_key = f"{resource_type}_from_retrieve_async"
-                    async_resource = find_resource(async_key)
-                    assert async_resource["resource"] == resource_type
-                    assert (
-                        async_resource["metadata"]["ActivityName"] == "retrieve_async"
-                    )
-                    assert async_resource["value"]["name"]["defaultValue"] == async_key
-                    assert "folderPath" not in async_resource["value"]
+from dataclasses import dataclass
+@dataclass
+class InputModel:
+    input_file: Attachment
+    other_field: int | None = None""",
+                True,
+            ),
+            (
+                """
+# regular class
 
-                    # Test non-async variant
-                    non_async_key = f"{resource_type}_from_retrieve"
-                    non_async_resource = find_resource(non_async_key)
-                    assert non_async_resource["resource"] == resource_type
-                    assert non_async_resource["metadata"]["ActivityName"] == "retrieve"
-                    assert (
-                        non_async_resource["value"]["name"]["defaultValue"]
-                        == non_async_key
-                    )
-                    assert "folderPath" not in non_async_resource["value"]
+class InputModel:
+    input_file: Attachment
+    other_field: int | None = None
 
-                    # Test folder path variant
-                    folder_key = (
-                        f"{resource_type}_folder_path.{resource_type}_with_folder_path"
-                    )
-                    folder_resource = find_resource(folder_key)
-                    assert folder_resource["resource"] == resource_type
-                    assert folder_resource["metadata"]["ActivityName"] == "retrieve"
-                    assert (
-                        folder_resource["value"]["folderPath"]["defaultValue"]
-                        == f"{resource_type}_folder_path"
-                    )
-                    assert (
-                        folder_resource["value"]["name"]["defaultValue"]
-                        == f"{resource_type}_with_folder_path"
-                    )
+    def __init__(self, input_file: Attachment, other_field: int | None = None):
+        self.input_file = input_file
+        self.other_field = other_field""",
+                True,
+            ),
+            (
+                """
+# attachment class itself
 
-                # Test process resources
-                # Test async variant
-                process_async = find_resource("process_name_from_invoke_async")
-                assert process_async["resource"] == "process"
-                assert process_async["metadata"]["ActivityName"] == "invoke_async"
-                assert (
-                    process_async["value"]["name"]["defaultValue"]
-                    == "process_name_from_invoke_async"
-                )
-                assert "folderPath" not in process_async["value"]
 
-                # Test non-async variant
-                process_non_async = find_resource("process_name_from_invoke")
-                assert process_non_async["resource"] == "process"
-                assert process_non_async["metadata"]["ActivityName"] == "invoke"
-                assert (
-                    process_non_async["value"]["name"]["defaultValue"]
-                    == "process_name_from_invoke"
-                )
-                assert "folderPath" not in process_non_async["value"]
+from typing import TypeAlias
+InputModel: TypeAlias = Attachment
+""",
+                False,
+            ),
+        ],
+    )
+    def test_schema_generation_resolves_attachments_pydantic_dataclass(
+        self, runner: CliRunner, temp_dir: str, input_model: str, verify_other_field
+    ) -> None:
+        """Test that attachments are resolved in entry-points schema"""
 
-                # Test folder path variant
-                process_folder = find_resource(
-                    "process_folder_path.process_with_folder_path"
-                )
-                assert process_folder["resource"] == "process"
-                assert process_folder["metadata"]["ActivityName"] == "invoke"
-                assert (
-                    process_folder["value"]["folderPath"]["defaultValue"]
-                    == "process_folder_path"
-                )
-                assert (
-                    process_folder["value"]["name"]["defaultValue"]
-                    == "process_with_folder_path"
-                )
+        def verify_attachment_schema(schema, verify_other_field):
+            assert "definitions" in schema
+            assert "job-attachment" in schema["definitions"]
+            assert schema["definitions"]["job-attachment"]["type"] == "object"
+            assert (
+                schema["definitions"]["job-attachment"]["x-uipath-resource-kind"]
+                == "JobAttachment"
+            )
+            assert all(
+                prop_name in schema["definitions"]["job-attachment"]["properties"]
+                for prop_name in ["ID", "FullName", "MimeType", "Metadata"]
+            )
+            if not verify_other_field:
+                return
 
-                # Verify common metadata fields
-                for resource in resources:
-                    assert "metadata" in resource
-                    assert "DisplayLabel" in resource["metadata"]
-                    assert resource["metadata"]["DisplayLabel"] == "FullName"
-                    assert "value" in resource
-                    if "folderPath" in resource["value"]:
-                        assert (
-                            resource["value"]["folderPath"]["displayName"]
-                            == "Folder Path"
-                        )
-                        assert not resource["value"]["folderPath"]["isExpression"]
-                    assert resource["value"]["name"]["displayName"] == "Name"
-                    assert not resource["value"]["name"]["isExpression"]
+            assert len(schema["properties"]) == 2
+            assert all(
+                prop_name in schema["properties"]
+                for prop_name in ["input_file", "other_field"]
+            )
+            assert schema["required"] == ["input_file"]
+
+        with runner.isolated_filesystem(temp_dir=temp_dir):
+            with open("main.py", "w") as f:
+                f.write(f"""
+from uipath.platform.attachments import Attachment
+{input_model}
+def main(input: InputModel) -> InputModel: return input""")
+
+            uipath_config = {"functions": {"main": "main.py:main"}}
+            with open("uipath.json", "w") as f:
+                json.dump(uipath_config, f)
+
+            result = runner.invoke(cli, ["init"], env={})
+
+            assert result.exit_code == 0
+            assert "Created 'bindings.json' file" in result.output
+            assert "Created 'entry-points.json' file" in result.output
+
+            with open("entry-points.json", "r") as f:
+                entrypoints = json.load(f)
+                input_schema = entrypoints["entryPoints"][0]["input"]
+                output_schema = entrypoints["entryPoints"][0]["output"]
+
+            verify_attachment_schema(input_schema, verify_other_field)
+            verify_attachment_schema(output_schema, verify_other_field)

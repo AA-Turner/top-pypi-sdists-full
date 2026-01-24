@@ -6,7 +6,6 @@ https://github.com/python/mypy/blob/0753e2a82dad35034e000609b6e8daa37238bfaa/myp
 
 from __future__ import annotations
 
-import re
 import sys
 from typing import Callable, Dict, Final, Iterator, List, Literal, Optional
 
@@ -61,10 +60,6 @@ from mypy.typevars import fill_typevars
 
 METADATA_TAG: Final[str] = "task"
 
-PARAMETER_FULLNAME_MATCHER: Final[re.Pattern] = re.compile(
-    r"^luigi(\.parameter)?\.\w*Parameter$"
-)
-
 if sys.version_info[:2] < (3, 8):
     # This plugin uses the walrus operator, which is only available in Python 3.8+
     raise RuntimeError("This plugin requires Python 3.8+")
@@ -84,12 +79,17 @@ class TaskPlugin(Plugin):
         self, fullname: str
     ) -> Callable[[FunctionContext], Type] | None:
         """Adjust the return type of the `Parameters` function."""
-        if PARAMETER_FULLNAME_MATCHER.match(fullname):
+        if self.check_parameter(fullname):
             return self._task_parameter_field_callback
         return None
 
+    def check_parameter(self, fullname):
+        sym = self.lookup_fully_qualified(fullname)
+        if sym and isinstance(sym.node, TypeInfo):
+            return any(base.fullname == "luigi.parameter.Parameter" for base in sym.node.mro)
+
     def _task_class_maker_callback(self, ctx: ClassDefContext) -> None:
-        transformer = TaskTransformer(ctx.cls, ctx.reason, ctx.api)
+        transformer = TaskTransformer(ctx.cls, ctx.reason, ctx.api, self)
         transformer.transform()
 
     def _task_parameter_field_callback(self, ctx: FunctionContext) -> Type:
@@ -97,32 +97,34 @@ class TaskPlugin(Plugin):
 
         In particular:
         * Retrieve the type of the argument which is specified, and use it as return type for the function.
-        * If no default argument is specified, return AnyType with unannotated type instead of parameter types like `luigi.Parameter()`
-          This makes mypy avoid conflict between the type annotation and the parameter type.
+        * If no default argument is specified, use the __new__ method's return type from the Parameter class
           e.g.
           ```python
-          foo: int = luigi.IntParameter()
+          foo: int = luigi.IntParameter()  # IntParameter.__new__ returns int
           ```
         """
-        try:
-            default_idx = ctx.callee_arg_names.index("default")
-        # if no `default` argument is found, return AnyType with unannotated type.
-        except ValueError:
-            return AnyType(TypeOfAny.unannotated)
+        # Try to get the return type from __new__ method
+        default_type = ctx.default_return_type
+        if isinstance(default_type, Instance):
+            # Find the Parameter base with its type argument
+            for base in default_type.type.bases:
+                if isinstance(base, Instance) and base.type.fullname == "luigi.parameter.Parameter":
+                    # base.args contains the type argument (e.g., [int] for IntParameter)
+                    if len(base.args) == 1:
+                        return base.args[0]
+                    break
 
+        default_idx = ctx.callee_arg_names.index("default")
         default_args = ctx.args[default_idx]
 
         if default_args:
-            default_type = ctx.arg_types[0][0]
+            default_type = ctx.arg_types[default_idx][0]
             default_arg = default_args[0]
 
             # Fallback to default Any type if the field is required
             if not isinstance(default_arg, EllipsisExpr):
                 return default_type
-        # NOTE: This is a workaround to avoid the error between type annotation and parameter type.
-        #       As the following code snippet, the type of `foo` is `int` but the assigned value is `luigi.IntParameter()`.
-        #       foo: int = luigi.IntParameter()
-        # TODO: infer mypy type from the parameter type.
+
         return AnyType(TypeOfAny.unannotated)
 
 
@@ -210,10 +212,12 @@ class TaskTransformer:
         cls: ClassDef,
         reason: Expression | Statement,
         api: SemanticAnalyzerPluginInterface,
+        task_plugin: TaskPlugin,
     ) -> None:
         self._cls = cls
         self._reason = reason
         self._api = api
+        self._task_plugin = task_plugin
 
     def transform(self) -> bool:
         """Apply all the necessary transformations to the underlying gokart.Task"""
@@ -311,7 +315,7 @@ class TaskTransformer:
         # Second, collect attributes belonging to the current class.
         current_attr_names: set[str] = set()
         for stmt in self._get_assignment_statements_from_block(cls.defs):
-            if not is_parameter_call(stmt.rvalue):
+            if not self.is_parameter_call(stmt.rvalue):
                 continue
 
             # a: int, b: str = 1, 'foo' is not supported syntax so we
@@ -435,29 +439,26 @@ class TaskTransformer:
 
         return default
 
+    def is_parameter_call(self, expr: Expression) -> bool:
+        """Checks if the expression is a call to luigi.Parameter()"""
+        if not isinstance(expr, CallExpr):
+            return False
 
-def is_parameter_call(expr: Expression) -> bool:
-    """Checks if the expression is a call to luigi.Parameter()"""
-    if not isinstance(expr, CallExpr):
-        return False
+        callee = expr.callee
+        fullname = None
+        if isinstance(callee, MemberExpr):
+            type_info = callee.node
+            if type_info is None and isinstance(callee.expr, NameExpr):
+                fullname = f"{callee.expr.name}.{callee.name}"
+        elif isinstance(callee, NameExpr):
+            type_info = callee.node
+        else:
+            return False
 
-    callee = expr.callee
-    if isinstance(callee, MemberExpr):
-        type_info = callee.node
-        if type_info is None and isinstance(callee.expr, NameExpr):
-            return (
-                PARAMETER_FULLNAME_MATCHER.match(f"{callee.expr.name}.{callee.name}")
-                is not None
-            )
-    elif isinstance(callee, NameExpr):
-        type_info = callee.node
-    else:
-        return False
+        if isinstance(type_info, TypeInfo):
+            fullname = type_info.fullname
 
-    if isinstance(type_info, TypeInfo):
-        return PARAMETER_FULLNAME_MATCHER.match(type_info.fullname) is not None
-
-    return False
+        return fullname is not None and self._task_plugin.check_parameter(fullname)
 
 
 def plugin(version: str) -> type[Plugin]:

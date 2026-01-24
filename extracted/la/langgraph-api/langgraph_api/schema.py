@@ -16,7 +16,15 @@ RunStatus = Literal["pending", "running", "error", "success", "timeout", "interr
 ThreadStatus = Literal["idle", "busy", "interrupted", "error"]
 
 StreamMode = Literal[
-    "values", "messages", "updates", "events", "debug", "tasks", "checkpoints", "custom"
+    "values",
+    "messages",
+    "updates",
+    "events",
+    "debug",
+    "tasks",
+    "checkpoints",
+    "custom",
+    "messages-tuple",
 ]
 
 ThreadStreamMode = Literal["lifecycle", "run_modes", "state_update"]
@@ -50,8 +58,14 @@ class Config(TypedDict, total=False):
     """
     Runtime values for attributes previously made configurable on this Runnable,
     or sub-Runnables, through .configurable_fields() or .configurable_alternatives().
-    Check .output_schema() for a description of the attributes that have been made 
+    Check .output_schema() for a description of the attributes that have been made
     configurable.
+    """
+
+    __encryption_context__: dict[str, Any]
+    """
+    Internal: Encryption context for encryption/decryption operations.
+    Not exposed to users.
     """
 
 
@@ -62,7 +76,7 @@ class Checkpoint(TypedDict):
     checkpoint_map: dict[str, Any] | None
 
 
-class Assistant(TypedDict):
+class Assistant(TypedDict, total=False):
     """Assistant model."""
 
     assistant_id: UUID
@@ -112,6 +126,17 @@ class DeprecatedInterrupt(TypedDict, total=False):
     """When the interrupt occurred, always "during"."""
 
 
+class ThreadTTLInfo(TypedDict, total=False):
+    """TTL information for a thread. Only present when ?include=ttl is passed."""
+
+    strategy: Literal["delete", "keep_latest"]
+    """The TTL strategy."""
+    ttl_minutes: float
+    """The TTL in minutes."""
+    expires_at: datetime
+    """When the thread will expire."""
+
+
 class Thread(TypedDict):
     thread_id: UUID
     """The ID of the thread."""
@@ -123,14 +148,14 @@ class Thread(TypedDict):
     """The thread metadata."""
     config: Fragment
     """The thread config."""
-    context: Fragment
-    """The thread context."""
     status: ThreadStatus
     """The status of the thread. One of 'idle', 'busy', 'interrupted', "error"."""
     values: Fragment
     """The current state of the thread."""
     interrupts: dict[str, list[Interrupt]]
     """The current interrupts of the thread, a map of task_id to list of interrupts."""
+    ttl: NotRequired[ThreadTTLInfo]
+    """TTL information if set for this thread. Only present when ?include=ttl is passed."""
 
 
 class ThreadTask(TypedDict):
@@ -148,7 +173,7 @@ class ThreadState(TypedDict):
     next: Sequence[str]
     """The name of the node to execute in each task for this step."""
     checkpoint: Checkpoint
-    """The checkpoint keys. This object can be passed to the /threads and /runs 
+    """The checkpoint keys. This object can be passed to the /threads and /runs
     endpoints to resume execution or update state."""
     metadata: Fragment
     """Metadata for this state"""
@@ -176,6 +201,7 @@ class RunKwargs(TypedDict):
     subgraphs: bool
     resumable: bool
     checkpoint_during: bool
+    durability: str | None
 
 
 class Run(TypedDict):
@@ -219,6 +245,8 @@ class Cron(TypedDict):
     """The ID of the assistant."""
     thread_id: UUID | None
     """The ID of the thread."""
+    on_run_completed: NotRequired[Literal["delete", "keep"] | None]
+    """What to do with the thread after the run completes."""
     end_time: datetime | None
     """The end date to stop running the cron."""
     schedule: str
@@ -248,8 +276,9 @@ class ThreadUpdateResponse(TypedDict):
 class QueueStats(TypedDict):
     n_pending: int
     n_running: int
-    max_age_secs: datetime | None
-    med_age_secs: datetime | None
+    pending_runs_wait_time_max_secs: float | None
+    pending_runs_wait_time_med_secs: float | None
+    pending_unblocked_runs_wait_time_max_secs: float | None
 
 
 # Canonical field sets for select= validation and type aliases for ops
@@ -276,7 +305,6 @@ ThreadSelectField = Literal[
     "updated_at",
     "metadata",
     "config",
-    "context",
     "status",
     "values",
     "interrupts",
@@ -302,6 +330,7 @@ CronSelectField = Literal[
     "cron_id",
     "assistant_id",
     "thread_id",
+    "on_run_completed",
     "end_time",
     "schedule",
     "created_at",
@@ -310,6 +339,53 @@ CronSelectField = Literal[
     "payload",
     "next_run_date",
     "metadata",
-    "now",
 ]
 CRON_FIELDS: set[str] = set(CronSelectField.__args__)  # type: ignore[attr-defined]
+
+# Encryption field constants
+# These define which fields are encrypted for each model type.
+#
+# Note: Checkpoint encryption (checkpoint, metadata columns in checkpoints table, plus
+# blob data in checkpoint_blobs and checkpoint_writes) is handled directly by the
+# Checkpointer class in storage_postgres/langgraph_runtime_postgres/checkpoint.py.
+# The checkpointer uses encrypt_json_if_needed/decrypt_json_if_needed directly rather
+# than the field list pattern used by the API middleware. This is because checkpoints
+# are only accessed via the checkpointer's internal methods (aget_tuple, aput, etc.),
+# not through generic API CRUD operations.
+
+THREAD_ENCRYPTION_FIELDS = ["metadata", "config", "values", "interrupts", "error"]
+
+# kwargs is a nested blob - its subfields are decrypted automatically by the middleware
+RUN_ENCRYPTION_FIELDS = ["metadata", "kwargs"]
+
+ASSISTANT_ENCRYPTION_FIELDS = ["metadata", "config", "context"]
+
+# payload is a nested blob - its subfields are decrypted automatically by the middleware
+CRON_ENCRYPTION_FIELDS = ["metadata", "payload"]
+
+# Store encryption - only the value field contains user data
+STORE_ENCRYPTION_FIELDS = ["value"]
+
+# The middleware automatically decrypts these subfields when decrypting the parent field.
+# This is recursive: if a subfield is also in NESTED_ENCRYPTED_SUBFIELDS, its subfields
+# are decrypted too (e.g., run.kwargs.config.configurable).
+NESTED_ENCRYPTED_SUBFIELDS: dict[tuple[str, str], list[str]] = {
+    ("run", "kwargs"): ["input", "config", "context", "command"],
+    ("run", "config"): ["configurable", "metadata"],
+    ("cron", "payload"): ["metadata", "context", "input", "config"],
+    ("cron", "config"): ["configurable", "metadata"],
+    ("assistant", "config"): ["configurable"],
+}
+
+# Convenience alias for cron payload subfields.
+#
+# This is a reflection of an unfortunate asymmetry in cron's data model.
+#
+# The cron API requests have payload fields (metadata, input, config, context) at the
+# top level, but at rest they're nested inside the `payload` JSONB column (with
+# metadata also duplicated as a top-level column). This alias is used to encrypt
+# those fields in the flat request before storage.
+CRON_PAYLOAD_ENCRYPTION_SUBFIELDS = NESTED_ENCRYPTED_SUBFIELDS[("cron", "payload")]
+
+# Convenience alias for run kwargs subfields, used by the worker for decryption.
+RUN_KWARGS_ENCRYPTION_SUBFIELDS = NESTED_ENCRYPTED_SUBFIELDS[("run", "kwargs")]

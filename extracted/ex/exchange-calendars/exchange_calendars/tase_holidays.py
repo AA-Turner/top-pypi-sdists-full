@@ -149,15 +149,14 @@ def memorial_day(year):
         # Falls on a Thursday, so Independency Day falls on the Friday.
         # Moved down by one day.
         return d - 1
-    elif d.weekday() == 6:
+    if d.weekday() == 6:
         # Falls on a Friday, so Independence Day falls on the Saturday.
         # Moved down by two days.
         return d - 2
-    elif d.weekday() == 7:
+    if d.weekday() == 7:
         # Falls on a Saturday, therefore moved up by one day.
         return d + 1
-    else:
-        return d
+    return d
 
 
 def pentecost(year):
@@ -179,8 +178,7 @@ def fast_day(year):
     if d.weekday() == 7:
         # Falls on a Saturday, therefore moved up by one day.
         return d + 1
-    else:
-        return d
+    return d
 
 
 def new_year(year):
@@ -234,7 +232,6 @@ class _HolidayOffset(Easter):
         Return the Gregorian date for the holiday in a given Gregorian calendar
         year.
         """
-        pass
 
     @apply_wraps
     def _apply(self, other):
@@ -252,7 +249,7 @@ class _HolidayOffset(Easter):
         # NOTE: self.holiday a dates.GregorianDate so we have to convert to
         # type of other
         new = self.holiday(other.year + n).to_pydate()
-        new = datetime(
+        return datetime(
             new.year,
             new.month,
             new.day,
@@ -261,7 +258,6 @@ class _HolidayOffset(Easter):
             other.second,
             other.microsecond,
         )
-        return new
 
     # backwards compat
     apply = _apply
@@ -317,6 +313,71 @@ class _YomKippur(_HolidayOffset):
         return yom_kippur
 
 
+class _YomKippurEveObserved(_HolidayOffset):
+    """
+    Custom offset for Yom Kippur Eve with previous_friday observance.
+    Applies both the Day(-1) offset and moves to previous Friday if needed.
+    """
+
+    @property
+    def holiday(self):
+        return yom_kippur
+
+    @apply_wraps
+    def _apply(self, other):
+        current = self.holiday(other.year).to_pydate()
+        # Get the day before (Yom Kippur Eve)
+        current = current - pd.Timedelta(days=1)
+        current = datetime(current.year, current.month, current.day)
+        # Apply previous_friday observance (move to previous Friday if on weekend)
+        weekday = current.weekday()
+        if weekday == 5:  # Saturday
+            current = current - pd.Timedelta(days=1)
+        elif weekday == 6:  # Sunday
+            current = current - pd.Timedelta(days=2)
+        current = localize_pydatetime(current, other.tzinfo)
+
+        n = self.n
+        if n >= 0 and other < current:
+            n -= 1
+        elif n < 0 and other > current:
+            n += 1
+
+        new = self.holiday(other.year + n).to_pydate()
+        # Get the day before (Yom Kippur Eve)
+        new = new - pd.Timedelta(days=1)
+        new = datetime(new.year, new.month, new.day)
+        # Apply previous_friday observance
+        weekday = new.weekday()
+        if weekday == 5:  # Saturday
+            new = new - pd.Timedelta(days=1)
+        elif weekday == 6:  # Sunday
+            new = new - pd.Timedelta(days=2)
+
+        return datetime(
+            new.year,
+            new.month,
+            new.day,
+            other.hour,
+            other.minute,
+            other.second,
+            other.microsecond,
+        )
+
+    def is_on_offset(self, dt):
+        if self.normalize and not _is_normalized(dt):
+            return False
+        # Get the expected date and apply the same logic
+        expected = self.holiday(dt.year).to_pydate() - pd.Timedelta(days=1)
+        expected = date(expected.year, expected.month, expected.day)
+        weekday = expected.weekday()
+        if weekday == 5:  # Saturday
+            expected = expected - pd.Timedelta(days=1)
+        elif weekday == 6:  # Sunday
+            expected = expected - pd.Timedelta(days=2)
+        return date(dt.year, dt.month, dt.day) == expected.date()
+
+
 class _Sukkoth(_HolidayOffset):
     @property
     def holiday(self):
@@ -346,6 +407,13 @@ NewYearsEve = Holiday("New Year's Eve", month=1, day=1, offset=[_NewYear(), Day(
 NewYear = Holiday("New Year", month=1, day=1, offset=[_NewYear()])
 NewYear2 = Holiday("New Year II", month=1, day=1, offset=[_NewYear(), Day(1)])
 YomKippurEve = Holiday("Yom Kippur Eve", month=1, day=1, offset=[_YomKippur(), Day(-1)])
+YomKippurEveObserved = Holiday(
+    "Market Holiday",
+    month=1,
+    day=1,
+    offset=[_YomKippurEveObserved()],
+    start_date=pd.Timestamp("2026-01-05"),
+)
 YomKippur = Holiday("Yom Kippur", month=1, day=1, offset=[_YomKippur()])
 SukkothEve = Holiday("Sukkoth Eve", month=1, day=1, offset=[_Sukkoth(), Day(-1)])
 Sukkoth = Holiday("Sukkoth", month=1, day=1, offset=[_Sukkoth()])
@@ -354,70 +422,157 @@ SimchatTorahEve = Holiday(
 )
 SimchatTorah = Holiday("Simchat Torah", month=1, day=1, offset=[_SimchatTorah()])
 
+DaysOfWeekBefore2026 = (0, 1, 2, 3, 6)
+DaysOfWeek = (0, 1, 2, 3, 4)
+StartDate = pd.Timestamp("2026-01-05")
+EndDate = pd.Timestamp("2026-01-05")
+
+
 # Sukkoth interim days - the 3 days following Sukkoth
 SukkothInterimDay1 = Holiday(
     "Sukkoth Interim Day",
     month=1,
     day=1,
     offset=[_Sukkoth(), Day(1)],
-    days_of_week=(0, 1, 2, 3, 6)
+    start_date=StartDate,
+    days_of_week=DaysOfWeek,
+)
+SukkothInterimDay1Before2026 = Holiday(
+    "Sukkoth Interim Day",
+    month=1,
+    day=1,
+    offset=[_Sukkoth(), Day(1)],
+    end_date=EndDate,
+    days_of_week=DaysOfWeekBefore2026,
 )
 SukkothInterimDay2 = Holiday(
     "Sukkoth Interim Day",
     month=1,
     day=1,
     offset=[_Sukkoth(), Day(2)],
-    days_of_week=(0, 1, 2, 3, 6)
+    start_date=StartDate,
+    days_of_week=DaysOfWeek,
+)
+SukkothInterimDay2Before2026 = Holiday(
+    "Sukkoth Interim Day",
+    month=1,
+    day=1,
+    offset=[_Sukkoth(), Day(2)],
+    end_date=EndDate,
+    days_of_week=DaysOfWeekBefore2026,
 )
 SukkothInterimDay3 = Holiday(
     "Sukkoth Interim Day",
     month=1,
     day=1,
     offset=[_Sukkoth(), Day(3)],
-    days_of_week=(0, 1, 2, 3, 6)
+    start_date=StartDate,
+    days_of_week=DaysOfWeek,
+)
+SukkothInterimDay3Before2026 = Holiday(
+    "Sukkoth Interim Day",
+    month=1,
+    day=1,
+    offset=[_Sukkoth(), Day(3)],
+    end_date=EndDate,
+    days_of_week=DaysOfWeekBefore2026,
 )
 SukkothInterimDay4 = Holiday(
     "Sukkoth Interim Day",
     month=1,
     day=1,
     offset=[_Sukkoth(), Day(4)],
-    days_of_week=(0, 1, 2, 3, 6)
+    start_date=StartDate,
+    days_of_week=DaysOfWeek,
+)
+SukkothInterimDay4Before2026 = Holiday(
+    "Sukkoth Interim Day",
+    month=1,
+    day=1,
+    offset=[_Sukkoth(), Day(4)],
+    end_date=EndDate,
+    days_of_week=DaysOfWeekBefore2026,
 )
 SukkothInterimDay5 = Holiday(
     "Sukkoth Interim Day",
     month=1,
     day=1,
     offset=[_Sukkoth(), Day(5)],
-    days_of_week=(0, 1, 2, 3, 6)
+    start_date=StartDate,
+    days_of_week=DaysOfWeek,
+)
+SukkothInterimDay5Before2026 = Holiday(
+    "Sukkoth Interim Day",
+    month=1,
+    day=1,
+    offset=[_Sukkoth(), Day(5)],
+    end_date=EndDate,
+    days_of_week=DaysOfWeekBefore2026,
 )
 
-# Passover interim days are the days between beginning and end of passover. Any otherwise regular business day in that
-# period becomes an early close day.
+# Passover interim days are the days between beginning and end of passover.
+# Any otherwise regular business day in that period becomes an early close day.
 PassoverInterimDay1 = Holiday(
     "Passover Interim Day",
     month=1,
     day=1,
     offset=[_Passover(), Day(1)],
-    days_of_week=(0, 1, 2, 3, 6),
+    start_date=StartDate,
+    days_of_week=DaysOfWeek,
+)
+PassoverInterimDay1Before2026 = Holiday(
+    "Passover Interim Day",
+    month=1,
+    day=1,
+    offset=[_Passover(), Day(1)],
+    end_date=EndDate,
+    days_of_week=DaysOfWeekBefore2026,
 )
 PassoverInterimDay2 = Holiday(
     "Passover Interim Day",
     month=1,
     day=1,
     offset=[_Passover(), Day(2)],
-    days_of_week=(0, 1, 2, 3, 6),
+    start_date=StartDate,
+    days_of_week=DaysOfWeek,
+)
+PassoverInterimDay2Before2026 = Holiday(
+    "Passover Interim Day",
+    month=1,
+    day=1,
+    offset=[_Passover(), Day(2)],
+    end_date=EndDate,
+    days_of_week=DaysOfWeekBefore2026,
 )
 PassoverInterimDay3 = Holiday(
     "Passover Interim Day",
     month=1,
     day=1,
     offset=[_Passover(), Day(3)],
-    days_of_week=(0, 1, 2, 3, 6),
+    start_date=StartDate,
+    days_of_week=DaysOfWeek,
+)
+PassoverInterimDay3Before2026 = Holiday(
+    "Passover Interim Day",
+    month=1,
+    day=1,
+    offset=[_Passover(), Day(3)],
+    end_date=EndDate,
+    days_of_week=DaysOfWeekBefore2026,
 )
 PassoverInterimDay4 = Holiday(
     "Passover Interim Day",
     month=1,
     day=1,
     offset=[_Passover(), Day(4)],
-    days_of_week=(0, 1, 2, 3, 6),
+    start_date=StartDate,
+    days_of_week=DaysOfWeek,
+)
+PassoverInterimDay4Before2026 = Holiday(
+    "Passover Interim Day",
+    month=1,
+    day=1,
+    offset=[_Passover(), Day(4)],
+    end_date=EndDate,
+    days_of_week=DaysOfWeekBefore2026,
 )

@@ -17,11 +17,12 @@ dependencies:
   - matplotlib
   - tobler
   - h3-py
+  - rioxarray
   - pytest
   - pytest-cov
   - pytest-mpl
   - pytest-xdist
-    # optional
+  # optional
   - geodatasets
   - joblib
   - networkx
@@ -34,4 +35,4 @@ dependencies:
   - pandana
   - pip
   - pip:
-      - pulp
+    - pulp

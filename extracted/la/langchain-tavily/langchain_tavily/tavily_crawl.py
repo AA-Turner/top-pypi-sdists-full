@@ -7,13 +7,15 @@ from langchain_core.callbacks import (
     CallbackManagerForToolRun,
 )
 from langchain_core.tools import BaseTool, ToolException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from langchain_tavily._utilities import TavilyCrawlAPIWrapper
 
 
 class TavilyCrawlInput(BaseModel):
     """Input for [TavilyCrawl]"""
+
+    model_config = ConfigDict(extra="allow")
 
     url: str = Field(description=("The root URL to begin the crawl."))
     max_depth: Optional[int] = Field(
@@ -152,10 +154,6 @@ class TavilyCrawlInput(BaseModel):
         with higher success but may increase latency.
         """,  # noqa: E501
     )
-    include_favicon: Optional[bool] = Field(
-        default=False,
-        description="Whether to include the favicon URL for each result.",
-    )
 
 
 def _generate_suggestions(params: Dict[str, Any]) -> List[str]:
@@ -290,6 +288,16 @@ class TavilyCrawl(BaseTool):  # type: ignore[override]
     
     Default is False.
     """
+    include_usage: Optional[bool] = None
+    """Whether to include credit usage information in the response.
+    
+    Default is False.
+    """
+    chunks_per_source: Optional[int] = None
+    """Number of content chunks to return per source URL.
+    
+    Use this to limit the amount of content returned from each crawled URL.
+    """
 
     api_wrapper: TavilyCrawlAPIWrapper = Field(default_factory=TavilyCrawlAPIWrapper)  # type: ignore[arg-type]
 
@@ -334,8 +342,8 @@ class TavilyCrawl(BaseTool):  # type: ignore[override]
             ]
         ] = None,
         extract_depth: Optional[Literal["basic", "advanced"]] = None,
-        include_favicon: Optional[bool] = None,
         run_manager: Optional[CallbackManagerForToolRun] = None,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         """Execute a crawl using the Tavily Crawl API.
 
@@ -350,6 +358,15 @@ class TavilyCrawl(BaseTool):  # type: ignore[override]
 
         """
         try:
+            forbidden_params = [
+                "include_usage", "include_favicon", "format"
+            ]
+            for param in forbidden_params:
+                if param in kwargs:
+                    raise ValueError(
+                        f"The parameter '{param}' can only be set during instantiation, not during invocation. Please set it when creating the TavilyCrawl instance."
+                    )
+            
             # Execute search with parameters directly
             raw_results = self.api_wrapper.raw_results(
                 url=url,
@@ -377,10 +394,11 @@ class TavilyCrawl(BaseTool):  # type: ignore[override]
                 extract_depth=self.extract_depth
                 if self.extract_depth
                 else extract_depth,
-                include_favicon=self.include_favicon
-                if self.include_favicon
-                else include_favicon,
+                include_favicon=self.include_favicon,
                 format=self.format,
+                include_usage=self.include_usage,
+                chunks_per_source=self.chunks_per_source,
+                **kwargs,
             )
 
             # Check if results are empty and raise a specific exception
@@ -439,11 +457,20 @@ class TavilyCrawl(BaseTool):  # type: ignore[override]
             ]
         ] = None,
         extract_depth: Optional[Literal["basic", "advanced"]] = None,
-        include_favicon: Optional[bool] = None,
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         """Use the tool asynchronously."""
         try:
+            forbidden_params = [
+                "include_usage", "include_favicon", "format"
+            ]
+            for param in forbidden_params:
+                if param in kwargs:
+                    raise ValueError(
+                        f"The parameter '{param}' can only be set during instantiation, not during invocation. Please set it when creating the TavilyCrawl instance."
+                    )
+            
             raw_results = await self.api_wrapper.raw_results_async(
                 url=url,
                 max_depth=self.max_depth if self.max_depth else max_depth,
@@ -470,10 +497,11 @@ class TavilyCrawl(BaseTool):  # type: ignore[override]
                 extract_depth=self.extract_depth
                 if self.extract_depth
                 else extract_depth,
-                include_favicon=self.include_favicon
-                if self.include_favicon
-                else include_favicon,
+                include_favicon=self.include_favicon,
                 format=self.format,
+                include_usage=self.include_usage,
+                chunks_per_source=self.chunks_per_source,
+                **kwargs,
             )
 
             # Check if results are empty and raise a specific exception

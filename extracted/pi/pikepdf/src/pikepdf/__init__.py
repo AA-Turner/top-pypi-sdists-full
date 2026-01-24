@@ -52,11 +52,15 @@ from pikepdf.exceptions import (
 )
 from pikepdf.objects import (
     Array,
+    Boolean,
     Dictionary,
+    Integer,
     Name,
+    NamePath,
     Object,
     ObjectType,
     Operator,
+    Real,
     Stream,
     String,
 )
@@ -89,6 +93,12 @@ from pikepdf import exceptions
 
 __libqpdf_version__: str = _core.qpdf_version()
 
+from pikepdf._explicit_conv import (
+    explicit_conversion,
+    get_object_conversion_mode,
+    set_object_conversion_mode,
+)
+
 # Provide pikepdf.{open, new} -> pikepdf.Pdf.{open, new}
 open = Pdf.open  # pylint: disable=redefined-builtin
 new = Pdf.new
@@ -109,6 +119,7 @@ __all__ = [
     'AnnotationFlag',
     'Array',
     'AttachedFileSpec',
+    'Boolean',
     'ContentStreamInlineImage',
     'ContentStreamInstruction',
     'DataDecodingError',
@@ -117,10 +128,13 @@ __all__ = [
     'Dictionary',
     'Encryption',
     'exceptions',
+    'explicit_conversion',
     'ForeignObjectError',
     'FormFieldFlag',
+    'get_object_conversion_mode',
     'get_objects_with_ctm',
     'HifiPrintImageNotTranscodableError',
+    'Integer',
     'InvalidPdfImageError',
     'Job',
     'JobUsageError',
@@ -128,6 +142,7 @@ __all__ = [
     'Matrix',
     'models',
     'Name',
+    'NamePath',
     'NameTree',
     'NumberTree',
     'Object',
@@ -147,7 +162,9 @@ __all__ = [
     'PdfImage',
     'PdfInlineImage',
     'Permissions',
+    'Real',
     'Rectangle',
+    'set_object_conversion_mode',
     'settings',
     'Stream',
     'StreamDecodeLevel',

@@ -1,5 +1,6 @@
 import importlib
 import re
+from contextlib import suppress
 from functools import cached_property
 
 from django.conf import settings
@@ -23,8 +24,9 @@ from wbcore.metadata.configs.display.instance_display import Display
 from wbcore.metadata.configs.display.instance_display.shortcuts import (
     create_simple_display,
 )
-from wbcore.models.base import merge_as_task
 from wbcore.signals.instance_buttons import add_extra_button
+from wbcore.utils.models import MergeMixin as ModelMergeMixin
+from wbcore.utils.models import merge_as_task
 
 
 def parse_query_parameters_list(list_str):
@@ -134,13 +136,8 @@ class MergeMixin:
     def model(self):
         return self.queryset.model
 
-    @cached_property
-    def has_user_merge_permission(self) -> bool:
-        return getattr(self, "MERGE_PERMISSION", f"administrate_{self.model._meta.model_name}")
-
-    @cached_property
-    def can_merge(self):
-        return hasattr(self.queryset.model, "merge") and self.has_user_merge_permission
+    def has_merge_permission(self, user) -> bool:
+        return user.has_perm(f"administrate_{self.model._meta.model_name}")
 
     def get_merged_object_representation_serializer(self):
         """
@@ -157,51 +154,55 @@ class MergeMixin:
         """
         return dict()
 
+    def add_extra_buttons(self, request):
+        if self.has_merge_permission(request.user) and (pk := self.kwargs.get("pk")):
+            object = self.get_object()
+            if (
+                isinstance(object, ModelMergeMixin)
+                and object.is_mergeable
+                and (endpoint_basename := object.get_endpoint_basename())
+            ):
+                endpoint = reverse(f"{endpoint_basename}-merge", args=[pk], request=request)
+
+                class MergeSerializer(wb_serializer.ModelSerializer):
+                    merged_object = wb_serializer.PrimaryKeyRelatedField(
+                        queryset=self.model.objects.all(), label="Merged with"
+                    )
+                    _merged_object = self.get_merged_object_representation_serializer()(
+                        source="merged_object",
+                        filter_params=self.get_merged_object_representation_serializer_filter_params(),
+                    )
+
+                    class Meta:
+                        model = self.model
+                        fields = [
+                            "id",
+                            "merged_object",
+                            "_merged_object",
+                        ]
+
+                return {
+                    bt.ActionButton(
+                        method=RequestType.PATCH,
+                        endpoint=endpoint,
+                        action_label=_("Merge"),
+                        title=_("Merge"),
+                        label=_("Merge"),
+                        icon=WBIcon.MERGE.icon,
+                        serializer=MergeSerializer,
+                        instance_display=create_simple_display([["merged_object"]]),
+                    ),
+                }
+
     @action(methods=["PATCH"], detail=True)
     def merge(self, request, pk=None):
-        instance = get_object_or_404(self.queryset.model, pk=pk)
-        merged_instance = get_object_or_404(self.queryset.model, pk=request.POST.get("merged_object", None))
-        try:
-            content_type = ContentType.objects.get_for_model(self.model)
-        except ContentType.DoesNotExist:
-            content_type = None
-        if content_type and self.has_user_merge_permission and hasattr(instance, "merge"):
-            merge_as_task.delay(content_type.id, instance.id, merged_instance.id)
-            return Response({"status": "Merged with success"})
-        return Response({}, status=400)
-
-
-@receiver(add_extra_button)
-def add_merge_extra_button(sender, instance, request, view, pk=None, **kwargs):
-    if instance and pk and issubclass(view.__class__, CloneMixin) and getattr(view, "can_merge", False):
-        object = view.get_object()
-        if getattr(object, "is_mergeable", True) and (endpoint_basename := object.get_endpoint_basename()):
-            endpoint = reverse(f"{endpoint_basename}-merge", args=[pk], request=request)
-            identifier = getattr(view, "IDENTIFIER", "{0.app_label}:{0.model}".format(view.get_content_type()))
-
-            class MergeSerializer(wb_serializer.ModelSerializer):
-                merged_object = wb_serializer.PrimaryKeyRelatedField(queryset=view.model.objects.all())
-                _merged_object = view.get_merged_object_representation_serializer()(
-                    source="merged_object",
-                    filter_params=view.get_merged_object_representation_serializer_filter_params(),
-                )
-
-                class Meta:
-                    model = view.model
-                    fields = [
-                        "id",
-                        "merged_object",
-                        "_merged_object",
-                    ]
-
-            return bt.ActionButton(
-                method=RequestType.PATCH,
-                identifiers=(identifier,),
-                endpoint=endpoint,
-                action_label=_("Merge"),
-                title=_("Merge"),
-                label=_("Merge"),
-                icon=WBIcon.MERGE.icon,
-                serializer=MergeSerializer,
-                instance_display=create_simple_display([["merged_object"]]),
-            )
+        if self.has_merge_permission(request.user):
+            if pk and hasattr(self.model, "merge"):
+                instance = get_object_or_404(self.queryset.model, pk=pk)
+                merged_instance = get_object_or_404(self.queryset.model, pk=request.POST.get("merged_object", None))
+                with suppress(ContentType.DoesNotExist):
+                    content_type = ContentType.objects.get_for_model(self.model)
+                    merge_as_task.delay(content_type.id, instance.id, merged_instance.id)
+                    return Response({"status": "Merged ongoing"})
+            return Response({}, status=400)
+        return Response({"_detail": "User does not have the permission to merge"}, status=status.HTTP_403_FORBIDDEN)

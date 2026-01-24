@@ -25,19 +25,26 @@ class UtilitiesClient(DomoAPIClient):
         col_types = dict(df.dtypes)
         output_list = []
         for key, value in col_types.items():
-            output_list.append({'type': self.typeConversionText(value), 'name': key})
+            output_list.append({'type': self.type_conversion_text(value), 'name': key})
         return output_list
 
-    def typeConversionText(self, dt):
-        result = 'STRING'
-        if dt == '<M8[ns]':
-            result = 'DATETIME'
-        if dt == 'int64':
-            result = 'LONG'
-        if dt == 'float64':
-            result = 'DOUBLE'
+    def type_conversion_text(self, dt):
+        """Convert data type strings to standardized type names."""
 
-        return result
+        dt_str = str(dt)
+
+        if dt_str in {'<M8[ns]', 'datetime64', 'datetime64[ns]', 'datetime64[us]', 'datetime64[ms]', 'datetime64[s]'}:
+            return 'DATETIME'
+        elif dt_str in {'uint8', 'uint16', 'uint32', 'uint64', 'int8', 'int16', 'int32', 'int64', 'Int8', 'Int16', 'Int32', 'Int64'}:
+            return 'LONG'
+        elif dt_str in {'float16', 'float32', 'float64', 'Float32', 'Float64'}:
+            return 'DOUBLE'
+        elif dt_str in {'date', 'datetime.date'}:
+            return 'DATE'
+        elif dt_str in {'decimal', 'decimal.Decimal'}:
+            return 'DECIMAL'
+        else:
+            return 'STRING'
 
     def convert_domo_type_to_pandas_type(self, domo_type):
         # type mapping can be adjusted accordingly
@@ -116,7 +123,7 @@ class UtilitiesClient(DomoAPIClient):
         for i in range(math.ceil(df_rows/chunksz)):
             df_sub = df_up.iloc[start:end]
             csv = df_sub.to_csv(header=False,index=False)
-            self.stream.upload_part(stream_id, exec_id, start, csv)
+            self.stream.upload_part(stream_id, exec_id, i, csv)
             start = end
             end = end + chunksz
             if end > df_rows:

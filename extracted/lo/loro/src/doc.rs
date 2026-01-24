@@ -8,7 +8,8 @@ use std::{borrow::Cow, collections::HashSet, fmt::Display, ops::ControlFlow, syn
 
 use crate::{
     container::{
-        Cursor, LoroCounter, LoroList, LoroMap, LoroMovableList, LoroText, LoroTree, Side,
+        Container, Cursor, LoroCounter, LoroList, LoroMap, LoroMovableList, LoroText, LoroTree,
+        Side,
     },
     convert::pyobject_to_container_id,
     err::{PyLoroError, PyLoroResult},
@@ -741,6 +742,11 @@ impl LoroDoc {
         self.doc.get_by_str_path(path).map(ValueOrContainer::from)
     }
 
+    /// Get a container by its ContainerID.
+    pub fn get_container(&self, id: &ContainerID) -> Option<Container> {
+        self.doc.get_container(id.into()).map(|c| c.into())
+    }
+
     /// Get the absolute position of the given cursor.
     ///
     /// # Example
@@ -860,6 +866,21 @@ impl LoroDoc {
             .jsonpath(path)
             .map(|vec| vec.into_iter().map(|v| v.into()).collect())
             .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Subscribe to updates that might affect the given JSONPath query.
+    ///
+    /// The callback may fire false positives; it is intended as a lightweight notification so
+    /// callers can debounce or throttle before running an expensive JSONPath query themselves.
+    pub fn subscribe_jsonpath(&self, path: &str, callback: Py<PyAny>) -> PyLoroResult<Subscription> {
+        let subscription = self
+            .doc
+            .subscribe_jsonpath(path, Arc::new(move || {
+                Python::attach(|py| {
+                    callback.call0(py).unwrap();
+                });
+            }))?;
+        Ok(subscription.into())
     }
 
     /// Get the number of operations in the pending transaction.

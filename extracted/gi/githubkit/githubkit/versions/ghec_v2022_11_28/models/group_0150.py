@@ -9,28 +9,30 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
+from typing import Literal
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
-from .group_0151 import RulesetVersionPropActor
+from .group_0151 import RepositoryRuleMaxFilePathLengthPropParameters
 
 
-class RulesetVersion(GitHubModel):
-    """Ruleset version
+class RepositoryRuleMaxFilePathLength(GitHubModel):
+    """max_file_path_length
 
-    The historical version of a ruleset
+    Prevent commits that include file paths that exceed the specified character
+    limit from being pushed to the commit graph.
     """
 
-    version_id: int = Field(description="The ID of the previous version of the ruleset")
-    actor: RulesetVersionPropActor = Field(
-        description="The actor who updated the ruleset"
+    type: Literal["max_file_path_length"] = Field()
+    parameters: Missing[RepositoryRuleMaxFilePathLengthPropParameters] = Field(
+        default=UNSET
     )
-    updated_at: datetime = Field()
 
 
-model_rebuild(RulesetVersion)
+model_rebuild(RepositoryRuleMaxFilePathLength)
 
-__all__ = ("RulesetVersion",)
+__all__ = ("RepositoryRuleMaxFilePathLength",)

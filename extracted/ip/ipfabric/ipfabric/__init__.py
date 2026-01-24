@@ -26,12 +26,17 @@ import logging
 import sys
 from importlib import metadata
 
+import urllib3
+from urllib3.exceptions import InsecureRequestWarning
+
 from .client import IPFClient
+
+urllib3.disable_warnings(InsecureRequestWarning)
 
 logger = logging.getLogger("ipfabric")
 
-if sys.version_info < (3, 9):
-    logger.critical("Python 3.8 support will be removed in `ipfabric=7.1.x`.")
+if sys.version_info < (3, 10):
+    logger.critical("Python 3.9 support will be removed in `ipfabric=8.x.x`.")
 
 __version__ = metadata.version(__name__)
 

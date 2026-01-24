@@ -123,7 +123,7 @@ class ScalarLoop(ScalarInnerGraphOp):
             update, until = self.outputs, None
         init = self.inputs[: len(update)]
         constant = self.inputs[len(update) :]
-        return ScalarLoop(
+        return self.__class__(
             init=init,
             update=update,
             constant=constant,
@@ -135,9 +135,6 @@ class ScalarLoop(ScalarInnerGraphOp):
     @property
     def fn(self):
         raise NotImplementedError
-
-    def make_new_inplace(self, output_types_preference=None, name=None):
-        return self.clone(output_types_preference=output_types_preference, name=name)
 
     def make_node(self, n_steps, *inputs):
         assert len(inputs) == self.nin - 1
@@ -183,7 +180,7 @@ class ScalarLoop(ScalarInnerGraphOp):
         inner_fn = self.py_perform_fn
 
         if self.is_while:
-            until = True
+            until = False
             for i in range(n_steps):
                 *carry, until = inner_fn(*carry, *constant)
                 if until:
@@ -219,7 +216,7 @@ class ScalarLoop(ScalarInnerGraphOp):
             for i, c in enumerate(fgraph.inputs[n_update:], start=n_update + 1)
         }
         out_subd = {u: f"%(o{i})s" for i, u in enumerate(fgraph.outputs[:n_update])}
-        until_subd = {u: "until" for u in fgraph.outputs[n_update:]}
+        until_subd = dict.fromkeys(fgraph.outputs[n_update:], "until")
         subd = {**carry_subd, **constant_subd, **until_subd}
 
         for var in fgraph.variables:
@@ -307,7 +304,7 @@ class ScalarLoop(ScalarInnerGraphOp):
 
         # Output until flag
         if self.is_while:
-            _c_code += f"%(o{len(fgraph.outputs)-1})s = until;\n"
+            _c_code += f"%(o{len(fgraph.outputs) - 1})s = until;\n"
 
         _c_code += "}\n"
 

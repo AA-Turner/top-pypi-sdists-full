@@ -1,30 +1,31 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-solo
-Version: 2.4.0
+Version: 2.5.1
 Summary: Django Solo helps working with singletons
 Author: lazybird
 Maintainer-email: John Hagen <johnthagen@gmail.com>
-License: Creative Commons Attribution 3.0 Unported
+License-Expression: CC-BY-3.0
 Project-URL: Homepage, https://github.com/lazybird/django-solo/
 Project-URL: Source, https://github.com/lazybird/django-solo/
 Project-URL: Changelog, https://github.com/lazybird/django-solo/blob/master/CHANGES
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: django>=4.2
 Requires-Dist: typing-extensions>=4.0.1; python_version < "3.11"
+Dynamic: license-file
 
 
 Django Solo
@@ -123,7 +124,7 @@ class SiteConfiguration(SingletonModel):
 Installation
 ------------
 
-This application requires Django 3.2, 4.0, or 4.1.
+This application requires a supported version of Django.
 
 * Install the package using `pip install django-solo`
 * Add ``solo`` or ``solo.apps.SoloAppConfig`` to your ``INSTALLED_APPS`` setting.

@@ -37,10 +37,9 @@ def get_default_cluster_compute(
 
     if cloud_name is None:
         default_cloud_name = get_organization_default_cloud(api_client)
-        if default_cloud_name:
-            cloud_name = default_cloud_name
-        else:
-            cloud_name = get_last_used_cloud(project_id, anyscale_api_client)
+        cloud_name = default_cloud_name or get_last_used_cloud(
+            project_id, anyscale_api_client
+        )
 
     cloud_id, _ = get_cloud_id_and_name(api_client, cloud_name=cloud_name)
     config_object = anyscale_api_client.get_default_compute_config(cloud_id).result  # type: ignore
@@ -82,6 +81,8 @@ def get_cluster_compute_from_name(
     cluster_compute_name: str,
     api_client: Optional[DefaultApi] = None,
     include_archived: Optional[bool] = False,
+    *,
+    cloud_name: Optional[str] = None,
 ) -> ComputeTemplate:
     if api_client is None:
         api_client = get_auth_api_client().api_client
@@ -92,6 +93,11 @@ def get_cluster_compute_from_name(
         cluster_compute_name
     )
 
+    cloud_id = None
+    if cloud_name:
+        # Resolve cloud ID when a cloud name is provided to disambiguate configs with the same name.
+        cloud_id, _ = get_cloud_id_and_name(api_client, cloud_name=cloud_name)
+
     cluster_computes = api_client.search_compute_templates_api_v2_compute_templates_search_post(
         ComputeTemplateQuery(
             orgwide=True,
@@ -99,6 +105,7 @@ def get_cluster_compute_from_name(
             include_anonymous=True,
             archive_status=ArchiveStatus.ALL,
             version=version,
+            cloud_id=cloud_id,
         )
     ).results
 

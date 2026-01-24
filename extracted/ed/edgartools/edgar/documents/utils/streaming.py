@@ -3,23 +3,24 @@ Streaming parser for large HTML documents.
 """
 
 import io
-from typing import Any, Dict
+from typing import TYPE_CHECKING, Any, Dict
 
-from lxml import etree
+from lxml import etree  # type: ignore[import-untyped]
 from lxml.html import HtmlElement
 
 from edgar.documents.config import ParserConfig
-from edgar.documents.document import Document, DocumentMetadata
 from edgar.documents.exceptions import DocumentTooLargeError, HTMLParsingError
-from edgar.documents.nodes import ContainerNode, DocumentNode, HeadingNode, ParagraphNode, SectionNode, TextNode
-from edgar.documents.table_nodes import TableNode
+
+# Use TYPE_CHECKING to avoid circular imports
+if TYPE_CHECKING:
+    from edgar.documents.document import Document
 from edgar.documents.types import SemanticType
 
 
 class StreamingParser:
     """
     Streaming parser for large HTML documents.
-
+    
     Processes documents in chunks to minimize memory usage
     while maintaining parse quality.
     """
@@ -33,7 +34,7 @@ class StreamingParser:
     def __init__(self, config: ParserConfig, strategies: Dict[str, Any]):
         """
         Initialize streaming parser.
-
+        
         Args:
             config: Parser configuration
             strategies: Parsing strategies to use
@@ -44,6 +45,10 @@ class StreamingParser:
 
     def _reset_state(self):
         """Reset parser state."""
+        # Import here to avoid circular import
+        from edgar.documents.document import DocumentMetadata
+        from edgar.documents.nodes import DocumentNode
+
         self.current_section = None
         self.node_buffer = []
         self.metadata = DocumentMetadata()
@@ -55,7 +60,7 @@ class StreamingParser:
         self.table_buffer = []
         self.bytes_processed = 0
 
-    def parse(self, html: str) -> Document:
+    def parse(self, html: str) -> "Document":
         """
         Parse HTML in streaming mode.
 
@@ -70,6 +75,9 @@ class StreamingParser:
             HTMLParsingError: If parsing fails
         """
         self._reset_state()
+
+        # Store original HTML BEFORE parsing (needed for TOC-based section detection)
+        original_html = html
 
         try:
             # Create streaming parser
@@ -97,13 +105,24 @@ class StreamingParser:
                 # Clean up processed elements to save memory
                 elem.clear()
                 while elem.getprevious() is not None:
-                    del elem.getparent()[0]
+                    parent = elem.getparent()
+                    if parent is not None:
+                        del parent[0]
+                    else:
+                        break
 
             # Final flush
             self._flush_buffer()
 
-            # Create document
+            # Store original HTML in metadata for section detection (TOC analysis)
+            self.metadata.original_html = original_html
+
+            # Create document (import here to avoid circular import)
+            from edgar.documents.document import Document
             document = Document(root=self.root, metadata=self.metadata)
+
+            # Store config reference (required for section detection)
+            document._config = self.config
 
             # Apply post-processing
             from edgar.documents.processors.postprocessor import DocumentPostprocessor
@@ -128,6 +147,9 @@ class StreamingParser:
 
     def _handle_start_tag(self, elem: HtmlElement):
         """Handle opening tag."""
+        # Import node types at runtime to avoid circular imports
+        from edgar.documents.nodes import ContainerNode
+
         tag = elem.tag.lower()
 
         # Track tag stack
@@ -183,6 +205,9 @@ class StreamingParser:
 
     def _start_heading(self, elem: HtmlElement):
         """Start processing a heading."""
+        # Import node types at runtime to avoid circular imports
+        from edgar.documents.nodes import HeadingNode
+
         level = int(elem.tag[1])
         text = self._get_text_content(elem)
 
@@ -202,6 +227,9 @@ class StreamingParser:
 
     def _end_heading(self, elem: HtmlElement):
         """End processing a heading."""
+        # Import node types at runtime to avoid circular imports
+        from edgar.documents.nodes import HeadingNode
+
         # Get text content from element
         text = self._get_text_content(elem)
         if text and self.node_buffer and isinstance(self.node_buffer[-1], HeadingNode):
@@ -212,6 +240,9 @@ class StreamingParser:
 
     def _start_paragraph(self, elem: HtmlElement):
         """Start processing a paragraph."""
+        # Import node types at runtime to avoid circular imports
+        from edgar.documents.nodes import ParagraphNode
+
         para = ParagraphNode()
 
         # Get style if present
@@ -224,6 +255,9 @@ class StreamingParser:
 
     def _end_paragraph(self, elem: HtmlElement):
         """End processing a paragraph."""
+        # Import node types at runtime to avoid circular imports
+        from edgar.documents.nodes import ParagraphNode, TextNode
+
         # Get text content from element
         text = self._get_text_content(elem)
         if text and self.node_buffer and isinstance(self.node_buffer[-1], ParagraphNode):
@@ -243,6 +277,9 @@ class StreamingParser:
 
     def _end_table(self, elem: HtmlElement):
         """End processing a table."""
+        # Import node types at runtime to avoid circular imports
+        from edgar.documents.table_nodes import TableNode
+
         self.in_table = False
 
         # Process table with table processor if available
@@ -260,6 +297,9 @@ class StreamingParser:
 
     def _start_section(self, elem: HtmlElement):
         """Start processing a section."""
+        # Import node types at runtime to avoid circular imports
+        from edgar.documents.nodes import SectionNode
+
         section = SectionNode()
 
         # Get section attributes
@@ -311,7 +351,7 @@ class StreamingParser:
         parts = title.split(' - ')
         if len(parts) >= 2:
             self.metadata.company = parts[0].strip()
-            self.metadata.filing_type = parts[1].strip()
+            self.metadata.form = parts[1].strip()
             if len(parts) >= 3:
                 self.metadata.filing_date = parts[2].strip()
 
@@ -324,67 +364,10 @@ class StreamingParser:
             if name == 'company':
                 self.metadata.company = content
             elif name == 'filing-type':
-                self.metadata.filing_type = content
+                self.metadata.form = content
             elif name == 'cik':
                 self.metadata.cik = content
             elif name == 'filing-date':
                 self.metadata.filing_date = content
             elif name == 'accession-number':
                 self.metadata.accession_number = content
-
-
-class ChunkedStreamingParser(StreamingParser):
-    """
-    Alternative streaming parser that processes HTML in chunks.
-
-    Better for extremely large documents where even streaming
-    parse might use too much memory.
-    """
-
-    def parse(self, html: str) -> Document:
-        """
-        Parse HTML in chunks.
-
-        Args:
-            html: HTML content to parse
-
-        Returns:
-            Parsed Document
-        """
-        self._reset_state()
-
-        # Process in chunks
-        for i in range(0, len(html), self.CHUNK_SIZE):
-            chunk = html[i:i + self.CHUNK_SIZE]
-            self._process_chunk(chunk, is_last=(i + self.CHUNK_SIZE >= len(html)))
-
-        # Create document
-        return Document(root=self.root, metadata=self.metadata)
-
-    def _process_chunk(self, chunk: str, is_last: bool):
-        """Process a single chunk of HTML."""
-        # This is a simplified implementation
-        # In practice, would need to handle tags that span chunks
-
-        # Extract text and basic structure
-        text = self._extract_text_from_chunk(chunk)
-        if text:
-            text_node = TextNode(content=text)
-            self.node_buffer.append(text_node)
-
-        # Flush if needed
-        if len(self.node_buffer) >= self.MAX_NODE_BUFFER or is_last:
-            self._flush_buffer()
-
-    def _extract_text_from_chunk(self, chunk: str) -> str:
-        """Extract text from HTML chunk."""
-        # Simple text extraction
-        import re
-
-        # Remove tags
-        text = re.sub(r'<[^>]+>', ' ', chunk)
-
-        # Clean whitespace
-        text = ' '.join(text.split())
-
-        return text

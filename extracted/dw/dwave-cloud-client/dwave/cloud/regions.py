@@ -28,8 +28,7 @@ __all__ = ['get_regions']
 logger = logging.getLogger(__name__)
 
 _DEFAULT_REGIONS_CACHE_CONFIG = dict(
-    enabled=True,
-    maxage=7 * 86400    # 7 days
+    default_maxage=7 * 86400    # 7 days
 )
 
 
@@ -85,8 +84,9 @@ def get_regions(config: Optional[Union[ClientConfig, str, dict]] = None,
 
         >>> from dwave.cloud.regions import get_regions
         >>> get_regions()       # doctest: +NORMALIZE_WHITESPACE
-        [Region(code='na-west-1', name='North America', endpoint='https://na-west-1.cloud.dwavesys.com/sapi/v2/'),
-         Region(code='eu-central-1', name='Europe', endpoint='https://eu-central-1.cloud.dwavesys.com/sapi/v2/')]
+        [Region(code='na-west-1', name='North America (West)', endpoint='https://na-west-1.cloud.dwavesys.com/sapi/v2/'),
+         Region(code='eu-central-1', name='Europe', endpoint='https://eu-central-1.cloud.dwavesys.com/sapi/v2/'),
+         Region(code='na-east-1', name='North America (East)', endpoint='https://na-east-1.cloud.dwavesys.com/sapi/v2/')]
 
         Alternatively, to fetch available regions using an already configured client:
 

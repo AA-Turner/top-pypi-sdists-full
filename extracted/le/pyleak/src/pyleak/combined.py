@@ -121,6 +121,16 @@ class CombinedLeakDetector:
         self.caller_context = caller_context
 
     async def __aenter__(self):
+        # https://github.com/deepankarm/pyleak/issues/14
+        # LIFO order: Thread -> Task -> Blocking
+        if self.config.threads:
+            self.thread_detector = no_thread_leaks(
+                action=self.config.thread_action,
+                name_filter=self.config.thread_name_filter,
+                exclude_daemon=self.config.exclude_daemon_threads,
+            )
+            self.thread_detector.__enter__()
+
         if self.is_async and self.config.tasks:
             self.task_detector = no_task_leaks(
                 action=self.config.task_action,
@@ -138,23 +148,11 @@ class CombinedLeakDetector:
             )
             self.blocking_detector.__enter__()
 
-        if self.config.threads:
-            self.thread_detector = no_thread_leaks(
-                action=self.config.thread_action,
-                name_filter=self.config.thread_name_filter,
-                exclude_daemon=self.config.exclude_daemon_threads,
-            )
-            self.thread_detector.__enter__()
-
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        # LIFO order: Blocking -> Task -> Thread
         leak_errors = []
-        if self.thread_detector:
-            try:
-                self.thread_detector.__exit__(exc_type, exc_val, exc_tb)
-            except ThreadLeakError as e:
-                leak_errors.append(e)
 
         if self.blocking_detector:
             try:
@@ -166,6 +164,12 @@ class CombinedLeakDetector:
             try:
                 await self.task_detector.__aexit__(exc_type, exc_val, exc_tb)
             except TaskLeakError as e:
+                leak_errors.append(e)
+
+        if self.thread_detector:
+            try:
+                self.thread_detector.__exit__(exc_type, exc_val, exc_tb)
+            except ThreadLeakError as e:
                 leak_errors.append(e)
 
         if leak_errors:

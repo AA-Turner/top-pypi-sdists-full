@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   build:
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@v1
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@930ac90540ecc5f43ba6d3d176efd25cd5f3c6c2  # v2.2.2
     with:
       upload_to_pypi: ${{ (github.event_name == 'release') && (github.event.action == 'released') }}
       targets: |
@@ -20,7 +20,6 @@ jobs:
         - cp3*-manylinux_x86_64
         # MacOS wheels
         - cp3*-macosx_x86_64
-        # Until we have arm64 runners, we can't automatically test arm64 wheels
         - cp3*-macosx_arm64
         # Windows wheels
         - cp3*-win32

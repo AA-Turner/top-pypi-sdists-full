@@ -281,6 +281,29 @@ class LiveClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateAuditKeywordLib(self, request):
+        r"""创建关键词库，直播审核功能使用。
+
+        :param request: Request instance for CreateAuditKeywordLib.
+        :type request: :class:`tencentcloud.live.v20180801.models.CreateAuditKeywordLibRequest`
+        :rtype: :class:`tencentcloud.live.v20180801.models.CreateAuditKeywordLibResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateAuditKeywordLib", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateAuditKeywordLibResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateAuditKeywords(self, request):
         r"""创建关键词，并关联到关键词库。
 
@@ -485,6 +508,30 @@ class LiveClient(AbstractClient):
             body = self.call("CreateLiveCallbackTemplate", params, headers=headers)
             response = json.loads(body)
             model = models.CreateLiveCallbackTemplateResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateLiveCloudEffect(self, request):
+        r"""使用该接口生成云端特效。特效可用于叠加到直播流上，供播放端观看。
+        注意：云端特效生成需要一定时间，调用生成接口后，可通过查询接口，获取是否特效已生成。
+
+        :param request: Request instance for CreateLiveCloudEffect.
+        :type request: :class:`tencentcloud.live.v20180801.models.CreateLiveCloudEffectRequest`
+        :rtype: :class:`tencentcloud.live.v20180801.models.CreateLiveCloudEffectResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateLiveCloudEffect", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateLiveCloudEffectResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1775,6 +1822,29 @@ class LiveClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeCasterEmergencyStatus(self, request):
+        r"""该接口用查询导播台的备播状态
+
+        :param request: Request instance for DescribeCasterEmergencyStatus.
+        :type request: :class:`tencentcloud.live.v20180801.models.DescribeCasterEmergencyStatusRequest`
+        :rtype: :class:`tencentcloud.live.v20180801.models.DescribeCasterEmergencyStatusResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeCasterEmergencyStatus", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeCasterEmergencyStatusResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeCasterInputInfos(self, request):
         r"""该接口用来查询导播台的输入源信息列表。
 
@@ -2215,6 +2285,29 @@ class LiveClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeLiveCloudEffectConfig(self, request):
+        r"""使用该接口查询云端特效配置信息。
+
+        :param request: Request instance for DescribeLiveCloudEffectConfig.
+        :type request: :class:`tencentcloud.live.v20180801.models.DescribeLiveCloudEffectConfigRequest`
+        :rtype: :class:`tencentcloud.live.v20180801.models.DescribeLiveCloudEffectConfigResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeLiveCloudEffectConfig", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeLiveCloudEffectConfigResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeLiveCloudEffectList(self, request):
         r"""使用该接口查询云端特效列表，特效列表中包含一部分官方精品特效，同时包含用户自定义生成的特效。
 
@@ -2415,31 +2508,6 @@ class LiveClient(AbstractClient):
             body = self.call("DescribeLiveEnhanceInfoList", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeLiveEnhanceInfoListResponse()
-            model._deserialize(response["Response"])
-            return model
-        except Exception as e:
-            if isinstance(e, TencentCloudSDKException):
-                raise
-            else:
-                raise TencentCloudSDKException(type(e).__name__, str(e))
-
-
-    def DescribeLiveForbidStreamList(self, request):
-        r"""获取禁推流列表。
-
-        注意：该接口仅作为直播辅助查询接口，重要业务场景不可强依赖该接口。
-
-        :param request: Request instance for DescribeLiveForbidStreamList.
-        :type request: :class:`tencentcloud.live.v20180801.models.DescribeLiveForbidStreamListRequest`
-        :rtype: :class:`tencentcloud.live.v20180801.models.DescribeLiveForbidStreamListResponse`
-
-        """
-        try:
-            params = request._serialize()
-            headers = request.headers
-            body = self.call("DescribeLiveForbidStreamList", params, headers=headers)
-            response = json.loads(body)
-            model = models.DescribeLiveForbidStreamListResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -3466,6 +3534,29 @@ class LiveClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribePullTransformPushInfoList(self, request):
+        r"""查询拉流转推任务流数据统计信息。
+
+        :param request: Request instance for DescribePullTransformPushInfoList.
+        :type request: :class:`tencentcloud.live.v20180801.models.DescribePullTransformPushInfoListRequest`
+        :rtype: :class:`tencentcloud.live.v20180801.models.DescribePullTransformPushInfoListResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribePullTransformPushInfoList", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribePullTransformPushInfoListResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribePushBandwidthAndFluxList(self, request):
         r"""直播推流带宽和流量数据查询。
         推流计费会先取全球推流用量和全球播放用量进行比较，满足计费条件后再按各地区用量出账。详情参见[计费文档](https://cloud.tencent.com/document/product/267/34175)。
@@ -3888,6 +3979,32 @@ class LiveClient(AbstractClient):
             body = self.call("ForbidLiveStream", params, headers=headers)
             response = json.loads(body)
             model = models.ForbidLiveStreamResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def InsertTaskTemporaryFiles(self, request):
+        r"""可通过调用该接口，对点播源的直播拉流任务进行插播操作。
+        注意：
+        1. 仅支持对有效且运行中的点播源任务进行插播操作。
+        2. 拉转推插播文件时，事件及回调中的索引均保持为插播前的值。
+
+        :param request: Request instance for InsertTaskTemporaryFiles.
+        :type request: :class:`tencentcloud.live.v20180801.models.InsertTaskTemporaryFilesRequest`
+        :rtype: :class:`tencentcloud.live.v20180801.models.InsertTaskTemporaryFilesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("InsertTaskTemporaryFiles", params, headers=headers)
+            response = json.loads(body)
+            model = models.InsertTaskTemporaryFilesResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -4728,6 +4845,30 @@ class LiveClient(AbstractClient):
             body = self.call("SwitchBackupStream", params, headers=headers)
             response = json.loads(body)
             model = models.SwitchBackupStreamResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def SwitchCasterToEmergency(self, request):
+        r"""该接口用来将导播台切换到备播状态。
+        该接口使用时，主监任务需处于运行状态。
+
+        :param request: Request instance for SwitchCasterToEmergency.
+        :type request: :class:`tencentcloud.live.v20180801.models.SwitchCasterToEmergencyRequest`
+        :rtype: :class:`tencentcloud.live.v20180801.models.SwitchCasterToEmergencyResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("SwitchCasterToEmergency", params, headers=headers)
+            response = json.loads(body)
+            model = models.SwitchCasterToEmergencyResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

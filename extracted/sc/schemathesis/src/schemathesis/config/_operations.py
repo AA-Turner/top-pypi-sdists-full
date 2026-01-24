@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Generator
+from typing import TYPE_CHECKING, Any
 
 from schemathesis.config._auth import AuthConfig
 from schemathesis.config._checks import ChecksConfig
@@ -14,7 +15,7 @@ from schemathesis.config._generation import GenerationConfig
 from schemathesis.config._parameters import load_parameters
 from schemathesis.config._phases import PhasesConfig
 from schemathesis.config._rate_limit import build_limiter
-from schemathesis.config._warnings import SchemathesisWarning, resolve_warnings
+from schemathesis.config._warnings import WarningsConfig
 from schemathesis.core.errors import IncorrectUsage
 from schemathesis.filters import FilterSet, HasAPIOperation, expression_to_filter_function, is_deprecated
 
@@ -52,10 +53,11 @@ def reraise_filter_error(attr: str) -> Generator:
 class OperationsConfig(DiffBase):
     operations: list[OperationConfig]
 
-    __slots__ = ("operations",)
+    __slots__ = ("operations", "_cache")
 
     def __init__(self, *, operations: list[OperationConfig] | None = None):
         self.operations = operations or []
+        self._cache: dict[APIOperation, OperationConfig] = {}
 
     def __repr__(self) -> str:
         if self.operations:
@@ -63,12 +65,17 @@ class OperationsConfig(DiffBase):
         return "[]"
 
     @classmethod
-    def from_hierarchy(cls, configs: list[OperationsConfig]) -> OperationsConfig:  # type: ignore
+    def from_hierarchy(cls, configs: list[OperationsConfig]) -> OperationsConfig:  # type: ignore[override]
         return cls(operations=sum([config.operations for config in reversed(configs)], []))
 
     def get_for_operation(self, operation: APIOperation) -> OperationConfig:
-        configs = [config for config in self.operations if config._filter_set.applies_to(operation)]
-        return OperationConfig.from_hierarchy(configs)
+        if operation not in self._cache:
+            configs = [config for config in self.operations if config._filter_set.applies_to(operation)]
+            if not configs:
+                self._cache[operation] = OperationConfig()
+            else:
+                self._cache[operation] = OperationConfig.from_hierarchy(configs)
+        return self._cache[operation]
 
     def create_filter_set(
         self,
@@ -204,7 +211,7 @@ class OperationConfig(DiffBase):
     request_cert: str | None
     request_cert_key: str | None
     parameters: dict[str, Any]
-    warnings: list[SchemathesisWarning] | None
+    warnings: WarningsConfig | None
     auth: AuthConfig
     checks: ChecksConfig
     phases: PhasesConfig
@@ -246,7 +253,7 @@ class OperationConfig(DiffBase):
         request_cert: str | None = None,
         request_cert_key: str | None = None,
         parameters: dict[str, Any] | None = None,
-        warnings: bool | list[SchemathesisWarning] | None = None,
+        warnings: WarningsConfig | None = None,
         auth: AuthConfig | None = None,
         checks: ChecksConfig | None = None,
         phases: PhasesConfig | None = None,
@@ -268,7 +275,7 @@ class OperationConfig(DiffBase):
         self.request_cert = request_cert
         self.request_cert_key = request_cert_key
         self.parameters = parameters or {}
-        self._set_warnings(warnings)
+        self.warnings = warnings
         self.auth = auth or AuthConfig()
         self.checks = checks or ChecksConfig()
         self.phases = phases or PhasesConfig()
@@ -302,6 +309,14 @@ class OperationConfig(DiffBase):
         if not set(data) - seen:
             raise ConfigError("Operation filters defined, but no settings are being overridden")
 
+        warnings_value = data.get("warnings")
+        # If warnings is True or None, keep it as None to inherit from project level
+        # Only create a WarningsConfig if it's False or a specific list/dict
+        if warnings_value is True or warnings_value is None:
+            warnings = None
+        else:
+            warnings = WarningsConfig.from_value(warnings_value)
+
         return cls(
             filter_set=filter_set,
             enabled=data.get("enabled", True),
@@ -317,17 +332,9 @@ class OperationConfig(DiffBase):
             request_cert=resolve(data.get("request-cert")),
             request_cert_key=resolve(data.get("request-cert-key")),
             parameters=load_parameters(data),
-            warnings=resolve_warnings(data.get("warnings")),
+            warnings=warnings,
             auth=AuthConfig.from_dict(data.get("auth", {})),
             checks=ChecksConfig.from_dict(data.get("checks", {})),
             phases=PhasesConfig.from_dict(data.get("phases", {})),
             generation=GenerationConfig.from_dict(data.get("generation", {})),
         )
-
-    def _set_warnings(self, warnings: bool | list[SchemathesisWarning] | None) -> None:
-        if warnings is False:
-            self.warnings = []
-        elif warnings is True:
-            self.warnings = list(SchemathesisWarning)
-        else:
-            self.warnings = warnings

@@ -37,13 +37,11 @@ class PredictionServer(APIObject):
     """
 
     _path = "predictionServers/"
-    _converter = t.Dict(
-        {
-            t.Key("id", optional=True) >> "id": String(),
-            t.Key("url") >> "url": String(allow_blank=True),
-            t.Key("datarobot-key", optional=True) >> "datarobot_key": String(allow_blank=True),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id", optional=True) >> "id": String(),
+        t.Key("url") >> "url": String(allow_blank=True),
+        t.Key("datarobot-key", optional=True) >> "datarobot_key": String(allow_blank=True),
+    }).allow_extra("*")
 
     def __init__(
         self,

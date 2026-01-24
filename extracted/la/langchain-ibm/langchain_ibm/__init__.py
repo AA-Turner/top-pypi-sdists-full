@@ -1,3 +1,4 @@
+# noqa: D104
 import importlib
 import warnings
 from typing import Any
@@ -8,9 +9,9 @@ from langchain_ibm.llms import WatsonxLLM
 from langchain_ibm.rerank import WatsonxRerank
 
 __all__ = [
-    "WatsonxLLM",
-    "WatsonxEmbeddings",
     "ChatWatsonx",
+    "WatsonxEmbeddings",
+    "WatsonxLLM",
     "WatsonxRerank",
 ]
 
@@ -28,10 +29,13 @@ def __getattr__(name: str) -> Any:
             (
                 f"Import path `from langchain_ibm import {name}` is deprecated "
                 "and may be removed in future. "
-                f"Use `from langchain_ibm.agent_toolkits.utility import {name}` instead."  # noqa: E501
+                f"Use `from langchain_ibm.agent_toolkits.utility import {name}` "
+                "instead."
             ),
             category=DeprecationWarning,
+            stacklevel=2,
         )
         module = importlib.import_module(_module_lookup[name])
         return getattr(module, name)
-    raise AttributeError(f"module {__name__} has no attribute {name}")
+    error_msg = f"module {__name__} has no attribute {name}"
+    raise AttributeError(error_msg)

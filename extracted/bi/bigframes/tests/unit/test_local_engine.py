@@ -19,17 +19,10 @@ import pytest
 
 import bigframes
 import bigframes.pandas as bpd
+from bigframes.testing.utils import assert_frame_equal, assert_series_equal
 
 pytest.importorskip("polars")
 pytest.importorskip("pandas", minversion="2.0.0")
-
-
-# All tests in this file require polars to be installed to pass.
-@pytest.fixture(scope="module")
-def polars_session():
-    from bigframes.testing import polars_session
-
-    return polars_session.TestSession()
 
 
 @pytest.fixture(scope="module")
@@ -48,6 +41,14 @@ def small_inline_frame() -> pd.DataFrame:
     )
     df.index = df.index.astype("Int64")
     return df
+
+
+def test_polars_local_engine_series(polars_session: bigframes.Session):
+    bf_series = bpd.Series([1, 2, 3], session=polars_session)
+    pd_series = pd.Series([1, 2, 3], dtype=bf_series.dtype)
+    bf_result = bf_series.to_pandas()
+    pd_result = pd_series
+    assert_series_equal(bf_result, pd_result, check_index_type=False)
 
 
 def test_polars_local_engine_add(
@@ -74,9 +75,9 @@ def test_polars_local_engine_filter(small_inline_frame: pd.DataFrame, polars_ses
     pd_df = small_inline_frame
     bf_df = bpd.DataFrame(pd_df, session=polars_session)
 
-    bf_result = bf_df.filter(bf_df["int2"] >= 1).to_pandas()
-    pd_result = pd_df.filter(pd_df["int2"] >= 1)  # type: ignore
-    pandas.testing.assert_frame_equal(bf_result, pd_result)
+    bf_result = bf_df[bf_df["int2"] >= 1].to_pandas()
+    pd_result = pd_df[pd_df["int2"] >= 1]  # type: ignore
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_polars_local_engine_series_rename_with_mapping(polars_session):
@@ -88,7 +89,7 @@ def test_polars_local_engine_series_rename_with_mapping(polars_session):
     bf_result = bf_series.rename({1: 100, 2: 200, 3: 300}).to_pandas()
     pd_result = pd_series.rename({1: 100, 2: 200, 3: 300})
     # pd default index is int64, bf is Int64
-    pandas.testing.assert_series_equal(bf_result, pd_result, check_index_type=False)
+    assert_series_equal(bf_result, pd_result, check_index_type=False)
 
 
 def test_polars_local_engine_series_rename_with_mapping_inplace(polars_session):
@@ -103,7 +104,7 @@ def test_polars_local_engine_series_rename_with_mapping_inplace(polars_session):
     bf_result = bf_series.to_pandas()
     pd_result = pd_series
     # pd default index is int64, bf is Int64
-    pandas.testing.assert_series_equal(bf_result, pd_result, check_index_type=False)
+    assert_series_equal(bf_result, pd_result, check_index_type=False)
 
 
 def test_polars_local_engine_reset_index(
@@ -129,11 +130,12 @@ def test_polars_local_engine_join_binop(polars_session):
     bf_result = (bf_df_1 + bf_df_2).to_pandas()
     pd_result = pd_df_1 + pd_df_2
     # Sort since different join ordering
-    pandas.testing.assert_frame_equal(
+    assert_frame_equal(
         bf_result.sort_index(),
         pd_result.sort_index(),
         check_dtype=False,
         check_index_type=False,
+        nulls_are_nan=True,
     )
 
 

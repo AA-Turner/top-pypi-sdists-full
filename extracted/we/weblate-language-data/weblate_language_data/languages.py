@@ -332,6 +332,15 @@ LANGUAGES: tuple[tuple[str, str, int, str], ...] = (
         "n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5",
     ),
     (
+        "ar_Latn",
+        # Translators: Language name for ISO code "ar_Latn". The parenthesis clarifies
+        # variant of the language. It could contain a region, age (Old, Middle, ...)
+        # or other variant.
+        _("Arabic (Latin script)"),
+        6,
+        "n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5",
+    ),
+    (
         "arc",
         # Translators: Language name for ISO code "arc". The parenthesis clarifies
         # variant of the language. It could contain a region, age (Old, Middle, ...)
@@ -1300,8 +1309,8 @@ LANGUAGES: tuple[tuple[str, str, int, str], ...] = (
         # variant of the language. It could contain a region, age (Old, Middle, ...)
         # or other variant.
         _("Chuvash"),
-        2,
-        "n != 1",
+        3,
+        "(n == 0) ? 0 : ((n == 1) ? 1 : 2)",
     ),
     (
         "cy",
@@ -2987,6 +2996,15 @@ LANGUAGES: tuple[tuple[str, str, int, str], ...] = (
         "n % 10 != 1 || n % 100 == 11",
     ),
     (
+        "isv",
+        # Translators: Language name for ISO code "isv". The parenthesis clarifies
+        # variant of the language. It could contain a region, age (Old, Middle, ...)
+        # or other variant.
+        _("Interslavic"),
+        2,
+        "n != 1",
+    ),
+    (
         "it",
         # Translators: Language name for ISO code "it". The parenthesis clarifies
         # variant of the language. It could contain a region, age (Old, Middle, ...)
@@ -3221,6 +3239,15 @@ LANGUAGES: tuple[tuple[str, str, int, str], ...] = (
         "0",
     ),
     (
+        "kek",
+        # Translators: Language name for ISO code "kek". The parenthesis clarifies
+        # variant of the language. It could contain a region, age (Old, Middle, ...)
+        # or other variant.
+        _("Kekchí"),
+        2,
+        "n != 1",
+    ),
+    (
         "kfr",
         # Translators: Language name for ISO code "kfr". The parenthesis clarifies
         # variant of the language. It could contain a region, age (Old, Middle, ...)
@@ -3398,7 +3425,16 @@ LANGUAGES: tuple[tuple[str, str, int, str], ...] = (
         # or other variant.
         _("Konkani"),
         2,
-        "n != 1",
+        "n > 1",
+    ),
+    (
+        "kok_Latn",
+        # Translators: Language name for ISO code "kok_Latn". The parenthesis clarifies
+        # variant of the language. It could contain a region, age (Old, Middle, ...)
+        # or other variant.
+        _("Konkani (Latin script)"),
+        2,
+        "n > 1",
     ),
     (
         "kos",
@@ -3649,6 +3685,15 @@ LANGUAGES: tuple[tuple[str, str, int, str], ...] = (
         # variant of the language. It could contain a region, age (Old, Middle, ...)
         # or other variant.
         _("Ligurian"),
+        2,
+        "n != 1",
+    ),
+    (
+        "lir",
+        # Translators: Language name for ISO code "lir". The parenthesis clarifies
+        # variant of the language. It could contain a region, age (Old, Middle, ...)
+        # or other variant.
+        _("English (Liberian)"),
         2,
         "n != 1",
     ),
@@ -3977,6 +4022,15 @@ LANGUAGES: tuple[tuple[str, str, int, str], ...] = (
         "n != 1",
     ),
     (
+        "mey",
+        # Translators: Language name for ISO code "mey". The parenthesis clarifies
+        # variant of the language. It could contain a region, age (Old, Middle, ...)
+        # or other variant.
+        _("Hassaniyya"),
+        2,
+        "n != 1",
+    ),
+    (
         "mfa",
         # Translators: Language name for ISO code "mfa". The parenthesis clarifies
         # variant of the language. It could contain a region, age (Old, Middle, ...)
@@ -4083,6 +4137,15 @@ LANGUAGES: tuple[tuple[str, str, int, str], ...] = (
         _("Minangkabau"),
         2,
         "n != 1",
+    ),
+    (
+        "mis",
+        # Translators: Language name for ISO code "mis". The parenthesis clarifies
+        # variant of the language. It could contain a region, age (Old, Middle, ...)
+        # or other variant.
+        _("Milang"),
+        1,
+        "0",
     ),
     (
         "mjw",
@@ -4758,6 +4821,15 @@ LANGUAGES: tuple[tuple[str, str, int, str], ...] = (
         _("Occitan"),
         2,
         "n > 1",
+    ),
+    (
+        "oc_ES",
+        # Translators: Language name for ISO code "oc_ES". The parenthesis clarifies
+        # variant of the language. It could contain a region, age (Old, Middle, ...)
+        # or other variant.
+        _("Aranese"),
+        2,
+        "n != 1",
     ),
     (
         "oj",
@@ -5480,6 +5552,24 @@ LANGUAGES: tuple[tuple[str, str, int, str], ...] = (
         "n == 1 ? 0 : n == 2 ? 1 : 2",
     ),
     (
+        "sat_Olck",
+        # Translators: Language name for ISO code "sat_Olck". The parenthesis clarifies
+        # variant of the language. It could contain a region, age (Old, Middle, ...)
+        # or other variant.
+        _("Santali (Ol Chiki script)"),
+        3,
+        "n == 1 ? 0 : n == 2 ? 1 : 2",
+    ),
+    (
+        "sat_Deva",
+        # Translators: Language name for ISO code "sat_Deva". The parenthesis clarifies
+        # variant of the language. It could contain a region, age (Old, Middle, ...)
+        # or other variant.
+        _("Santali (Devanagari script)"),
+        3,
+        "n == 1 ? 0 : n == 2 ? 1 : 2",
+    ),
+    (
         "sc",
         # Translators: Language name for ISO code "sc". The parenthesis clarifies
         # variant of the language. It could contain a region, age (Old, Middle, ...)
@@ -5611,8 +5701,8 @@ LANGUAGES: tuple[tuple[str, str, int, str], ...] = (
         # variant of the language. It could contain a region, age (Old, Middle, ...)
         # or other variant.
         _("Samogitian"),
-        2,
-        "n != 1",
+        4,
+        "(n % 10 == 1 && n % 100 != 11) ? 0 : ((n == 2) ? 1 : ((n != 2 && n % 10 >= 2 && n % 10 <= 9 && (n % 100 < 11 || n % 100 > 19)) ? 2 : 3))",
     ),
     (
         "shi",

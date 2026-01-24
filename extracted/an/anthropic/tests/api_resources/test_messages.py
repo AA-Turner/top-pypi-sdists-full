@@ -31,7 +31,7 @@ class TestMessages:
                     "role": "user",
                 }
             ],
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
         )
         assert_matches_type(Message, message, path=["response"])
 
@@ -45,7 +45,7 @@ class TestMessages:
                     "role": "user",
                 }
             ],
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
             metadata={"user_id": "13803d75-b4b5-4c3e-b2a2-6f21399b021b"},
             service_tier="auto",
             stop_sequences=["string"],
@@ -84,14 +84,8 @@ class TestMessages:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "location": {
-                                "description": "The city and state, e.g. San Francisco, CA",
-                                "type": "string",
-                            },
-                            "unit": {
-                                "description": "Unit for the output - one of (celsius, fahrenheit)",
-                                "type": "string",
-                            },
+                            "location": "bar",
+                            "unit": "bar",
                         },
                         "required": ["location"],
                     },
@@ -119,7 +113,7 @@ class TestMessages:
                     "role": "user",
                 }
             ],
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
         )
 
         assert response.is_closed is True
@@ -137,7 +131,7 @@ class TestMessages:
                     "role": "user",
                 }
             ],
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -157,7 +151,7 @@ class TestMessages:
                     "role": "user",
                 }
             ],
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
             stream=True,
         )
         message_stream.response.close()
@@ -172,7 +166,7 @@ class TestMessages:
                     "role": "user",
                 }
             ],
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
             stream=True,
             metadata={"user_id": "13803d75-b4b5-4c3e-b2a2-6f21399b021b"},
             service_tier="auto",
@@ -211,14 +205,8 @@ class TestMessages:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "location": {
-                                "description": "The city and state, e.g. San Francisco, CA",
-                                "type": "string",
-                            },
-                            "unit": {
-                                "description": "Unit for the output - one of (celsius, fahrenheit)",
-                                "type": "string",
-                            },
+                            "location": "bar",
+                            "unit": "bar",
                         },
                         "required": ["location"],
                     },
@@ -246,7 +234,7 @@ class TestMessages:
                     "role": "user",
                 }
             ],
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
             stream=True,
         )
 
@@ -264,7 +252,7 @@ class TestMessages:
                     "role": "user",
                 }
             ],
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
             stream=True,
         ) as response:
             assert not response.is_closed
@@ -294,7 +282,7 @@ class TestMessages:
                     "role": "user",
                 }
             ],
-            model="claude-3-7-sonnet-latest",
+            model="claude-opus-4-5-20251101",
         )
         assert_matches_type(MessageTokensCount, message, path=["response"])
 
@@ -307,7 +295,7 @@ class TestMessages:
                     "role": "user",
                 }
             ],
-            model="claude-3-7-sonnet-latest",
+            model="claude-opus-4-5-20251101",
             system=[
                 {
                     "text": "Today's date is 2024-06-01.",
@@ -341,14 +329,8 @@ class TestMessages:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "location": {
-                                "description": "The city and state, e.g. San Francisco, CA",
-                                "type": "string",
-                            },
-                            "unit": {
-                                "description": "Unit for the output - one of (celsius, fahrenheit)",
-                                "type": "string",
-                            },
+                            "location": "bar",
+                            "unit": "bar",
                         },
                         "required": ["location"],
                     },
@@ -373,7 +355,7 @@ class TestMessages:
                     "role": "user",
                 }
             ],
-            model="claude-3-7-sonnet-latest",
+            model="claude-opus-4-5-20251101",
         )
 
         assert response.is_closed is True
@@ -390,7 +372,7 @@ class TestMessages:
                     "role": "user",
                 }
             ],
-            model="claude-3-7-sonnet-latest",
+            model="claude-opus-4-5-20251101",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -416,7 +398,7 @@ class TestAsyncMessages:
                     "role": "user",
                 }
             ],
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
         )
         assert_matches_type(Message, message, path=["response"])
 
@@ -430,7 +412,7 @@ class TestAsyncMessages:
                     "role": "user",
                 }
             ],
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
             metadata={"user_id": "13803d75-b4b5-4c3e-b2a2-6f21399b021b"},
             service_tier="auto",
             stop_sequences=["string"],
@@ -469,14 +451,8 @@ class TestAsyncMessages:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "location": {
-                                "description": "The city and state, e.g. San Francisco, CA",
-                                "type": "string",
-                            },
-                            "unit": {
-                                "description": "Unit for the output - one of (celsius, fahrenheit)",
-                                "type": "string",
-                            },
+                            "location": "bar",
+                            "unit": "bar",
                         },
                         "required": ["location"],
                     },
@@ -504,7 +480,7 @@ class TestAsyncMessages:
                     "role": "user",
                 }
             ],
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
         )
 
         assert response.is_closed is True
@@ -522,7 +498,7 @@ class TestAsyncMessages:
                     "role": "user",
                 }
             ],
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -542,7 +518,7 @@ class TestAsyncMessages:
                     "role": "user",
                 }
             ],
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
             stream=True,
         )
         await message_stream.response.aclose()
@@ -557,7 +533,7 @@ class TestAsyncMessages:
                     "role": "user",
                 }
             ],
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
             stream=True,
             metadata={"user_id": "13803d75-b4b5-4c3e-b2a2-6f21399b021b"},
             service_tier="auto",
@@ -596,14 +572,8 @@ class TestAsyncMessages:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "location": {
-                                "description": "The city and state, e.g. San Francisco, CA",
-                                "type": "string",
-                            },
-                            "unit": {
-                                "description": "Unit for the output - one of (celsius, fahrenheit)",
-                                "type": "string",
-                            },
+                            "location": "bar",
+                            "unit": "bar",
                         },
                         "required": ["location"],
                     },
@@ -631,7 +601,7 @@ class TestAsyncMessages:
                     "role": "user",
                 }
             ],
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
             stream=True,
         )
 
@@ -649,7 +619,7 @@ class TestAsyncMessages:
                     "role": "user",
                 }
             ],
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20250929",
             stream=True,
         ) as response:
             assert not response.is_closed
@@ -679,7 +649,7 @@ class TestAsyncMessages:
                     "role": "user",
                 }
             ],
-            model="claude-3-7-sonnet-latest",
+            model="claude-opus-4-5-20251101",
         )
         assert_matches_type(MessageTokensCount, message, path=["response"])
 
@@ -692,7 +662,7 @@ class TestAsyncMessages:
                     "role": "user",
                 }
             ],
-            model="claude-3-7-sonnet-latest",
+            model="claude-opus-4-5-20251101",
             system=[
                 {
                     "text": "Today's date is 2024-06-01.",
@@ -726,14 +696,8 @@ class TestAsyncMessages:
                     "input_schema": {
                         "type": "object",
                         "properties": {
-                            "location": {
-                                "description": "The city and state, e.g. San Francisco, CA",
-                                "type": "string",
-                            },
-                            "unit": {
-                                "description": "Unit for the output - one of (celsius, fahrenheit)",
-                                "type": "string",
-                            },
+                            "location": "bar",
+                            "unit": "bar",
                         },
                         "required": ["location"],
                     },
@@ -758,7 +722,7 @@ class TestAsyncMessages:
                     "role": "user",
                 }
             ],
-            model="claude-3-7-sonnet-latest",
+            model="claude-opus-4-5-20251101",
         )
 
         assert response.is_closed is True
@@ -775,7 +739,7 @@ class TestAsyncMessages:
                     "role": "user",
                 }
             ],
-            model="claude-3-7-sonnet-latest",
+            model="claude-opus-4-5-20251101",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"

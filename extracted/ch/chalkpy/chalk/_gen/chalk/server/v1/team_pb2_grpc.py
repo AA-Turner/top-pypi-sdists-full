@@ -20,6 +20,11 @@ class TeamServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.GetEnvRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.GetEnvResponse.FromString,
         )
+        self.GetEnvIncludingArchived = channel.unary_unary(
+            "/chalk.server.v1.TeamService/GetEnvIncludingArchived",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.GetEnvIncludingArchivedRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.GetEnvIncludingArchivedResponse.FromString,
+        )
         self.GetEnvironments = channel.unary_unary(
             "/chalk.server.v1.TeamService/GetEnvironments",
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.GetEnvironmentsRequest.SerializeToString,
@@ -69,6 +74,11 @@ class TeamServiceStub(object):
             "/chalk.server.v1.TeamService/UpdateEnvironment",
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateEnvironmentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateEnvironmentResponse.FromString,
+        )
+        self.CreateVectorDBConfiguration = channel.unary_unary(
+            "/chalk.server.v1.TeamService/CreateVectorDBConfiguration",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateVectorDBConfigurationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateVectorDBConfigurationResponse.FromString,
         )
         self.GetAvailablePermissions = channel.unary_unary(
             "/chalk.server.v1.TeamService/GetAvailablePermissions",
@@ -151,6 +161,12 @@ class TeamServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetEnvIncludingArchived(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetEnvironments(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -206,6 +222,12 @@ class TeamServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def UpdateEnvironment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateVectorDBConfiguration(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -308,6 +330,11 @@ def add_TeamServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.GetEnvRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.GetEnvResponse.SerializeToString,
         ),
+        "GetEnvIncludingArchived": grpc.unary_unary_rpc_method_handler(
+            servicer.GetEnvIncludingArchived,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.GetEnvIncludingArchivedRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.GetEnvIncludingArchivedResponse.SerializeToString,
+        ),
         "GetEnvironments": grpc.unary_unary_rpc_method_handler(
             servicer.GetEnvironments,
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.GetEnvironmentsRequest.FromString,
@@ -357,6 +384,11 @@ def add_TeamServiceServicer_to_server(servicer, server):
             servicer.UpdateEnvironment,
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateEnvironmentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateEnvironmentResponse.SerializeToString,
+        ),
+        "CreateVectorDBConfiguration": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateVectorDBConfiguration,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateVectorDBConfigurationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateVectorDBConfigurationResponse.SerializeToString,
         ),
         "GetAvailablePermissions": grpc.unary_unary_rpc_method_handler(
             servicer.GetAvailablePermissions,
@@ -456,6 +488,35 @@ class TeamService(object):
             "/chalk.server.v1.TeamService/GetEnv",
             chalk_dot_server_dot_v1_dot_team__pb2.GetEnvRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_team__pb2.GetEnvResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetEnvIncludingArchived(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/GetEnvIncludingArchived",
+            chalk_dot_server_dot_v1_dot_team__pb2.GetEnvIncludingArchivedRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.GetEnvIncludingArchivedResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -746,6 +807,35 @@ class TeamService(object):
             "/chalk.server.v1.TeamService/UpdateEnvironment",
             chalk_dot_server_dot_v1_dot_team__pb2.UpdateEnvironmentRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_team__pb2.UpdateEnvironmentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateVectorDBConfiguration(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/CreateVectorDBConfiguration",
+            chalk_dot_server_dot_v1_dot_team__pb2.CreateVectorDBConfigurationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.CreateVectorDBConfigurationResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import click
 from rich.console import Console
 from rich.table import Table
-from typing_extensions import Literal
 import yaml
 
 from anyscale._private.models.image_uri import ImageURI
@@ -21,9 +20,11 @@ from anyscale.commands.list_util import (
 )
 from anyscale.commands.util import (
     AnyscaleCommand,
+    build_kv_table,
     convert_kv_strings_to_dict,
-    DeprecatedAnyscaleCommand,
     override_env_vars,
+    parse_repeatable_tags_to_dict,
+    parse_tags_kv_to_str_map,
 )
 from anyscale.controllers.service_controller import ServiceController
 import anyscale.service
@@ -79,8 +80,9 @@ def _read_name_from_config_file(path: str):
     "-f",
     "--config-file",
     required=False,
-    default=None,
+    default=[],
     type=str,
+    multiple=True,
     help="Path to a YAML config file to deploy. When deploying from a file, import path and arguments cannot be provided. Command-line flags will overwrite values read from the file.",
 )
 @click.option(
@@ -202,8 +204,28 @@ def _read_name_from_config_file(path: str):
     type=str,
     help="Named project to use for the service. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
 )
+@click.option(
+    "--versions",
+    required=False,
+    default=None,
+    type=str,
+    help="Defines the traffic and capacity percents per version. Capacity defaults to traffic.",
+)
+@click.option(
+    "--tag",
+    "tags",
+    multiple=True,
+    help="Tag in key=value (or key:value) format. Repeat to add multiple.",
+)
+@click.option(
+    "--version-name",
+    required=False,
+    default=None,
+    type=str,
+    help="Unique name for the service version. This can only be used for single version deployments. For multi-version deployments, specify version names in the config files and --versions.",
+)
 def deploy(  # noqa: PLR0912, PLR0913 C901
-    config_file: Optional[str],
+    config_file: List[str],
     import_path: Optional[str],
     arguments: Tuple[str],
     name: Optional[str],
@@ -222,6 +244,9 @@ def deploy(  # noqa: PLR0912, PLR0913 C901
     py_module: Tuple[str],
     cloud: Optional[str],
     project: Optional[str],
+    versions: Optional[str],
+    tags: Optional[Tuple[str]],
+    version_name: Optional[str],
 ):
     """Deploy or update a service.
 
@@ -238,102 +263,173 @@ def deploy(  # noqa: PLR0912, PLR0913 C901
     Command-line flags override values in the config file.
     """
 
-    if config_file is not None:
-        if import_path is not None or len(arguments) > 0:
-            raise click.ClickException(
-                "When a config file is provided, import path and application arguments can't be."
-            )
-
-        if not pathlib.Path(config_file).is_file():
-            raise click.ClickException(f"Config file '{config_file}' not found.")
-
-        config = ServiceConfig.from_yaml(config_file)
-    else:
-        if import_path is None:
-            raise click.ClickException(
-                "Either config file or import path must be provided."
-            )
-
-        if (
-            import_path.endswith((".yaml", ".yml"))
-            or pathlib.Path(import_path).is_file()
-        ):
-            log.warning(
-                f"The provided import path '{import_path}' looks like a config file. Did you mean to use '-f config.yaml'?"
-            )
-
-        app: Dict[str, Any] = {"import_path": import_path}
-        arguments_dict = convert_kv_strings_to_dict(arguments)
-        if arguments_dict:
-            app["args"] = arguments_dict
-
-        config = ServiceConfig(applications=[app])
-
-    if containerfile and image_uri:
-        raise click.ClickException(
-            "Only one of '--containerfile' and '--image-uri' can be provided."
-        )
-
-    if ray_version and (not image_uri and not containerfile):
-        raise click.ClickException(
-            "Ray version can only be used with an image or containerfile.",
-        )
-
-    if registry_login_secret and (
-        not image_uri or ImageURI.from_str(image_uri).is_cluster_env_image()
-    ):
-        raise click.ClickException(
-            "Registry login secret can only be used with an image that is not hosted on Anyscale."
-        )
-
-    if name is not None:
-        config = config.options(name=name)
-
-    if image_uri is not None:
-        config = config.options(image_uri=image_uri)
-
-    if registry_login_secret is not None:
-        config = config.options(registry_login_secret=registry_login_secret)
-
-    if ray_version is not None:
-        config = config.options(ray_version=ray_version)
-
-    if containerfile is not None:
-        config = config.options(containerfile=containerfile)
-
-    if compute_config is not None:
-        config = config.options(compute_config=compute_config)
-
-    if working_dir is not None:
-        config = config.options(working_dir=working_dir)
-
-    if exclude:
-        config = config.options(excludes=[e for e in exclude])
-
-    if requirements is not None:
-        config = config.options(requirements=requirements)
-
-    if env:
-        config = override_env_vars(config, convert_kv_strings_to_dict(env))
-
-    if py_module:
-        for module in py_module:
-            if not pathlib.Path(module).is_dir():
+    if versions is None:
+        if len(config_file) == 1:
+            if import_path is not None or len(arguments) > 0:
                 raise click.ClickException(
-                    f"Python module path '{module}' does not exist or is not a directory."
+                    "When a config file is provided, import path and application arguments can't be."
                 )
-        config = config.options(py_modules=[*py_module])
 
-    if cloud is not None:
-        config = config.options(cloud=cloud)
-    if project is not None:
-        config = config.options(project=project)
+            if not pathlib.Path(config_file[0]).is_file():
+                raise click.ClickException(f"Config file '{config_file[0]}' not found.")
+
+            config = ServiceConfig.from_yaml(config_file[0])
+        elif len(config_file) > 1:
+            raise click.ClickException(
+                "Multiple config files can be provided only when deploying multiple versions with --versions."
+            )
+        else:
+            # when config_file is not provided.
+            if import_path is None:
+                raise click.ClickException(
+                    "Either config file or import path must be provided."
+                )
+
+            if (
+                import_path.endswith((".yaml", ".yml"))
+                or pathlib.Path(import_path).is_file()
+            ):
+                log.warning(
+                    f"The provided import path '{import_path}' looks like a config file. Did you mean to use '-f config.yaml'?"
+                )
+
+            app: Dict[str, Any] = {"import_path": import_path}
+            arguments_dict = convert_kv_strings_to_dict(arguments)
+            if arguments_dict:
+                app["args"] = arguments_dict
+
+            config = ServiceConfig(applications=[app])
+
+        if containerfile and image_uri:
+            raise click.ClickException(
+                "Only one of '--containerfile' and '--image-uri' can be provided."
+            )
+
+        if ray_version and (not image_uri and not containerfile):
+            raise click.ClickException(
+                "Ray version can only be used with an image or containerfile.",
+            )
+
+        if registry_login_secret and (
+            not image_uri or ImageURI.from_str(image_uri).is_cluster_env_image()
+        ):
+            raise click.ClickException(
+                "Registry login secret can only be used with an image that is not hosted on Anyscale."
+            )
+
+        if name is not None:
+            config = config.options(name=name)
+
+        if image_uri is not None:
+            config = config.options(image_uri=image_uri)
+
+        if registry_login_secret is not None:
+            config = config.options(registry_login_secret=registry_login_secret)
+
+        if ray_version is not None:
+            config = config.options(ray_version=ray_version)
+
+        if containerfile is not None:
+            config = config.options(containerfile=containerfile)
+
+        if compute_config is not None:
+            config = config.options(compute_config=compute_config)
+
+        if working_dir is not None:
+            config = config.options(working_dir=working_dir)
+
+        if exclude:
+            config = config.options(excludes=[e for e in exclude])
+
+        if requirements is not None:
+            config = config.options(requirements=requirements)
+
+        if env:
+            config = override_env_vars(config, convert_kv_strings_to_dict(env))
+
+        if py_module:
+            for module in py_module:
+                if not pathlib.Path(module).is_dir():
+                    raise click.ClickException(
+                        f"Python module path '{module}' does not exist or is not a directory."
+                    )
+            config = config.options(py_modules=[*py_module])
+
+        if cloud is not None:
+            config = config.options(cloud=cloud)
+        if project is not None:
+            config = config.options(project=project)
+
+        if version_name is not None:
+            config = config.options(version_name=version_name)
+
+        configs = config
+    else:
+        # When multiple versions are being deployed.
+        configs = []
+        for config_path in config_file:
+            svc_config = ServiceConfig.from_yaml(config_path)
+            if name is not None:
+                svc_config = svc_config.options(name=name)
+
+            if cloud is not None:
+                svc_config = svc_config.options(cloud=cloud)
+
+            if project is not None:
+                svc_config = svc_config.options(project=project)
+
+            if image_uri is not None:
+                log.warning("--image-uri is ignored.")
+
+            if registry_login_secret is not None:
+                log.warning("--registry-login-secret is ignored.")
+
+            if ray_version is not None:
+                log.warning("--ray-version is ignored.")
+
+            if containerfile is not None:
+                log.warning("--containerfile is ignored.")
+
+            if compute_config is not None:
+                log.warning("--compute-config is ignored.")
+
+            if working_dir is not None:
+                log.warning("--working-dir is ignored.")
+
+            if exclude:
+                log.warning("--exclude is ignored.")
+
+            if requirements is not None:
+                log.warning("--requirements is ignored.")
+
+            if env:
+                log.warning("--env is ignored.")
+
+            if py_module:
+                log.warning("--py-module is ignored.")
+
+            if version_name is not None:
+                log.warning("--version-name is ignored.")
+
+            configs.append(svc_config)
+
+    if tags:
+        tag_map = parse_tags_kv_to_str_map(tags)
+        if tag_map:
+            if isinstance(configs, ServiceConfig):
+                configs = configs.options(tags=tag_map)
+            else:
+                configs = [cfg.options(tags=tag_map) for cfg in configs]
 
     anyscale.service.deploy(
-        config,
+        configs,
         in_place=in_place,
         canary_percent=canary_percent,
         max_surge_percent=max_surge_percent,
+        versions=versions,
+        name=name,
+        cloud=cloud,
+        project=project,
     )
 
 
@@ -409,6 +505,10 @@ def status(
         # becomes a common pattern.
         status_dict.get("primary_version", {}).pop("config", None)
         status_dict.get("canary_version", {}).pop("config", None)
+        # Remove config from all versions in multi-version services
+        if status_dict.get("versions"):
+            for version in status_dict.get("versions", []):
+                version.pop("config", None)
 
     console = Console()
     if json:
@@ -487,9 +587,12 @@ def wait(
             "Service name must be provided using '--name' or in a config file using '-f'."
         )
 
-    anyscale.service.wait(
-        name=name, cloud=cloud, project=project, state=state, timeout_s=timeout_s
-    )
+    try:
+        anyscale.service.wait(
+            name=name, cloud=cloud, project=project, state=state, timeout_s=timeout_s
+        )
+    except Exception as e:  # noqa: BLE001
+        raise click.ClickException(str(e)) from None
 
 
 # This is a private CLI command to be used internally for testing. This is HIDDEN
@@ -561,95 +664,6 @@ def controller_logs(
         print(logs)
     except ValueError as e:
         raise click.ClickException(str(e))
-
-
-@service_cli.command(
-    name="rollout",
-    help="[DEPRECATED - use 'deploy' instead] Roll out a service.",
-    cls=DeprecatedAnyscaleCommand,
-    removal_date="2025-10-01",
-    deprecation_message="`anyscale service rollout` has been deprecated",
-    alternative="use `anyscale service deploy` instead",
-)
-@click.option(
-    "-f",
-    "--config-file",
-    "--service-config-file",
-    required=True,
-    help="The path of the service configuration file.",
-)
-@click.option("--name", "-n", required=False, default=None, help="Name of service.")
-@click.option("--version", required=False, default=None, help="Version of service.")
-@click.option(
-    "--max-surge-percent",
-    required=False,
-    default=None,
-    type=int,
-    help="Max amount of excess capacity allocated during the rollout (0-100).",
-)
-@click.option(
-    "--canary-percent",
-    required=False,
-    default=None,
-    type=int,
-    help="The percentage of traffic to send to the canary version of the service.",
-)
-@click.option(
-    "--rollout-strategy",
-    required=False,
-    default=None,
-    type=click.Choice(["ROLLOUT", "IN_PLACE"], case_sensitive=False),
-    help="Strategy for rollout.",
-)
-@click.option(
-    "-i",
-    "--in-place",
-    "in_place",
-    is_flag=True,
-    show_default=True,
-    default=False,
-    help="Alias for `--rollout-strategy=IN_PLACE`.",
-)
-@click.option(
-    "--no-auto-complete-rollout",
-    is_flag=True,
-    show_default=True,
-    default=False,
-    help="Do not complete the rollout (terminate the existing version cluster) after the canary version reaches 100%",
-)
-def rollout(  # noqa: PLR0913
-    config_file: str,
-    name: Optional[str],
-    version: Optional[str],
-    max_surge_percent: Optional[int],
-    canary_percent: Optional[int],
-    rollout_strategy: Optional[Literal["ROLLOUT", "IN_PLACE"]],
-    in_place: bool,
-    no_auto_complete_rollout: bool,
-):
-    """Start or update a service rollout to a new version.
-
-    DEPRECATED: This command will be removed on 2025-10-01.
-    Use 'anyscale service deploy' instead.
-    """
-    if in_place:
-        if rollout_strategy is not None:
-            raise click.ClickException(
-                "Only one of `--in-place/-i` and `--rollout-strategy` can be provided."
-            )
-        rollout_strategy = "IN_PLACE"
-
-    service_controller = ServiceController()
-    service_config = service_controller.read_service_config_file(config_file)
-    service_controller.rollout(
-        service_config,
-        name=name,
-        version=version,
-        max_surge_percent=max_surge_percent,
-        canary_percent=canary_percent,
-        rollout_strategy=rollout_strategy,
-        auto_complete_rollout=not no_auto_complete_rollout,
-    )
 
 
 def validate_max_items(ctx, param, value):
@@ -744,6 +758,17 @@ def _format_service_output_data(svc: ServiceStatus) -> Dict[str, str]:
     help="Named project to use; defaults to your org/workspace project.",
 )
 @click.option(
+    "--tag",
+    "tags",
+    multiple=True,
+    help=(
+        "This option can be repeated to filter by multiple tags. "
+        "Tags with the same key are ORed, whereas tags with different keys are ANDed. "
+        "Example: --tag team:mlops --tag team:infra --tag env:prod. "
+        "Filters with team: (mlops OR infra) AND env:prod."
+    ),
+)
+@click.option(
     "--created-by-me",
     is_flag=True,
     default=False,
@@ -811,6 +836,7 @@ def _format_service_output_data(svc: ServiceStatus) -> Dict[str, str]:
 def list(  # noqa: PLR0913, A001
     service_id: Optional[str],
     name: Optional[str],
+    tags: List[str],
     created_by_me: bool,
     cloud: Optional[str],
     project: Optional[str],
@@ -847,6 +873,7 @@ def list(  # noqa: PLR0913, A001
     stderr.print("[bold]Listing services with:[/]")
     stderr.print(f"• name            = {name or '<any>'}")
     stderr.print(f"• states          = {', '.join(state_filter) or '<all>'}")
+    stderr.print(f"• tags            = {', '.join(tags) or '<none>'}")
     stderr.print(f"• created_by_me   = {created_by_me}")
     stderr.print(f"• include_archived= {include_archived}")
     stderr.print(f"• sort            = {sort or '<none>'}")
@@ -879,6 +906,7 @@ def list(  # noqa: PLR0913, A001
             service_id=service_id,
             name=name,
             state_filter=state_filter,
+            tags_filter=parse_repeatable_tags_to_dict(tags) if tags else None,
             creator_id=creator_id,
             cloud=cloud,
             project=project,
@@ -909,6 +937,112 @@ def list(  # noqa: PLR0913, A001
         sys.exit(1)
 
 
+@service_cli.group("tags", help="Manage tags for services.")
+def service_tags_cli() -> None:
+    pass
+
+
+@service_tags_cli.command(
+    name="add",
+    help="Add or update tags on a service.",
+    cls=AnyscaleCommand,
+    example=command_examples.SERVICE_TAGS_ADD_EXAMPLE,
+)
+@click.option("--service-id", "--id", help="ID of the service.")
+@click.option("--name", "-n", help="Name of the service.")
+@click.option("--cloud", type=str, help="Cloud name (for name resolution).")
+@click.option("--project", type=str, help="Project name (for name resolution).")
+@click.option(
+    "--tag",
+    "tags",
+    multiple=True,
+    help="Tag in key=value (or key:value) format. Repeat to add multiple.",
+)
+def add_tags(
+    service_id: Optional[str],
+    name: Optional[str],
+    cloud: Optional[str],
+    project: Optional[str],
+    tags: Tuple[str],
+) -> None:
+    if not service_id and not name:
+        raise click.ClickException("Provide either --service-id/--id or --name.")
+    tag_map = parse_tags_kv_to_str_map(tags)
+    if not tag_map:
+        raise click.ClickException("Provide at least one --tag key=value.")
+    anyscale.service.add_tags(
+        id=service_id, name=name, cloud=cloud, project=project, tags=tag_map
+    )
+    stderr = Console(stderr=True)
+    ident = service_id or name or "<unknown>"
+    stderr.print(f"Tags updated for service '{ident}'.")
+
+
+@service_tags_cli.command(
+    name="remove",
+    help="Remove tags by key from a service.",
+    cls=AnyscaleCommand,
+    example=command_examples.SERVICE_TAGS_REMOVE_EXAMPLE,
+)
+@click.option("--service-id", "--id", help="ID of the service.")
+@click.option("--name", "-n", help="Name of the service.")
+@click.option("--cloud", type=str, help="Cloud name (for name resolution).")
+@click.option("--project", type=str, help="Project name (for name resolution).")
+@click.option("--key", "keys", multiple=True, help="Tag key to remove. Repeatable.")
+def remove_tags(
+    service_id: Optional[str],
+    name: Optional[str],
+    cloud: Optional[str],
+    project: Optional[str],
+    keys: Tuple[str],
+) -> None:
+    if not service_id and not name:
+        raise click.ClickException("Provide either --service-id/--id or --name.")
+    key_list = [k for k in keys if k and k.strip()]
+    if not key_list:
+        raise click.ClickException("Provide at least one --key to remove.")
+    anyscale.service.remove_tags(
+        id=service_id, name=name, cloud=cloud, project=project, keys=key_list
+    )
+    stderr = Console(stderr=True)
+    ident = service_id or name or "<unknown>"
+    stderr.print(f"Removed tag keys {key_list} from service '{ident}'.")
+
+
+@service_tags_cli.command(
+    name="list",
+    help="List tags for a service.",
+    cls=AnyscaleCommand,
+    example=command_examples.SERVICE_TAGS_LIST_EXAMPLE,
+)
+@click.option("--service-id", "--id", help="ID of the service.")
+@click.option("--name", "-n", help="Name of the service.")
+@click.option("--cloud", type=str, help="Cloud name (for name resolution).")
+@click.option("--project", type=str, help="Project name (for name resolution).")
+@click.option("--json", "json_output", is_flag=True, default=False, help="JSON output.")
+def list_tags(
+    service_id: Optional[str],
+    name: Optional[str],
+    cloud: Optional[str],
+    project: Optional[str],
+    json_output: bool,
+) -> None:
+    if not service_id and not name:
+        raise click.ClickException("Provide either --service-id/--id or --name.")
+    tag_map = anyscale.service.list_tags(
+        id=service_id, name=name, cloud=cloud, project=project
+    )
+    if json_output:
+        Console().print_json(json=json_dumps(tag_map, indent=2))
+    else:
+        stderr = Console(stderr=True)
+        if not tag_map:
+            stderr.print("No tags found.")
+            return
+        pairs = tag_map.items()
+        stderr.print(build_kv_table(pairs, title="Tags"))
+
+
 # TODO(mowen): Add cloud support for this when we refactor to new SDK method
 @service_cli.command(name="rollback", help="Roll back a service.")
 @click.option(
@@ -916,12 +1050,6 @@ def list(  # noqa: PLR0913, A001
 )
 @click.option("-n", "--name", required=False, default=None, help="Name of service.")
 @click.option("--project-id", required=False, help="Filter by project id.")
-@click.option(
-    "-f",
-    "--config-file",
-    "--service-config-file",
-    help="Path to a YAML config file to read the name from. `--service-config-file` is deprecated, use `-f` or `--config-file`.",
-)
 @click.option(
     "--max-surge-percent",
     required=False,
@@ -933,16 +1061,12 @@ def rollback(
     service_id: Optional[str],
     name: Optional[str],
     project_id: Optional[str],
-    config_file: Optional[str],
     max_surge_percent: Optional[int],
 ):
     """Perform a rollback for a service that is currently in a rollout."""
     service_controller = ServiceController()
     service_id = service_controller.get_service_id(
-        service_id=service_id,
-        service_name=name,
-        service_config_file=config_file,
-        project_id=project_id,
+        service_id=service_id, service_name=name, project_id=project_id,
     )
     service_controller.rollback(service_id, max_surge_percent)
 

@@ -10,11 +10,12 @@ Remote Client Plugin.
 """
 
 # Standard library imports
+from __future__ import annotations
 import logging
-import contextlib
+import typing
 
 # Third-party imports
-from qtpy.QtCore import Signal, Slot
+from qtpy.QtCore import Signal
 
 # Local imports
 from spyder.api.asyncdispatcher import AsyncDispatcher
@@ -22,24 +23,44 @@ from spyder.api.plugin_registration.decorators import (
     on_plugin_available,
     on_plugin_teardown,
 )
-from spyder.api.plugins import Plugins, SpyderPluginV2
+from spyder.api.plugins import OptionalPlugins, Plugins, SpyderPluginV2
 from spyder.api.translations import _
-from spyder.plugins.ipythonconsole.api import IPythonConsoleWidgetActions
 from spyder.plugins.mainmenu.api import (
     ApplicationMenus,
-    ConsolesMenuSections,
     ToolsMenuSections,
 )
 from spyder.plugins.remoteclient.api import (
     RemoteClientActions,
-    RemoteClientMenus,
 )
-from spyder.plugins.remoteclient.api.client import SpyderRemoteClient
+from spyder.plugins.remoteclient.api.manager.base import (
+    SpyderRemoteAPIManagerBase,
+)
+from spyder.plugins.remoteclient.api.manager.jupyterhub import (
+    SpyderRemoteJupyterHubAPIManager,
+)
+from spyder.plugins.remoteclient.api.manager.ssh import (
+    SpyderRemoteSSHAPIManager,
+)
 from spyder.plugins.remoteclient.api.protocol import (
+    ClientType,
+    JupyterHubClientOptions,
     SSHClientOptions,
     ConnectionStatus,
 )
+from spyder.plugins.remoteclient.api.modules.file_services import (
+    SpyderRemoteFileServicesAPI,
+)
+from spyder.plugins.remoteclient.api.modules.environ import (
+    SpyderRemoteEnvironAPI,
+)
+from spyder.plugins.remoteclient.widgets import AuthenticationMethod
 from spyder.plugins.remoteclient.widgets.container import RemoteClientContainer
+
+if typing.TYPE_CHECKING:
+    from spyder.plugins.remoteclient.api.modules.base import (
+        SpyderBaseJupyterAPIType,
+    )
+
 
 _logger = logging.getLogger(__name__)
 
@@ -50,7 +71,7 @@ class RemoteClient(SpyderPluginV2):
     """
 
     NAME = "remoteclient"
-    OPTIONAL = [Plugins.IPythonConsole, Plugins.MainMenu]
+    OPTIONAL = [Plugins.MainMenu, OptionalPlugins.EnvManager]
     CONF_SECTION = NAME
     CONTAINER_CLASS = RemoteClientContainer
     CONF_FILE = False
@@ -60,6 +81,7 @@ class RemoteClient(SpyderPluginV2):
     # ---- Signals
     sig_server_stopped = Signal(str)
     sig_server_renamed = Signal(str)
+    sig_server_changed = Signal()
     sig_client_message_logged = Signal(dict)
 
     sig_connection_established = Signal(str)
@@ -68,12 +90,41 @@ class RemoteClient(SpyderPluginV2):
 
     sig_version_mismatch = Signal(str, str)
 
-    _sig_kernel_started = Signal(object, dict)
+    # For remote envs
+    sig_create_env_requested = Signal(str, str, str, list)
+    """
+    Signal to request creating a Python environment in the remote machine.
+
+    Parameters
+    ----------
+    config_id: str
+        Machine identifier.
+    env_name: str
+        Environment name.
+    python_version: str
+        Python version of the environment.
+    packages_list: list[str]
+        List of packages.
+    """
+
+    sig_import_env_requested = Signal(str, str, str)
+    """
+    Signal to request importing a Python environment in the remote machine.
+
+    Parameters
+    ----------
+    config_id: str
+        Machine identifier.
+    import_file_path: str
+        Path to the file that will be used to import the environment.
+    env_name: str
+        Environment name.
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self._remote_clients: dict[str, SpyderRemoteClient] = {}
+        self._remote_clients: dict[str, SpyderRemoteAPIManagerBase] = {}
 
     # ---- SpyderPluginV2 API
     # -------------------------------------------------------------------------
@@ -91,7 +142,6 @@ class RemoteClient(SpyderPluginV2):
 
     def on_initialize(self):
         self._reset_status()
-        self._is_consoles_menu_added = False
         container = self.get_container()
 
         # Container signals
@@ -99,13 +149,8 @@ class RemoteClient(SpyderPluginV2):
         container.sig_stop_server_requested.connect(self.stop_remote_server)
         container.sig_stop_server_requested.connect(self.sig_server_stopped)
         container.sig_server_renamed.connect(self.sig_server_renamed)
-        container.sig_create_ipyclient_requested.connect(
-            self.create_ipyclient_for_server
-        )
-        container.sig_shutdown_kernel_requested.connect(self._shutdown_kernel)
-        container.sig_interrupt_kernel_requested.connect(
-            self._interrupt_kernel
-        )
+        container.sig_server_changed.connect(self.sig_server_changed)
+        container.sig_server_updated.connect(self.load_client_from_id)
 
         # Plugin signals
         self.sig_connection_status_changed.connect(
@@ -114,20 +159,19 @@ class RemoteClient(SpyderPluginV2):
         self.sig_client_message_logged.connect(
             container.sig_client_message_logged
         )
-        self.sig_version_mismatch.connect(
-            container.on_server_version_mismatch
-        )
-        self._sig_kernel_started.connect(container.on_kernel_started)
+        self.sig_version_mismatch.connect(container.on_server_version_mismatch)
 
     def on_first_registration(self):
         pass
 
     def on_close(self, cancellable=True):
         """Stops remote server and close any opened connection."""
-        for client in self._remote_clients.values():
+        while self._remote_clients:
+            client = self._remote_clients.popitem()[1]
             AsyncDispatcher(
-                client.close, loop="asyncssh", early_return=False
-            )()
+                loop="asyncssh",
+                early_return=False,
+            )(client.close)()
 
     @on_plugin_available(plugin=Plugins.MainMenu)
     def on_mainmenu_available(self):
@@ -137,15 +181,9 @@ class RemoteClient(SpyderPluginV2):
         mainmenu.add_item_to_application_menu(
             action,
             menu_id=ApplicationMenus.Tools,
-            section=ToolsMenuSections.External,
-            before_section=ToolsMenuSections.Extras,
+            section=ToolsMenuSections.Managers,
+            before_section=ToolsMenuSections.Preferences,
         )
-
-        if (
-            self.is_plugin_available(Plugins.IPythonConsole)
-            and not self._is_consoles_menu_added
-        ):
-            self._add_remote_consoles_menu()
 
     @on_plugin_teardown(plugin=Plugins.MainMenu)
     def on_mainmenu_teardown(self):
@@ -156,19 +194,19 @@ class RemoteClient(SpyderPluginV2):
             menu_id=ApplicationMenus.Tools,
         )
 
-        if self._is_consoles_menu_added:
-            mainmenu.remove_item_from_application_menu(
-                RemoteClientMenus.RemoteConsoles,
-                menu_id=ApplicationMenus.Consoles,
-            )
+    @on_plugin_available(plugin=OptionalPlugins.EnvManager)
+    def on_envmanager_available(self):
+        envmanager = self.get_plugin(OptionalPlugins.EnvManager)
+        envmanager.sig_set_default_kernel_spec_requested.connect(
+            self.set_default_kernel_spec
+        )
 
-    @on_plugin_available(plugin=Plugins.IPythonConsole)
-    def on_ipython_console_available(self):
-        if (
-            self.is_plugin_available(Plugins.MainMenu)
-            and not self._is_consoles_menu_added
-        ):
-            self._add_remote_consoles_menu()
+    @on_plugin_teardown(plugin=OptionalPlugins.EnvManager)
+    def on_envmanager_teardown(self):
+        envmanager = self.get_plugin(OptionalPlugins.EnvManager)
+        envmanager.sig_set_default_kernel_spec_requested.disconnect(
+            self.set_default_kernel_spec
+        )
 
     # ---- Public API
     # -------------------------------------------------------------------------
@@ -178,30 +216,31 @@ class RemoteClient(SpyderPluginV2):
         if config_id in self._remote_clients:
             return self._remote_clients[config_id]
 
-    @AsyncDispatcher.dispatch(loop="asyncssh")
+    @AsyncDispatcher(loop="asyncssh")
     async def _install_remote_server(self, config_id):
         """Install remote server."""
         if config_id in self._remote_clients:
             client = self._remote_clients[config_id]
             await client.connect_and_install_remote_server()
 
-    @AsyncDispatcher.dispatch(loop="asyncssh")
-    async def start_remote_server(self, config_id):
+    def start_remote_server(self, config_id):
         """Start remote server."""
         if config_id not in self._remote_clients:
             self.load_client_from_id(config_id)
 
-        client = self._remote_clients[config_id]
-        await client.connect_and_ensure_server()
+        @AsyncDispatcher(loop="asyncssh")
+        async def _start_client():
+            client = self._remote_clients[config_id]
+            await client.connect_and_ensure_server()
+        _start_client()
 
-    @AsyncDispatcher.dispatch(loop="asyncssh")
+    @AsyncDispatcher(loop="asyncssh")
     async def stop_remote_server(self, config_id):
         """Stop remote server."""
-        if config_id in self._remote_clients:
-            client = self._remote_clients[config_id]
+        if client := self._remote_clients.pop(config_id, None):
             await client.close()
 
-    @AsyncDispatcher.dispatch(loop="asyncssh")
+    @AsyncDispatcher(loop="asyncssh")
     async def ensure_remote_server(self, config_id):
         """Ensure remote server is running and installed."""
         if config_id in self._remote_clients:
@@ -216,34 +255,85 @@ class RemoteClient(SpyderPluginV2):
     # --- Configuration Methods
     def load_client_from_id(self, config_id):
         """Load remote server from configuration id."""
-        options = self.load_conf(config_id)
-        self.load_client(config_id, options)
+        client_type = self.get_conf(
+            f"{config_id}/client_type", default=ClientType.SSH
+        )
+        if client_type == ClientType.SSH:
+            options = self._load_ssh_client_options(config_id)
+            self.load_ssh_client(config_id, options)
+        elif client_type == ClientType.JupyterHub:
+            options = self._load_jupyterhub_client_options(config_id)
+            self.load_jupyterhub_client(config_id, options)
+        else:
+            msg = (
+                f"Unknown client type '{client_type}' for server "
+                f"'{config_id}'. Please check your configuration."
+            )
+            raise ValueError(msg)
 
-    def load_client(self, config_id: str, options: SSHClientOptions):
-        """Load remote server."""
-        client = SpyderRemoteClient(config_id, options, _plugin=self)
-        self._remote_clients[config_id] = client
+    def load_ssh_client(self, config_id: str, options: SSHClientOptions):
+        """Load SSH remote server."""
+        if config_id in self._remote_clients:
+            self._remote_clients[config_id].options.update(options)
+        else:
+            self._remote_clients[config_id] = SpyderRemoteSSHAPIManager(
+                config_id, options, _plugin=self
+            )
 
-    def load_conf(self, config_id):
-        """Load remote server configuration."""
-        options = self.get_conf(self.CONF_SECTION_SERVERS, {}).get(
-            config_id, {}
+        _logger.debug(
+            "Remote SSH client for '%s' loaded with options: %s",
+            config_id,
+            options,
         )
 
-        # We couldn't find saved options for config_id
-        if not options:
-            return {}
+    def load_jupyterhub_client(
+        self, config_id: str, options: JupyterHubClientOptions,
+    ):
+        """Load JupyterHub remote server."""
+        if config_id in self._remote_clients:
+            self._remote_clients[config_id].options.update(options)
+        else:
+            self._remote_clients[config_id] = SpyderRemoteJupyterHubAPIManager(
+                config_id, options, _plugin=self
+            )
 
-        if options["client_keys"]:
-            passphrase = self.get_conf(f"{config_id}/passphrase", secure=True)
-            options["client_keys"] = [options["client_keys"]]
+        _logger.debug(
+            "Remote JupyterHub client for '%s' loaded with options: %s",
+            config_id,
+            options,
+        )
 
-            # Passphrase is optional
-            if passphrase:
+    def _load_jupyterhub_client_options(self, config_id):
+        """Load JupyterHub remote server configuration."""
+        options = JupyterHubClientOptions(
+            url=self.get_conf(f"{config_id}/url"),
+            token=self.get_conf(f"{config_id}/token", secure=True)
+        )
+
+        return options
+
+    def _load_ssh_client_options(self, config_id):
+        """Load remote server configuration."""
+        auth_method = self.get_conf(f"{config_id}/auth_method")
+
+        options = SSHClientOptions(
+            host=self.get_conf(
+                f"{config_id}/{auth_method}/address"
+            ),
+            port=self.get_conf(f"{config_id}/{auth_method}/port"),
+            username=self.get_conf(
+                f"{config_id}/{auth_method}/username"
+            ),
+        )
+
+        if client_keys := self.get_conf(f"{config_id}/keyfile", ""):
+            options["client_keys"] = [client_keys]
+            if passphrase := self.get_conf(
+                f"{config_id}/passphrase", "", secure=True
+            ):
                 options["passphrase"] = passphrase
-        elif options["config"]:
-            # TODO: Check how this needs to be handled
-            pass
+        elif config := self.get_conf(f"{config_id}/configfile"):
+            options["config"] = config
         else:
             # Password is mandatory in this case
             password = self.get_conf(f"{config_id}/password", secure=True)
@@ -265,116 +355,146 @@ class RemoteClient(SpyderPluginV2):
         """Get configured remote servers ids."""
         return self.get_conf(self.CONF_SECTION_SERVERS, {}).keys()
 
-    @Slot(str)
-    def create_ipyclient_for_server(self, config_id):
-        """Create a new IPython console client for a server."""
-        auth_method = self.get_conf(f"{config_id}/auth_method")
-        hostname = self.get_conf(f"{config_id}/{auth_method}/name")
-
-        ipyconsole = self.get_plugin(Plugins.IPythonConsole)
-        ipyclient = ipyconsole.create_client_for_kernel(
-            # The connection file will be supplied when connecting a remote
-            # kernel to this client
-            connection_file="",
-            # We use the server name as hostname because for clients it's the
-            # attribute used by the IPython console to set their tab name.
-            hostname=hostname,
-            # These values are not necessary at this point.
-            sshkey=None,
-            password=None,
-            # We save the server id in the client to perform on it operations
-            # related to this plugin.
-            server_id=config_id,
-            # This is necessary because it takes a while before getting a
-            # response from the server with the kernel id that will be
-            # associated to this client. So, if users could close it before
-            # that then it'll not be possible to shutdown that kernel unless
-            # the server is stopped as well.
-            can_close=False,
+    def get_server_name(self, config_id):
+        """Get configured remote server name."""
+        client_type = self.get_conf(
+            f"{config_id}/client_type", default=ClientType.SSH
         )
-
-        # IMPORTANT NOTE: We use a signal here instead of calling directly
-        # container.on_kernel_started because doing that generates segfaults
-        # and odd issues (e.g. the Variable Explorer not working).
-        future = self._start_new_kernel(config_id)
-        future.add_done_callback(
-            lambda future: self._sig_kernel_started.emit(
-                ipyclient, future.result()
+        if client_type == ClientType.SSH:
+            auth_method = self.get_conf(f"{config_id}/auth_method")
+            return self.get_conf(f"{config_id}/{auth_method}/name")
+        if client_type == ClientType.JupyterHub:
+            return self.get_conf(
+                f"{config_id}/{AuthenticationMethod.JupyterHub}/name"
             )
+
+        msg = (
+            f"Unknown client type '{client_type}' for server '{config_id}'. "
+            f"Please check your configuration."
         )
+        raise ValueError(msg)
 
-    # ---- Private API
-    # -------------------------------------------------------------------------
-    # --- Remote Server Kernel Methods
-    @Slot(str)
-    @AsyncDispatcher.dispatch(loop="asyncssh")
-    async def get_kernels(self, config_id) -> list:
-        """Get opened kernels."""
-        if config_id in self._remote_clients:
-            client = self._remote_clients[config_id]
-            return await client.list_kernels()
-        return []
+    def set_default_kernel_spec(self, name: str, server_id: str):
+        """Set the default kernel spec for a remote server.
 
-    @AsyncDispatcher.dispatch(loop="asyncssh")
-    async def _get_kernel_info(self, config_id, kernel_id) -> dict:
-        """Get kernel info."""
-        if config_id in self._remote_clients:
-            client = self._remote_clients[config_id]
-            return await client.get_kernel_info_ensure_server(kernel_id)
-        return {}
+        This method sets the default kernel spec for a remote server
+        identified by `server_id`. The kernel spec is used to determine
+        which kernel spec is used when starting a new console on that server.
 
-    @AsyncDispatcher.dispatch(loop="asyncssh")
-    async def _shutdown_kernel(self, config_id, kernel_id):
-        """Shutdown a running kernel."""
-        if config_id in self._remote_clients:
-            client = self._remote_clients[config_id]
-            with contextlib.suppress(Exception):
-                await client.terminate_kernel(kernel_id)
+        Parameters
+        ----------
+        name: str
+            Name of the kernel spec to set as default.
+        server_id: str
+            Identifier of the remote server for which to set
+            the default kernel spec.
 
-    @AsyncDispatcher.dispatch(loop="asyncssh")
-    async def _start_new_kernel(self, config_id):
-        """Start new kernel."""
+        Raises
+        ------
+        ValueError
+            If the server_id does not exist in the configuration.
+        """
+        configs = self.get_conf(self.CONF_SECTION_SERVERS, {})
+        if server_id not in configs:
+            msg = f"Configuration for remote server '{server_id}' not found."
+            raise ValueError(msg)
+
+        configs[server_id]["default_kernel_spec"] = name
+
+        self.set_conf(self.CONF_SECTION_SERVERS, configs)
+
+        if server_id in self._remote_clients:
+            server_options = self._remote_clients[server_id].options
+            server_options["default_kernel_spec"] = name
+
+    # --- API Methods
+    @staticmethod
+    def register_api(kclass: typing.Type[SpyderBaseJupyterAPIType]):
+        """
+        Register Remote Client API.
+
+        This method is used to register a new API class that will be used to
+        interact with the remote server. It can be used as a decorator.
+
+        Parameters
+        ----------
+        kclass: Type[SpyderBaseJupyterAPI]
+            Class to be registered.
+
+        Returns
+        -------
+        Type[SpyderBaseJupyterAPI]
+            Class that was registered.
+        """
+        return SpyderRemoteAPIManagerBase.register_api(kclass)
+
+    def get_api(
+        self, config_id: str, api: str | typing.Type[SpyderBaseJupyterAPIType]
+    ):
+        """
+        Get the API for a remote server.
+
+        Get the registered API class for a given remote server.
+
+        Parameters
+        ----------
+        config_id: str
+            Configuration id of the remote server.
+        api: str | Type[SpyderBaseJupyterAPI]
+            API class to be retrieved.
+
+        Returns
+        -------
+        SpyderBaseJupyterAPI
+            API class instance.
+        """
         if config_id not in self._remote_clients:
             self.load_client_from_id(config_id)
 
         client = self._remote_clients[config_id]
-        return await client.start_new_kernel_ensure_server()
 
-    @AsyncDispatcher.dispatch(loop="asyncssh")
-    async def _restart_kernel(self, config_id, kernel_id) -> bool:
-        """Restart kernel."""
-        if config_id in self._remote_clients:
-            client = self._remote_clients[config_id]
-            with contextlib.suppress(Exception):
-                return await client.restart_kernel(kernel_id)
+        return client.get_api(api)
 
-        return False
+    def get_file_api(self, config_id):
+        """Get file API."""
+        if config_id not in self._remote_clients:
+            self.load_client_from_id(config_id)
 
-    @AsyncDispatcher.dispatch(loop="asyncssh")
-    async def _interrupt_kernel(self, config_id, kernel_id):
-        """Interrupt kernel."""
-        if config_id in self._remote_clients:
-            client = self._remote_clients[config_id]
-            await client.interrupt_kernel(kernel_id)
+        client = self._remote_clients[config_id]
 
+        return client.get_api(SpyderRemoteFileServicesAPI)
+
+    def get_environ_api(self, config_id):
+        """Get environment API."""
+        if config_id not in self._remote_clients:
+            self.load_client_from_id(config_id)
+
+        client = self._remote_clients[config_id]
+
+        return client.get_api(SpyderRemoteEnvironAPI)
+
+    def get_jupyter_api(self, config_id):
+        """Get Jupyter API."""
+        if config_id not in self._remote_clients:
+            self.load_client_from_id(config_id)
+
+        client = self._remote_clients[config_id]
+
+        return client.get_jupyter_api()
+
+    # ---- Private API
+    # -------------------------------------------------------------------------
+    # --- Remote Server Kernel Methods
     def _reset_status(self):
         """Reset status of servers."""
         for config_id in self.get_config_ids():
             self.set_conf(f"{config_id}/status", ConnectionStatus.Inactive)
             self.set_conf(f"{config_id}/status_message", "")
 
-    def _add_remote_consoles_menu(self):
-        """Add remote consoles submenu to the Consoles menu."""
-        container = self.get_container()
-        container.setup_remote_consoles_submenu(render=False)
+    @AsyncDispatcher(loop="asyncssh")
+    async def _abort_connection(self, config_id: str):
+        if config_id not in self._remote_clients:
+            return
 
-        menu = container.get_menu(RemoteClientMenus.RemoteConsoles)
-        mainmenu = self.get_plugin(Plugins.MainMenu)
-        mainmenu.add_item_to_application_menu(
-            menu,
-            menu_id=ApplicationMenus.Consoles,
-            section=ConsolesMenuSections.New,
-            before=IPythonConsoleWidgetActions.ConnectToKernel,
-        )
-
-        self._is_consoles_menu_added = True
+        client = self._remote_clients[config_id]
+        await client.abort_connection()

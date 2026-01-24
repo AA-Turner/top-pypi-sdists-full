@@ -3,11 +3,17 @@
 from __future__ import annotations
 from ...core.unchecked_base_model import UncheckedBaseModel
 import typing
-from .git_lab_credential import GitLabCredential
+from .aws_provider_credential import AwsProviderCredential
+from .aws_region import AwsRegion
 from ...core.pydantic_utilities import IS_PYDANTIC_V2
 import pydantic
+from .git_hub_credential import GitHubCredential
+from .git_lab_credential import GitLabCredential
 from .hcl_app_scan_on_cloud_credential import HclAppScanOnCloudCredential
 from .hcl_app_scan_on_cloud_url import HclAppScanOnCloudUrl
+from .open_text_application_security_credential import (
+    OpenTextApplicationSecurityCredential,
+)
 from .open_text_core_application_security_credential import (
     OpenTextCoreApplicationSecurityCredential,
 )
@@ -15,12 +21,18 @@ from .open_text_core_application_security_url import OpenTextCoreApplicationSecu
 from .appsec_opentext_core_application_security_dataset import (
     AppsecOpentextCoreApplicationSecurityDataset,
 )
+from .snyk_credential import SnykCredential
+from .snyk_region import SnykRegion
 from .armis_credential import ArmisCredential
 from .assets_armis_dataset import AssetsArmisDataset
 from .axonius_credential import AxoniusCredential
 from .assets_axonius_dataset import AssetsAxoniusDataset
+from .claroty_credential import ClarotyCredential
+from .claroty_apiurl import ClarotyApiurl
 from .crowd_strike_credential import CrowdStrikeCredential
 from .assets_crowd_strike_dataset import AssetsCrowdStrikeDataset
+from .ivanti_credential import IvantiCredential
+from .assets_ivanti_neurons_dataset import AssetsIvantiNeuronsDataset
 from .nozomi_vantage_credential import NozomiVantageCredential
 from .assets_nozomi_vantage_dataset import AssetsNozomiVantageDataset
 from .qualys_cloud_credential import QualysCloudCredential
@@ -31,9 +43,10 @@ from .sevco_credential import SevcoCredential
 from .assets_sevco_dataset import AssetsSevcoDataset
 from .tanium_cloud_credential import TaniumCloudCredential
 from .assets_tanium_cloud_dataset import AssetsTaniumCloudDataset
-from .aws_provider_credential import AwsProviderCredential
-from .aws_region import AwsRegion
 from .defender_credential import DefenderCredential
+from .palo_alto_credential import PaloAltoCredential
+from .custom_endpoint import CustomEndpoint
+from .edr_crowd_strike_dataset import EdrCrowdStrikeDataset
 from .malwarebytes_credential import MalwarebytesCredential
 from .sentinel_one_credential import SentinelOneCredential
 from .sentinel_one_edr_events_credential import SentinelOneEdrEventsCredential
@@ -44,6 +57,8 @@ from .okta_credential import OktaCredential
 from .ping_one_auth_url import PingOneAuthUrl
 from .ping_one_credential import PingOneCredential
 from .ping_one_apiurl import PingOneApiurl
+from .incident_io_credential import IncidentIoCredential
+from .pager_duty_credential import PagerDutyCredential
 from .jira_credential import JiraCredential
 from .slack_credential import SlackCredential
 from .slack_webhook_credential import SlackWebhookCredential
@@ -61,19 +76,24 @@ from .splunk_hec_token import SplunkHecToken
 from .splunk_search_credential import SplunkSearchCredential
 from .sumo_logic_collection_url import SumoLogicCollectionUrl
 from .sumo_logic_credential import SumoLogicCredential
-from .aws_s_3_credential import AwsS3Credential
-from .aws_security_lake_credential import AwsSecurityLakeCredential
-from .aws_sqs_credential import AwsSqsCredential
-from .azure_monitor_logs_credential import AzureMonitorLogsCredential
 from .azure_blob_credential import AzureBlobCredential
+from .azure_monitor_logs_credential import AzureMonitorLogsCredential
+from .gcs_json_credential import GcsJsonCredential
+from .http_receiver_auth_config import HttpReceiverAuthConfig
+from .http_receiver_method import HttpReceiverMethod
+from .http_request_body_format import HttpRequestBodyFormat
+from .http_receiver_signing_credential import HttpReceiverSigningCredential
+from .panther_bearer_credential import PantherBearerCredential
 from .gcs_credential import GcsCredential
 from .autotask_api_integration_code_credential import (
     AutotaskApiIntegrationCodeCredential,
 )
 from .autotask_secret_credential import AutotaskSecretCredential
 from .freshdesk_credential import FreshdeskCredential
+from .ivanti_credential_ticketing import IvantiCredentialTicketing
+from .ticketing_ivanti_dataset import TicketingIvantiDataset
 from .custom_field_mapping import CustomFieldMapping
-from .pager_duty_credential import PagerDutyCredential
+from .ticketing_pagerduty_dataset import TicketingPagerdutyDataset
 from .torq_credential import TorqCredential
 from .zendesk_credential import ZendeskCredential
 from .vulnerabilities_crowd_strike_dataset import VulnerabilitiesCrowdStrikeDataset
@@ -86,6 +106,39 @@ from .vulnerabilities_tanium_cloud_dataset import VulnerabilitiesTaniumCloudData
 from .tenable_cloud_credential import TenableCloudCredential
 import typing_extensions
 from ...core.unchecked_base_model import UnionMetadata
+
+
+class ProviderConfig_AppsecAmazonInspector(UncheckedBaseModel):
+    type: typing.Literal["appsec_amazon_inspector"] = "appsec_amazon_inspector"
+    credential: AwsProviderCredential
+    region: AwsRegion
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_AppsecGithub(UncheckedBaseModel):
+    type: typing.Literal["appsec_github"] = "appsec_github"
+    credential: GitHubCredential
+    organization_slug: str
+    url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
 
 
 class ProviderConfig_AppsecGitlab(UncheckedBaseModel):
@@ -108,6 +161,24 @@ class ProviderConfig_AppsecHclAppscanOnCloud(UncheckedBaseModel):
     type: typing.Literal["appsec_hcl_appscan_on_cloud"] = "appsec_hcl_appscan_on_cloud"
     credential: HclAppScanOnCloudCredential
     url: HclAppScanOnCloudUrl
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_AppsecOpentextApplicationSecurity(UncheckedBaseModel):
+    type: typing.Literal["appsec_opentext_application_security"] = (
+        "appsec_opentext_application_security"
+    )
+    credential: OpenTextApplicationSecurityCredential
+    url: str
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -143,6 +214,23 @@ class ProviderConfig_AppsecOpentextCoreApplicationSecurityMock(UncheckedBaseMode
         "appsec_opentext_core_application_security_mock"
     )
     dataset: AppsecOpentextCoreApplicationSecurityDataset
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_AppsecSnyk(UncheckedBaseModel):
+    type: typing.Literal["appsec_snyk"] = "appsec_snyk"
+    credential: SnykCredential
+    organization_id: str
+    region: SnykRegion
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -217,6 +305,22 @@ class ProviderConfig_AssetsAxoniusMock(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_AssetsClarotyXdome(UncheckedBaseModel):
+    type: typing.Literal["assets_claroty_xdome"] = "assets_claroty_xdome"
+    credential: ClarotyCredential
+    url: ClarotyApiurl
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_AssetsCrowdstrike(UncheckedBaseModel):
     type: typing.Literal["assets_crowdstrike"] = "assets_crowdstrike"
     credential: CrowdStrikeCredential
@@ -236,6 +340,38 @@ class ProviderConfig_AssetsCrowdstrike(UncheckedBaseModel):
 class ProviderConfig_AssetsCrowdstrikeMock(UncheckedBaseModel):
     type: typing.Literal["assets_crowdstrike_mock"] = "assets_crowdstrike_mock"
     dataset: AssetsCrowdStrikeDataset
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_AssetsIvantiNeurons(UncheckedBaseModel):
+    type: typing.Literal["assets_ivanti_neurons"] = "assets_ivanti_neurons"
+    account_identifier: str
+    credential: IvantiCredential
+    url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_AssetsIvantiNeuronsMock(UncheckedBaseModel):
+    type: typing.Literal["assets_ivanti_neurons_mock"] = "assets_ivanti_neurons_mock"
+    dataset: AssetsIvantiNeuronsDataset
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -453,10 +589,58 @@ class ProviderConfig_CloudsecurityDefender(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_CloudsecurityPaloalto(UncheckedBaseModel):
+    type: typing.Literal["cloudsecurity_paloalto"] = "cloudsecurity_paloalto"
+    credential: PaloAltoCredential
+    url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_CustomSynqly(UncheckedBaseModel):
+    type: typing.Literal["custom_synqly"] = "custom_synqly"
+    custom_id: str
+    endpoints: typing.Dict[str, CustomEndpoint]
+    tags: typing.Dict[str, str]
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_EdrCrowdstrike(UncheckedBaseModel):
     type: typing.Literal["edr_crowdstrike"] = "edr_crowdstrike"
     credential: CrowdStrikeCredential
     url: typing.Optional[str] = None
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_EdrCrowdstrikeMock(UncheckedBaseModel):
+    type: typing.Literal["edr_crowdstrike_mock"] = "edr_crowdstrike_mock"
+    dataset: EdrCrowdStrikeDataset
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -611,6 +795,36 @@ class ProviderConfig_IdentityPingone(UncheckedBaseModel):
     credential: PingOneCredential
     organization_id: str
     url: PingOneApiurl
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_IncidentresponseIncidentio(UncheckedBaseModel):
+    type: typing.Literal["incidentresponse_incidentio"] = "incidentresponse_incidentio"
+    credential: IncidentIoCredential
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_IncidentresponsePagerduty(UncheckedBaseModel):
+    type: typing.Literal["incidentresponse_pagerduty"] = "incidentresponse_pagerduty"
+    credential: PagerDutyCredential
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -924,7 +1138,7 @@ class ProviderConfig_SiemSumoLogic(UncheckedBaseModel):
 class ProviderConfig_SinkAwsS3(UncheckedBaseModel):
     type: typing.Literal["sink_aws_s3"] = "sink_aws_s3"
     bucket: str
-    credential: AwsS3Credential
+    credential: AwsProviderCredential
     path: str
     region: AwsRegion
 
@@ -941,7 +1155,7 @@ class ProviderConfig_SinkAwsS3(UncheckedBaseModel):
 
 class ProviderConfig_SinkAwsSecurityLake(UncheckedBaseModel):
     type: typing.Literal["sink_aws_security_lake"] = "sink_aws_security_lake"
-    credential: AwsSecurityLakeCredential
+    credential: AwsProviderCredential
     region: typing.Optional[str] = None
     url: str
 
@@ -958,9 +1172,26 @@ class ProviderConfig_SinkAwsSecurityLake(UncheckedBaseModel):
 
 class ProviderConfig_SinkAwsSqs(UncheckedBaseModel):
     type: typing.Literal["sink_aws_sqs"] = "sink_aws_sqs"
-    credential: AwsSqsCredential
+    credential: AwsProviderCredential
     region: typing.Optional[str] = None
     url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_SinkAzureBlob(UncheckedBaseModel):
+    type: typing.Literal["sink_azure_blob"] = "sink_azure_blob"
+    bucket: str
+    credential: AzureBlobCredential
+    path: str
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -1028,6 +1259,23 @@ class ProviderConfig_SinkElasticsearch(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_SinkGcs(UncheckedBaseModel):
+    type: typing.Literal["sink_gcs"] = "sink_gcs"
+    bucket: str
+    credential: GcsJsonCredential
+    path: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_SinkGoogleSecOps(UncheckedBaseModel):
     type: typing.Literal["sink_google_sec_ops"] = "sink_google_sec_ops"
     credential: GoogleChronicleCredential
@@ -1066,6 +1314,28 @@ class ProviderConfig_SinkGoogleSecurityOperations(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_SinkHttp(UncheckedBaseModel):
+    type: typing.Literal["sink_http"] = "sink_http"
+    accepted_response_codes: typing.Optional[typing.List[int]] = None
+    authorization: typing.Optional[HttpReceiverAuthConfig] = None
+    http_method: typing.Optional[HttpReceiverMethod] = None
+    request_body_format: typing.Optional[HttpRequestBodyFormat] = None
+    signing_credential: typing.Optional[HttpReceiverSigningCredential] = None
+    skip_tls_verify: typing.Optional[bool] = None
+    static_headers: typing.Optional[typing.Dict[str, str]] = None
+    url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_SinkMockSink(UncheckedBaseModel):
     type: typing.Literal["sink_mock_sink"] = "sink_mock_sink"
     destination: typing.Optional[str] = None
@@ -1086,6 +1356,22 @@ class ProviderConfig_SinkOpensearch(UncheckedBaseModel):
     create_index: str
     credential: OpenSearchCredential
     skip_tls_verify: typing.Optional[bool] = None
+    url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_SinkPanther(UncheckedBaseModel):
+    type: typing.Literal["sink_panther"] = "sink_panther"
+    credential: PantherBearerCredential
     url: str
 
     if IS_PYDANTIC_V2:
@@ -1136,10 +1422,25 @@ class ProviderConfig_SinkSplunk(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_SinkSumoLogic(UncheckedBaseModel):
+    type: typing.Literal["sink_sumo_logic"] = "sink_sumo_logic"
+    collection_url: SumoLogicCollectionUrl
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_StorageAwsS3(UncheckedBaseModel):
     type: typing.Literal["storage_aws_s3"] = "storage_aws_s3"
     bucket: str
-    credential: AwsS3Credential
+    credential: AwsProviderCredential
     endpoint: typing.Optional[str] = None
     region: str
 
@@ -1205,6 +1506,8 @@ class ProviderConfig_StorageMockStorage(UncheckedBaseModel):
 class ProviderConfig_TicketingAutotask(UncheckedBaseModel):
     type: typing.Literal["ticketing_autotask"] = "ticketing_autotask"
     api_integration_code_credential: AutotaskApiIntegrationCodeCredential
+    default_issue_type: typing.Optional[int] = None
+    default_project: typing.Optional[int] = None
     secret_credential: AutotaskSecretCredential
     user_name: str
     zone_path: str
@@ -1223,7 +1526,40 @@ class ProviderConfig_TicketingAutotask(UncheckedBaseModel):
 class ProviderConfig_TicketingFreshdesk(UncheckedBaseModel):
     type: typing.Literal["ticketing_freshdesk"] = "ticketing_freshdesk"
     credential: FreshdeskCredential
+    default_contact: typing.Optional[str] = None
+    default_type: typing.Optional[str] = None
     url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_TicketingIvanti(UncheckedBaseModel):
+    type: typing.Literal["ticketing_ivanti"] = "ticketing_ivanti"
+    credential: IvantiCredentialTicketing
+    url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_TicketingIvantiMock(UncheckedBaseModel):
+    type: typing.Literal["ticketing_ivanti_mock"] = "ticketing_ivanti_mock"
+    dataset: TicketingIvantiDataset
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -1295,7 +1631,24 @@ class ProviderConfig_TicketingMockTicketing(UncheckedBaseModel):
 class ProviderConfig_TicketingPagerduty(UncheckedBaseModel):
     type: typing.Literal["ticketing_pagerduty"] = "ticketing_pagerduty"
     credential: PagerDutyCredential
+    default_creator: typing.Optional[str] = None
+    default_project: typing.Optional[str] = None
     url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_TicketingPagerdutyMock(UncheckedBaseModel):
+    type: typing.Literal["ticketing_pagerduty_mock"] = "ticketing_pagerduty_mock"
+    dataset: TicketingPagerdutyDataset
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -1312,6 +1665,7 @@ class ProviderConfig_TicketingServicenow(UncheckedBaseModel):
     type: typing.Literal["ticketing_servicenow"] = "ticketing_servicenow"
     credential: ServiceNowCredential
     custom_field_mappings: typing.Optional[typing.List[CustomFieldMapping]] = None
+    default_issue_type: typing.Optional[str] = None
     default_project: typing.Optional[str] = None
     url: str
 
@@ -1330,6 +1684,8 @@ class ProviderConfig_TicketingServicenowSir(UncheckedBaseModel):
     type: typing.Literal["ticketing_servicenow_sir"] = "ticketing_servicenow_sir"
     credential: ServiceNowCredential
     custom_field_mappings: typing.Optional[typing.List[CustomFieldMapping]] = None
+    default_creator: typing.Optional[str] = None
+    default_issue_type: typing.Optional[str] = None
     default_project: typing.Optional[str] = None
     url: str
 
@@ -1348,6 +1704,8 @@ class ProviderConfig_TicketingTorq(UncheckedBaseModel):
     type: typing.Literal["ticketing_torq"] = "ticketing_torq"
     credential: TorqCredential
     custom_field_mappings: typing.Optional[typing.List[CustomFieldMapping]] = None
+    default_creator: typing.Optional[str] = None
+    default_issue_type: typing.Optional[str] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -1364,6 +1722,24 @@ class ProviderConfig_TicketingZendesk(UncheckedBaseModel):
     type: typing.Literal["ticketing_zendesk"] = "ticketing_zendesk"
     credential: ZendeskCredential
     url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_VulnerabilitiesAmazonInspector(UncheckedBaseModel):
+    type: typing.Literal["vulnerabilities_amazon_inspector"] = (
+        "vulnerabilities_amazon_inspector"
+    )
+    credential: AwsProviderCredential
+    region: AwsRegion
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -1569,16 +1945,23 @@ class ProviderConfig_VulnerabilitiesTenableCloud(UncheckedBaseModel):
 
 ProviderConfig = typing_extensions.Annotated[
     typing.Union[
+        ProviderConfig_AppsecAmazonInspector,
+        ProviderConfig_AppsecGithub,
         ProviderConfig_AppsecGitlab,
         ProviderConfig_AppsecHclAppscanOnCloud,
+        ProviderConfig_AppsecOpentextApplicationSecurity,
         ProviderConfig_AppsecOpentextCoreApplicationSecurity,
         ProviderConfig_AppsecOpentextCoreApplicationSecurityMock,
+        ProviderConfig_AppsecSnyk,
         ProviderConfig_AssetsArmisCentrix,
         ProviderConfig_AssetsArmisCentrixMock,
         ProviderConfig_AssetsAxonius,
         ProviderConfig_AssetsAxoniusMock,
+        ProviderConfig_AssetsClarotyXdome,
         ProviderConfig_AssetsCrowdstrike,
         ProviderConfig_AssetsCrowdstrikeMock,
+        ProviderConfig_AssetsIvantiNeurons,
+        ProviderConfig_AssetsIvantiNeuronsMock,
         ProviderConfig_AssetsNozomiVantage,
         ProviderConfig_AssetsNozomiVantageMock,
         ProviderConfig_AssetsQualysCloud,
@@ -1592,7 +1975,10 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_CloudsecurityAws,
         ProviderConfig_CloudsecurityCrowdstrike,
         ProviderConfig_CloudsecurityDefender,
+        ProviderConfig_CloudsecurityPaloalto,
+        ProviderConfig_CustomSynqly,
         ProviderConfig_EdrCrowdstrike,
+        ProviderConfig_EdrCrowdstrikeMock,
         ProviderConfig_EdrDefender,
         ProviderConfig_EdrMalwarebytes,
         ProviderConfig_EdrSentinelone,
@@ -1602,6 +1988,8 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_IdentityGoogle,
         ProviderConfig_IdentityOkta,
         ProviderConfig_IdentityPingone,
+        ProviderConfig_IncidentresponseIncidentio,
+        ProviderConfig_IncidentresponsePagerduty,
         ProviderConfig_NotificationsJira,
         ProviderConfig_NotificationsMockNotifications,
         ProviderConfig_NotificationsSlack,
@@ -1621,29 +2009,38 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_SinkAwsS3,
         ProviderConfig_SinkAwsSecurityLake,
         ProviderConfig_SinkAwsSqs,
+        ProviderConfig_SinkAzureBlob,
         ProviderConfig_SinkAzureMonitorLogs,
         ProviderConfig_SinkCrowdstrikeHec,
         ProviderConfig_SinkElasticsearch,
+        ProviderConfig_SinkGcs,
         ProviderConfig_SinkGoogleSecOps,
         ProviderConfig_SinkGoogleSecurityOperations,
+        ProviderConfig_SinkHttp,
         ProviderConfig_SinkMockSink,
         ProviderConfig_SinkOpensearch,
+        ProviderConfig_SinkPanther,
         ProviderConfig_SinkQRadar,
         ProviderConfig_SinkSplunk,
+        ProviderConfig_SinkSumoLogic,
         ProviderConfig_StorageAwsS3,
         ProviderConfig_StorageAzureBlob,
         ProviderConfig_StorageGcs,
         ProviderConfig_StorageMockStorage,
         ProviderConfig_TicketingAutotask,
         ProviderConfig_TicketingFreshdesk,
+        ProviderConfig_TicketingIvanti,
+        ProviderConfig_TicketingIvantiMock,
         ProviderConfig_TicketingJira,
         ProviderConfig_TicketingJiraServiceManagement,
         ProviderConfig_TicketingMockTicketing,
         ProviderConfig_TicketingPagerduty,
+        ProviderConfig_TicketingPagerdutyMock,
         ProviderConfig_TicketingServicenow,
         ProviderConfig_TicketingServicenowSir,
         ProviderConfig_TicketingTorq,
         ProviderConfig_TicketingZendesk,
+        ProviderConfig_VulnerabilitiesAmazonInspector,
         ProviderConfig_VulnerabilitiesCrowdstrike,
         ProviderConfig_VulnerabilitiesCrowdstrikeMock,
         ProviderConfig_VulnerabilitiesNucleus,

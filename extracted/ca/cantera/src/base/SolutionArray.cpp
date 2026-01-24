@@ -21,7 +21,12 @@
 
 namespace ba = boost::algorithm;
 
-const std::map<std::string, std::string> aliasMap = {
+namespace Cantera
+{
+
+namespace { // restrict scope of auxiliary variables to local translation unit
+
+const map<string, string> aliasMap = {
     {"T", "temperature"},
     {"P", "pressure"},
     {"D", "density"},
@@ -35,8 +40,28 @@ const std::map<std::string, std::string> aliasMap = {
     {"Q", "vapor-fraction"},
 };
 
-namespace Cantera
+const map<string, string> reverseAliasMap = {
+    // reserved names used by states
+    {"temperature", "T"},
+    {"pressure", "P"},
+    {"density", "D"},
+    // reserved names used for 1-D objects
+    {"spread-rate", "spreadRate"},
+    {"spread_rate", "spreadRate"}, // snake_case version used prior to Cantera 3.2
+    {"L", "Lambda"},
+    {"radial-pressure-gradient", "Lambda"},
+    {"lambda", "Lambda"}, // lower-case version used prior to Cantera 3.2
+    {"E", "eField"},
+    {"electric-field", "eField"},
+    {"oxidizer-velocity", "Uo"},
+};
+
+} // end unnamed namespace
+
+const map<string, string>& _componentAliasMap()
 {
+    return reverseAliasMap;
+}
 
 SolutionArray::SolutionArray(const shared_ptr<Solution>& sol,
                              int size, const AnyMap& meta)
@@ -561,6 +586,11 @@ shared_ptr<ThermoPhase> SolutionArray::thermo()
     return m_sol->thermo();
 }
 
+string SolutionArray::transportModel()
+{
+    return m_sol->transportModel();
+}
+
 vector<string> SolutionArray::componentNames() const
 {
     vector<string> components;
@@ -644,13 +674,13 @@ vector<string> SolutionArray::listExtra(bool all) const
     return names;
 }
 
-bool SolutionArray::hasComponent(const string& name) const
+bool SolutionArray::hasComponent(const string& name, bool checkAlias) const
 {
     if (m_extra->count(name)) {
         // auxiliary data
         return true;
     }
-    if (m_sol->thermo()->speciesIndex(name) != npos) {
+    if (m_sol->thermo()->speciesIndex(name, false) != npos) {
         // species
         return true;
     }
@@ -658,21 +688,28 @@ bool SolutionArray::hasComponent(const string& name) const
         // reserved names
         return false;
     }
+    if (checkAlias && reverseAliasMap.count(name)) {
+        // registered alias
+        return true;
+    }
     // native state
     return (m_sol->thermo()->nativeState().count(name));
 }
 
 AnyValue SolutionArray::getComponent(const string& name) const
 {
-    if (!hasComponent(name)) {
+    string _name = name;
+    if (!hasComponent(name, false) && reverseAliasMap.count(name)) {
+        _name = reverseAliasMap.at(name);
+    } else if (!hasComponent(name)) {
         throw CanteraError("SolutionArray::getComponent",
             "Unknown component '{}'.", name);
     }
 
     AnyValue out;
-    if (m_extra->count(name)) {
+    if (m_extra->count(_name)) {
         // extra component
-        const auto& extra = m_extra->at(name);
+        const auto& extra = m_extra->at(_name);
         if (extra.is<void>()) {
             return AnyValue();
         }
@@ -704,10 +741,10 @@ AnyValue SolutionArray::getComponent(const string& name) const
 
     // component is part of state information
     vector<double> data(m_size);
-    size_t ix = m_sol->thermo()->speciesIndex(name);
+    size_t ix = m_sol->thermo()->speciesIndex(_name, false);
     if (ix == npos) {
         // state other than species
-        ix = m_sol->thermo()->nativeState()[name];
+        ix = m_sol->thermo()->nativeState()[_name];
     } else {
         // species information
         ix += m_stride - m_sol->thermo()->nSpecies();
@@ -750,7 +787,7 @@ void SolutionArray::setComponent(const string& name, const AnyValue& data)
     }
 
     auto& vec = data.asVector<double>();
-    size_t ix = m_sol->thermo()->speciesIndex(name);
+    size_t ix = m_sol->thermo()->speciesIndex(name, false);
     if (ix == npos) {
         ix = m_sol->thermo()->nativeState()[name];
     } else {
@@ -776,7 +813,7 @@ void SolutionArray::setLoc(int loc, bool restore)
     } else if (static_cast<size_t>(m_active[loc_]) == m_loc) {
         return;
     } else if (loc_ >= m_size) {
-        throw IndexError("SolutionArray::setLoc", "indices", loc_, m_size - 1);
+        throw IndexError("SolutionArray::setLoc", "indices", loc_, m_size);
     }
     m_loc = static_cast<size_t>(m_active[loc_]);
     if (restore) {
@@ -1155,6 +1192,9 @@ void SolutionArray::writeEntry(const string& fname, const string& name,
     } else {
         more["api-shape"] = m_apiShape;
     }
+    if (!m_meta.hasKey("transport-model") && m_sol->transport()) {
+        more["transport-model"] = m_sol->transportModel();
+    }
     more["components"] = componentNames();
     file.writeAttributes(path, more);
     if (!m_dataSize) {
@@ -1220,6 +1260,9 @@ void SolutionArray::writeEntry(AnyMap& root, const string& name, const string& s
         data["size"] = int(m_dataSize);
     } else {
         data["api-shape"] = m_apiShape;
+    }
+    if (m_sol->transport() && m_sol->transportModel() != "none") {
+        data["transport-model"] = m_sol->transportModel();
     }
     data.update(m_meta);
 
@@ -1330,7 +1373,8 @@ void SolutionArray::save(const string& fname, const string& name, const string& 
     if (extension == "yaml" || extension == "yml") {
         // Check for an existing file and load it if present
         AnyMap data;
-        if (std::ifstream(fname).good()) {
+        std::ifstream file(fname);
+        if (file.good() && file.peek() != std::ifstream::traits_type::eof()) {
             data = AnyMap::fromYamlFile(fname);
         }
         writeHeader(data, name, desc, overwrite);
@@ -1787,13 +1831,17 @@ void SolutionArray::readEntry(const string& fname, const string& name,
         const auto& components = m_meta["components"].asVector<string>();
         bool back = false;
         for (const auto& name : components) {
-            if (hasComponent(name) || name == "X" || name == "Y") {
+            if (hasComponent(name, false) || name == "X" || name == "Y") {
                 back = true;
             } else {
-                addExtra(name, back);
+                auto _name = name;
+                if (reverseAliasMap.count(name)) {
+                    _name = reverseAliasMap.at(name);
+                }
+                addExtra(_name, back);
                 AnyValue data;
                 data = file.readData(path, name, m_dataSize);
-                setComponent(name, data);
+                setComponent(_name, data);
             }
         }
         m_meta.erase("components");
@@ -1801,13 +1849,21 @@ void SolutionArray::readEntry(const string& fname, const string& name,
         // data format used by Python h5py export (Cantera 2.5)
         warn_user("SolutionArray::readEntry", "Detected legacy HDF format.");
         for (const auto& name : names) {
-            if (!hasComponent(name) && name != "X" && name != "Y") {
-                addExtra(name);
+            if (!hasComponent(name, false) && name != "X" && name != "Y") {
+                auto _name = name;
+                if (reverseAliasMap.count(name)) {
+                    _name = reverseAliasMap.at(name);
+                }
+                addExtra(_name);
                 AnyValue data;
                 data = file.readData(path, name, m_dataSize);
-                setComponent(name, data);
+                setComponent(_name, data);
             }
         }
+    }
+
+    if (m_meta.hasKey("transport-model")) {
+        m_sol->setTransportModel(m_meta["transport-model"].asString());
     }
 }
 
@@ -1892,12 +1948,16 @@ void SolutionArray::readEntry(const AnyMap& root, const string& name, const stri
             const auto& components = path["components"].asVector<string>();
             bool back = false;
             for (const auto& name : components) {
-                if (hasComponent(name)) {
+                auto _name = name;
+                if (hasComponent(name, false)) {
                     back = true;
                 } else {
-                    addExtra(name, back);
+                    if (reverseAliasMap.count(name)) {
+                        _name = reverseAliasMap.at(name);
+                    }
+                    addExtra(_name, back);
                 }
-                setComponent(name, path[name]);
+                setComponent(_name, path[name]);
                 exclude.insert(name);
             }
         } else {
@@ -1906,10 +1966,14 @@ void SolutionArray::readEntry(const AnyMap& root, const string& name, const stri
                 if (value.isVector<double>()) {
                     const vector<double>& data = value.asVector<double>();
                     if (data.size() == m_dataSize) {
-                        if (!hasComponent(name)) {
-                            addExtra(name);
+                        auto _name = name;
+                        if (!hasComponent(name, false)) {
+                            if (reverseAliasMap.count(name)) {
+                                _name = reverseAliasMap.at(name);
+                            }
+                            addExtra(_name);
                         }
-                        setComponent(name, value);
+                        setComponent(_name, value);
                         exclude.insert(name);
                     }
                 }
@@ -1953,6 +2017,10 @@ void SolutionArray::readEntry(const AnyMap& root, const string& name, const stri
         if (!exclude.count(name)) {
             m_meta[name] = value;
         }
+    }
+
+    if (m_meta.hasKey("transport-model")) {
+        m_sol->setTransportModel(m_meta["transport-model"].asString());
     }
 }
 

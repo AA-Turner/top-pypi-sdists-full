@@ -1,10 +1,10 @@
 - category: Linear regression models
   description: ""
   tiles:
-    - title: Comparison of two means
-      subtitle: With a t-test
-      href: t-test.ipynb
-      thumbnail: thumbnails/t_test.png
+    # - title: Comparison of two means
+    #   subtitle: With a t-test
+    #   href: t-test.ipynb
+    #   thumbnail: thumbnails/t_test.png
     - title: Multiple linear regression
       subtitle: Personality dimensions
       href: ESCS_multiple_regression.ipynb
@@ -52,11 +52,11 @@
       subtitle: Model vote intention
       href: logistic_regression.ipynb
       thumbnail: thumbnails/logistic_regression.png
-    - title: Logistic regression 
+    - title: Logistic regression
       subtitle: Model comparison with ArviZ
       href: model_comparison.ipynb
       thumbnail: thumbnails/model_comparison.png
-    - title: Hierarchical logistic regression 
+    - title: Hierarchical logistic regression
       subtitle: With the Binomial family
       href: hierarchical_binomial_bambi.ipynb
       thumbnail: thumbnails/hierarchical_binomial_bambi.png
@@ -139,13 +139,20 @@
       href: plot_comparisons.ipynb
       thumbnail: thumbnails/plot_comparisons.png
     - title: Slopes
-      subtitle: Determine how the response changes 
+      subtitle: Determine how the response changes
       href: plot_slopes.ipynb
       thumbnail: thumbnails/plot_slopes.png
     - title: Advanced interpret usage
       subtitle: Create data grids and compute complex quantities of interest
       href: interpret_advanced_usage.ipynb
       thumbnail: thumbnails/advanced_interpret.png
+- category: Variable selection
+  description: ""
+  tiles:
+    - title: Variable selection with Kulprit
+      subtitle: Kullback-Leibler projections for Bayesian model selection
+      href: kulprit.qmd
+      thumbnail: thumbnails/kulprit.png
 - category: Alternative sampling backends
   description: ""
   tiles:

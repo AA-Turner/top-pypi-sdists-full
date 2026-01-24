@@ -39,7 +39,7 @@ classifiers = [
     "Topic :: File Formats :: JSON :: JSON Schema",
     "Topic :: Utilities",
 ]
-version = "1.6.11"
+version = "1.7.0"
 
 [project.license]
 text = "MIT"
@@ -146,6 +146,7 @@ markers = [
     "union: union dtypes",
     "pipe_union: union dtypes specified with a pipe",
     "scalar: scalar values",
+    "model: dtype annotatiosn are a pydantic model",
 ]
 
 [tool.black]
@@ -190,8 +191,6 @@ select = [
     "T100",
 ]
 ignore = [
-    "ANN101",
-    "ANN102",
     "ANN401",
     "ANN204",
     "B905",

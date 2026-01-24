@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: tblib
-Version: 3.1.0
+Version: 3.2.2
 Summary: Traceback serialization library.
-Home-page: https://github.com/ionelmc/python-tblib
-Author: Ionel Cristian Mărieș
-Author-email: contact@ionelmc.ro
-License: BSD-2-Clause
+Author-email: Ionel Cristian Mărieș <contact@ionelmc.ro>
+License-Expression: BSD-2-Clause
+Project-URL: Sources, https://github.com/ionelmc/python-tblib
 Project-URL: Documentation, https://python-tblib.readthedocs.io/
 Project-URL: Changelog, https://python-tblib.readthedocs.io/en/latest/changelog.html
 Project-URL: Issue Tracker, https://github.com/ionelmc/python-tblib/issues
@@ -23,23 +22,16 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Utilities
 Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
 License-File: LICENSE
-License-File: AUTHORS.rst
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
 Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
+Dynamic: description-content-type
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: requires-python
-Dynamic: summary
 
 ========
 Overview
@@ -144,7 +136,7 @@ Raising
 
 ::
 
-    >>> from six import reraise
+    >>> from tblib.decorators import reraise
     >>> reraise(*pickle.loads(s1))
     Traceback (most recent call last):
       ...
@@ -431,22 +423,26 @@ json.JSONDecoder::
     {'tb_frame': {'f_code': {'co_filename': '<doctest README.rst[...]>',
                              'co_name': '<module>'},
                   'f_globals': {'__name__': '__main__'},
-                  'f_lineno': 5},
+                  'f_lineno': 5,
+                  'f_locals': {}},
      'tb_lineno': 2,
      'tb_next': {'tb_frame': {'f_code': {'co_filename': ...,
                                          'co_name': 'inner_2'},
                               'f_globals': {'__name__': '__main__'},
-                              'f_lineno': 2},
+                              'f_lineno': 2,
+                              'f_locals': {}},
                  'tb_lineno': 2,
                  'tb_next': {'tb_frame': {'f_code': {'co_filename': ...,
                                                      'co_name': 'inner_1'},
                                           'f_globals': {'__name__': '__main__'},
-                                          'f_lineno': 2},
+                                          'f_lineno': 2,
+                                          'f_locals': {}},
                              'tb_lineno': 2,
                              'tb_next': {'tb_frame': {'f_code': {'co_filename': ...,
                                                                  'co_name': 'inner_0'},
                                                       'f_globals': {'__name__': '__main__'},
-                                                      'f_lineno': 2},
+                                                      'f_lineno': 2,
+                                                      'f_locals': {}},
                                          'tb_lineno': 2,
                                          'tb_next': None}}}}
 
@@ -501,7 +497,7 @@ tblib.Traceback.from_string
       File "...examples.py", line 10, in func_c
         func_d()
       File "...examples.py", line 14, in func_d
-        raise Exception("Guessing time !")
+        raise Exception('Guessing time !')
     Exception: fail
 
 
@@ -532,7 +528,7 @@ If you use the ``strict=False`` option then parsing is a bit more lax::
       File "...examples.py", line 10, in func_c
         func_d()
       File "...examples.py", line 14, in func_d
-        raise Exception("Guessing time !")
+        raise Exception('Guessing time !')
     Exception: fail
 
 tblib.decorators.return_error
@@ -591,7 +587,7 @@ Not very useful is it? Let's sort this out::
     >>> from tblib.decorators import apply_with_return_error, Error
     >>> from itertools import repeat
     >>> pool = Pool()
-    >>> try:
+    >>> try: # doctest: +SKIP
     ...     for i in pool.map(apply_with_return_error, zip(repeat(func_a), range(5))):
     ...         if isinstance(i, Error):
     ...             i.reraise()
@@ -605,6 +601,8 @@ Not very useful is it? Let's sort this out::
         i.reraise()
       File "...tblib...decorators.py", line ..., in reraise
         reraise(self.exc_type, self.exc_value, self.traceback)
+      File "...tblib...decorators.py", line ..., in reraise
+        raise value.with_traceback(tb)
       File "...tblib...decorators.py", line ..., in return_exceptions_wrapper
         return func(*args, **kwargs)
       File "...tblib...decorators.py", line ..., in apply_with_return_error
@@ -616,7 +614,7 @@ Not very useful is it? Let's sort this out::
       File "...examples.py", line 10, in func_c
         func_d()
       File "...examples.py", line 14, in func_d
-        raise Exception("Guessing time !")
+        raise Exception('Guessing time !')
     Exception: Guessing time !
     <BLANKLINE>
     >>> pool.terminate()
@@ -645,10 +643,11 @@ What if we have a local call stack ?
     >>> def local_2():
     ...     local_1()
     ...
-    >>> try:
+    >>> try: # doctest: +SKIP
     ...     local_2()
     ... except:
     ...     print(traceback.format_exc())
+    ...
     Traceback (most recent call last):
       File "<doctest README.rst[...]>", line 2, in <module>
         local_2()
@@ -658,11 +657,13 @@ What if we have a local call stack ?
         local_0()
       File "<doctest README.rst[...]>", line 6, in local_0
         i.reraise()
-      File "...tblib...decorators.py", line 20, in reraise
+      File "...tblib...decorators.py", line ..., in reraise
         reraise(self.exc_type, self.exc_value, self.traceback)
-      File "...tblib...decorators.py", line 27, in return_exceptions_wrapper
+      File "...tblib...decorators.py", line ..., in reraise
+        raise value.with_traceback(tb)
+      File "...tblib...decorators.py", line ..., in return_exceptions_wrapper
         return func(*args, **kwargs)
-      File "...tblib...decorators.py", line 47, in apply_with_return_error
+      File "...tblib...decorators.py", line ..., in apply_with_return_error
         return args[0](*args[1:])
       File "...tests...examples.py", line 2, in func_a
         func_b()
@@ -671,7 +672,7 @@ What if we have a local call stack ?
       File "...tests...examples.py", line 10, in func_c
         func_d()
       File "...tests...examples.py", line 14, in func_d
-        raise Exception("Guessing time !")
+        raise Exception('Guessing time !')
     Exception: Guessing time !
     <BLANKLINE>
 
@@ -705,11 +706,46 @@ Credits
 Changelog
 =========
 
+3.2.2 (2025-11-12)
+~~~~~~~~~~~~~~~~~~
+
+* Fixed regression occurring with ``TimeoutError`` exceptions. They should be represented now exactly as the original when unpickling.
+  Contributed by Jacob Tomlinson in `#85 <https://github.com/ionelmc/python-tblib/pull/85>`_.
+
+3.2.1 (2025-10-31)
+~~~~~~~~~~~~~~~~~~
+
+* Fixed regression occurring with ``ExceptionGroup`` exceptions. That exception type is now handled specifically in the new ``unpickle_exception_with_attrs`` function (just like ``OSError``).
+
+3.2.0 (2025-10-21)
+~~~~~~~~~~~~~~~~~~
+
+* Changed ``tblib.pickling_support.install`` to support exceptions with ``__init__`` that does match the default
+  ``BaseException.__reduce__`` (as it expects the positional arguments to ``__init__`` to match the ``args`` attribute).
+
+  Special handling for OSError (and subclasses) is also included. The errno, strerror, winerror, filename and filename2 attributes will be added in the reduce structure (if set).
+
+  This will support exception subclasses that do this without defining a custom ``__reduce__``:
+
+  .. code-block:: python
+
+    def __init__(self):
+        super().__init__('mistery argument')
+
+    def __init__(self, mistery_argument):
+        super().__init__()
+        self.mistery_argument = mistery_argument
+
+  Tests and POC contributed by Oldřich Jedlička in `#73 <https://github.com/ionelmc/python-tblib/pull/73>`_.
+* Fixed some doctest and coverage config. Contributed by Colin Watson in `#79 <https://github.com/ionelmc/python-tblib/pull/79>`_.
+
+
 3.1.0 (2025-03-31)
 ~~~~~~~~~~~~~~~~~~
 
 * Improved performance of ``as_traceback`` by a large factor.
   Contributed by Haoyu Weng in `#81 <https://github.com/ionelmc/python-tblib/pull/81>`_.
+* Dropped support for now-EOL Python 3.8 and added 3.13 in the test grid.
 
 3.0.0 (2023-10-22)
 ~~~~~~~~~~~~~~~~~~

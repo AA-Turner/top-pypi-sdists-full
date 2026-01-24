@@ -16,9 +16,11 @@ T = TypeVar("T", bound="GetFlowVersionResponse200ValuePreprocessorModuleSuspendR
 
 @_attrs_define
 class GetFlowVersionResponse200ValuePreprocessorModuleSuspendResumeForm:
-    """
+    """Form schema for collecting input when resuming
+
     Attributes:
-        schema (Union[Unset, GetFlowVersionResponse200ValuePreprocessorModuleSuspendResumeFormSchema]):
+        schema (Union[Unset, GetFlowVersionResponse200ValuePreprocessorModuleSuspendResumeFormSchema]): JSON Schema for
+            the resume form
     """
 
     schema: Union[Unset, "GetFlowVersionResponse200ValuePreprocessorModuleSuspendResumeFormSchema"] = UNSET

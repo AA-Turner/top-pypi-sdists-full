@@ -55,6 +55,8 @@ from . import (
 from . import properties_physics_softbody as properties_physics_softbody
 from . import properties_render as properties_render
 from . import properties_scene as properties_scene
+from . import properties_strip as properties_strip
+from . import properties_strip_modifier as properties_strip_modifier
 from . import properties_texture as properties_texture
 from . import properties_view_layer as properties_view_layer
 from . import properties_workspace as properties_workspace
@@ -80,6 +82,7 @@ from . import space_toolsystem_toolbar as space_toolsystem_toolbar
 from . import space_topbar as space_topbar
 from . import space_userpref as space_userpref
 from . import space_view3d as space_view3d
+from . import space_view3d_sidebar as space_view3d_sidebar
 from . import space_view3d_toolbar as space_view3d_toolbar
 from . import utils as utils
 
@@ -98,14 +101,12 @@ class UI_MT_button_context_menu(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -129,14 +130,12 @@ class UI_MT_list_item_context_menu(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:

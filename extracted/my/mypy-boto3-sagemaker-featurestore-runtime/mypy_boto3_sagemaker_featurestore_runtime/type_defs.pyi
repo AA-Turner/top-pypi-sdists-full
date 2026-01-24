@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from typing import Union
 
 from .literals import (
@@ -26,12 +27,6 @@ from .literals import (
     TtlDurationUnitType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -65,8 +60,8 @@ class BatchGetRecordErrorTypeDef(TypedDict):
 
 class BatchGetRecordIdentifierOutputTypeDef(TypedDict):
     FeatureGroupName: str
-    RecordIdentifiersValueAsString: List[str]
-    FeatureNames: NotRequired[List[str]]
+    RecordIdentifiersValueAsString: list[str]
+    FeatureNames: NotRequired[list[str]]
 
 class BatchGetRecordIdentifierTypeDef(TypedDict):
     FeatureGroupName: str
@@ -76,14 +71,14 @@ class BatchGetRecordIdentifierTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 class FeatureValueOutputTypeDef(TypedDict):
     FeatureName: str
     ValueAsString: NotRequired[str]
-    ValueAsStringList: NotRequired[List[str]]
+    ValueAsStringList: NotRequired[list[str]]
 
 class DeleteRecordRequestTypeDef(TypedDict):
     FeatureGroupName: str
@@ -117,11 +112,11 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 class BatchGetRecordResultDetailTypeDef(TypedDict):
     FeatureGroupName: str
     RecordIdentifierValueAsString: str
-    Record: List[FeatureValueOutputTypeDef]
+    Record: list[FeatureValueOutputTypeDef]
     ExpiresAt: NotRequired[str]
 
 class GetRecordResponseTypeDef(TypedDict):
-    Record: List[FeatureValueOutputTypeDef]
+    Record: list[FeatureValueOutputTypeDef]
     ExpiresAt: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -132,9 +127,9 @@ class BatchGetRecordRequestTypeDef(TypedDict):
     ExpirationTimeResponse: NotRequired[ExpirationTimeResponseType]
 
 class BatchGetRecordResponseTypeDef(TypedDict):
-    Records: List[BatchGetRecordResultDetailTypeDef]
-    Errors: List[BatchGetRecordErrorTypeDef]
-    UnprocessedIdentifiers: List[BatchGetRecordIdentifierOutputTypeDef]
+    Records: list[BatchGetRecordResultDetailTypeDef]
+    Errors: list[BatchGetRecordErrorTypeDef]
+    UnprocessedIdentifiers: list[BatchGetRecordIdentifierOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutRecordRequestTypeDef(TypedDict):

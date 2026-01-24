@@ -1,7 +1,6 @@
 from ..abstract import ErdReadOnlyConverter
 from ..primitives import *
-
-from gehomesdk.erd.values import (
+from ...values import (
     ErdMicrowaveState, 
     ErdDoorStatus,
     ErdMicrowaveCookStatus,
@@ -25,7 +24,7 @@ class ErdMicrowaveStateConverter(ErdReadOnlyConverter[ErdMicrowaveState]):
             pl = max(min(pl, 10), 0)
 
             if len(value) >= 12:
-                temp = value[8:12]
+                temp = int(value[8:12])
             else:
                 temp = 0
 
@@ -39,7 +38,7 @@ class ErdMicrowaveStateConverter(ErdReadOnlyConverter[ErdMicrowaveState]):
             )
         except:
             return ErdMicrowaveState(
-                "", 
+                ErdMicrowaveCookStatus.UNKNOWN, 
                 ErdMicrowaveCookMode.DASH, 
                 ErdDoorStatus.NA,
                 0,

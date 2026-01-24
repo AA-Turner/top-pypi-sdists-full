@@ -3,7 +3,7 @@
 
 #
 # Dell OpenManage Ansible Modules
-# Version 9.12.0
+# Version 10.0.0
 # Copyright (C) 2021-2025 Dell Inc. or its subsidiaries. All Rights Reserved.
 
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -30,6 +30,8 @@ author:
   - "Rajeev Arakkal (@rajeevarakkal)"
   - "Kritika Bhateja (@Kritika-Bhateja-03)"
   - "Abhishek Sinha (@ABHISHEK-SINHA10)"
+  - "Saksham Nautiyal (@Saksham-Nautiyal)"
+  - "Mangirish Kenkare(@MangirishK)"
 notes:
     - Run this module from a system that has direct access to Dell iDRAC.
     - This module supports both IPv4 and IPv6 address for I(idrac_ip).
@@ -110,6 +112,10 @@ from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_utils.inf
 from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_utils.info.system import IDRACSystemInfo
 from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_utils.info.video import IDRACVideoInfo
 from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_utils.info.subsystem import IDRACSubsystemInfo
+from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_utils.info.sensors_temperature import IDRACSensorsTemperatureInfo
+from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_utils.info.controller_sensor import IDRACControllerSensorInfo
+from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_utils.info.system_metrics import IDRACSystemMetricsInfo
+from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_utils.info.system_board_metrics import IDRACSystemBoardMetricsInfo
 from ansible_collections.dellemc.openmanage.plugins.module_utils.\
     idrac_utils.info.license import IDRACLicenseInfo
 from ansible_collections.dellemc.openmanage.plugins.module_utils.\
@@ -124,6 +130,12 @@ from ansible_collections.dellemc.openmanage.plugins.module_utils.\
     idrac_utils.info.controller import IDRACControllerInfo
 from ansible_collections.dellemc.openmanage.plugins.module_utils.\
     idrac_utils.info.physical_disk import IDRACPhysicalDiskInfo
+from ansible_collections.dellemc.openmanage.plugins.module_utils.\
+    idrac_utils.info.controller_battery import IDRACControllerBatteryInfo
+from ansible_collections.dellemc.openmanage.plugins.module_utils.\
+    idrac_utils.info.sensor_amperage import IDRACSensorAmperageInfo
+from ansible_collections.dellemc.openmanage.plugins.module_utils.\
+    idrac_utils.info.chassis_sensor_util import IDRACChassisSensors
 from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_redfish import iDRACRedfishAPI, IdracAnsibleModule
 from ansible.module_utils.basic import AnsibleModule
 from urllib.error import URLError, HTTPError
@@ -154,21 +166,27 @@ def main():
                 "iDRACNIC": "",
                 "PCIDevice": "",
                 "PowerSupply": "",
+                "ControllerBattery": "",
                 "Sensors_Temperature": "",
                 "Sensors_Battery": "",
                 "Sensors_Fan": "",
                 "Sensors_Intrusion": "",
                 "Sensors_Voltage": "",
+                "Sensors_Amperage": "",
                 "NIC": "",
                 "Fan": "",
                 "System": "",
+                "SystemBoardMetrics": "",
+                "SystemMetrics": "",
                 "Subsystem": "",
                 "Controller": "",
+                "ControllerSensor": "",
                 "PhysicalDisk": "",
                 "Video": "",
                 "iDRAC": ""
             }
             if not firmware_obj.is_omsdk_required():
+                chassis_sensors = IDRACChassisSensors(idrac)
                 system_info_dict["BIOS"] = IDRACBiosInfo(idrac).get_bios_system_info()
                 system_info_dict["CPU"] = IDRACCpuInfo(idrac).get_cpu_system_info()
                 system_info_dict["Enclosure"] = IDRACEnclosureInfo(idrac).get_enclosure_system_info()
@@ -176,10 +194,13 @@ def main():
                 system_info_dict["Sensors_Battery"] = IDRACSensorsBatteryInfo(idrac).get_sensors_battery_info()
                 system_info_dict["Sensors_Intrusion"] = IDRACSensorsIntrusionInfo(idrac).get_sensors_intrusion_info()
                 system_info_dict["Sensors_Voltage"] = IDRACSensorsVoltageInfo(idrac).get_sensors_voltage_info()
+                system_info_dict["Sensors_Amperage"] = IDRACSensorAmperageInfo(idrac, chassis_sensors).get_sensor_amperage_info()
                 system_info_dict["Sensors_Fan"] = IDRACSensorsFanInfo(idrac).get_sensors_fan_info()
                 system_info_dict["Fan"] = IDRACFanInfo(idrac).get_fan_info()
                 system_info_dict["NIC"] = IDRACNICInfo(idrac).get_nic_info()
                 system_info_dict["System"] = IDRACSystemInfo(idrac).get_system_info()
+                system_info_dict["SystemBoardMetrics"] = IDRACSystemBoardMetricsInfo(idrac, chassis_sensors).get_system_board_metrics_info()
+                system_info_dict["SystemMetrics"] = IDRACSystemMetricsInfo(idrac).get_system_metrics_info()
                 system_info_dict["Video"] = IDRACVideoInfo(idrac).get_idrac_video_details()
                 system_info_dict["Subsystem"] = IDRACSubsystemInfo(idrac).get_subsystem_info()
                 system_info_dict["License"] = IDRACLicenseInfo(idrac).get_license_info()
@@ -190,7 +211,10 @@ def main():
                 system_info_dict["PCIDevice"] = IDRACPCIDeviceInfo(idrac).get_pcidevice_info()
                 system_info_dict["Controller"] = IDRACControllerInfo(idrac).get_controller_system_info()
                 system_info_dict["PhysicalDisk"] = IDRACPhysicalDiskInfo(idrac).get_physical_disk_info()
-                system_info_dict["Sensors_Temperature"] = []
+                system_info_dict["Sensors_Temperature"] = IDRACSensorsTemperatureInfo(idrac).get_sensors_temperature_info()
+                system_info_dict["ControllerSensor"] = IDRACControllerSensorInfo(idrac).get_controller_sensor_info()
+                system_info_dict["ControllerBattery"] = IDRACControllerBatteryInfo(idrac).get_controller_battery_info()
+
             else:
                 with iDRACConnection(module.params) as idrac:
                     idrac.get_entityjson()

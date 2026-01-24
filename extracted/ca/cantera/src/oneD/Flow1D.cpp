@@ -16,9 +16,29 @@ using namespace std;
 namespace Cantera
 {
 
+namespace { // restrict scope of auxiliary variables to local translation unit
+
+const map<string, size_t> componentMap = {
+    {"velocity", c_offset_U}, // axial velocity [m/s]
+    {"spreadRate", c_offset_V}, // strain rate
+    {"T", c_offset_T}, // temperature [kelvin]
+    {"Lambda", c_offset_L}, // (1/r)dP/dr
+    {"eField", c_offset_E}, // electric field
+    {"Uo", c_offset_Uo}, // oxidizer axial velocity [m/s]
+};
+
+} // end unnamed namespace
+
 Flow1D::Flow1D(ThermoPhase* ph, size_t nsp, size_t points) :
     Domain1D(nsp+c_offset_Y, points),
     m_nsp(nsp)
+{
+    warn_deprecated("Flow1D::Flow1D(ThermoPhase*, size_t, size_t)",
+        "To be removed after Cantera 3.2. Use constructor using Solution instead.");
+    _init(ph, nsp, points);
+}
+
+void Flow1D::_init(ThermoPhase* ph, size_t nsp, size_t points)
 {
     m_points = points;
 
@@ -60,7 +80,7 @@ Flow1D::Flow1D(ThermoPhase* ph, size_t nsp, size_t points) :
     setBounds(c_offset_U, -1e20, 1e20); // no bounds on u
     setBounds(c_offset_V, -1e20, 1e20); // no bounds on V
     setBounds(c_offset_T, 200.0, 2*m_thermo->maxTemp()); // temperature bounds
-    setBounds(c_offset_L, -1e20, 1e20); // lambda should be negative
+    setBounds(c_offset_L, -1e20, 1e20); // Lambda should be negative
     setBounds(c_offset_E, -1e20, 1e20); // no bounds on electric field
     setBounds(c_offset_Uo, -1e20, 1e20); // no bounds on Uo
     // mass fraction bounds
@@ -83,8 +103,8 @@ Flow1D::Flow1D(ThermoPhase* ph, size_t nsp, size_t points) :
 
     // Find indices for radiating species
     m_kRadiating.resize(2, npos);
-    m_kRadiating[0] = m_thermo->speciesIndex("CO2");
-    m_kRadiating[1] = m_thermo->speciesIndex("H2O");
+    m_kRadiating[0] = m_thermo->speciesIndex("CO2", false);
+    m_kRadiating[1] = m_thermo->speciesIndex("H2O", false);
 }
 
 Flow1D::Flow1D(shared_ptr<ThermoPhase> th, size_t nsp, size_t points)
@@ -95,10 +115,14 @@ Flow1D::Flow1D(shared_ptr<ThermoPhase> th, size_t nsp, size_t points)
     setSolution(sol);
 }
 
-Flow1D::Flow1D(shared_ptr<Solution> sol, const string& id, size_t points)
-    : Flow1D(sol->thermo().get(), sol->thermo()->nSpecies(), points)
+Flow1D::Flow1D(shared_ptr<Solution> phase, const string& id, size_t points)
+    : Domain1D(phase->thermo()->nSpecies()+c_offset_Y, points)
+    , m_nsp(phase->thermo()->nSpecies())
 {
-    setSolution(sol);
+    _init(phase->thermo().get(), phase->thermo()->nSpecies(), points);
+
+    m_solution = phase;
+    m_solution->thermo()->addSpeciesLock();
     m_id = id;
     m_kin = m_solution->kinetics().get();
     m_trans = m_solution->transport().get();
@@ -108,8 +132,8 @@ Flow1D::Flow1D(shared_ptr<Solution> sol, const string& id, size_t points)
             "Solution ('gas') object.");
     }
     m_solution->registerChangedCallback(this, [this]() {
-        setKinetics(m_solution->kinetics());
-        setTransport(m_solution->transport());
+        _setKinetics(m_solution->kinetics());
+        _setTransport(m_solution->transport());
     });
 }
 
@@ -118,6 +142,12 @@ Flow1D::~Flow1D()
     if (m_solution) {
         m_solution->removeChangedCallback(this);
     }
+}
+
+double Flow1D::lambda(const double* x, size_t j) const {
+    warn_deprecated("Flow1D::lambda",
+        "To be removed after Cantera 3.2. Component 'lambda' is renamed to 'Lambda'.");
+    return x[index(c_offset_L, j)];
 }
 
 string Flow1D::domainType() const {
@@ -132,18 +162,34 @@ string Flow1D::domainType() const {
 
 void Flow1D::setKinetics(shared_ptr<Kinetics> kin)
 {
+    warn_deprecated("Flow1D::setKinetics",
+        "After Cantera 3.2, a change of domain contents after instantiation "
+        "will be disabled.");
+    _setKinetics(kin);
+}
+
+void Flow1D::_setKinetics(shared_ptr<Kinetics> kin)
+{
     m_kin = kin.get();
     m_solution->setKinetics(kin);
 }
 
 void Flow1D::setTransport(shared_ptr<Transport> trans)
 {
+    warn_deprecated("Flow1D::setTransport",
+        "After Cantera 3.2, a change of domain contents after instantiation "
+        "will be disabled.");
+    _setTransport(trans);
+}
+
+void Flow1D::_setTransport(shared_ptr<Transport> trans)
+{
     if (!trans) {
-        throw CanteraError("Flow1D::setTransport", "Unable to set empty transport.");
+        throw CanteraError("Flow1D::_setTransport", "Unable to set empty transport.");
     }
     m_trans = trans.get();
     if (m_trans->transportModel() == "none") {
-        throw CanteraError("Flow1D::setTransport", "Invalid Transport model 'none'.");
+        throw CanteraError("Flow1D::_setTransport", "Invalid Transport model 'none'.");
     }
     m_do_multicomponent = (m_trans->transportModel() == "multicomponent" ||
         m_trans->transportModel() == "multicomponent-CK");
@@ -151,8 +197,8 @@ void Flow1D::setTransport(shared_ptr<Transport> trans)
     m_diff.resize(m_nsp * m_points);
     if (m_do_multicomponent) {
         m_multidiff.resize(m_nsp * m_nsp*m_points);
-        m_dthermal.resize(m_nsp, m_points, 0.0);
     }
+    m_dthermal.resize(m_nsp, m_points, 0.0);
     m_solution->setTransport(trans);
 }
 
@@ -168,8 +214,8 @@ void Flow1D::resize(size_t ncomponents, size_t points)
     m_diff.resize(m_nsp*m_points);
     if (m_do_multicomponent) {
         m_multidiff.resize(m_nsp*m_nsp*m_points);
-        m_dthermal.resize(m_nsp, m_points, 0.0);
     }
+    m_dthermal.resize(m_nsp, m_points, 0.0);
     m_flux.resize(m_nsp,m_points);
     m_wdot.resize(m_nsp,m_points, 0.0);
     m_hk.resize(m_nsp, m_points, 0.0);
@@ -207,9 +253,14 @@ void Flow1D::resetBadValues(double* xg)
     }
 }
 
-void Flow1D::setTransportModel(const string& trans)
+void Flow1D::setTransportModel(const string& model)
 {
-    m_solution->setTransportModel(trans);
+    if (model == "none") {
+        throw CanteraError("Flow1D::setTransportModel",
+            "Invalid Transport model 'none'.");
+    }
+    m_solution->setTransportModel(model);
+    Flow1D::_setTransport(m_solution->transport());
 }
 
 string Flow1D::transportModel() const {
@@ -257,10 +308,15 @@ void Flow1D::setGasAtMidpoint(const double* x, size_t j)
 
 void Flow1D::_finalize(const double* x)
 {
-    if (!m_do_multicomponent && m_do_soret) {
+    if (!(m_do_multicomponent ||
+          m_trans->transportModel() == "mixture-averaged" ||
+          m_trans->transportModel() == "mixture-averaged-CK")
+        && m_do_soret) {
+
         throw CanteraError("Flow1D::_finalize",
-            "Thermal diffusion (the Soret effect) is enabled, and requires "
-            "using a multicomponent transport model.");
+            "Thermal diffusion (the Soret effect) is enabled, but it "
+            "only ompatible with the mixture-averaged and multicomponent "
+            "transport models.");
     }
 
     size_t nz = m_zfix.size();
@@ -409,6 +465,9 @@ void Flow1D::updateTransport(double* x, size_t j0, size_t j1)
                 }
             }
             m_tcon[j] = m_trans->thermalConductivity();
+            if (m_do_soret) {
+                m_trans->getThermalDiffCoeffs(m_dthermal.ptrColumn(0) + j*m_nsp);
+            }
         }
     }
 }
@@ -533,7 +592,7 @@ void Flow1D::evalContinuity(double* x, double* rsd, int* diag,
         for (size_t j = j0; j <= j1; j++) { // interior points
             // For "axisymmetric-flow", the continuity equation  propagates the
             // mass flow rate information to the left (j+1 -> j) from the value
-            // specified at the right boundary. The lambda information propagates
+            // specified at the right boundary. The Lambda information propagates
             // in the opposite direction.
             rsd[index(c_offset_U, j)] = -(rho_u(x, j+1) - rho_u(x, j))/m_dz[j]
                                         -(density(j+1)*V(x, j+1) + density(j)*V(x, j));
@@ -587,7 +646,7 @@ void Flow1D::evalMomentum(double* x, double* rsd, int* diag,
     size_t j0 = std::max<size_t>(jmin, 1);
     size_t j1 = std::min(jmax, m_points-2);
     for (size_t j = j0; j <= j1; j++) { // interior points
-        rsd[index(c_offset_V, j)] = (shear(x, j) - lambda(x, j)
+        rsd[index(c_offset_V, j)] = (shear(x, j) - Lambda(x, j)
                                      - rho_u(x, j) * dVdz(x, j)
                                      - m_rho[j] * V(x, j) * V(x, j)) / m_rho[j];
         if (!m_twoPointControl) {
@@ -604,7 +663,7 @@ void Flow1D::evalLambda(double* x, double* rsd, int* diag,
 {
     if (!m_usesLambda) { // disable this equation
         for (size_t j = jmin; j <= jmax; j++) {
-            rsd[index(c_offset_L, j)] = lambda(x, j);
+            rsd[index(c_offset_L, j)] = Lambda(x, j);
             diag[index(c_offset_L, j)] = 0;
         }
         return;
@@ -612,14 +671,14 @@ void Flow1D::evalLambda(double* x, double* rsd, int* diag,
 
     if (jmin == 0) { // left boundary
         if (m_twoPointControl) {
-            rsd[index(c_offset_L, jmin)] = lambda(x, jmin+1) - lambda(x, jmin);
+            rsd[index(c_offset_L, jmin)] = Lambda(x, jmin+1) - Lambda(x, jmin);
         } else {
             rsd[index(c_offset_L, jmin)] = -rho_u(x, jmin);
         }
     }
 
     if (jmax == m_points - 1) { // right boundary
-        rsd[index(c_offset_L, jmax)] = lambda(x, jmax) - lambda(x, jmax-1);
+        rsd[index(c_offset_L, jmax)] = Lambda(x, jmax) - Lambda(x, jmax-1);
         diag[index(c_offset_L, jmax)] = 0;
     }
 
@@ -631,12 +690,12 @@ void Flow1D::evalLambda(double* x, double* rsd, int* diag,
             if (z(j) == m_zLeft) {
                 rsd[index(c_offset_L, j)] = T(x,j) - m_tLeft;
             } else if (z(j) > m_zLeft) {
-                rsd[index(c_offset_L, j)] = lambda(x, j) - lambda(x, j-1);
+                rsd[index(c_offset_L, j)] = Lambda(x, j) - Lambda(x, j-1);
             } else if (z(j) < m_zLeft) {
-                rsd[index(c_offset_L, j)] = lambda(x, j) - lambda(x, j+1);
+                rsd[index(c_offset_L, j)] = Lambda(x, j) - Lambda(x, j+1);
             }
         } else {
-            rsd[index(c_offset_L, j)] = lambda(x, j) - lambda(x, j-1);
+            rsd[index(c_offset_L, j)] = Lambda(x, j) - Lambda(x, j-1);
         }
         diag[index(c_offset_L, j)] = 0;
     }
@@ -773,12 +832,6 @@ void Flow1D::evalElectricField(double* x, double* rsd, int* diag,
     }
 }
 
-void Flow1D::evalContinuity(size_t j, double* x, double* rsd, int* diag, double rdt)
-{
-    throw CanteraError("Flow1D::evalContinuity",
-        "Overloaded by StFlow; to be removed after Cantera 3.1");
-}
-
 void Flow1D::show(const double* x)
 {
     writelog("    Pressure:  {:10.4g} Pa\n", m_press);
@@ -802,11 +855,11 @@ string Flow1D::componentName(size_t n) const
     case c_offset_U:
         return "velocity";
     case c_offset_V:
-        return "spread_rate";
+        return "spreadRate";
     case c_offset_T:
         return "T";
     case c_offset_L:
-        return "lambda";
+        return "Lambda";
     case c_offset_E:
         return "eField";
     case c_offset_Uo:
@@ -815,42 +868,53 @@ string Flow1D::componentName(size_t n) const
         if (n >= c_offset_Y && n < (c_offset_Y + m_nsp)) {
             return m_thermo->speciesName(n - c_offset_Y);
         } else {
-            return "<unknown>";
+            throw IndexError("Flow1D::componentName", "component", n, m_nv);
         }
     }
 }
 
-size_t Flow1D::componentIndex(const string& name) const
+size_t Flow1D::componentIndex(const string& name, bool checkAlias) const
 {
-    if (name=="velocity") {
-        return c_offset_U;
-    } else if (name=="spread_rate") {
-        return c_offset_V;
-    } else if (name=="T") {
-        return c_offset_T;
-    } else if (name=="lambda") {
-        return c_offset_L;
-    } else if (name == "eField") {
-        return c_offset_E;
-    } else if (name == "Uo") {
-        return c_offset_Uo;
-    } else {
-        for (size_t n=c_offset_Y; n<m_nsp+c_offset_Y; n++) {
-            if (componentName(n)==name) {
-                return n;
-            }
-        }
-        throw CanteraError("Flow1D1D::componentIndex",
-                           "no component named " + name);
+    if (componentMap.count(name)) {
+        return componentMap.at(name);
     }
+    for (size_t n = c_offset_Y; n < m_nsp + c_offset_Y; n++) {
+        if (componentName(n) == name) {
+            return n;
+        }
+    }
+    if (checkAlias) {
+        const auto& aliasMap = _componentAliasMap();
+        if (aliasMap.count(name)) {
+            return componentIndex(aliasMap.at(name), false);
+        }
+    }
+    throw CanteraError("Flow1D::componentIndex",
+                       "Component '{}' not found", name);
+}
+
+bool Flow1D::hasComponent(const string& name, bool checkAlias) const
+{
+    if (componentMap.count(name)) {
+        return true;
+    }
+    for (size_t n = c_offset_Y; n < m_nsp + c_offset_Y; n++) {
+        if (componentName(n) == name) {
+            return true;
+        }
+    }
+    if (checkAlias && _componentAliasMap().count(name)) {
+        return true;
+    }
+    return false;
 }
 
 bool Flow1D::componentActive(size_t n) const
 {
     switch (n) {
-    case c_offset_V: // spread_rate
+    case c_offset_V: // spreadRate
         return m_usesLambda;
-    case c_offset_L: // lambda
+    case c_offset_L: // Lambda
         return m_usesLambda;
     case c_offset_E: // eField
         return false;
@@ -860,7 +924,6 @@ bool Flow1D::componentActive(size_t n) const
         return true;
     }
 }
-
 AnyMap Flow1D::getMeta() const
 {
     AnyMap state = Domain1D::getMeta();
@@ -912,8 +975,142 @@ AnyMap Flow1D::getMeta() const
     return state;
 }
 
-shared_ptr<SolutionArray> Flow1D::asArray(const double* soln) const
+void Flow1D::updateState(size_t loc)
 {
+    if (!m_state) {
+        throw CanteraError("Flow1D::updateState",
+            "Domain needs to be installed in a container.");
+    }
+    if (!m_solution) {
+        throw CanteraError("Flow1D::updateState",
+            "Domain does not have associated Solution object.");
+    }
+    const double* soln = m_state->data() + m_iloc + m_nv * loc;
+    m_solution->thermo()->setMassFractions_NoNorm(soln + c_offset_Y);
+    m_solution->thermo()->setState_TP(*(soln + c_offset_T), m_press);
+}
+
+void Flow1D::getValues(const string& component, vector<double>& values) const
+{
+    if (!m_state) {
+        throw CanteraError("Flow1D::getValues",
+            "Domain needs to be installed in a container.");
+    }
+    if (values.size() != nPoints()) {
+        throw ArraySizeError("Flow1D::getValues", values.size(), nPoints());
+    }
+    auto i = componentIndex(component);
+    if (!componentActive(i)) {
+        warn_user(
+            "Flow1D::getValues", "Component '{}' is not used by '{}'.",
+            component, domainType());
+    }
+    const double* soln = m_state->data() + m_iloc;
+    for (size_t j = 0; j < nPoints(); j++) {
+        values[j] = soln[index(i,j)];
+    }
+}
+
+void Flow1D::setValues(const string& component, const vector<double>& values)
+{
+    if (!m_state) {
+        throw CanteraError("Flow1D::setValues",
+            "Domain needs to be installed in a container.");
+    }
+    if (values.size() != nPoints()) {
+        throw ArraySizeError("Flow1D::_etValues", values.size(), nPoints());
+    }
+    auto i = componentIndex(component);
+    if (!componentActive(i)) {
+        throw CanteraError(
+            "Flow1D::setValues", "Component '{}' is not used by '{}'.",
+            component, domainType());
+    }
+    double* soln = m_state->data() + m_iloc;
+    for (size_t j = 0; j < nPoints(); j++) {
+        soln[index(i,j)] = values[j];
+    }
+}
+
+void Flow1D::getResiduals(const string& component, vector<double>& values) const
+{
+    if (!m_state) {
+        throw CanteraError("Flow1D::getResiduals",
+            "Domain needs to be installed in a container.");
+    }
+    if (values.size() != nPoints()) {
+        throw ArraySizeError("Flow1D::getResiduals", values.size(), nPoints());
+    }
+    auto i = componentIndex(component);
+    if (!componentActive(i)) {
+        warn_user(
+            "Flow1D::getResiduals", "Component '{}' is not used by '{}'.",
+            component, domainType());
+    }
+    const double* soln = m_container->_workVector().data() + m_iloc;
+    for (size_t j = 0; j < nPoints(); j++) {
+        values[j] = soln[index(i,j)];
+    }
+}
+
+void Flow1D::setProfile(const string& component,
+                        const vector<double>& pos, const vector<double>& values)
+{
+    if (!m_state) {
+        throw CanteraError("Flow1D::setProfile",
+            "Domain needs to be installed in a container.");
+    }
+    if (pos.size() != values.size()) {
+        throw CanteraError(
+            "Flow1D::setProfile", "Vectors for positions and values must have same "
+            "size.\nSizes are {} and {}, respectively.", pos.size(), values.size());
+    }
+    if (pos.front() != 0.0 || pos.back() != 1.0) {
+        throw CanteraError("Flow1D::setProfile",
+            "'pos' vector must span the range [0, 1]. Got a vector spanning "
+            "[{}, {}] instead.", pos.front(), pos.back());
+    }
+    auto i = componentIndex(component);
+    if (!componentActive(i)) {
+        throw CanteraError(
+            "Flow1D::setProfile", "Component '{}' is not used by '{}'.",
+            component, domainType());
+    }
+    double* soln = m_state->data() + m_iloc;
+    double z0 = zmin();
+    double zDelta = zmax() - z0;
+    for (size_t j = 0; j < nPoints(); j++) {
+        double frac = (z(j) - z0)/zDelta;
+        double v = linearInterp(frac, pos, values);
+        soln[index(i,j)] = v;
+    }
+}
+
+void Flow1D::setFlatProfile(const string& component, double value)
+{
+    if (!m_state) {
+        throw CanteraError("Flow1D::setFlatProfile",
+            "Domain needs to be installed in a container.");
+    }
+    auto i = componentIndex(component);
+    if (!componentActive(i)) {
+        throw CanteraError(
+            "Flow1D::setFlatProfile", "Component '{}' is not used by '{}'.",
+            component, domainType());
+    }
+    double* soln = m_state->data() + m_iloc;
+    for (size_t j = 0; j < nPoints(); j++) {
+        soln[index(i,j)] = value;
+    }
+}
+
+shared_ptr<SolutionArray> Flow1D::toArray(bool normalize)
+{
+    if (!m_state) {
+        throw CanteraError("Flow1D::toArray",
+            "Domain needs to be installed in a container before calling toArray.");
+    }
+    double* soln = m_state->data() + m_iloc;
     auto arr = SolutionArray::create(
         m_solution, static_cast<int>(nPoints()), getMeta());
     arr->addExtra("grid", false); // leading entry
@@ -934,6 +1131,7 @@ shared_ptr<SolutionArray> Flow1D::asArray(const double* soln) const
             arr->setComponent(name, value);
         }
     }
+    updateThermo(soln, 0, m_points-1);
     value = m_rho;
     arr->setComponent("D", value); // use density rather than pressure
 
@@ -943,27 +1141,44 @@ shared_ptr<SolutionArray> Flow1D::asArray(const double* soln) const
         arr->setComponent("radiative-heat-loss", value);
     }
 
+    if (normalize) {
+        arr->normalize();
+    }
     return arr;
 }
 
-void Flow1D::fromArray(SolutionArray& arr, double* soln)
+void Flow1D::fromArray(const shared_ptr<SolutionArray>& arr)
 {
-    Domain1D::setMeta(arr.meta());
-    arr.setLoc(0);
-    auto phase = arr.thermo();
+    if (!m_state) {
+        throw CanteraError("Domain1D::fromArray",
+            "Domain needs to be installed in a container before calling fromArray.");
+    }
+    resize(nComponents(), arr->size());
+    m_container->resize();
+    double* soln = m_state->data() + m_iloc;
+
+    Domain1D::setMeta(arr->meta());
+    arr->setLoc(0);
+    auto phase = arr->thermo();
     m_press = phase->pressure();
 
-    const auto grid = arr.getComponent("grid").as<vector<double>>();
+    const auto grid = arr->getComponent("grid").as<vector<double>>();
     setupGrid(nPoints(), &grid[0]);
-    setMeta(arr.meta()); // can affect which components are active
+    setMeta(arr->meta()); // can affect which components are active
 
     for (size_t i = 0; i < nComponents(); i++) {
         if (!componentActive(i)) {
             continue;
         }
         string name = componentName(i);
-        if (arr.hasComponent(name)) {
-            const vector<double> data = arr.getComponent(name).as<vector<double>>();
+        if (arr->hasComponent(name)) {
+            const vector<double> data = arr->getComponent(name).as<vector<double>>();
+            for (size_t j = 0; j < nPoints(); j++) {
+                soln[index(i,j)] = data[j];
+            }
+        } else if (name == "Lambda" && arr->hasComponent("lambda")) {
+            // edge case: 'lambda' is renamed to 'Lambda' in Cantera 3.2
+            const auto data = arr->getComponent("lambda").as<vector<double>>();
             for (size_t j = 0; j < nPoints(); j++) {
                 soln[index(i,j)] = data[j];
             }
@@ -973,7 +1188,8 @@ void Flow1D::fromArray(SolutionArray& arr, double* soln)
         }
     }
 
-    updateProperties(npos, soln + loc(), 0, m_points - 1);
+    updateProperties(npos, soln, 0, m_points - 1);
+    _finalize(soln);
 }
 
 void Flow1D::setMeta(const AnyMap& state)
@@ -987,7 +1203,9 @@ void Flow1D::setMeta(const AnyMap& state)
         }
     }
 
-    setTransportModel(state.getString("transport-model", "mixture-averaged"));
+    if (state.hasKey("transport-model")) {
+        setTransportModel(state["transport-model"].asString());
+    }
 
     if (state.hasKey("Soret-enabled")) {
         m_do_soret = state["Soret-enabled"].asBool();

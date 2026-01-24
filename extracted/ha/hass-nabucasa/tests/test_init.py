@@ -19,7 +19,7 @@ from .common import MockClient
 def mock_subscription_info(aioclient_mock):
     """Mock subscription info."""
     aioclient_mock.get(
-        "https://example.com/payments/subscription_info",
+        "https://example.com/account/payments/subscription_info",
         json={
             "success": True,
             "billing_plan_type": "mock-plan",
@@ -28,9 +28,17 @@ def mock_subscription_info(aioclient_mock):
 
 
 @pytest.fixture
-def cl(cloud_client) -> cloud.Cloud:
+async def cl(cloud_client) -> cloud.Cloud:
     """Mock cloud client."""
-    return cloud.Cloud(cloud_client, cloud.MODE_DEV, accounts_server="example.com")
+    with patch(
+        "hass_nabucasa.service_discovery.ServiceDiscovery.async_start_service_discovery",
+        new=AsyncMock(),
+    ):
+        yield cloud.Cloud(
+            cloud_client,
+            cloud.MODE_DEV,
+            api_server="example.com",
+        )
 
 
 def test_constructor_loads_info_from_constant(cloud_client):
@@ -51,8 +59,6 @@ def test_constructor_loads_info_from_constant(cloud_client):
             {
                 "beer": {
                     "relayer": "test-relayer",
-                    "accounts": "test-subscription-info-url",
-                    "cloudhook": "test-cloudhook_server",
                     "acme": "test-acme-directory-server",
                     "remotestate": "test-google-actions-report-state-url",
                     "account_link": "test-account-link-url",
@@ -68,8 +74,6 @@ def test_constructor_loads_info_from_constant(cloud_client):
     assert cl.user_pool_id == "test-user_pool_id"
     assert cl.region == "test-region"
     assert cl.relayer_server == "test-relayer"
-    assert cl.accounts_server == "test-subscription-info-url"
-    assert cl.cloudhook_server == "test-cloudhook_server"
     assert cl.acme_server == "test-acme-directory-server"
     assert cl.remotestate_server == "test-google-actions-report-state-url"
     assert cl.account_link_server == "test-account-link-url"
@@ -507,4 +511,4 @@ async def test_subscription_reconnection_handler_connection_error(
     _initialize_mocker.assert_awaited_once()
     assert "Stopping subscription reconnection handler" in caplog.text
     assert "Could not establish connection (attempt 1)" in caplog.text
-    assert "waiting 3.6 minutes before retrying" in caplog.text
+    assert "waiting 3m:36s before retrying" in caplog.text

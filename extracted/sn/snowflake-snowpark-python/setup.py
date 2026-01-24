@@ -14,10 +14,10 @@ from setuptools.command.build_py import build_py as _build_py
 THIS_DIR = os.path.dirname(os.path.realpath(__file__))
 SRC_DIR = os.path.join(THIS_DIR, "src")
 SNOWPARK_SRC_DIR = os.path.join(SRC_DIR, "snowflake", "snowpark")
-# Snowpark pandas requires modin 0.35.x or 0.36.x, which are compatible with pandas
+# Snowpark pandas requires modin 0.36.x or 0.37.x, which are compatible with pandas
 # 2.2.x or 2.3.x
-MODIN_DEPENDENCY_VERSION = ">=0.35.0, <0.37.0"
-CONNECTOR_DEPENDENCY_VERSION = ">=3.17.0, <4.0.0"
+MODIN_DEPENDENCY_VERSION = ">=0.36.0, <0.38.0"
+CONNECTOR_DEPENDENCY_VERSION = ">=3.17.0, <5.0.0"
 CONNECTOR_DEPENDENCY = f"snowflake-connector-python{CONNECTOR_DEPENDENCY_VERSION}"
 INSTALL_REQ_LIST = [
     "setuptools>=40.6.0",
@@ -28,7 +28,7 @@ INSTALL_REQ_LIST = [
     "pyyaml",
     "cloudpickle>=1.6.0,<=3.1.1,!=2.1.0,!=2.2.0",
     # `protoc` < 3.20 is not able to generate protobuf code compatible with protobuf >= 3.20.
-    "protobuf>=3.20, <6.32",  # Snowpark IR
+    "protobuf>=3.20, <6.34",  # Snowpark IR
     "python-dateutil",  # Snowpark IR
     "tzlocal",  # Snowpark IR
 ]
@@ -68,7 +68,10 @@ DEVELOPMENT_REQUIREMENTS = [
     "lxml",  # used in XML reader unit tests
 ]
 MODIN_DEVELOPMENT_REQUIREMENTS = [
-    "scipy",  # Snowpark pandas 3rd party library testing
+    # Snowpark pandas 3rd party library testing. Cap the scipy version because
+    # Snowflake cannot find newer versions of scipy for python 3.11+. See
+    # SNOW-2452791.
+    "scipy<=1.16.0",
     "statsmodels",  # Snowpark pandas 3rd party library testing
     "scikit-learn",  # Snowpark pandas 3rd party library testing
     # plotly version restricted due to foreseen change in query counts in version 6.0.0+
@@ -90,8 +93,6 @@ version = ".".join([str(v) for v in VERSION if v is not None])
 
 with open(os.path.join(THIS_DIR, "README.md"), encoding="utf-8") as f:
     readme = f.read()
-with open(os.path.join(THIS_DIR, "CHANGELOG.md"), encoding="utf-8") as f:
-    changelog = f.read()
 
 # Find the Protocol Compiler.
 if "PROTOC" in os.environ and os.path.exists(os.environ["PROTOC"]):
@@ -163,7 +164,7 @@ setup(
     name="snowflake-snowpark-python",
     version=version,
     description="Snowflake Snowpark for Python",
-    long_description=readme + "\n\n" + changelog,
+    long_description=readme,
     long_description_content_type="text/markdown",
     author="Snowflake, Inc",
     author_email="snowflake-python-libraries-dl@snowflake.com",
@@ -228,6 +229,7 @@ setup(
         "opentelemetry": [
             "opentelemetry-api>=1.0.0, <2.0.0",
             "opentelemetry-sdk>=1.0.0, <2.0.0",
+            "opentelemetry-exporter-otlp>=1.0.0, <2.0.0",
         ],
     },
     classifiers=[

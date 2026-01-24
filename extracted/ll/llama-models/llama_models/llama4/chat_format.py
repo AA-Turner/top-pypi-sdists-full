@@ -6,6 +6,7 @@
 # the top-level of this source tree.
 
 import io
+import json
 import uuid
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
@@ -49,7 +50,7 @@ class TransformedImage:
     aspect_ratio: Tuple[int, int]
 
 
-def pil_RGBA2RGB(image: PIL_Image.Image, bg: Tuple[int, int, int] = (255, 255, 255)) -> PIL_Image.Image:
+def convert_image_to_rgb(image: PIL_Image.Image, bg: Tuple[int, int, int] = (255, 255, 255)) -> PIL_Image.Image:
     if image.mode == "RGBA":
         image.load()  # for png.split()
         new_img = PIL_Image.new("RGB", image.size, bg)
@@ -126,7 +127,7 @@ class ChatFormat:
             tokens += [self.tokenizer.special_tokens["<|image_end|>"]]
         else:
             ratio_h, ratio_w = image_ar
-            for yy in range(ratio_h):
+            for _ in range(ratio_h):
                 for xx in range(ratio_w):
                     tokens += [self.tokenizer.special_tokens["<|patch|>"]] * n_patches_per_chunk
                     if xx < ratio_w - 1:
@@ -166,7 +167,7 @@ class ChatFormat:
 
                 bytes_io = io.BytesIO(c.data) if isinstance(c.data, bytes) else c.data
                 image = PIL_Image.open(bytes_io)
-                image = pil_RGBA2RGB(image)
+                image = convert_image_to_rgb(image)
                 image_tiles, ar = self.dynamic_image_transform(image, max_num_chunks=self.max_num_chunks)
 
                 if image_tiles.shape[0] > 1:
@@ -213,7 +214,9 @@ class ChatFormat:
 
         eom = False
         if message.role == "assistant":
-            eom = message.stop_reason == StopReason.end_of_message
+            eom = message.stop_reason == StopReason.end_of_message or message.tool_calls
+        elif message.role == "tool":
+            eom = True
 
         tokens.append(self.tokenizer.special_tokens["<|eom|>" if eom else "<|eot|>"])
         return tokens, images
@@ -248,6 +251,11 @@ class ChatFormat:
         if content.startswith(header_str):
             content = content[len(header_str) :]
 
+        ipython = content.startswith("<|python_start|>")
+        if ipython:
+            content = content[len("<|python_start|>") :]
+            content = content.replace("<|python_end|>", "")
+
         if content.endswith("<|eot|>"):
             content = content[: -len("<|eot|>")]
             stop_reason = StopReason.end_of_turn
@@ -278,7 +286,11 @@ class ChatFormat:
                 }
                 if tool_name in BuiltinTool.__members__:
                     tool_name = BuiltinTool[tool_name]
-
+            elif ipython:
+                tool_name = BuiltinTool.code_interpreter
+                tool_arguments = {
+                    "code": content,
+                }
         tool_calls = []
         if tool_name is not None and tool_arguments is not None:
             call_id = str(uuid.uuid4())
@@ -287,6 +299,7 @@ class ChatFormat:
                     call_id=call_id,
                     tool_name=tool_name,
                     arguments=tool_arguments,
+                    arguments_json=json.dumps(tool_arguments),
                 )
             )
             content = ""

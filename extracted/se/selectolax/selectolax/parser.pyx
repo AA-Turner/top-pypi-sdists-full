@@ -72,9 +72,9 @@ cdef class HTMLParser:
         ----------
 
         query : str
-        default : bool, default None
+        default : Any, default None
             Default value to return if there is no match.
-        strict: bool, default True
+        strict: bool, default False
             Set to True if you want to check if there is strictly only one match in the document.
 
 

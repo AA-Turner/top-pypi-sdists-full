@@ -1,8 +1,7 @@
 from ..abstract import ErdReadWriteConverter
 from ..primitives import *
-
-from gehomesdk.erd.values import ErdWaterSoftenerShutoffValveState
-from gehomesdk.exception import GeSetErdNotAllowedError
+from ...values import ErdWaterSoftenerShutoffValveState
+from ....exception import GeSetErdNotAllowedError
 
 class ErdWaterSoftenerShutoffValveStateConverter(ErdReadWriteConverter[ErdWaterSoftenerShutoffValveState]):
     def erd_decode(self, value) -> ErdWaterSoftenerShutoffValveState:
@@ -11,7 +10,7 @@ class ErdWaterSoftenerShutoffValveStateConverter(ErdReadWriteConverter[ErdWaterS
         except (KeyError, ValueError):
             return ErdWaterSoftenerShutoffValveState.UNKNOWN
 
-    def erd_encode(self, new_position: ErdWaterSoftenerShutoffValveState) -> str:
-        if new_position in [ErdWaterSoftenerShutoffValveState.UNKNOWN, ErdWaterSoftenerShutoffValveState.TRANSITION]:
-            raise GeSetErdNotAllowedError(new_position)
-        return erd_encode_int(new_position.value, 1)
+    def erd_encode(self, value: ErdWaterSoftenerShutoffValveState) -> str:
+        if value in [ErdWaterSoftenerShutoffValveState.UNKNOWN, ErdWaterSoftenerShutoffValveState.TRANSITION]:
+            raise GeSetErdNotAllowedError(str(self.erd_code), "Cannot change position while transitioning or in an unknown state.")
+        return erd_encode_int(value.value, 1)

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 import os
 import re
 import textwrap
-from typing import List, Dict, Union, Optional, Tuple
+from typing import Union, Optional, Tuple
 
 import pandas as pd
 
@@ -86,6 +87,12 @@ class StoredOrCalculatedItem(Item):
         raise SPyRuntimeError('Could not find Datasource Class "%s" and Datasource ID "%s" in datasource maps' %
                               (datasource_class, datasource_id))
 
+    @staticmethod
+    def _get_datasource_map_name_log_str(datasource_map):
+        override_str = 'override ' if datasource_map.get('Override', False) else 'non-override '
+        provenance_str = f'"{os.path.basename(datasource_map["File"])}"' if 'File' in datasource_map else 'default map'
+        return override_str + provenance_str
+
     def _execute_regex_map(self, old_definition, regex_map, regex_map_index, item_map: ItemMap, *,
                            allow_missing_properties=False):
         for prop in ['Old', 'New']:
@@ -126,7 +133,7 @@ class StoredOrCalculatedItem(Item):
         return new_definition, capture_groups
 
     def _lookup_item_via_datasource_map(
-            self, session: Session, pushed_workbook_id: str, datasource_maps: List[Dict],
+            self, context: WorkbookPushContext, pushed_workbook_id: str,
             item_map: ItemMap, *, only_override_maps: bool = False, force_direct_lookup: bool = False,
             item_exists: ItemExists = ItemExists.MAYBE,
             item_search_preview: Optional[ItemSearchPreviewV1] = None) -> Optional[Item]:
@@ -136,11 +143,11 @@ class StoredOrCalculatedItem(Item):
 
         # First, we process the "overrides". These are the cases where, even if the item with the ID exists in the
         # destination, we still want to map to something else. Useful for swapping datasources on the same server.
-        overrides = [m for m in datasource_maps if _common.get(m, 'Override', default=False)]
+        overrides = [m for m in context.datasource_maps if _common.get(m, 'Override', default=False)]
         if len(overrides) > 0:
             if "File" in overrides[0]:
                 item_map.log(self.id, f'Using overrides from {os.path.dirname(overrides[0]["File"])}:')
-            item = self._lookup_in_datasource_map(session, pushed_workbook_id, overrides, item_map)
+            item = self._lookup_in_datasource_map(context, pushed_workbook_id, overrides, item_map)
         else:
             item_map.log(self.id, f'No datasource map overrides found')
 
@@ -159,7 +166,7 @@ class StoredOrCalculatedItem(Item):
         # makes a change, and pushes it back.
         if item_exists != ItemExists.NO:
             try:
-                item = Item.pull(self.id, session=session, item_search_preview=item_search_preview)
+                item = Item.pull(self.id, session=context.session, item_search_preview=item_search_preview)
             except ApiException:
                 item_map.log(self.id, f"Item's ID {self.id} not found directly in target server")
         else:
@@ -167,6 +174,7 @@ class StoredOrCalculatedItem(Item):
 
         if item is not None:
             item_map.log(self.id, f"Item's ID {self.id} found directly in target server")
+            Status.log_if(context, f'Successfully mapped {self} -> {item} via direct ID lookup')
             return item
 
         if only_override_maps:
@@ -174,11 +182,11 @@ class StoredOrCalculatedItem(Item):
 
         # Finally, we try to use the non-override maps to find the item. This case will occur mostly when
         # transferring workbooks between servers.
-        non_overrides = [m for m in datasource_maps if not _common.get(m, 'Override', default=False)]
+        non_overrides = [m for m in context.datasource_maps if not _common.get(m, 'Override', default=False)]
         if len(non_overrides) > 0:
             if "File" in non_overrides[0]:
                 item_map.log(self.id, f'Using non-overrides from {os.path.dirname(non_overrides[0]["File"])}:')
-            item = self._lookup_in_datasource_map(session, pushed_workbook_id, non_overrides, item_map)
+            item = self._lookup_in_datasource_map(context, pushed_workbook_id, non_overrides, item_map)
         else:
             item_map.log(self.id, f'No (non-override) datasource maps found')
 
@@ -192,7 +200,7 @@ class StoredOrCalculatedItem(Item):
 
         return item
 
-    def _lookup_in_datasource_map(self, session: Session, pushed_workbook_id, datasource_maps,
+    def _lookup_in_datasource_map(self, context: WorkbookPushContext, pushed_workbook_id, datasource_maps,
                                   item_map: ItemMap) -> Optional[Item]:
         item: Optional[Item] = None
 
@@ -211,14 +219,16 @@ class StoredOrCalculatedItem(Item):
                              f'and Datasource ID "{datasource_map["Datasource ID"]}"')
 
             if _common.DATASOURCE_MAP_ITEM_LEVEL_MAP_FILES in datasource_map:
-                item = self._lookup_in_item_level_map_files(session, datasource_map, item_map)
+                item = self._lookup_in_item_level_map_files(context, datasource_map, item_map)
 
             if item is not None:
                 break
 
             if _common.DATASOURCE_MAP_REGEX_BASED_MAPS in datasource_map:
-                item = self._lookup_in_regex_based_maps(session, datasource_map, datasource_maps, item_map,
-                                                        pushed_workbook_id)
+                item = self._lookup_in_regex_based_maps(context, datasource_map, item_map, pushed_workbook_id)
+
+                if item is not None:
+                    context.append_to_server_scoped_item_level_map_file(datasource_map, self, item)
 
             if item is not None:
                 break
@@ -231,8 +241,9 @@ class StoredOrCalculatedItem(Item):
 
         return item
 
-    def _lookup_in_item_level_map_files(self, session: Session, datasource_map,
+    def _lookup_in_item_level_map_files(self, context: WorkbookPushContext, datasource_map,
                                         item_map: ItemMap) -> Optional[Item]:
+        session = context.session
         item: Optional[ItemOutputV1] = None
         item_level_map_files = datasource_map[_common.DATASOURCE_MAP_ITEM_LEVEL_MAP_FILES]
         if not isinstance(item_level_map_files, list):
@@ -269,22 +280,40 @@ class StoredOrCalculatedItem(Item):
 
             new_id = mapped_row.iloc[0]['New ID']
 
-            item = Item.pull(new_id, session=session)
+            if self.type == 'User':
+                from seeq.spy.workbooks._user import User
+                item = User.pull(new_id, session=session)
+            elif self.type == 'UserGroup':
+                from seeq.spy.workbooks._user import UserGroup
+                item = UserGroup.pull(new_id, session=session)
+            else:
+                item = Item.pull(new_id, session=session)
+
+            if 'Server_Scoped_Item_Level_Datasource_Map_' in datasource_map.get('File', ''):
+                Status.log_if(context, f'Successfully mapped {self} -> {item} via Server-Scoped Item-Level Map '
+                                       f'File "{item_level_map_file}"')
+            else:
+                Status.log_if(context, f'Successfully mapped {self} -> {item} via Item-Level Map File '
+                                       f'"{item_level_map_file}" specified in '
+                                       f'{self._get_datasource_map_name_log_str(datasource_map)}')
             break
 
         return item
 
     def _lookup_in_regex_based_maps(
-            self, session: Session, datasource_map, datasource_maps, item_map: ItemMap,
-            pushed_workbook_id) -> Optional[Union[ItemOutputV1, UserOutputV1, IdentityPreviewV1]]:
-
+            self, context: WorkbookPushContext, datasource_map, item_map: ItemMap,
+            pushed_workbook_id) -> Optional[Item]:
+        session = context.session
         for i in range(len(datasource_map['RegEx-Based Maps'])):
             regex_map_index = i
             regex_map = datasource_map['RegEx-Based Maps'][regex_map_index]
             item_object, old_criteria_matched = self._lookup_in_regex_based_map(
-                session, regex_map_index, regex_map, datasource_maps, item_map, pushed_workbook_id)
+                context, regex_map_index, regex_map, item_map, pushed_workbook_id)
 
             if item_object is not None:
+                Status.log_if(context, f'Successfully mapped {self} -> {item_object} via Regex-based Map '
+                                       f'{regex_map_index} specified in '
+                                       f'{self._get_datasource_map_name_log_str(datasource_map)}')
                 return item_object
 
             on_match_default = 'Stop' if session.options.wants_compatibility_with(191) else 'Continue'
@@ -300,8 +329,9 @@ class StoredOrCalculatedItem(Item):
         return None
 
     def _lookup_in_regex_based_map(
-            self, session: Session, regex_map_index, regex_map, datasource_maps, item_map: ItemMap,
-            pushed_workbook_id) -> Tuple[Optional[Union[ItemOutputV1, UserOutputV1, IdentityPreviewV1]], bool]:
+            self, context: WorkbookPushContext, regex_map_index, regex_map, item_map: ItemMap,
+            pushed_workbook_id) -> Tuple[Optional[Item], bool]:
+        session = context.session
         items_api = ItemsApi(session.client)
         old_definition = self.definition_dict
         new_definition = None
@@ -315,7 +345,7 @@ class StoredOrCalculatedItem(Item):
             old_definition['Datasource Name'] = \
                 StoredOrCalculatedItem._find_datasource_name(old_definition['Datasource Class'],
                                                              old_definition['Datasource ID'],
-                                                             datasource_maps)
+                                                             context.datasource_maps)
 
         new_definition, capture_groups = self._execute_regex_map(
             old_definition, regex_map, regex_map_index, item_map,
@@ -470,14 +500,46 @@ class StoredItem(StoredOrCalculatedItem):
                              item_exists: ItemExists = ItemExists.MAYBE,
                              item_search_preview: ItemSearchPreviewV1 = None):
         try:
-            self._lookup(context.session, datasource_maps, datasource_output,
-                         pushed_workbook_id=pushed_workbook_id, item_map=item_map, label=label,
-                         override_max_interp=context.override_max_interp,
-                         dummy_items_workbook_context=context.dummy_items_workbook_context,
-                         item_exists=item_exists, item_search_preview=item_search_preview, context=context,
-                         item_inventory=item_inventory)
+            item = self._lookup(context, datasource_output,
+                                pushed_workbook_id=pushed_workbook_id, item_map=item_map, label=label,
+                                dummy_items_workbook_context=context.dummy_items_workbook_context,
+                                item_exists=item_exists, item_search_preview=item_search_preview,
+                                item_inventory=item_inventory)
         except PushThis as e:
             return e.definition
+
+        if item.type not in ['User', 'UserGroup']:
+            # We need to exclude Example Data, because it is set explicitly by the connector
+            datasource_class = item['Datasource Class']
+            datasource_id = item['Datasource ID']
+            is_example_data = (datasource_class and datasource_class == 'Time Series CSV Files' and
+                               datasource_id and datasource_id == 'Example Data')
+
+            if (context.override_max_interp and item.type == 'StoredSignal' and not is_example_data and
+                    'Maximum Interpolation' in self):
+                src_max_interp = Item._property_input_from_scalar_str(self['Maximum Interpolation'])
+                dst_max_interp_prop = item['Maximum Interpolation']
+                if (dst_max_interp_prop and hasattr(dst_max_interp_prop, 'value')
+                        and hasattr(dst_max_interp_prop, 'unit_of_measure')):
+                    dst_max_interp = Item._property_input_from_scalar_str(dst_max_interp_prop.value)
+                    if src_max_interp.unit_of_measure != dst_max_interp.unit_of_measure or \
+                            src_max_interp.value != dst_max_interp.value:
+                        if context is not None and not context.dry_run:
+                            Status.log_if(
+                                context,
+                                f'Setting Override Maximum Interpolation for {item} to {src_max_interp.value} '
+                                f'{src_max_interp.unit_of_measure}'
+                            )
+                            items_api = ItemsApi(context.session.client)
+                            items_api.set_property(id=item.id,
+                                                   property_name='Override Maximum Interpolation',
+                                                   body=src_max_interp)
+                        else:
+                            Status.log_if(
+                                context,
+                                f'[Dry Run] Would set Override Maximum Interpolation for {item} to '
+                                f'{src_max_interp.value} {src_max_interp.unit_of_measure}'
+                            )
 
         return None
 
@@ -561,24 +623,31 @@ class StoredItem(StoredOrCalculatedItem):
 
         raise PushThis(metadata_dict)
 
-    def _lookup(self, session: Session, datasource_maps, datasource_output, *,
-                pushed_workbook_id=None, item_map: ItemMap = None, label=None, override_max_interp=False,
+    def _lookup(self, context: WorkbookPushContext, datasource_output, *,
+                pushed_workbook_id=None, item_map: ItemMap = None, label=None,
                 dummy_items_workbook_context=None, item_exists: ItemExists = ItemExists.MAYBE,
                 item_search_preview: Optional[ItemSearchPreviewV1] = None,
-                context: Optional[WorkbookPushContext] = None, item_inventory: Optional[dict] = None):
-        # Note: The caller of this function is in charge of API safety
+                item_inventory: Optional[dict] = None):
+        status = context.status
 
+        # Note: The caller of this function is in charge of API safety
         if self.id in item_map.data_item_cache:
-            return item_map.data_item_cache[self.id]
+            cached_item = item_map.data_item_cache[self.id]
+            status.log(f'Lookup: Item {self} found in cache: {cached_item}')
+            return cached_item
+
+        if self.id in context.failed_mappings:
+            raise SPyDependencyNotFound(item_map.explain(self.id))
 
         local: bool = self['Scoped To'] is not None
         only_override_maps = item_map.only_override_maps
+        must_lookup_global = not local and context.global_inventory == 'always reuse'
         if local:
             only_override_maps = True
 
-        force_direct_lookup = label is None
+        force_direct_lookup = label is None or must_lookup_global
 
-        item = self._lookup_item_via_datasource_map(session, pushed_workbook_id, datasource_maps, item_map,
+        item = self._lookup_item_via_datasource_map(context, pushed_workbook_id, item_map,
                                                     only_override_maps=only_override_maps,
                                                     force_direct_lookup=force_direct_lookup,
                                                     item_exists=item_exists,
@@ -586,11 +655,17 @@ class StoredItem(StoredOrCalculatedItem):
 
         if item is None:
             if local:
+                status.log(f'Pushing local item for {self}')
                 self._push_local_item(context, label, item_map, datasource_output, pushed_workbook_id, item_inventory)
             else:
                 if dummy_items_workbook_context is None:
+                    status.log(f'Mapping failed for {self}:\n{item_map.explain(self.id)}',
+                               level=logging.ERROR)
+                    # Add to failed mappings so we don't try again and spam the logs
+                    context.failed_mappings.add(self.id)
                     raise SPyDependencyNotFound(item_map.explain(self.id))
 
+                status.log(f'Pushing dummy item for {self}')
                 self._push_dummy_item(context, label, item_map, datasource_output, dummy_items_workbook_context)
         else:
             if local:
@@ -603,33 +678,17 @@ class StoredItem(StoredOrCalculatedItem):
                         and not label
                 )
                 if item_is_scoped_to_other_workbook or self_already_exists_and_may_need_update:
+                    Status.log_if(
+                        context,
+                        f'Pushing local item because existing item is scoped to another workbook or may need update: '
+                        f'{self} (existing item scoped to {item_scope})'
+                    )
                     self._push_local_item(
                         context, label, item_map, datasource_output, pushed_workbook_id, item_inventory,
                         self_already_exists_and_may_need_update)
 
         item_map[self.id] = item.id
         item_map.data_item_cache[self.id] = item
-
-        if item.type not in ['User', 'UserGroup']:
-            # We need to exclude Example Data, because it is set explicitly by the connector
-            datasource_class = item['Datasource Class']
-            datasource_id = item['Datasource ID']
-            is_example_data = (datasource_class and datasource_class == 'Time Series CSV Files' and
-                               datasource_id and datasource_id == 'Example Data')
-
-            if override_max_interp and item.type == 'StoredSignal' and not is_example_data and \
-                    'Maximum Interpolation' in self:
-                src_max_interp = Item._property_input_from_scalar_str(self['Maximum Interpolation'])
-                dst_max_interp_prop = item['Maximum Interpolation']
-                if (dst_max_interp_prop and hasattr(dst_max_interp_prop, 'value')
-                        and hasattr(dst_max_interp_prop, 'unit_of_measure')):
-                    dst_max_interp = Item._property_input_from_scalar_str(dst_max_interp_prop.value)
-                    if src_max_interp.unit_of_measure != dst_max_interp.unit_of_measure or \
-                            src_max_interp.value != dst_max_interp.value:
-                        items_api = ItemsApi(session.client)
-                        items_api.set_property(id=item.id,
-                                               property_name='Override Maximum Interpolation',
-                                               body=src_max_interp)
 
         return item
 
@@ -671,8 +730,8 @@ class Datasource(StoredItem):
 
 
 class CalculatedItem(StoredOrCalculatedItem):
-    def _lookup(self, session: Session, datasource_maps, pushed_workbook_id, item_map: ItemMap,
-                label: str, item_exists: ItemExists, item_search_preview: Optional[ItemSearchPreviewV1]):
+    def _lookup(self, context: WorkbookPushContext, pushed_workbook_id, item_map: ItemMap,
+                item_exists: ItemExists, item_search_preview: Optional[ItemSearchPreviewV1]):
         if self.id in item_map.data_item_cache:
             return item_map.data_item_cache[self.id]
 
@@ -694,7 +753,7 @@ class CalculatedItem(StoredOrCalculatedItem):
             only_override_maps = True
 
         item = self._lookup_item_via_datasource_map(
-            session, pushed_workbook_id, datasource_maps, item_map, only_override_maps=only_override_maps,
+            context, pushed_workbook_id, item_map, only_override_maps=only_override_maps,
             item_exists=item_exists, item_search_preview=item_search_preview)
 
         if not local and not is_standalone_item and item is None:
@@ -713,8 +772,7 @@ class CalculatedItem(StoredOrCalculatedItem):
                              item_inventory: dict, *, pushed_workbook_id=None, item_map: ItemMap = None, label=None,
                              item_exists: ItemExists = ItemExists.MAYBE,
                              item_search_preview: ItemSearchPreviewV1 = None):
-        item = self._lookup(context.session, datasource_maps, pushed_workbook_id, item_map, label, item_exists,
-                            item_search_preview)
+        item = self._lookup(context, pushed_workbook_id, item_map, item_exists, item_search_preview)
 
         if item:
             return None

@@ -1,0 +1,267 @@
+version: '3.2'
+
+services:
+  # memcached
+  memcached-1:
+    image: "memcached:${LIMITS_MEMCACHED_SERVER_VERSION:-latest}"
+    command: -p 22122
+    ports:
+      - 22122:22122
+  memcached-2:
+    image: "memcached:${LIMITS_MEMCACHED_SERVER_VERSION:-latest}"
+    command: -p 22123
+    ports:
+      - 22123:22123
+  memcached-uds:
+    image: "memcached:${LIMITS_MEMCACHED_SERVER_VERSION:-latest}"
+    command: sh -c "test ${HOST_OS} = \"Darwin\" && exit || memcached -s /sockets/limits.memcached.sock -a 777"
+    volumes:
+      - type: bind
+        source: /tmp/
+        target: /sockets/
+  memcached-sasl:
+    image: "memcached:${LIMITS_MEMCACHED_SERVER_VERSION:-latest}"
+    command: -S -Y /auth/memcached_auth.txt
+    ports:
+      - 22124:11211
+    volumes:
+      - type: bind
+        source: ./tests/data
+        target: /auth/
+  # redis sentinel
+  redis-sentinel-master:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 6380
+    ports:
+      - '6380:6380'
+  redis-sentinel-slave:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    depends_on: [redis-sentinel-master]
+    command: redis-server --port 6381 --slaveof ${HOST_IP} 6380 --slave-announce-ip ${HOST_IP}
+    ports:
+      - '6381:6381'
+  redis-sentinel-master-auth:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 6382 --requirepass sekret
+    ports:
+      - '6382:6382'
+  redis-sentinel-slave-auth:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    depends_on: [redis-sentinel-master-auth]
+    command: redis-server --port 6383 --slaveof ${HOST_IP} 6382 --slave-announce-ip ${HOST_IP} --requirepass sekret --masterauth sekret
+    ports:
+      - '6383:6383'
+  redis-sentinel:
+    image: 'bitnamilegacy/redis-sentinel:${LIMITS_REDIS_SERVER_VERSION:-latest}'
+    depends_on: [redis-sentinel-slave]
+    environment:
+      - REDIS_MASTER_HOST=${HOST_IP}
+      - REDIS_MASTER_PORT_NUMBER=6380
+    ports:
+      - '26379:26379'
+  redis-sentinel-auth:
+    image: 'bitnamilegacy/redis-sentinel:${LIMITS_REDIS_SERVER_VERSION:-latest}'
+    depends_on: [redis-sentinel-slave-auth]
+    environment:
+      - REDIS_MASTER_HOST=${HOST_IP}
+      - REDIS_MASTER_PASSWORD=sekret
+      - REDIS_MASTER_PORT_NUMBER=6382
+      - REDIS_SENTINEL_PASSWORD=sekret
+    ports:
+      - '36379:26379'
+  # cluster
+  redis-cluster-1:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 7001 --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP}
+    ports:
+      - '7001:7001'
+      - '17001:17001'
+  redis-cluster-2:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 7002 --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP}
+    ports:
+      - '7002:7002'
+      - '17002:17002'
+  redis-cluster-3:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 7003 --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP}
+    ports:
+      - '7003:7003'
+      - '17003:17003'
+  redis-cluster-4:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 7004 --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP}
+    ports:
+      - '7004:7004'
+      - '17004:17004'
+  redis-cluster-5:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 7005 --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP}
+    ports:
+      - '7005:7005'
+      - '17005:17005'
+  redis-cluster-6:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 7006 --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP}
+    ports:
+      - '7006:7006'
+      - '17006:17006'
+  redis-cluster-init:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: bash -c "echo yes | redis-cli --cluster create --cluster-replicas 1 ${HOST_IP}:7001 ${HOST_IP}:7002 ${HOST_IP}:7003 ${HOST_IP}:7004 ${HOST_IP}:7005 ${HOST_IP}:7006"
+    depends_on: [redis-cluster-1, redis-cluster-2, redis-cluster-3, redis-cluster-4, redis-cluster-5, redis-cluster-6]
+  redis-ssl-cluster-1:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 0 --tls-port 8301 --tls-replication yes --tls-cluster yes --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP} --tls-cert-file /tls/redis.crt --tls-key-file /tls/redis.key --tls-ca-cert-file /tls/ca.crt
+    ports:
+      - '8301:8301'
+      - '18301:18301'
+    volumes:
+      - ./tests/tls:/tls
+  redis-ssl-cluster-2:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 0 --tls-port 8302 --tls-replication yes --tls-cluster yes --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP} --tls-cert-file /tls/redis.crt --tls-key-file /tls/redis.key --tls-ca-cert-file /tls/ca.crt
+    ports:
+      - '8302:8302'
+      - '18302:18302'
+    volumes:
+      - ./tests/tls:/tls
+  redis-ssl-cluster-3:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 0 --tls-port 8303 --tls-replication yes --tls-cluster yes --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP} --tls-cert-file /tls/redis.crt --tls-key-file /tls/redis.key --tls-ca-cert-file /tls/ca.crt
+    ports:
+      - '8303:8303'
+      - '18303:18303'
+    volumes:
+      - ./tests/tls:/tls
+  redis-ssl-cluster-4:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 0 --tls-port 8304 --tls-replication yes --tls-cluster yes --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP} --tls-cert-file /tls/redis.crt --tls-key-file /tls/redis.key --tls-ca-cert-file /tls/ca.crt
+    ports:
+      - '8304:8304'
+      - '18304:18304'
+    volumes:
+      - ./tests/tls:/tls
+  redis-ssl-cluster-5:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 0 --tls-port 8305 --tls-replication yes --tls-cluster yes --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP} --tls-cert-file /tls/redis.crt --tls-key-file /tls/redis.key --tls-ca-cert-file /tls/ca.crt
+    ports:
+      - '8305:8305'
+      - '18305:18305'
+    volumes:
+      - ./tests/tls:/tls
+  redis-ssl-cluster-6:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 0 --tls-port 8306 --tls-replication yes --tls-cluster yes --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP} --tls-cert-file /tls/redis.crt --tls-key-file /tls/redis.key --tls-ca-cert-file /tls/ca.crt
+    ports:
+      - '8306:8306'
+      - '18306:18306'
+    volumes:
+      - ./tests/tls:/tls
+  redis-ssl-cluster-init:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: bash -c "echo yes | redis-cli --cluster create --cluster-replicas 1 ${HOST_IP}:8301 ${HOST_IP}:8302 ${HOST_IP}:8303 ${HOST_IP}:8304 ${HOST_IP}:8305 ${HOST_IP}:8306 --tls --cert /tls/redis.crt --key /tls/redis.key --cacert /tls/ca.crt "
+    depends_on: [redis-ssl-cluster-1, redis-ssl-cluster-2, redis-ssl-cluster-3, redis-ssl-cluster-4, redis-ssl-cluster-5, redis-ssl-cluster-6]
+    volumes:
+      - ./tests/tls:/tls
+  redis-cluster-auth-1:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 8400 --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP} --requirepass sekret
+    ports:
+      - '8400:8400'
+      - '18400:18400'
+  redis-cluster-auth-2:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 8401 --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP} --requirepass sekret
+    ports:
+      - '8401:8401'
+      - '18401:18401'
+  redis-cluster-auth-3:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 8402 --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP} --requirepass sekret
+    ports:
+      - '8402:8402'
+      - '18402:18402'
+  redis-cluster-auth-init:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: bash -c "echo yes | redis-cli --cluster create --cluster-replicas 0 ${HOST_IP}:8400 ${HOST_IP}:8401 ${HOST_IP}:8402 -a sekret"
+    depends_on: [redis-cluster-auth-1, redis-cluster-auth-2, redis-cluster-auth-3]
+  redis-basic:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 7379
+    ports:
+      - '7379:7379'
+  redis-auth:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 7389 --requirepass sekret
+    ports:
+      - '7389:7389'
+  redis-ssl:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: redis-server --port 0 --tls-port 8379 --tls-cert-file /tls/redis.crt --tls-key-file /tls/redis.key --tls-ca-cert-file /tls/ca.crt
+    ports:
+      - '8379:8379'
+    volumes:
+      - ./tests/tls:/tls
+  redis-uds:
+    image: "redis:${LIMITS_REDIS_SERVER_VERSION:-latest}"
+    command: sh -c "test ${HOST_OS} = \"Darwin\" && exit || redis-server --port 0 --unixsocket /sockets/limits.redis.sock --unixsocketperm 777"
+    volumes:
+      - type: bind
+        source: /tmp/
+        target: /sockets/
+  mongodb:
+    image: "mongo:${LIMITS_MONGODB_SERVER_VERSION:-latest}"
+    ports:
+      - '37017:27017'
+  dragonfly:
+    image: "docker.dragonflydb.io/dragonflydb/dragonfly:latest"
+    ports:
+      - '21379:6379'
+    ulimits:
+      memlock: -1
+  valkey-basic:
+    image: "valkey/valkey:${LIMITS_VALKEY_SERVER_VERSION:-latest}"
+    command: valkey-server --port 6379 ${DEFAULT_ARGS---enable-debug-command yes} --appendonly yes
+    ports:
+      - '12379:6379'
+  valkey-cluster-1:
+    image: "valkey/valkey:${LIMITS_VALKEY_SERVER_VERSION:-latest}"
+    command: valkey-server --port 2001 --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP}
+    ports:
+      - '2001:2001'
+      - '12001:12001'
+  valkey-cluster-2:
+    image: "valkey/valkey:${LIMITS_VALKEY_SERVER_VERSION:-latest}"
+    command: valkey-server --port 2002 --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP}
+    ports:
+      - '2002:2002'
+      - '12002:12002'
+  valkey-cluster-3:
+    image: "valkey/valkey:${LIMITS_VALKEY_SERVER_VERSION:-latest}"
+    command: valkey-server --port 2003 --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP}
+    ports:
+      - '2003:2003'
+      - '12003:12003'
+  valkey-cluster-4:
+    image: "valkey/valkey:${LIMITS_VALKEY_SERVER_VERSION:-latest}"
+    command: valkey-server --port 2004 --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP}
+    ports:
+      - '2004:2004'
+      - '12004:12004'
+  valkey-cluster-5:
+    image: "valkey/valkey:${LIMITS_VALKEY_SERVER_VERSION:-latest}"
+    command: valkey-server --port 2005 --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP}
+    ports:
+      - '2005:2005'
+      - '12005:12005'
+  valkey-cluster-6:
+    image: "valkey/valkey:${LIMITS_VALKEY_SERVER_VERSION:-latest}"
+    command: valkey-server --port 2006 --protected-mode no --cluster-enabled yes --loglevel verbose --cluster-announce-ip ${HOST_IP}
+    ports:
+      - '2006:2006'
+      - '12006:12006'
+  valkey-cluster-init:
+    image: "valkey/valkey:${LIMITS_VALKEY_SERVER_VERSION:-latest}"
+    command: bash -c "echo yes | valkey-cli --cluster create --cluster-replicas 1 ${HOST_IP}:2001 ${HOST_IP}:2002 ${HOST_IP}:2003 ${HOST_IP}:2004 ${HOST_IP}:2005 ${HOST_IP}:2006"
+    depends_on: [valkey-cluster-1, valkey-cluster-2, valkey-cluster-3, valkey-cluster-4, valkey-cluster-5, valkey-cluster-6]

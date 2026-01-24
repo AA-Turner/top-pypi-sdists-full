@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: cwcwidth
-Version: 0.1.10
+Version: 0.1.12
 Summary: Python bindings for wc(s)width
 Home-page: https://github.com/sebastinas/cwcwidth
 Author: Sebastian Ramacher
@@ -8,12 +8,12 @@ Author-email: sebastian@ramacher.at
 License: MIT
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: license-file
 
 # Python bindings for wc(s)width
 
@@ -28,7 +28,7 @@ functionality.
 
 ## Dependencies
 
-* `Cython >= 0.28` (optional, only for building). If Cython is not available, the C files are not
+* `Cython >= 3.1` (optional, only for building). If Cython is not available, the C files are not
   regenerated from their source.
 
 ## Quick installation guide
@@ -41,6 +41,9 @@ or by running:
 ```sh
 python3 setup.py install
 ```
+
+In case the extension should be built with the limited Python API, set the environment variable
+`USE_LIMITED_API` to any value.
 
 ## Usage
 

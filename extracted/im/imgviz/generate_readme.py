@@ -11,7 +11,7 @@ def tabulate(rows):
     for row in rows:
         html += "\n\t<tr>"
         for col in row:
-            html += "\n\t\t<td>{}</td>".format(col)
+            html += f"\n\t\t<td>{col}</td>"
         html += "\n\t</tr>"
     html += "\n</table>"
     return html
@@ -25,7 +25,7 @@ def main():
     examples = []
     for py_file in sorted(glob.glob("examples/*.py")):
         img_file = osp.splitext(osp.basename(py_file))[0] + ".jpg"
-        img_file = osp.join("examples/.readme", img_file)
+        img_file = osp.join("examples/assets", img_file)
         if not osp.exists(img_file):
             continue
         img = PIL.Image.open(img_file)
@@ -40,11 +40,11 @@ def main():
 
     # TODO: read from pyproject.toml
     dependencies = []
-    for req in ["matplotlib", "numpy", "Pillow>=5.3.0", "PyYAML"]:
+    for req in ["cmap>=0.1.0", "numpy>=1.21.0", "Pillow>=5.3.0"]:
         pkg = req
         for sep in "<=>":
             pkg = pkg.split(sep)[0]
-        dependencies.append("- [{0}](https://pypi.org/project/{1})".format(req, pkg))
+        dependencies.append(f"- [{req}](https://pypi.org/project/{pkg})")
     dependencies = "\n".join(dependencies)
 
     py_file = "getting_started.py"
@@ -89,7 +89,7 @@ def main():
 <br/>
 
 <div align="center">
-  <img src="https://github.com/wkentaro/imgviz/raw/main/.readme/getting_started.jpg" width="95%">
+  <img src="https://github.com/wkentaro/imgviz/raw/main/assets/getting_started.jpg" width="95%">
 </div>
 
 ## Installation

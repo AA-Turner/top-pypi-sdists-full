@@ -7,7 +7,6 @@ Preferences
 
 """
 
-import distutils
 import json
 import os
 import platform
@@ -17,6 +16,8 @@ import struct
 import subprocess
 import sys
 import tempfile
+
+import distutils
 from distutils.ccompiler import get_default_compiler
 
 from brian2.core.preferences import BrianPreference, prefs
@@ -263,6 +264,7 @@ prefs.register_preferences(
 # Adapted from https://github.com/pybind/pybind11/
 def _determine_flag_compatibility(compiler, flagname):
     import tempfile
+
     from distutils.errors import CompileError
 
     with (
@@ -359,13 +361,13 @@ def get_msvc_env():
     if _msvc_env is None:
         try:
             _msvc_env = _get_vc_env(arch_name)
-        except distutils.errors.DistutilsPlatformError:
+        except distutils.errors.DistutilsPlatformError as ex:
             raise OSError(
                 "Cannot find Microsoft Visual Studio, You "
                 "can try to set the path to vcvarsall.bat "
                 "via the codegen.cpp.msvc_vars_location "
                 "preference explicitly."
-            )
+            ) from ex
     return _msvc_env, None
 
 

@@ -13,6 +13,23 @@
 #  permissions and limitations under the License.
 """SQL Zen Store implementation."""
 
+from contextlib import nullcontext
+
+from zenml.models.v2.core.step_run import StepHeartbeatResponse
+from zenml.utils.pydantic_utils import before_validator_handler
+from zenml.zen_stores.migrations.backup.base import BaseDatabaseBackupEngine
+
+try:
+    import sqlalchemy  # noqa
+except ImportError:
+    raise ImportError(
+        "It seems like you've installed the `zenml` package without the "
+        "`local` extra, but are trying to use ZenML with a local database.\n"
+        "* If you want to use ZenML in a local setup, please install "
+        "`zenml[local]` instead, e.g. using `pip install 'zenml[local]'`\n"
+        "* If you want to connect to a server, run `zenml login`"
+    ) from None
+
 import base64
 import inspect
 import json
@@ -24,7 +41,7 @@ import re
 import sys
 import time
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import (
@@ -32,6 +49,7 @@ from typing import (
     Any,
     Callable,
     ClassVar,
+    ContextManager,
     Dict,
     ForwardRef,
     List,
@@ -58,13 +76,18 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-from sqlalchemy import QueuePool, func, update
+from sqlalchemy import QueuePool, event, func, update
 from sqlalchemy.engine import URL, Engine, make_url
 from sqlalchemy.exc import (
     ArgumentError,
     IntegrityError,
 )
-from sqlalchemy.orm import Mapped, load_only, noload, selectinload
+from sqlalchemy.orm import (
+    Mapped,
+    load_only,
+    noload,
+    selectinload,
+)
 from sqlalchemy.sql.base import ExecutableOption
 from sqlalchemy.util import immutabledict
 from sqlmodel import Session as SqlModelSession
@@ -123,18 +146,21 @@ from zenml.enums import (
     ArtifactSaveType,
     AuthScheme,
     DatabaseBackupStrategy,
+    DeploymentStatus,
     ExecutionMode,
     ExecutionStatus,
     LoggingLevels,
     MetadataResourceTypes,
     ModelStages,
     OnboardingStep,
+    SecretResourceTypes,
     SecretsStoreType,
     StackComponentType,
     StackDeploymentProvider,
     StepRunInputArtifactType,
     StoreType,
     TaggableResourceTypes,
+    VisualizationResourceTypes,
 )
 from zenml.exceptions import (
     AuthorizationException,
@@ -186,9 +212,16 @@ from zenml.models import (
     ComponentRequest,
     ComponentResponse,
     ComponentUpdate,
+    CuratedVisualizationRequest,
+    CuratedVisualizationResponse,
+    CuratedVisualizationUpdate,
     DefaultComponentRequest,
     DefaultStackRequest,
     DeployedStack,
+    DeploymentFilter,
+    DeploymentRequest,
+    DeploymentResponse,
+    DeploymentUpdate,
     EventSourceFilter,
     EventSourceRequest,
     EventSourceResponse,
@@ -222,9 +255,6 @@ from zenml.models import (
     PipelineBuildFilter,
     PipelineBuildRequest,
     PipelineBuildResponse,
-    PipelineDeploymentFilter,
-    PipelineDeploymentRequest,
-    PipelineDeploymentResponse,
     PipelineFilter,
     PipelineRequest,
     PipelineResponse,
@@ -233,6 +263,11 @@ from zenml.models import (
     PipelineRunRequest,
     PipelineRunResponse,
     PipelineRunUpdate,
+    PipelineSnapshotFilter,
+    PipelineSnapshotRequest,
+    PipelineSnapshotResponse,
+    PipelineSnapshotRunRequest,
+    PipelineSnapshotUpdate,
     PipelineUpdate,
     ProjectFilter,
     ProjectRequest,
@@ -311,7 +346,7 @@ from zenml.service_connectors.service_connector_registry import (
 )
 from zenml.stack.flavor_registry import FlavorRegistry
 from zenml.stack_deployments.utils import get_stack_deployment_class
-from zenml.utils import tag_utils, uuid_utils
+from zenml.utils import source_utils, tag_utils, uuid_utils
 from zenml.utils.enum_utils import StrEnum
 from zenml.utils.networking_utils import (
     replace_localhost_with_internal_hostname,
@@ -331,7 +366,6 @@ from zenml.zen_stores.dag_generator import DAGGeneratorHelper
 from zenml.zen_stores.migrations.alembic import (
     Alembic,
 )
-from zenml.zen_stores.migrations.utils import MigrationUtils
 from zenml.zen_stores.schemas import (
     ActionSchema,
     APIKeySchema,
@@ -341,6 +375,8 @@ from zenml.zen_stores.schemas import (
     BaseSchema,
     CodeReferenceSchema,
     CodeRepositorySchema,
+    CuratedVisualizationSchema,
+    DeploymentSchema,
     EventSourceSchema,
     FlavorSchema,
     ModelSchema,
@@ -350,14 +386,15 @@ from zenml.zen_stores.schemas import (
     NamedSchema,
     OAuthDeviceSchema,
     PipelineBuildSchema,
-    PipelineDeploymentSchema,
     PipelineRunSchema,
     PipelineSchema,
+    PipelineSnapshotSchema,
     ProjectSchema,
     RunMetadataResourceSchema,
     RunMetadataSchema,
     RunTemplateSchema,
     ScheduleSchema,
+    SecretResourceSchema,
     SecretSchema,
     ServerSettingsSchema,
     ServiceConnectorSchema,
@@ -609,6 +646,8 @@ class SqlZenStoreConfiguration(StoreConfiguration):
     pool_pre_ping: bool = True
 
     backup_strategy: DatabaseBackupStrategy = DatabaseBackupStrategy.IN_MEMORY
+    custom_backup_engine: Optional[str] = None
+    custom_backup_engine_config: Optional[Dict[str, Any]] = None
     # database backup directory
     backup_directory: str = Field(
         default_factory=lambda: os.path.join(
@@ -617,6 +656,12 @@ class SqlZenStoreConfiguration(StoreConfiguration):
         )
     )
     backup_database: Optional[str] = None
+
+    mydumper_threads: Optional[int] = None
+    mydumper_compress: Optional[bool] = None
+    mydumper_extra_args: Optional[List[str]] = None
+    myloader_threads: Optional[int] = None
+    myloader_extra_args: Optional[List[str]] = None
 
     @field_validator("secrets_store")
     @classmethod
@@ -656,7 +701,48 @@ class SqlZenStoreConfiguration(StoreConfiguration):
                 "backup strategy is set to use a backup database."
             )
 
+        if (
+            self.backup_strategy == DatabaseBackupStrategy.CUSTOM
+            and not self.custom_backup_engine
+        ):
+            raise ValueError(
+                "The `custom_backup_engine` attribute must also be set if the "
+                "backup strategy is set to use a custom backup engine."
+            )
+
         return self
+
+    @model_validator(mode="before")
+    @classmethod
+    @before_validator_handler
+    def validate_json_args(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate the secrets store configuration.
+
+        Args:
+            data: The values of the store configuration.
+
+        Returns:
+            The values of the store configuration.
+
+        Raises:
+            ValueError: if a JSON attribute value cannot be decoded.
+        """
+        for attr in [
+            "custom_backup_engine_config",
+            "mydumper_extra_args",
+            "myloader_extra_args",
+        ]:
+            value = data.get(attr)
+            if isinstance(value, str):
+                try:
+                    data[attr] = json.loads(value)
+                except json.JSONDecodeError:
+                    raise ValueError(
+                        f"The value set to the {attr} attribute is not a valid "
+                        "JSON string."
+                    )
+
+        return data
 
     @model_validator(mode="after")
     def _validate_url(self) -> "SqlZenStoreConfiguration":
@@ -945,7 +1031,7 @@ class SqlZenStore(BaseZenStore):
     CONFIG_TYPE: ClassVar[Type[StoreConfiguration]] = SqlZenStoreConfiguration
 
     _engine: Optional[Engine] = None
-    _migration_utils: Optional[MigrationUtils] = None
+    _db_backup_engine: Optional[BaseDatabaseBackupEngine] = None
     _alembic: Optional[Alembic] = None
     _secrets_store: Optional[BaseSecretsStore] = None
     _backup_secrets_store: Optional[BaseSecretsStore] = None
@@ -995,18 +1081,18 @@ class SqlZenStore(BaseZenStore):
         return self._engine
 
     @property
-    def migration_utils(self) -> MigrationUtils:
-        """The migration utils.
+    def db_backup_engine(self) -> BaseDatabaseBackupEngine:
+        """The database backup engine.
 
         Returns:
-            The migration utils.
+            The database backup engine.
 
         Raises:
-            ValueError: If the store is not initialized.
+            ValueError: If the database backup engine is not initialized.
         """
-        if not self._migration_utils:
-            raise ValueError("Store not initialized")
-        return self._migration_utils
+        if not self._db_backup_engine:
+            raise ValueError("Database backup engine not initialized")
+        return self._db_backup_engine
 
     @property
     def alembic(self) -> Alembic:
@@ -1217,6 +1303,14 @@ class SqlZenStore(BaseZenStore):
     # Initialization and configuration
     # --------------------------------
 
+    def _run_migrations(self) -> None:
+        if self.skip_migrations or handle_bool_env_var(
+            ENV_ZENML_DISABLE_DATABASE_MIGRATION
+        ):
+            logger.debug("Skipping database migration.")
+        else:
+            self.migrate_database()
+
     def _initialize(self) -> None:
         """Initialize the SQL store."""
         logger.debug("Initializing SqlZenStore at %s", self.config.url)
@@ -1225,11 +1319,7 @@ class SqlZenStore(BaseZenStore):
         self._engine = create_engine(
             url=url, connect_args=connect_args, **engine_args
         )
-        self._migration_utils = MigrationUtils(
-            url=url,
-            connect_args=connect_args,
-            engine_args=engine_args,
-        )
+        self._db_backup_engine = self.initialize_database_backup_engine()
 
         # SQLite: As long as the parent directory exists, SQLAlchemy will
         # automatically create the database.
@@ -1248,16 +1338,25 @@ class SqlZenStore(BaseZenStore):
             self.config.driver == SQLDatabaseDriver.MYSQL
             and self.config.database
         ):
-            if not self.migration_utils.database_exists():
-                self.migration_utils.create_database()
+            if not self.db_backup_engine.database_exists():
+                self.db_backup_engine.create_database()
 
         self._alembic = Alembic(self.engine)
 
-        if (
-            not self.skip_migrations
-            and ENV_ZENML_DISABLE_DATABASE_MIGRATION not in os.environ
-        ):
-            self.migrate_database()
+        self._run_migrations()
+
+        if self.config.driver == SQLDatabaseDriver.SQLITE:
+            # Enable foreign key checks at the SQLite database level, but only
+            # after any migration has been done.
+            @event.listens_for(self._engine, "connect")
+            def _(dbapi_connection: Any, connection_record: Any) -> None:
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.close()
+
+            # Discard existing connections created without the foreign key
+            # checks enabled
+            self._engine.dispose()
 
         secrets_store_config = self.config.secrets_store
 
@@ -1311,210 +1410,84 @@ class SqlZenStore(BaseZenStore):
         # Send user enriched events that we missed due to a bug in 0.57.0
         self._send_user_enriched_events_if_necessary()
 
-    def _get_db_backup_file_path(self) -> str:
-        """Get the path to the database backup file.
-
-        Returns:
-            The path to the configured database backup file.
-        """
-        if self.config.driver == SQLDatabaseDriver.SQLITE:
-            return os.path.join(
-                self.config.backup_directory,
-                # Add the -backup suffix to the database filename
-                ZENML_SQLITE_DB_FILENAME[:-3] + "-backup.db",
-            )
-
-        # For a MySQL database, we need to dump the database to a JSON
-        # file
-        return os.path.join(
-            self.config.backup_directory,
-            f"{self.engine.url.database}-backup.json",
-        )
-
-    def backup_database(
+    def initialize_database_backup_engine(
         self,
         strategy: Optional[DatabaseBackupStrategy] = None,
         location: Optional[str] = None,
-        overwrite: bool = False,
-    ) -> Tuple[str, Any]:
-        """Backup the database.
+    ) -> BaseDatabaseBackupEngine:
+        """Initialize the database backup engine.
 
         Args:
-            strategy: Custom backup strategy to use. If not set, the backup
+            strategy: Backup strategy to use. If not set, the backup
                 strategy from the store configuration will be used.
             location: Custom target location to backup the database to. If not
                 set, the configured backup location will be used. Depending on
                 the backup strategy, this can be a file path or a database name.
-            overwrite: Whether to overwrite an existing backup if it exists.
-                If set to False, the existing backup will be reused.
 
         Returns:
-            The location where the database was backed up to and an accompanying
-            user-friendly message that describes the backup location, or None
-            if no backup was created (i.e. because the backup already exists).
+            The initialized database backup engine.
 
         Raises:
-            ValueError: If the backup database name is not set when the backup
-                database is requested or if the backup strategy is invalid.
+            ValueError: If the backup strategy or arguments are invalid.
         """
         strategy = strategy or self.config.backup_strategy
+
+        backup_engine_class: Type[BaseDatabaseBackupEngine]
 
         if (
             strategy == DatabaseBackupStrategy.DUMP_FILE
             or self.config.driver == SQLDatabaseDriver.SQLITE
         ):
-            dump_file = location or self._get_db_backup_file_path()
-
-            if not overwrite and os.path.isfile(dump_file):
-                logger.warning(
-                    f"A previous backup file already exists at '{dump_file}'. "
-                    "Reusing the existing backup."
-                )
-            else:
-                self.migration_utils.backup_database_to_file(
-                    dump_file=dump_file
-                )
-            return f"the '{dump_file}' backup file", dump_file
-        elif strategy == DatabaseBackupStrategy.DATABASE:
-            backup_db_name = location or self.config.backup_database
-            if not backup_db_name:
-                raise ValueError(
-                    "The backup database name must be set in the store "
-                    "configuration to use the backup database strategy."
-                )
-
-            if not overwrite and self.migration_utils.database_exists(
-                backup_db_name
-            ):
-                logger.warning(
-                    "A previous backup database already exists at "
-                    f"'{backup_db_name}'. Reusing the existing backup."
-                )
-            else:
-                self.migration_utils.backup_database_to_db(
-                    backup_db_name=backup_db_name
-                )
-            return f"the '{backup_db_name}' backup database", backup_db_name
-        elif strategy == DatabaseBackupStrategy.IN_MEMORY:
-            return (
-                "memory",
-                self.migration_utils.backup_database_to_memory(),
+            from zenml.zen_stores.migrations.backup.sqlalchemy import (
+                FileDatabaseBackupEngine,
             )
 
+            backup_engine_class = FileDatabaseBackupEngine
+
+        elif strategy == DatabaseBackupStrategy.DATABASE:
+            from zenml.zen_stores.migrations.backup.sqlalchemy import (
+                DBCloneDatabaseBackupEngine,
+            )
+
+            backup_engine_class = DBCloneDatabaseBackupEngine
+
+        elif strategy == DatabaseBackupStrategy.IN_MEMORY:
+            from zenml.zen_stores.migrations.backup.sqlalchemy import (
+                InMemoryDatabaseBackupEngine,
+            )
+
+            backup_engine_class = InMemoryDatabaseBackupEngine
+
+        elif strategy == DatabaseBackupStrategy.MYDUMPER:
+            from zenml.zen_stores.migrations.backup.mydumper import (
+                MyDumperDatabaseBackupEngine,
+            )
+
+            backup_engine_class = MyDumperDatabaseBackupEngine
+        elif strategy == DatabaseBackupStrategy.DISABLED:
+            from zenml.zen_stores.migrations.backup.base import (
+                DisabledDatabaseBackupEngine,
+            )
+
+            backup_engine_class = DisabledDatabaseBackupEngine
+        elif strategy == DatabaseBackupStrategy.CUSTOM:
+            custom_backup_engine = self.config.custom_backup_engine
+            if custom_backup_engine is None:
+                raise ValueError("Custom backup engine not set.")
+
+            try:
+                backup_engine_class = source_utils.load(custom_backup_engine)
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to load custom backup engine `{custom_backup_engine}`"
+                ) from e
         else:
             raise ValueError(f"Invalid backup strategy: {strategy}.")
 
-    def restore_database(
-        self,
-        strategy: Optional[DatabaseBackupStrategy] = None,
-        location: Optional[Any] = None,
-        cleanup: bool = False,
-    ) -> None:
-        """Restore the database.
-
-        Args:
-            strategy: Custom backup strategy to use. If not set, the backup
-                strategy from the store configuration will be used.
-            location: Custom target location to restore the database from. If
-                not set, the configured backup location will be used. Depending
-                on the backup strategy, this can be a file path, a database
-                name or an in-memory database representation.
-            cleanup: Whether to cleanup the backup after restoring the database.
-
-        Raises:
-            ValueError: If the backup database name is not set when the backup
-                database is requested or if the backup strategy is invalid.
-        """
-        strategy = strategy or self.config.backup_strategy
-
-        if (
-            strategy == DatabaseBackupStrategy.DUMP_FILE
-            or self.config.driver == SQLDatabaseDriver.SQLITE
-        ):
-            dump_file = location or self._get_db_backup_file_path()
-            self.migration_utils.restore_database_from_file(
-                dump_file=dump_file
-            )
-        elif strategy == DatabaseBackupStrategy.DATABASE:
-            backup_db_name = location or self.config.backup_database
-            if not backup_db_name:
-                raise ValueError(
-                    "The backup database name must be set in the store "
-                    "configuration to use the backup database strategy."
-                )
-
-            self.migration_utils.restore_database_from_db(
-                backup_db_name=backup_db_name
-            )
-        elif strategy == DatabaseBackupStrategy.IN_MEMORY:
-            if location is None or not isinstance(location, list):
-                raise ValueError(
-                    "The in-memory database representation must be provided "
-                    "to restore the database from an in-memory backup."
-                )
-            self.migration_utils.restore_database_from_memory(db_dump=location)
-
-        else:
-            raise ValueError(f"Invalid backup strategy: {strategy}.")
-
-        if cleanup:
-            self.cleanup_database_backup()
-
-    def cleanup_database_backup(
-        self,
-        strategy: Optional[DatabaseBackupStrategy] = None,
-        location: Optional[Any] = None,
-    ) -> None:
-        """Delete the database backup.
-
-        Args:
-            strategy: Custom backup strategy to use. If not set, the backup
-                strategy from the store configuration will be used.
-            location: Custom target location to delete the database backup
-                from. If not set, the configured backup location will be used.
-                Depending on the backup strategy, this can be a file path or a
-                database name.
-
-        Raises:
-            ValueError: If the backup database name is not set when the backup
-                database is requested.
-        """
-        strategy = strategy or self.config.backup_strategy
-
-        if (
-            strategy == DatabaseBackupStrategy.DUMP_FILE
-            or self.config.driver == SQLDatabaseDriver.SQLITE
-        ):
-            dump_file = location or self._get_db_backup_file_path()
-            if dump_file is not None and os.path.isfile(dump_file):
-                try:
-                    os.remove(dump_file)
-                except OSError:
-                    logger.warning(
-                        f"Failed to cleanup database dump file {dump_file}."
-                    )
-                else:
-                    logger.info(
-                        f"Successfully cleaned up database dump file "
-                        f"{dump_file}."
-                    )
-        elif strategy == DatabaseBackupStrategy.DATABASE:
-            backup_db_name = location or self.config.backup_database
-
-            if not backup_db_name:
-                raise ValueError(
-                    "The backup database name must be set in the store "
-                    "configuration to use the backup database strategy."
-                )
-            if self.migration_utils.database_exists(backup_db_name):
-                # Drop the backup database
-                self.migration_utils.drop_database(
-                    database=backup_db_name,
-                )
-                logger.info(
-                    f"Successfully cleaned up backup database "
-                    f"{backup_db_name}."
-                )
+        return backup_engine_class(
+            config=self.config,
+            location=location,
+        )
 
     def migrate_database(self) -> None:
         """Migrate the database to the head as defined by the python package.
@@ -1571,94 +1544,20 @@ class SqlZenStore(BaseZenStore):
                 self.config.backup_strategy != DatabaseBackupStrategy.DISABLED
                 and set(current_revisions) != set(head_revisions)
             )
-            backup_location: Optional[Any] = None
-            backup_location_msg: Optional[str] = None
 
+            backup_context: ContextManager[None] = nullcontext()
             if backup_enabled:
+                backup_context = (
+                    self.db_backup_engine.backup_database_context()
+                )
+
+            with backup_context:
                 try:
-                    logger.info("Backing up the database before migration.")
-                    (
-                        backup_location_msg,
-                        backup_location,
-                    ) = self.backup_database(overwrite=True)
+                    self.alembic.upgrade()
                 except Exception as e:
-                    # The database backup feature was not entirely functional
-                    # in ZenML 0.56.3 and earlier, due to inconsistencies in the
-                    # database schema. If the database is at version 0.56.3
-                    # or earlier and if the backup fails, we only log the
-                    # exception and leave the upgrade process to proceed.
-                    allow_backup_failures = False
-                    try:
-                        if version.parse(
-                            current_revisions[0]
-                        ) <= version.parse("0.56.3"):
-                            allow_backup_failures = True
-                    except version.InvalidVersion:
-                        # This can happen if the database is not currently
-                        # stamped with an official ZenML version (e.g. in
-                        # development environments).
-                        pass
-
-                    if allow_backup_failures:
-                        logger.exception(
-                            "Failed to backup the database. The database "
-                            "upgrade will proceed without a backup."
-                        )
-                    else:
-                        raise RuntimeError(
-                            f"Failed to backup the database: {str(e)}. "
-                            "Please check the logs for more details. "
-                            "If you would like to disable the database backup "
-                            "functionality, set the `backup_strategy` attribute "
-                            "of the store configuration to `disabled`."
-                        ) from e
-                else:
-                    if backup_location is not None:
-                        logger.info(
-                            "Database successfully backed up to "
-                            f"{backup_location_msg}. If something goes wrong "
-                            "with the upgrade, ZenML will attempt to restore "
-                            "the database from this backup automatically."
-                        )
-
-            try:
-                self.alembic.upgrade()
-            except Exception as e:
-                if backup_enabled and backup_location:
-                    logger.exception(
-                        "Failed to migrate the database. Attempting to restore "
-                        f"the database from {backup_location_msg}."
-                    )
-                    try:
-                        self.restore_database(location=backup_location)
-                    except Exception:
-                        logger.exception(
-                            "Failed to restore the database from "
-                            f"{backup_location_msg}. Please "
-                            "check the logs for more details. You might need "
-                            "to restore the database manually."
-                        )
-                    else:
-                        raise RuntimeError(
-                            "The database migration failed, but the database "
-                            "was successfully restored from the backup. "
-                            "You can safely retry the upgrade or revert to "
-                            "the previous version of ZenML. Please check the "
-                            "logs for more details."
-                        ) from e
-                raise RuntimeError(
-                    f"The database migration failed: {str(e)}"
-                ) from e
-
-            else:
-                # We always remove the backup after a successful upgrade,
-                # not just to avoid cluttering the disk, but also to avoid
-                # reusing an outdated database from the backup in case of
-                # future upgrade failures.
-                try:
-                    self.cleanup_database_backup()
-                except Exception:
-                    logger.exception("Failed to cleanup the database backup.")
+                    raise RuntimeError(
+                        f"The database migration failed: {str(e)}"
+                    ) from e
 
         elif self.alembic.db_is_empty():
             # Case 1: the database is empty. We can just create the
@@ -3689,6 +3588,7 @@ class SqlZenStore(BaseZenStore):
                 and component.type
                 in {
                     StackComponentType.ORCHESTRATOR,
+                    StackComponentType.DEPLOYER,
                     StackComponentType.ARTIFACT_STORE,
                 }
             )
@@ -3741,6 +3641,12 @@ class SqlZenStore(BaseZenStore):
             # Create the component
             new_component = StackComponentSchema.from_request(
                 request=component, service_connector=service_connector
+            )
+
+            self._link_secrets_to_resource(
+                resource=new_component,
+                secrets=component.secrets,
+                session=session,
             )
 
             session.add(new_component)
@@ -3844,6 +3750,7 @@ class SqlZenStore(BaseZenStore):
                 and existing_component.type
                 in [
                     StackComponentType.ORCHESTRATOR,
+                    StackComponentType.DEPLOYER,
                     StackComponentType.ARTIFACT_STORE,
                 ]
             ):
@@ -3881,6 +3788,17 @@ class SqlZenStore(BaseZenStore):
                 existing_component.connector = None
                 existing_component.connector_resource_id = None
 
+            self._link_secrets_to_resource(
+                resource=existing_component,
+                secrets=component_update.add_secrets,
+                session=session,
+            )
+            self._unlink_secrets_from_resource(
+                resource=existing_component,
+                secrets=component_update.remove_secrets,
+                session=session,
+            )
+
             session.add(existing_component)
             session.commit()
 
@@ -3910,12 +3828,29 @@ class SqlZenStore(BaseZenStore):
                 and stack_component.type
                 in [
                     StackComponentType.ORCHESTRATOR,
+                    StackComponentType.DEPLOYER,
                     StackComponentType.ARTIFACT_STORE,
                 ]
             ):
                 raise IllegalOperationError(
                     f"The default {stack_component.type} cannot be deleted."
                 )
+
+            if stack_component.type == StackComponentType.DEPLOYER:
+                deployments = session.exec(
+                    select(DeploymentSchema)
+                    .where(DeploymentSchema.deployer_id == stack_component.id)
+                    .where(DeploymentSchema.status != DeploymentStatus.ABSENT)
+                ).all()
+
+                if len(deployments) > 0:
+                    raise IllegalOperationError(
+                        f"The {stack_component.name} deployer stack component "
+                        f"cannot be deleted because there are still "
+                        f"{len(deployments)} deployments being managed by it "
+                        f"and this would result in orphaned resources."
+                        f"Please deprovision or delete the deployments first."
+                    )
 
             if len(stack_component.stacks) > 0:
                 raise IllegalOperationError(
@@ -4755,7 +4690,7 @@ class SqlZenStore(BaseZenStore):
             session.delete(build)
             session.commit()
 
-    # -------------------------- Pipeline Deployments --------------------------
+    # -------------------------- Pipeline Snapshots --------------------------
 
     @staticmethod
     def _create_or_reuse_code_reference(
@@ -4799,11 +4734,379 @@ class SqlZenStore(BaseZenStore):
         session.add(new_reference)
         return new_reference.id
 
-    def create_deployment(
+    def _snapshot_exists(
         self,
-        deployment: PipelineDeploymentRequest,
-    ) -> PipelineDeploymentResponse:
-        """Creates a new deployment.
+        session: Session,
+        pipeline_id: UUID,
+        name: str,
+    ) -> bool:
+        """Check if a snapshot with a certain name exists.
+
+        Args:
+            session: SQLAlchemy session.
+            pipeline_id: The pipeline ID of the snapshot.
+            name: The name of the snapshot.
+
+        Returns:
+            If a snapshot with the given arguments exists.
+        """
+        query = select(PipelineSnapshotSchema.id).where(
+            col(PipelineSnapshotSchema.pipeline_id) == pipeline_id,
+            col(PipelineSnapshotSchema.name) == name,
+        )
+
+        with Session(self.engine) as session:
+            return session.exec(query).first() is not None
+
+    def _remove_name_from_snapshot(
+        self, session: Session, pipeline_id: UUID, name: str
+    ) -> None:
+        """Remove the name of a snapshot if it exists.
+
+        Args:
+            session: SQLAlchemy session.
+            pipeline_id: The pipeline ID of the snapshot.
+            name: The name of the snapshot.
+        """
+        query = (
+            update(PipelineSnapshotSchema)
+            .where(
+                col(PipelineSnapshotSchema.pipeline_id) == pipeline_id,
+                col(PipelineSnapshotSchema.name) == name,
+            )
+            .values(name=None)
+        )
+        session.execute(query)
+
+    def create_snapshot(
+        self,
+        snapshot: PipelineSnapshotRequest,
+    ) -> PipelineSnapshotResponse:
+        """Creates a new snapshot.
+
+        Args:
+            snapshot: The snapshot to create.
+
+        Raises:
+            EntityExistsError: If a snapshot with the same name already
+                exists for the same pipeline.
+            RuntimeError: If the snapshot creation fails.
+
+        Returns:
+            The newly created snapshot.
+        """
+        with Session(self.engine) as session:
+            self._set_request_user_id(request_model=snapshot, session=session)
+            self._get_reference_schema_by_id(
+                resource=snapshot,
+                reference_schema=StackSchema,
+                reference_id=snapshot.stack,
+                session=session,
+            )
+
+            self._get_reference_schema_by_id(
+                resource=snapshot,
+                reference_schema=PipelineSchema,
+                reference_id=snapshot.pipeline,
+                session=session,
+            )
+
+            self._get_reference_schema_by_id(
+                resource=snapshot,
+                reference_schema=PipelineBuildSchema,
+                reference_id=snapshot.build,
+                session=session,
+            )
+
+            self._get_reference_schema_by_id(
+                resource=snapshot,
+                reference_schema=ScheduleSchema,
+                reference_id=snapshot.schedule,
+                session=session,
+            )
+
+            if snapshot.code_reference:
+                self._get_reference_schema_by_id(
+                    resource=snapshot,
+                    reference_schema=CodeRepositorySchema,
+                    reference_id=snapshot.code_reference.code_repository,
+                    session=session,
+                )
+
+            self._get_reference_schema_by_id(
+                resource=snapshot,
+                reference_schema=RunTemplateSchema,
+                reference_id=snapshot.template,
+                session=session,
+            )
+
+            self._get_reference_schema_by_id(
+                resource=snapshot,
+                reference_schema=PipelineSnapshotSchema,
+                reference_id=snapshot.source_snapshot,
+                session=session,
+            )
+
+            if isinstance(snapshot.name, str):
+                validate_name(snapshot)
+
+                if snapshot.replace:
+                    self._remove_name_from_snapshot(
+                        session=session,
+                        pipeline_id=snapshot.pipeline,
+                        name=snapshot.name,
+                    )
+
+            code_reference_id = self._create_or_reuse_code_reference(
+                session=session,
+                project_id=snapshot.project,
+                code_reference=snapshot.code_reference,
+            )
+
+            new_snapshot = PipelineSnapshotSchema.from_request(
+                snapshot, code_reference_id=code_reference_id
+            )
+
+            try:
+                session.add(new_snapshot)
+                session.commit()
+            except IntegrityError as e:
+                session.rollback()
+                if new_snapshot.name and self._snapshot_exists(
+                    session=session,
+                    pipeline_id=snapshot.pipeline,
+                    name=new_snapshot.name,
+                ):
+                    raise EntityExistsError(
+                        f"Snapshot with name `{new_snapshot.name}` already "
+                        f"exists for pipeline `{snapshot.pipeline}`. If you "
+                        "want to replace the existing snapshot, set the "
+                        "`replace` flag to `True`."
+                    )
+                else:
+                    raise RuntimeError("Snapshot creation failed.") from e
+
+            for index, (step_name, step_configuration) in enumerate(
+                snapshot.step_configurations.items()
+            ):
+                step_configuration_schema = StepConfigurationSchema(
+                    index=index,
+                    name=step_name,
+                    # Don't include the merged config in the step
+                    # configurations, we reconstruct it in the `to_model` method
+                    # using the pipeline configuration.
+                    config=step_configuration.model_dump_json(
+                        exclude={"config"}
+                    ),
+                    snapshot_id=new_snapshot.id,
+                )
+                session.add(step_configuration_schema)
+            session.commit()
+
+            self._attach_tags_to_resources(
+                tags=snapshot.tags,
+                resources=new_snapshot,
+                session=session,
+            )
+            session.refresh(new_snapshot)
+
+            return new_snapshot.to_model(
+                include_metadata=True, include_resources=True
+            )
+
+    def get_snapshot(
+        self,
+        snapshot_id: UUID,
+        hydrate: bool = True,
+        step_configuration_filter: Optional[List[str]] = None,
+        include_config_schema: Optional[bool] = None,
+    ) -> PipelineSnapshotResponse:
+        """Get a snapshot with a given ID.
+
+        Args:
+            snapshot_id: ID of the snapshot.
+            hydrate: Flag deciding whether to hydrate the output model(s)
+                by including metadata fields in the response.
+            step_configuration_filter: List of step configurations to include in
+                the response. If not given, all step configurations will be
+                included.
+            include_config_schema: Whether to include the config schema in the
+                response.
+
+        Returns:
+            The snapshot.
+        """
+        with Session(self.engine) as session:
+            snapshot = self._get_schema_by_id(
+                resource_id=snapshot_id,
+                schema_class=PipelineSnapshotSchema,
+                session=session,
+            )
+
+            return snapshot.to_model(
+                include_metadata=hydrate,
+                include_resources=True,
+                step_configuration_filter=step_configuration_filter,
+                include_config_schema=include_config_schema,
+            )
+
+    def list_snapshots(
+        self,
+        snapshot_filter_model: PipelineSnapshotFilter,
+        hydrate: bool = False,
+    ) -> Page[PipelineSnapshotResponse]:
+        """List all snapshots matching the given filter criteria.
+
+        Args:
+            snapshot_filter_model: All filter parameters including pagination
+                params.
+            hydrate: Flag deciding whether to hydrate the output model(s)
+                by including metadata fields in the response.
+
+        Returns:
+            A page of all snapshots matching the filter criteria.
+        """
+        with Session(self.engine) as session:
+            self._set_filter_project_id(
+                filter_model=snapshot_filter_model,
+                session=session,
+            )
+            query = select(PipelineSnapshotSchema)
+            return self.filter_and_paginate(
+                session=session,
+                query=query,
+                table=PipelineSnapshotSchema,
+                filter_model=snapshot_filter_model,
+                hydrate=hydrate,
+            )
+
+    def update_snapshot(
+        self,
+        snapshot_id: UUID,
+        snapshot_update: PipelineSnapshotUpdate,
+    ) -> PipelineSnapshotResponse:
+        """Update a snapshot.
+
+        Args:
+            snapshot_id: The ID of the snapshot to update.
+            snapshot_update: The update to apply.
+
+        Raises:
+            EntityExistsError: If a snapshot with the same version already
+                exists for the same pipeline.
+            RuntimeError: If the snapshot update fails.
+
+        Returns:
+            The updated snapshot.
+        """
+        with Session(self.engine) as session:
+            snapshot = self._get_schema_by_id(
+                resource_id=snapshot_id,
+                schema_class=PipelineSnapshotSchema,
+                session=session,
+            )
+
+            if isinstance(snapshot_update.name, str):
+                validate_name(snapshot_update)
+
+                if snapshot_update.replace:
+                    self._remove_name_from_snapshot(
+                        session=session,
+                        pipeline_id=snapshot.pipeline_id,
+                        name=snapshot_update.name,
+                    )
+
+            snapshot.update(snapshot_update)
+
+            try:
+                session.add(snapshot)
+                session.commit()
+            except IntegrityError as e:
+                session.rollback()
+                if snapshot.name and self._snapshot_exists(
+                    session=session,
+                    pipeline_id=snapshot.pipeline_id,
+                    name=snapshot.name,
+                ):
+                    raise EntityExistsError(
+                        f"Snapshot with name `{snapshot.name}` already exists "
+                        f"for pipeline {snapshot.pipeline_id}. If you want to "
+                        "replace the existing snapshot, set the `replace` flag "
+                        "to `True`."
+                    )
+                else:
+                    raise RuntimeError("Snapshot update failed.") from e
+
+            self._attach_tags_to_resources(
+                tags=snapshot_update.add_tags,
+                resources=snapshot,
+                session=session,
+            )
+            self._detach_tags_from_resources(
+                tags=snapshot_update.remove_tags,
+                resources=snapshot,
+                session=session,
+            )
+
+            session.refresh(snapshot)
+            return snapshot.to_model(
+                include_metadata=True, include_resources=True
+            )
+
+    def delete_snapshot(self, snapshot_id: UUID) -> None:
+        """Deletes a snapshot.
+
+        Args:
+            snapshot_id: The ID of the snapshot to delete.
+        """
+        with Session(self.engine) as session:
+            snapshot = self._get_schema_by_id(
+                resource_id=snapshot_id,
+                schema_class=PipelineSnapshotSchema,
+                session=session,
+            )
+
+            session.delete(snapshot)
+
+            # We set the reference of all snapshots to this snapshot to null
+            # manually as we can't have a foreign key there to avoid a cycle
+            snapshots = session.exec(
+                select(PipelineSnapshotSchema).where(
+                    PipelineSnapshotSchema.source_snapshot_id == snapshot_id
+                )
+            ).all()
+
+            for snapshot in snapshots:
+                snapshot.source_snapshot_id = None
+                session.add(snapshot)
+
+            session.commit()
+
+    def run_snapshot(
+        self,
+        snapshot_id: UUID,
+        run_request: PipelineSnapshotRunRequest,
+    ) -> NoReturn:
+        """Run a snapshot.
+
+        Args:
+            snapshot_id: The ID of the snapshot to run.
+            run_request: Configuration for the run.
+
+        Raises:
+            NotImplementedError: Always.
+        """
+        raise NotImplementedError(
+            "Running a snapshot is not possible with a local store."
+        )
+
+    # -------------------- Deployments --------------------
+
+    @track_decorator(AnalyticsEvent.CREATE_DEPLOYMENT)
+    def create_deployment(
+        self, deployment: DeploymentRequest
+    ) -> DeploymentResponse:
+        """Create a new deployment.
 
         Args:
             deployment: The deployment to create.
@@ -4815,121 +5118,78 @@ class SqlZenStore(BaseZenStore):
             self._set_request_user_id(
                 request_model=deployment, session=session
             )
+            self._verify_name_uniqueness(
+                resource=deployment,
+                schema=DeploymentSchema,
+                session=session,
+            )
             self._get_reference_schema_by_id(
                 resource=deployment,
-                reference_schema=StackSchema,
-                reference_id=deployment.stack,
+                reference_schema=PipelineSnapshotSchema,
+                reference_id=deployment.snapshot_id,
                 session=session,
             )
-
             self._get_reference_schema_by_id(
                 resource=deployment,
-                reference_schema=PipelineSchema,
-                reference_id=deployment.pipeline,
+                reference_schema=StackComponentSchema,
+                reference_id=deployment.deployer_id,
                 session=session,
+                reference_type="deployer",
             )
-
-            self._get_reference_schema_by_id(
-                resource=deployment,
-                reference_schema=PipelineBuildSchema,
-                reference_id=deployment.build,
-                session=session,
-            )
-
-            self._get_reference_schema_by_id(
-                resource=deployment,
-                reference_schema=ScheduleSchema,
-                reference_id=deployment.schedule,
-                session=session,
-            )
-
-            if deployment.code_reference:
-                self._get_reference_schema_by_id(
-                    resource=deployment,
-                    reference_schema=CodeRepositorySchema,
-                    reference_id=deployment.code_reference.code_repository,
-                    session=session,
-                )
-
-            self._get_reference_schema_by_id(
-                resource=deployment,
-                reference_schema=RunTemplateSchema,
-                reference_id=deployment.template,
-                session=session,
-            )
-
-            code_reference_id = self._create_or_reuse_code_reference(
-                session=session,
-                project_id=deployment.project,
-                code_reference=deployment.code_reference,
-            )
-
-            new_deployment = PipelineDeploymentSchema.from_request(
-                deployment, code_reference_id=code_reference_id
-            )
-            session.add(new_deployment)
+            deployment_schema = DeploymentSchema.from_request(deployment)
+            session.add(deployment_schema)
             session.commit()
 
-            for index, (step_name, step_configuration) in enumerate(
-                deployment.step_configurations.items()
-            ):
-                step_configuration_schema = StepConfigurationSchema(
-                    index=index,
-                    name=step_name,
-                    # Don't include the merged config in the step
-                    # configurations, we reconstruct it in the `to_model` method
-                    # using the pipeline configuration.
-                    config=step_configuration.model_dump_json(
-                        exclude={"config"}
-                    ),
-                    deployment_id=new_deployment.id,
-                )
-                session.add(step_configuration_schema)
-            session.commit()
-            session.refresh(new_deployment)
+            self._attach_tags_to_resources(
+                tags=deployment.tags,
+                resources=deployment_schema,
+                session=session,
+            )
 
-            return new_deployment.to_model(
+            session.refresh(deployment_schema)
+
+            # Track deployment and mark onboarding as completed
+            self._update_onboarding_state(
+                completed_steps={
+                    OnboardingStep.PIPELINE_DEPLOYED,
+                    OnboardingStep.OSS_ONBOARDING_COMPLETED,
+                    OnboardingStep.PRO_ONBOARDING_COMPLETED,
+                },
+                session=session,
+            )
+
+            return deployment_schema.to_model(
                 include_metadata=True, include_resources=True
             )
 
     def get_deployment(
-        self,
-        deployment_id: UUID,
-        hydrate: bool = True,
-        step_configuration_filter: Optional[List[str]] = None,
-    ) -> PipelineDeploymentResponse:
+        self, deployment_id: UUID, hydrate: bool = True
+    ) -> DeploymentResponse:
         """Get a deployment with a given ID.
 
         Args:
             deployment_id: ID of the deployment.
             hydrate: Flag deciding whether to hydrate the output model(s)
                 by including metadata fields in the response.
-            step_configuration_filter: List of step configurations to include in
-                the response. If not given, all step configurations will be
-                included.
 
         Returns:
             The deployment.
         """
         with Session(self.engine) as session:
-            # Check if deployment with the given ID exists
             deployment = self._get_schema_by_id(
                 resource_id=deployment_id,
-                schema_class=PipelineDeploymentSchema,
+                schema_class=DeploymentSchema,
                 session=session,
             )
-
             return deployment.to_model(
-                include_metadata=hydrate,
-                include_resources=True,
-                step_configuration_filter=step_configuration_filter,
+                include_metadata=hydrate, include_resources=True
             )
 
     def list_deployments(
         self,
-        deployment_filter_model: PipelineDeploymentFilter,
+        deployment_filter_model: DeploymentFilter,
         hydrate: bool = False,
-    ) -> Page[PipelineDeploymentResponse]:
+    ) -> Page[DeploymentResponse]:
         """List all deployments matching the given filter criteria.
 
         Args:
@@ -4946,30 +5206,353 @@ class SqlZenStore(BaseZenStore):
                 filter_model=deployment_filter_model,
                 session=session,
             )
-            query = select(PipelineDeploymentSchema)
+            query = select(DeploymentSchema)
             return self.filter_and_paginate(
                 session=session,
                 query=query,
-                table=PipelineDeploymentSchema,
+                table=DeploymentSchema,
                 filter_model=deployment_filter_model,
                 hydrate=hydrate,
             )
 
+    def update_deployment(
+        self,
+        deployment_id: UUID,
+        deployment_update: DeploymentUpdate,
+    ) -> DeploymentResponse:
+        """Update a deployment.
+
+        Args:
+            deployment_id: The ID of the deployment to update.
+            deployment_update: The update to apply.
+
+        Returns:
+            The updated deployment.
+        """
+        with Session(self.engine) as session:
+            deployment = self._get_schema_by_id(
+                resource_id=deployment_id,
+                schema_class=DeploymentSchema,
+                session=session,
+            )
+
+            self._verify_name_uniqueness(
+                resource=deployment_update,
+                schema=deployment,
+                session=session,
+            )
+            self._get_reference_schema_by_id(
+                resource=deployment,
+                reference_schema=PipelineSnapshotSchema,
+                reference_id=deployment_update.snapshot_id,
+                session=session,
+            )
+
+            deployment.update(deployment_update)
+            session.add(deployment)
+            session.commit()
+
+            self._attach_tags_to_resources(
+                tags=deployment_update.add_tags,
+                resources=deployment,
+                session=session,
+            )
+            self._detach_tags_from_resources(
+                tags=deployment_update.remove_tags,
+                resources=deployment,
+                session=session,
+            )
+
+            session.refresh(deployment)
+
+            return deployment.to_model(
+                include_metadata=True, include_resources=True
+            )
+
+    @track_decorator(AnalyticsEvent.DELETE_DEPLOYMENT)
     def delete_deployment(self, deployment_id: UUID) -> None:
-        """Deletes a deployment.
+        """Delete a deployment.
 
         Args:
             deployment_id: The ID of the deployment to delete.
         """
         with Session(self.engine) as session:
-            # Check if build with the given ID exists
             deployment = self._get_schema_by_id(
                 resource_id=deployment_id,
-                schema_class=PipelineDeploymentSchema,
+                schema_class=DeploymentSchema,
                 session=session,
             )
 
             session.delete(deployment)
+            session.commit()
+
+        # -------------------- Curated visualizations --------------------
+
+    def _assert_curated_visualization_duplicate(
+        self,
+        session: Session,
+        *,
+        artifact_visualization_id: UUID,
+        resource_id: UUID,
+        resource_type: VisualizationResourceTypes,
+    ) -> None:
+        """Ensure a curated visualization link does not already exist.
+
+        Args:
+            session: The database session.
+            artifact_visualization_id: The ID of the artifact visualization.
+            resource_id: The ID of the resource.
+            resource_type: The type of the resource.
+
+        Raises:
+            EntityExistsError: If a curated visualization link already exists.
+        """
+        existing = session.exec(
+            select(CuratedVisualizationSchema)
+            .where(
+                CuratedVisualizationSchema.artifact_visualization_id
+                == artifact_visualization_id
+            )
+            .where(CuratedVisualizationSchema.resource_id == resource_id)
+            .where(
+                CuratedVisualizationSchema.resource_type == resource_type.value
+            )
+        ).first()
+        if existing is not None:
+            raise EntityExistsError(
+                "A curated visualization for this resource already exists "
+                "for the specified artifact visualization."
+            )
+
+    def _assert_curated_visualization_display_order_unique(
+        self,
+        session: Session,
+        *,
+        resource_id: UUID,
+        resource_type: VisualizationResourceTypes,
+        display_order: Optional[int],
+        exclude_visualization_id: Optional[UUID] = None,
+    ) -> None:
+        """Ensure curated visualizations per resource use unique display orders.
+
+        Args:
+            session: The database session.
+            resource_id: The ID of the resource.
+            resource_type: The type of the resource.
+            display_order: The display order to check.
+            exclude_visualization_id: The ID of the visualization to exclude.
+
+        Raises:
+            EntityExistsError: If a curated visualization for this resource already uses the display order.
+        """
+        if display_order is None:
+            return
+
+        statement = (
+            select(CuratedVisualizationSchema)
+            .where(CuratedVisualizationSchema.resource_id == resource_id)
+            .where(
+                CuratedVisualizationSchema.resource_type == resource_type.value
+            )
+            .where(CuratedVisualizationSchema.display_order == display_order)
+        )
+        if exclude_visualization_id is not None:
+            statement = statement.where(
+                CuratedVisualizationSchema.id != exclude_visualization_id
+            )
+
+        existing = session.exec(statement).first()
+        if existing is not None:
+            raise EntityExistsError(
+                "A curated visualization for this resource already uses the "
+                f"display order '{display_order}'. Please choose a different value."
+            )
+
+    def create_curated_visualization(
+        self, visualization: CuratedVisualizationRequest
+    ) -> CuratedVisualizationResponse:
+        """Persist a curated visualization link.
+
+        Args:
+            visualization: The curated visualization to create.
+
+        Returns:
+            The created curated visualization.
+
+        Raises:
+            IllegalOperationError: If the curated visualization does not target the same project as the artifact visualization.
+            ValueError: If the resource type is invalid.
+            KeyError: If the resource is not found.
+        """
+        with Session(self.engine) as session:
+            self._set_request_user_id(
+                request_model=visualization, session=session
+            )
+
+            artifact_visualization: ArtifactVisualizationSchema = (
+                self._get_reference_schema_by_id(
+                    resource=visualization,
+                    reference_schema=ArtifactVisualizationSchema,
+                    reference_id=visualization.artifact_visualization_id,
+                    session=session,
+                )
+            )
+
+            artifact_version = artifact_visualization.artifact_version
+            project_id = artifact_version.project_id
+
+            if visualization.project != project_id:
+                raise IllegalOperationError(
+                    "Curated visualizations must target the same project as "
+                    "the artifact visualization."
+                )
+            project_id = visualization.project
+
+            resource_schema_map: Dict[
+                VisualizationResourceTypes, Type[BaseSchema]
+            ] = {
+                VisualizationResourceTypes.DEPLOYMENT: DeploymentSchema,
+                VisualizationResourceTypes.MODEL: ModelSchema,
+                VisualizationResourceTypes.PIPELINE: PipelineSchema,
+                VisualizationResourceTypes.PIPELINE_RUN: PipelineRunSchema,
+                VisualizationResourceTypes.PIPELINE_SNAPSHOT: PipelineSnapshotSchema,
+                VisualizationResourceTypes.PROJECT: ProjectSchema,
+            }
+
+            if visualization.resource_type not in resource_schema_map:
+                raise ValueError(
+                    f"Invalid resource type: {visualization.resource_type}"
+                )
+
+            schema_class = resource_schema_map[visualization.resource_type]
+            resource_schema = session.exec(
+                select(schema_class).where(
+                    schema_class.id == visualization.resource_id
+                )
+            ).first()
+
+            if not resource_schema:
+                raise KeyError(
+                    f"Resource of type '{visualization.resource_type.value}' "
+                    f"with ID {visualization.resource_id} not found."
+                )
+
+            if hasattr(resource_schema, "project_id"):
+                resource_project_id = resource_schema.project_id
+                if resource_project_id and resource_project_id != project_id:
+                    raise IllegalOperationError(
+                        f"Resource {visualization.resource_type.value} with ID "
+                        f"{visualization.resource_id} belongs to a different project than "
+                        f"the curated visualization (project ID: {project_id})."
+                    )
+
+            self._assert_curated_visualization_duplicate(
+                session=session,
+                artifact_visualization_id=visualization.artifact_visualization_id,
+                resource_id=visualization.resource_id,
+                resource_type=visualization.resource_type,
+            )
+            if visualization.display_order is not None:
+                self._assert_curated_visualization_display_order_unique(
+                    session=session,
+                    resource_id=visualization.resource_id,
+                    resource_type=visualization.resource_type,
+                    display_order=visualization.display_order,
+                )
+
+            schema = CuratedVisualizationSchema.from_request(visualization)
+
+            session.add(schema)
+            session.commit()
+            session.refresh(schema)
+
+            return schema.to_model(
+                include_metadata=True,
+                include_resources=True,
+            )
+
+    def get_curated_visualization(
+        self, visualization_id: UUID, hydrate: bool = True
+    ) -> CuratedVisualizationResponse:
+        """Fetch a curated visualization by ID.
+
+        Args:
+            visualization_id: The ID of the curated visualization to fetch.
+            hydrate: Flag deciding whether to hydrate the output model(s)
+                by including metadata fields in the response.
+
+        Returns:
+            The curated visualization with the given ID.
+        """
+        with Session(self.engine) as session:
+            schema: CuratedVisualizationSchema = self._get_schema_by_id(
+                resource_id=visualization_id,
+                schema_class=CuratedVisualizationSchema,
+                session=session,
+            )
+            return schema.to_model(
+                include_metadata=hydrate,
+                include_resources=hydrate,
+            )
+
+    def update_curated_visualization(
+        self,
+        visualization_id: UUID,
+        visualization_update: CuratedVisualizationUpdate,
+    ) -> CuratedVisualizationResponse:
+        """Update mutable fields on a curated visualization.
+
+        Args:
+            visualization_id: The ID of the curated visualization to update.
+            visualization_update: The update to apply to the curated visualization.
+
+        Returns:
+            The updated curated visualization.
+        """
+        with Session(self.engine) as session:
+            schema = self._get_schema_by_id(
+                resource_id=visualization_id,
+                schema_class=CuratedVisualizationSchema,
+                session=session,
+            )
+            update_fields = visualization_update.model_dump(exclude_unset=True)
+            if "display_order" in update_fields:
+                new_display_order = update_fields["display_order"]
+                if new_display_order is not None:
+                    self._assert_curated_visualization_display_order_unique(
+                        session=session,
+                        resource_id=schema.resource_id,
+                        resource_type=VisualizationResourceTypes(
+                            schema.resource_type
+                        ),
+                        display_order=new_display_order,
+                        exclude_visualization_id=visualization_id,
+                    )
+                # Explicit None clears the display order, so uniqueness validation is skipped.
+
+            schema.update(visualization_update)
+            session.add(schema)
+            session.commit()
+            session.refresh(schema)
+
+            return schema.to_model(
+                include_metadata=True,
+                include_resources=True,
+            )
+
+    def delete_curated_visualization(self, visualization_id: UUID) -> None:
+        """Delete a curated visualization.
+
+        Args:
+            visualization_id: The ID of the curated visualization to delete.
+        """
+        with Session(self.engine) as session:
+            schema = self._get_schema_by_id(
+                resource_id=visualization_id,
+                schema_class=CuratedVisualizationSchema,
+                session=session,
+            )
+            session.delete(schema)
             session.commit()
 
     # -------------------- Run templates --------------------
@@ -4996,16 +5579,23 @@ class SqlZenStore(BaseZenStore):
                 session=session,
             )
 
-            deployment = self._get_reference_schema_by_id(
+            snapshot = self._get_reference_schema_by_id(
                 resource=template,
-                reference_schema=PipelineDeploymentSchema,
-                reference_id=template.source_deployment_id,
+                reference_schema=PipelineSnapshotSchema,
+                reference_id=template.source_snapshot_id,
                 session=session,
             )
 
-            template_utils.validate_deployment_is_templatable(deployment)
+            template_utils.validate_snapshot_is_templatable(snapshot)
 
             template_schema = RunTemplateSchema.from_request(request=template)
+
+            if not template.hidden:
+                # Also update the name and description of the underlying
+                # snapshot
+                snapshot.name = template.name
+                snapshot.description = template.description
+                session.add(snapshot)
 
             session.add(template_schema)
             session.commit()
@@ -5133,16 +5723,16 @@ class SqlZenStore(BaseZenStore):
             )
 
             session.delete(template)
-            # We set the reference of all deployments to this template to null
+            # We set the reference of all snapshots to this template to null
             # manually as we can't have a foreign key there to avoid a cycle
-            deployments = session.exec(
-                select(PipelineDeploymentSchema).where(
-                    PipelineDeploymentSchema.template_id == template_id
+            snapshots = session.exec(
+                select(PipelineSnapshotSchema).where(
+                    PipelineSnapshotSchema.template_id == template_id
                 )
             ).all()
-            for deployment in deployments:
-                deployment.template_id = None
-                session.add(deployment)
+            for snapshot in snapshots:
+                snapshot.template_id = None
+                session.add(snapshot)
 
             session.commit()
 
@@ -5329,22 +5919,20 @@ class SqlZenStore(BaseZenStore):
         """
         helper = DAGGeneratorHelper()
         with Session(self.engine) as session:
+            # TODO: better loads for dynamic/static pipelines
             run = self._get_schema_by_id(
                 resource_id=pipeline_run_id,
                 schema_class=PipelineRunSchema,
                 session=session,
                 query_options=[
-                    selectinload(
-                        jl_arg(PipelineRunSchema.deployment)
-                    ).load_only(
-                        jl_arg(
-                            PipelineDeploymentSchema.pipeline_configuration
-                        ),
+                    selectinload(jl_arg(PipelineRunSchema.snapshot)).load_only(
+                        jl_arg(PipelineSnapshotSchema.pipeline_configuration),
+                        jl_arg(PipelineSnapshotSchema.is_dynamic),
                     ),
                     selectinload(
-                        jl_arg(PipelineRunSchema.deployment)
+                        jl_arg(PipelineRunSchema.snapshot)
                     ).selectinload(
-                        jl_arg(PipelineDeploymentSchema.step_configurations)
+                        jl_arg(PipelineSnapshotSchema.step_configurations)
                     ),
                     selectinload(
                         jl_arg(PipelineRunSchema.step_runs)
@@ -5352,10 +5940,23 @@ class SqlZenStore(BaseZenStore):
                     selectinload(
                         jl_arg(PipelineRunSchema.step_runs)
                     ).selectinload(jl_arg(StepRunSchema.output_artifacts)),
+                    selectinload(
+                        jl_arg(PipelineRunSchema.step_runs)
+                    ).selectinload(jl_arg(StepRunSchema.dynamic_config)),
+                    selectinload(jl_arg(PipelineRunSchema.step_runs))
+                    .selectinload(jl_arg(StepRunSchema.triggered_runs))
+                    .load_only(
+                        jl_arg(PipelineRunSchema.id),
+                        jl_arg(PipelineRunSchema.name),
+                        jl_arg(PipelineRunSchema.start_time),
+                        jl_arg(PipelineRunSchema.end_time),
+                        jl_arg(PipelineRunSchema.status),
+                        jl_arg(PipelineRunSchema.index),
+                    ),
                 ],
             )
-            assert run.deployment is not None
-            deployment = run.deployment
+            assert run.snapshot is not None
+            snapshot = run.snapshot
             step_runs = {
                 step.name: step
                 for step in run.step_runs
@@ -5363,19 +5964,29 @@ class SqlZenStore(BaseZenStore):
             }
 
             pipeline_configuration = PipelineConfiguration.model_validate_json(
-                deployment.pipeline_configuration
+                snapshot.pipeline_configuration
             )
             pipeline_configuration.finalize_substitutions(
                 start_time=run.start_time, inplace=True
             )
 
-            steps = {
-                config_table.name: Step.from_dict(
-                    json.loads(config_table.config),
-                    pipeline_configuration=pipeline_configuration,
-                )
-                for config_table in deployment.step_configurations
-            }
+            if snapshot.is_dynamic:
+                # Ignore static config templates for dynamic pipeline DAGs
+                steps = {
+                    name: Step.from_dict(
+                        json.loads(step_run.dynamic_config.config),  # type: ignore[union-attr]
+                        pipeline_configuration=pipeline_configuration,
+                    )
+                    for name, step_run in step_runs.items()
+                }
+            else:
+                steps = {
+                    config_table.name: Step.from_dict(
+                        json.loads(config_table.config),
+                        pipeline_configuration=pipeline_configuration,
+                    )
+                    for config_table in snapshot.step_configurations
+                }
             regular_output_artifact_nodes: Dict[
                 str, Dict[str, PipelineRunDAG.Node]
             ] = defaultdict(dict)
@@ -5427,7 +6038,9 @@ class SqlZenStore(BaseZenStore):
                             # This is a regular input artifact, so it is
                             # guaranteed that an upstream step already ran and
                             # produced the artifact.
-                            input_config = step.spec.inputs[input.name]
+                            input_config = step.spec.inputs_v2[input.name][
+                                input.input_index or 0
+                            ]
                             artifact_node = _get_regular_output_artifact_node(
                                 input_config.step_name,
                                 input_config.output_name,
@@ -5479,6 +6092,9 @@ class SqlZenStore(BaseZenStore):
                             target=step_node.node_id,
                             input_name=input.name,
                             type=input_type.value,
+                            index=input.input_index,
+                            chunk_index=input.chunk_index,
+                            chunk_size=input.chunk_size,
                         )
 
                     for output in step_run.output_artifacts:
@@ -5566,29 +6182,65 @@ class SqlZenStore(BaseZenStore):
                         regular_output_artifact_nodes[step_name][
                             substituted_output_name
                         ] = artifact_node
-                else:
-                    for input_name, input_config in step.spec.inputs.items():
-                        # This node should always exist, as the step
-                        # configurations are sorted and therefore all
-                        # upstream steps should have been processed already.
-                        artifact_node = _get_regular_output_artifact_node(
-                            input_config.step_name,
-                            input_config.output_name,
-                        )
 
-                        helper.add_edge(
-                            source=artifact_node.node_id,
-                            target=step_node.node_id,
-                            input_name=input_name,
-                            type=StepRunInputArtifactType.STEP_OUTPUT.value,
+                    for triggered_run in step_run.triggered_runs:
+                        triggered_run_metadata: Dict[str, Any] = {
+                            "status": triggered_run.status,
+                            "index": triggered_run.index,
+                        }
+
+                        if triggered_run.start_time:
+                            triggered_run_metadata["start_time"] = (
+                                triggered_run.start_time.isoformat()
+                            )
+
+                            if triggered_run.end_time:
+                                triggered_run_metadata["duration"] = (
+                                    triggered_run.end_time
+                                    - triggered_run.start_time
+                                ).total_seconds()
+
+                        triggered_run_node = helper.add_triggered_run_node(
+                            node_id=helper.get_triggered_run_node_id(
+                                name=triggered_run.name
+                            ),
+                            id=triggered_run.id,
+                            name=triggered_run.name,
+                            **triggered_run_metadata,
                         )
-                        # If the upstream step and the current step are
-                        # already connected via a regular artifact, we
-                        # don't add a direct edge between the two.
-                        try:
-                            upstream_steps.remove(input_config.step_name)
-                        except KeyError:
-                            pass
+                        helper.add_edge(
+                            source=step_node.node_id,
+                            target=triggered_run_node.node_id,
+                        )
+                else:
+                    for (
+                        input_name,
+                        input_configs,
+                    ) in step.spec.inputs_v2.items():
+                        for input_config in input_configs:
+                            # This node should always exist, as the step
+                            # configurations are sorted and therefore all
+                            # upstream steps should have been processed already.
+                            artifact_node = _get_regular_output_artifact_node(
+                                input_config.step_name,
+                                input_config.output_name,
+                            )
+
+                            helper.add_edge(
+                                source=artifact_node.node_id,
+                                target=step_node.node_id,
+                                input_name=input_name,
+                                type=StepRunInputArtifactType.STEP_OUTPUT.value,
+                                chunk_index=input_config.chunk_index,
+                                chunk_size=input_config.chunk_size,
+                            )
+                            # If the upstream step and the current step are
+                            # already connected via a regular artifact, we
+                            # don't add a direct edge between the two.
+                            try:
+                                upstream_steps.remove(input_config.step_name)
+                            except KeyError:
+                                pass
 
                     for input_name in step.config.client_lazy_loaders.keys():
                         artifact_node = helper.add_artifact_node(
@@ -5682,6 +6334,63 @@ class SqlZenStore(BaseZenStore):
             pipeline_run_id=pipeline_run_id, status=ExecutionStatus(run.status)
         )
 
+    def _get_duplicate_run_name_error_message(
+        self, pipeline_run_name: str
+    ) -> str:
+        """Generate a user-friendly error message for duplicate pipeline run names.
+
+        Args:
+            pipeline_run_name: The name of the pipeline run that already exists.
+
+        Returns:
+            A formatted error message with helpful suggestions.
+        """
+        return (
+            f"Pipeline run name '{pipeline_run_name}' already exists in this project. "
+            f"Each pipeline run must have a unique name.\n\n"
+            f"To fix this, you can:\n"
+            f"1. Use a different run name\n"
+            f'2. Use a dynamic run name with placeholders like: "{pipeline_run_name}_{{date}}_{{time}}"\n'
+            f"3. Remove the run name from your configuration to auto-generate unique names\n\n"
+            f"For more information on run naming, see: https://docs.zenml.io/concepts/steps_and_pipelines/yaml_configuration#run-name"
+        )
+
+    def _get_next_run_index(self, pipeline_id: UUID, session: Session) -> int:
+        """Get the next run index for a pipeline.
+
+        Args:
+            pipeline_id: The ID of the pipeline to get the next run index for.
+            session: SQLAlchemy session.
+
+        Returns:
+            The next run index for the pipeline.
+        """
+        # Commit before acquiring the exclusive lock on the pipeline
+        session.commit()
+        session.execute(
+            update(PipelineSchema)
+            .where(col(PipelineSchema.id) == pipeline_id)
+            .values(run_count=col(PipelineSchema.run_count) + 1)
+        )
+        index = session.exec(
+            select(PipelineSchema.run_count).where(
+                col(PipelineSchema.id) == pipeline_id
+            )
+        ).one()
+        session.commit()
+        return index
+
+    @staticmethod
+    def _get_enable_run_heartbeat(snapshot: PipelineSnapshotSchema) -> bool:
+        value = json.loads(snapshot.pipeline_configuration).get(
+            "enable_heartbeat"
+        )
+
+        if value is None:
+            return True
+        else:
+            return bool(value)
+
     def _create_run(
         self, pipeline_run: PipelineRunRequest, session: Session
     ) -> PipelineRunResponse:
@@ -5702,21 +6411,24 @@ class SqlZenStore(BaseZenStore):
                 can not be created.
         """
         self._set_request_user_id(request_model=pipeline_run, session=session)
-        self._get_reference_schema_by_id(
+
+        snapshot = self._get_reference_schema_by_id(
             resource=pipeline_run,
-            reference_schema=PipelineDeploymentSchema,
-            reference_id=pipeline_run.deployment,
+            reference_schema=PipelineSnapshotSchema,
+            reference_id=pipeline_run.snapshot,
             session=session,
         )
 
-        self._get_reference_schema_by_id(
-            resource=pipeline_run,
-            reference_schema=PipelineSchema,
-            reference_id=pipeline_run.pipeline,
-            session=session,
+        index = self._get_next_run_index(
+            pipeline_id=snapshot.pipeline_id, session=session
         )
 
-        new_run = PipelineRunSchema.from_request(pipeline_run)
+        new_run = PipelineRunSchema.from_request(
+            pipeline_run,
+            pipeline_id=snapshot.pipeline_id,
+            index=index,
+            enable_heartbeat=self._get_enable_run_heartbeat(snapshot),
+        )
 
         session.add(new_run)
 
@@ -5726,6 +6438,7 @@ class SqlZenStore(BaseZenStore):
             # We have to rollback the failed session first in order to
             # continue using it
             session.rollback()
+
             # This can fail if the name is taken by a different run
             self._verify_name_uniqueness(
                 resource=pipeline_run,
@@ -5733,31 +6446,42 @@ class SqlZenStore(BaseZenStore):
                 session=session,
             )
 
-            # ... or if the deployment_id and orchestrator_run_id are used
+            # ... or if the snapshot_id and orchestrator_run_id are used
             # by an existing run
             raise EntityExistsError(
                 "Unable to create pipeline run: A pipeline run with "
-                "the same deployment_id and orchestrator_run_id "
+                "the same snapshot_id and orchestrator_run_id "
                 "already exists."
             )
 
         # Add logs entry for the run if exists
         if pipeline_run.logs is not None:
-            self._get_reference_schema_by_id(
-                resource=pipeline_run,
-                reference_schema=StackComponentSchema,
-                reference_id=pipeline_run.logs.artifact_store_id,
-                session=session,
-                reference_type="logs artifact store",
-            )
+            if pipeline_run.logs.artifact_store_id:
+                self._get_reference_schema_by_id(
+                    resource=pipeline_run,
+                    reference_schema=StackComponentSchema,
+                    reference_id=pipeline_run.logs.artifact_store_id,
+                    session=session,
+                    reference_type="logs artifact store",
+                )
+            else:
+                self._get_reference_schema_by_id(
+                    resource=pipeline_run,
+                    reference_schema=StackComponentSchema,
+                    reference_id=pipeline_run.logs.log_store_id,
+                    session=session,
+                    reference_type="logs log store",
+                )
 
             log_entry = LogsSchema(
+                id=pipeline_run.logs.id,
                 uri=pipeline_run.logs.uri,
                 # TODO: Remove fallback when not supporting
                 # clients <0.84.0 anymore
                 source=pipeline_run.logs.source or "client",
                 pipeline_run_id=new_run.id,
                 artifact_store_id=pipeline_run.logs.artifact_store_id,
+                log_store_id=pipeline_run.logs.log_store_id,
             )
             try:
                 session.add(log_entry)
@@ -5903,12 +6627,12 @@ class SqlZenStore(BaseZenStore):
             # finishes, the subsequent queries will not be able to find a
             # placeholder run anymore, as we already updated the
             # status.
-            # Note: Due to our unique index on deployment_id and
+            # Note: Due to our unique index on snapshot_id and
             # orchestrator_run_id, this only locks a single row. If you're
             # modifying this WHERE clause, make sure to test/adjust so this
             # does not lock multiple rows or even the complete table.
             .with_for_update()
-            .where(PipelineRunSchema.deployment_id == pipeline_run.deployment)
+            .where(PipelineRunSchema.snapshot_id == pipeline_run.snapshot)
             .where(
                 or_(
                     PipelineRunSchema.orchestrator_run_id
@@ -5925,7 +6649,7 @@ class SqlZenStore(BaseZenStore):
                 )
             )
             # In very rare cases, there can be multiple placeholder runs for
-            # the same deployment. By ordering by the orchestrator_run_id, we
+            # the same snapshot. By ordering by the orchestrator_run_id, we
             # make sure that we use the placeholder run with the matching
             # orchestrator_run_id if it exists, before falling back to the
             # placeholder run without any orchestrator_run_id provided.
@@ -5959,17 +6683,17 @@ class SqlZenStore(BaseZenStore):
         )
 
     def _get_run_by_orchestrator_run_id(
-        self, orchestrator_run_id: str, deployment_id: UUID, session: Session
+        self, orchestrator_run_id: str, snapshot_id: UUID, session: Session
     ) -> PipelineRunResponse:
-        """Get a pipeline run based on deployment and orchestrator run ID.
+        """Get a pipeline run based on snapshot and orchestrator run ID.
 
         Args:
             orchestrator_run_id: The orchestrator run ID.
-            deployment_id: The deployment ID.
+            snapshot_id: The snapshot ID.
             session: SQLAlchemy session.
 
         Raises:
-            KeyError: If no run exists for the deployment and orchestrator run
+            KeyError: If no run exists for the snapshot and orchestrator run
                 ID.
 
         Returns:
@@ -5977,7 +6701,7 @@ class SqlZenStore(BaseZenStore):
         """
         run_schema = session.exec(
             select(PipelineRunSchema)
-            .where(PipelineRunSchema.deployment_id == deployment_id)
+            .where(PipelineRunSchema.snapshot_id == snapshot_id)
             .where(
                 PipelineRunSchema.orchestrator_run_id == orchestrator_run_id
             )
@@ -5994,7 +6718,7 @@ class SqlZenStore(BaseZenStore):
         if not run_schema:
             raise KeyError(
                 f"Unable to get run for orchestrator run ID "
-                f"{orchestrator_run_id} and deployment ID {deployment_id}."
+                f"{orchestrator_run_id} and snapshot ID {snapshot_id}."
             )
 
         return run_schema.to_model(
@@ -6033,7 +6757,7 @@ class SqlZenStore(BaseZenStore):
                     return (
                         self._get_run_by_orchestrator_run_id(
                             orchestrator_run_id=pipeline_run.orchestrator_run_id,
-                            deployment_id=pipeline_run.deployment,
+                            snapshot_id=pipeline_run.snapshot,
                             session=session,
                         ),
                         False,
@@ -6041,12 +6765,12 @@ class SqlZenStore(BaseZenStore):
                 except KeyError:
                     pass
 
-            # Acquire exclusive lock on the deployment to prevent deadlocks
+            # Acquire exclusive lock on the snapshot to prevent deadlocks
             # during insertion
             session.exec(
-                select(PipelineDeploymentSchema.id)
+                select(PipelineSnapshotSchema.id)
                 .with_for_update()
-                .where(PipelineDeploymentSchema.id == pipeline_run.deployment)
+                .where(PipelineSnapshotSchema.id == pipeline_run.snapshot)
             )
 
             if not pipeline_run.is_placeholder_request:
@@ -6065,12 +6789,12 @@ class SqlZenStore(BaseZenStore):
                 except KeyError:
                     # We were not able to find/replace a placeholder run. This could
                     # be due to one of the following three reasons:
-                    # (1) There never was a placeholder run for the deployment. This
+                    # (1) There never was a placeholder run for the snapshot. This
                     #     is the case if the user ran the pipeline on a schedule.
                     # (2) There was a placeholder run, but a previous pipeline run
                     #     already used it. This is the case if users rerun a
                     #     pipeline run e.g. from the orchestrator UI, as they will
-                    #     use the same deployment_id with a new orchestrator_run_id.
+                    #     use the same snapshot_id with a new orchestrator_run_id.
                     # (3) A step of the same pipeline run already replaced the
                     #     placeholder run.
                     pass
@@ -6081,12 +6805,12 @@ class SqlZenStore(BaseZenStore):
                 # (1) The behavior depends on whether we're the first step of
                 #     the pipeline run that's trying to create the run. If yes,
                 #     the `self._create_run(...)` call will succeed. If no, a
-                #     run with the same deployment_id and orchestrator_run_id
+                #     run with the same snapshot_id and orchestrator_run_id
                 #     already exists and the `self._create_run(...)` call will
                 #     fail due to the unique constraint on those columns.
                 # (2) Same as (1).
                 # (3) A step of the same pipeline run replaced the placeholder
-                #     run, which now contains the deployment_id and
+                #     run, which now contains the snapshot_id and
                 #     orchestrator_run_id of the run that we're trying to
                 #     create.
                 #     -> The `self._create_run(...)` call will fail due to the
@@ -6096,9 +6820,16 @@ class SqlZenStore(BaseZenStore):
                 return self._create_run(pipeline_run, session=session), True
             except EntityExistsError as create_error:
                 if not pipeline_run.orchestrator_run_id:
-                    raise
+                    # No orchestrator_run_id means this is likely a name conflict.
+                    # Provide a user-friendly error message for duplicate run names.
+                    improved_message = (
+                        self._get_duplicate_run_name_error_message(
+                            pipeline_run.name
+                        )
+                    )
+                    raise EntityExistsError(improved_message) from create_error
                 # Creating the run failed because
-                # - a run with the same deployment_id and orchestrator_run_id
+                # - a run with the same snapshot_id and orchestrator_run_id
                 #   exists. We now fetch and return that run.
                 # - a run with the same name already exists. This could be
                 #   either a different run (in which case we want to fail) or a
@@ -6108,17 +6839,21 @@ class SqlZenStore(BaseZenStore):
                     return (
                         self._get_run_by_orchestrator_run_id(
                             orchestrator_run_id=pipeline_run.orchestrator_run_id,
-                            deployment_id=pipeline_run.deployment,
+                            snapshot_id=pipeline_run.snapshot,
                             session=session,
                         ),
                         False,
                     )
                 except KeyError:
                     # We should only get here if the run creation failed because
-                    # of a name conflict. We raise the error that happened
-                    # during creation in any case to forward the error message
-                    # to the user.
-                    raise create_error
+                    # of a name conflict. Provide a user-friendly error message
+                    # for duplicate run names.
+                    improved_message = (
+                        self._get_duplicate_run_name_error_message(
+                            pipeline_run.name
+                        )
+                    )
+                    raise EntityExistsError(improved_message) from create_error
 
     def list_runs(
         self,
@@ -6215,22 +6950,33 @@ class SqlZenStore(BaseZenStore):
                 try:
                     for log_request in run_update.add_logs:
                         # Validate the artifact store exists
-                        self._get_reference_schema_by_id(
-                            resource=log_request,
-                            reference_schema=StackComponentSchema,
-                            reference_id=log_request.artifact_store_id,
-                            session=session,
-                            reference_type="logs artifact store",
-                        )
+                        if log_request.artifact_store_id:
+                            self._get_reference_schema_by_id(
+                                resource=log_request,
+                                reference_schema=StackComponentSchema,
+                                reference_id=log_request.artifact_store_id,
+                                session=session,
+                                reference_type="logs artifact store",
+                            )
+                        else:
+                            self._get_reference_schema_by_id(
+                                resource=log_request,
+                                reference_schema=StackComponentSchema,
+                                reference_id=log_request.log_store_id,
+                                session=session,
+                                reference_type="logs log store",
+                            )
 
                         # Create the log entry
                         log_entry = LogsSchema(
+                            id=log_request.id,
                             uri=log_request.uri,
                             # TODO: Remove fallback when not supporting
                             # clients <0.84.0 anymore
                             source=log_request.source or "orchestrator",
                             pipeline_run_id=existing_run.id,
                             artifact_store_id=log_request.artifact_store_id,
+                            log_store_id=log_request.log_store_id,
                         )
                         session.add(log_entry)
 
@@ -6298,6 +7044,33 @@ class SqlZenStore(BaseZenStore):
             schema=PipelineRunSchema, filter_model=filter_model
         )
 
+    def disable_run_heartbeat(self, run_id: UUID) -> None:
+        """Disables heartbeat for pipeline and all its running steps.
+
+        Args:
+            run_id: The id of the pipeline run.
+        """
+        with Session(self.engine) as session:
+            existing_run = self._get_schema_by_id(
+                resource_id=run_id,
+                schema_class=PipelineRunSchema,
+                session=session,
+            )
+
+            existing_run.enable_heartbeat = False
+            session.commit()
+
+            # set heartbeat threshold to null for all created steps
+
+            stmt = (
+                update(StepRunSchema)
+                .where(col(StepRunSchema.pipeline_run_id) == str(run_id))
+                .values(heartbeat_threshold=None)
+            )
+
+            session.execute(stmt)
+            session.commit()
+
     # ----------------------------- Run Metadata -----------------------------
 
     def create_run_metadata(self, run_metadata: RunMetadataRequest) -> None:
@@ -6349,6 +7122,8 @@ class SqlZenStore(BaseZenStore):
                 )
 
             if run_metadata.resources:
+                from zenml.utils.json_utils import pydantic_encoder
+
                 for key, value in run_metadata.values.items():
                     type_ = run_metadata.types[key]
 
@@ -6357,7 +7132,7 @@ class SqlZenStore(BaseZenStore):
                         user_id=run_metadata.user,
                         stack_component_id=run_metadata.stack_component_id,
                         key=key,
-                        value=json.dumps(value),
+                        value=json.dumps(value, default=pydantic_encoder),
                         type=type_,
                         publisher_step_id=run_metadata.publisher_step_id,
                     )
@@ -6484,6 +7259,9 @@ class SqlZenStore(BaseZenStore):
 
         Returns:
             The updated schedule.
+
+        Raises:
+            IllegalOperationError: If the update cannot be applied (e.g. schedule is archived).
         """
         with Session(self.engine) as session:
             # Check if schedule with the given ID exists
@@ -6492,6 +7270,11 @@ class SqlZenStore(BaseZenStore):
                 schema_class=ScheduleSchema,
                 session=session,
             )
+
+            if existing_schedule.is_archived:
+                raise IllegalOperationError(
+                    "Archived schedules can not be updated."
+                )
 
             self._verify_name_uniqueness(
                 resource=schedule_update,
@@ -6507,11 +7290,12 @@ class SqlZenStore(BaseZenStore):
                 include_metadata=True, include_resources=True
             )
 
-    def delete_schedule(self, schedule_id: UUID) -> None:
+    def delete_schedule(self, schedule_id: UUID, soft: bool = False) -> None:
         """Deletes a schedule.
 
         Args:
             schedule_id: The ID of the schedule to delete.
+            soft: Soft deletion will archive the schedule.
         """
         with Session(self.engine) as session:
             # Check if schedule with the given ID exists
@@ -6521,8 +7305,15 @@ class SqlZenStore(BaseZenStore):
                 session=session,
             )
 
-            # Delete the schedule
-            session.delete(schedule)
+            if not soft:
+                # Hard delete the schedule
+                session.delete(schedule)
+            else:
+                # Soft deletion - set is_archived
+                schedule.is_archived = True
+                schedule.active = False
+                session.add(schedule)
+
             session.commit()
 
     # ------------------------- Secrets -------------------------
@@ -6912,6 +7703,95 @@ class SqlZenStore(BaseZenStore):
         if self.backup_secrets_store:
             self.backup_secrets_store.delete_secret_values(secret_id=secret_id)
 
+    def _link_secrets_to_resource(
+        self,
+        secrets: Optional[Sequence[Union[str, UUID]]],
+        resource: BaseSchema,
+        session: Session,
+    ) -> None:
+        """Links multiple secrets to multiple resources.
+
+        Args:
+            secrets: The list of secrets to link.
+            resource: The resource to link the secrets to.
+            session: The database session to use.
+        """
+        if secrets is None:
+            return
+
+        resource_types = {
+            StackComponentSchema: SecretResourceTypes.STACK_COMPONENT,
+            StackSchema: SecretResourceTypes.STACK,
+        }
+
+        for secret in secrets:
+            if isinstance(secret, str):
+                try:
+                    secret = UUID(secret)
+                except ValueError:
+                    # Not a valid UUID string, proceed normally
+                    pass
+
+            secret_schema = self._get_schema_by_name_or_id(
+                secret, schema_class=SecretSchema, session=session
+            )
+            resource_type = resource_types[type(resource)]
+            secret_resource = SecretResourceSchema(
+                resource_id=resource.id,
+                resource_type=resource_type,
+                secret_id=secret_schema.id,
+            )
+            session.add(secret_resource)
+
+            try:
+                session.commit()
+            except IntegrityError:
+                # The secret resource already exists, so we rollback the session
+                # and do nothing.
+                session.rollback()
+                pass
+
+    def _unlink_secrets_from_resource(
+        self,
+        secrets: Optional[Sequence[Union[str, UUID]]],
+        resource: BaseSchema,
+        session: Session,
+    ) -> None:
+        """Unlinks multiple secrets from a resource.
+
+        Args:
+            secrets: The list of secrets to unlink.
+            resource: The resource to unlink the secrets from.
+            session: The database session to use.
+        """
+        if secrets is None:
+            return
+
+        resource_types = {
+            StackComponentSchema: SecretResourceTypes.STACK_COMPONENT,
+            StackSchema: SecretResourceTypes.STACK,
+        }
+
+        for secret in secrets:
+            if isinstance(secret, str):
+                try:
+                    secret = UUID(secret)
+                except ValueError:
+                    # Not a valid UUID string, proceed normally
+                    pass
+
+            secret_schema = self._get_schema_by_name_or_id(
+                secret, schema_class=SecretSchema, session=session
+            )
+            resource_type = resource_types[type(resource)]
+
+            query = delete(SecretResourceSchema).where(
+                col(SecretResourceSchema.resource_id) == resource.id,
+                col(SecretResourceSchema.resource_type) == resource_type.value,
+                col(SecretResourceSchema.secret_id) == secret_schema.id,
+            )
+            session.execute(query)
+
     def _create_secret_schema(
         self, secret: SecretRequest, session: Session, internal: bool = False
     ) -> SecretSchema:
@@ -7032,6 +7912,36 @@ class SqlZenStore(BaseZenStore):
             )
 
         secret_model.set_secrets(self._get_secret_values(secret_id=secret_id))
+
+        return secret_model
+
+    def get_secret_by_name_or_id(
+        self,
+        secret_name_or_id: Union[str, UUID],
+        include_secret_values: bool = False,
+    ) -> SecretResponse:
+        """Get a secret by name or ID.
+
+        Args:
+            secret_name_or_id: The name or ID of the secret to fetch.
+            include_secret_values: Whether to include the secret values in the
+                response.
+
+        Returns:
+            The secret.
+        """
+        with Session(self.engine) as session:
+            secret_in_db = self._get_schema_by_name_or_id(
+                secret_name_or_id, schema_class=SecretSchema, session=session
+            )
+            secret_model = secret_in_db.to_model(
+                include_metadata=True, include_resources=True
+            )
+
+        if include_secret_values:
+            secret_model.set_secrets(
+                self._get_secret_values(secret_id=secret_in_db.id)
+            )
 
         return secret_model
 
@@ -8622,15 +9532,15 @@ class SqlZenStore(BaseZenStore):
                     select(StackComponentSchema).where(or_(*filters))
                 ).all()
 
-                new_stack_schema = StackSchema(
-                    user_id=stack.user,
-                    stack_spec_path=stack.stack_spec_path,
-                    name=stack.name,
-                    description=stack.description,
+                new_stack_schema = StackSchema.from_request(
+                    request=stack,
                     components=defined_components,
-                    labels=base64.b64encode(
-                        json.dumps(stack.labels).encode("utf-8")
-                    ),
+                )
+
+                self._link_secrets_to_resource(
+                    resource=new_stack_schema,
+                    secrets=stack.secrets,
+                    session=session,
                 )
 
                 session.add(new_stack_schema)
@@ -8783,6 +9693,17 @@ class SqlZenStore(BaseZenStore):
                 components=components,
             )
 
+            self._link_secrets_to_resource(
+                resource=existing_stack,
+                secrets=stack_update.add_secrets,
+                session=session,
+            )
+            self._unlink_secrets_from_resource(
+                resource=existing_stack,
+                secrets=stack_update.remove_secrets,
+                session=session,
+            )
+
             session.add(existing_stack)
             session.commit()
             session.refresh(existing_stack)
@@ -8853,6 +9774,20 @@ class SqlZenStore(BaseZenStore):
                 ),
             )
 
+            deployer = self.create_stack_component(
+                # Use `DefaultComponentRequest` instead of
+                # `ComponentRequest` here to force the `create_stack_component`
+                # call to use `None` for the user, meaning the orchestrator
+                # is owned by the server, which for RBAC indicates that
+                # everyone can read it
+                component=DefaultComponentRequest(
+                    name=DEFAULT_STACK_AND_COMPONENT_NAME,
+                    type=StackComponentType.DEPLOYER,
+                    flavor="local",
+                    configuration={},
+                ),
+            )
+
             artifact_store = self.create_stack_component(
                 # Use `DefaultComponentRequest` instead of
                 # `ComponentRequest` here to force the `create_stack_component`
@@ -8868,7 +9803,8 @@ class SqlZenStore(BaseZenStore):
             )
 
             components = {
-                c.type: [c.id] for c in [orchestrator, artifact_store]
+                c.type: [c.id]
+                for c in [orchestrator, deployer, artifact_store]
             }
 
             # Use `DefaultStackRequest` instead of `StackRequest` here to force
@@ -9023,7 +9959,10 @@ class SqlZenStore(BaseZenStore):
                 session=session,
                 reference_type="original step run",
             )
-            step_config = run.get_step_configuration(step_name=step_run.name)
+            step_config = (
+                step_run.dynamic_config
+                or run.get_step_configuration(step_name=step_run.name)
+            )
 
             # Release the read locks of the previous two queries before we
             # try to acquire more exclusive locks
@@ -9101,7 +10040,7 @@ class SqlZenStore(BaseZenStore):
 
             step_schema = StepRunSchema.from_request(
                 step_run,
-                deployment_id=run.deployment_id,
+                snapshot_id=run.snapshot_id,
                 version=len(existing_step_runs) + 1,
                 # TODO: This isn't actually guaranteed to be correct, how
                 # do we handle these cases? E.g. if the step on kubernetes
@@ -9109,6 +10048,13 @@ class SqlZenStore(BaseZenStore):
                 # step runs. Or if it doesn't reach the point in code where
                 # the step run is created.
                 is_retriable=is_retriable,
+            )
+
+            # cached top-level heartbeat config property (for fast validation).
+            step_schema.heartbeat_threshold = (
+                step_config.config.heartbeat_healthy_threshold
+                if step_config.spec.enable_heartbeat and run.enable_heartbeat
+                else None
             )
 
             session.add(step_schema)
@@ -9123,21 +10069,32 @@ class SqlZenStore(BaseZenStore):
 
             # Add logs entry for the step if exists
             if step_run.logs is not None:
-                self._get_reference_schema_by_id(
-                    resource=step_run,
-                    reference_schema=StackComponentSchema,
-                    reference_id=step_run.logs.artifact_store_id,
-                    session=session,
-                    reference_type="logs artifact store",
-                )
+                if step_run.logs.artifact_store_id:
+                    self._get_reference_schema_by_id(
+                        resource=step_run,
+                        reference_schema=StackComponentSchema,
+                        reference_id=step_run.logs.artifact_store_id,
+                        session=session,
+                        reference_type="logs artifact store",
+                    )
+                else:
+                    self._get_reference_schema_by_id(
+                        resource=step_run,
+                        reference_schema=StackComponentSchema,
+                        reference_id=step_run.logs.log_store_id,
+                        session=session,
+                        reference_type="logs log store",
+                    )
 
                 log_entry = LogsSchema(
+                    id=step_run.logs.id,
                     uri=step_run.logs.uri,
                     # TODO: Remove fallback when not supporting
-                    # clients <0.84.0 anymore
-                    source=step_run.logs.source or "execution",
+                    # clients <0.93.0 anymore
+                    source=step_run.logs.source or "step",
                     step_run_id=step_schema.id,
                     artifact_store_id=step_run.logs.artifact_store_id,
+                    log_store_id=step_run.logs.log_store_id,
                 )
                 try:
                     session.add(log_entry)
@@ -9228,19 +10185,29 @@ class SqlZenStore(BaseZenStore):
 
             # Save input artifact IDs into the database.
             for input_name, artifact_version_ids in step_run.inputs.items():
-                for artifact_version_id in artifact_version_ids:
+                for i, artifact_version_id in enumerate(artifact_version_ids):
+                    index = None
+                    chunk_index = None
+                    chunk_size = None
+
                     if step_run.original_step_run_id:
                         # This is a cached step run, for which the input
                         # artifacts might include manually loaded artifacts
                         # which can not be inferred from the step config. In
                         # this case, we check the input type of the artifact
                         # for the original step run.
-                        input_type = self._get_step_run_input_type_from_cached_step_run(
+                        input_artifact = self._get_step_run_input_artifact_from_cached_step_run(
                             input_name=input_name,
                             artifact_version_id=artifact_version_id,
                             cached_step_run_id=step_run.original_step_run_id,
                             session=session,
                         )
+                        input_type = StepRunInputArtifactType(
+                            input_artifact.type
+                        )
+                        index = input_artifact.input_index
+                        chunk_index = input_artifact.chunk_index
+                        chunk_size = input_artifact.chunk_size
                     else:
                         # This is a non-cached step run, which means all input
                         # artifacts we receive at creation time are inputs that
@@ -9250,12 +10217,24 @@ class SqlZenStore(BaseZenStore):
                             step_config=step_config.config,
                             step_spec=step_config.spec,
                         )
+
+                        if input_type == StepRunInputArtifactType.STEP_OUTPUT:
+                            index = i
+                            input_spec = step_config.spec.inputs_v2[
+                                input_name
+                            ][i]
+                            chunk_index = input_spec.chunk_index
+                            chunk_size = input_spec.chunk_size
+
                     self._set_run_step_input_artifact(
                         step_run=step_schema,
                         artifact_version_id=artifact_version_id,
                         name=input_name,
                         input_type=input_type,
                         session=session,
+                        index=index,
+                        chunk_index=chunk_index,
+                        chunk_size=chunk_size,
                     )
 
             # Save output artifact IDs into the database.
@@ -9274,6 +10253,26 @@ class SqlZenStore(BaseZenStore):
                 self._update_pipeline_run_status(
                     pipeline_run_id=step_run.pipeline_run_id, session=session
                 )
+
+            if step_run.dynamic_config:
+                if not run.snapshot or not run.snapshot.is_dynamic:
+                    raise IllegalOperationError(
+                        "Dynamic step configurations are not allowed for "
+                        "static pipelines."
+                    )
+
+                step_configuration_schema = StepConfigurationSchema(
+                    index=0,
+                    name=step_run.name,
+                    # Don't include the merged config in the step
+                    # configurations, we reconstruct it in the `to_model` method
+                    # using the pipeline configuration.
+                    config=step_run.dynamic_config.model_dump_json(
+                        exclude={"config"}
+                    ),
+                    step_run_id=step_schema.id,
+                )
+                session.add(step_configuration_schema)
 
             session.commit()
             session.refresh(
@@ -9361,6 +10360,105 @@ class SqlZenStore(BaseZenStore):
                 apply_query_options_from_schema=True,
             )
 
+    def update_step_heartbeat(
+        self, step_run_id: UUID
+    ) -> StepHeartbeatResponse:
+        """Updates a step run heartbeat value.
+
+        Lightweight function for fast updates as heartbeats may be received at bulk.
+
+        Args:
+            step_run_id: ID of the step run.
+
+        Returns:
+            Step heartbeat response (minimal info, id, status & latest_heartbeat).
+        """
+        with Session(self.engine) as session:
+            existing_step_run = self._get_schema_by_id(
+                resource_id=step_run_id,
+                schema_class=StepRunSchema,
+                session=session,
+            )
+
+            existing_step_run.latest_heartbeat = datetime.now(timezone.utc)
+
+            session.commit()
+            session.refresh(existing_step_run)
+
+            return StepHeartbeatResponse(
+                id=existing_step_run.id,
+                status=ExecutionStatus(existing_step_run.status),
+                latest_heartbeat=existing_step_run.latest_heartbeat,
+                heartbeat_enabled=existing_step_run.heartbeat_threshold
+                is not None,
+            )
+
+    def validate_and_update_heartbeat(
+        self,
+        step_run_id: UUID,
+        token_run_id: UUID | None = None,
+        token_schedule_id: UUID | None = None,
+    ) -> StepHeartbeatResponse:
+        """Updates & Validates a step run heartbeat value.
+
+        Lightweight function for fast updates as heartbeats may be received at bulk.
+
+        Args:
+            step_run_id: ID of the step run.
+            token_run_id: Pipeline run id of the auth context
+            token_schedule_id: Schedule id of the auth context
+
+        Returns:
+            Step heartbeat response (minimal info, id, status & latest_heartbeat).
+
+        Raises:
+            AuthorizationException: If token identifiers do not much step information.
+            IllegalOperationError: If update heartbeat is called for a finished step.
+        """
+        with Session(self.engine) as session:
+            step_run = self._get_schema_by_id(
+                resource_id=step_run_id,
+                schema_class=StepRunSchema,
+                session=session,
+            )
+
+            if ExecutionStatus(step_run.status).is_finished:
+                raise IllegalOperationError(
+                    "Can not update heartbeat for finished steps."
+                )
+
+            run = self._get_schema_by_id(
+                resource_id=step_run.pipeline_run_id,
+                schema_class=PipelineRunSchema,
+                session=session,
+            )
+
+            if token_run_id:
+                if step_run.pipeline_run_id != token_run_id:
+                    raise AuthorizationException(
+                        f"Authentication token provided is invalid for step: {step_run_id}"
+                    )
+            elif token_schedule_id:
+                if not (run.schedule_id == token_schedule_id):
+                    raise AuthorizationException(
+                        f"Authentication token provided is invalid for step: {step_run_id}"
+                    )
+            else:
+                # un-scoped token. Soon to-be-deprecated, we will ignore validation temporarily.
+                pass
+
+            latest_heartbeat = datetime.now(timezone.utc)
+            step_run.latest_heartbeat = latest_heartbeat
+            session.commit()
+
+            return StepHeartbeatResponse(
+                id=step_run_id,
+                status=ExecutionStatus(run.status),
+                latest_heartbeat=latest_heartbeat,
+                heartbeat_enabled=step_run.heartbeat_threshold is not None,
+                pipeline_run_status=ExecutionStatus(run.status),
+            )
+
     def update_run_step(
         self,
         step_run_id: UUID,
@@ -9373,6 +10471,7 @@ class SqlZenStore(BaseZenStore):
             step_run_update: The update to be applied to the step.
 
         Raises:
+            EntityExistsError: If the log entry already exists.
             ValueError: If trying to update the step status to retried.
 
         Returns:
@@ -9451,18 +10550,64 @@ class SqlZenStore(BaseZenStore):
                 session=session,
             )
 
+            # Add logs if specified
+            if step_run_update.add_logs:
+                try:
+                    for log_request in step_run_update.add_logs:
+                        # Validate the artifact store exists
+                        if log_request.artifact_store_id:
+                            self._get_reference_schema_by_id(
+                                resource=log_request,
+                                reference_schema=StackComponentSchema,
+                                reference_id=log_request.artifact_store_id,
+                                session=session,
+                                reference_type="logs artifact store",
+                            )
+                        else:
+                            self._get_reference_schema_by_id(
+                                resource=log_request,
+                                reference_schema=StackComponentSchema,
+                                reference_id=log_request.log_store_id,
+                                session=session,
+                                reference_type="logs log store",
+                            )
+
+                        # Create the log entry
+                        log_entry = LogsSchema(
+                            id=log_request.id,
+                            uri=log_request.uri,
+                            # TODO: Remove fallback when not supporting
+                            # clients <0.93.0 anymore
+                            source=log_request.source or "step",
+                            step_run_id=existing_step_run.id,
+                            artifact_store_id=log_request.artifact_store_id,
+                            log_store_id=log_request.log_store_id,
+                        )
+                        session.add(log_entry)
+
+                    session.commit()
+                except IntegrityError:
+                    session.rollback()
+                    raise EntityExistsError(
+                        "Unable to create log entry: One of the provided sources "
+                        f"({', '.join(log.source for log in step_run_update.add_logs)}) "
+                        "already exists within the scope of the same step "
+                        f"'{step_run_id}'. Existing entry sources: "
+                        f"{', '.join(log.source for log in existing_step_run.logs)}"
+                    )
+
             return existing_step_run.to_model(
                 include_metadata=True, include_resources=True
             )
 
-    def _get_step_run_input_type_from_cached_step_run(
+    def _get_step_run_input_artifact_from_cached_step_run(
         self,
         input_name: str,
         artifact_version_id: UUID,
         cached_step_run_id: UUID,
         session: Session,
-    ) -> StepRunInputArtifactType:
-        """Get the input type of an artifact from a cached step run.
+    ) -> StepRunInputArtifactSchema:
+        """Get the input artifact schema from a cached step run.
 
         Args:
             input_name: The name of the input artifact.
@@ -9475,10 +10620,10 @@ class SqlZenStore(BaseZenStore):
                 name and artifact version ID.
 
         Returns:
-            The input type of the artifact.
+            The input artifact schema.
         """
         query = (
-            select(StepRunInputArtifactSchema.type)
+            select(StepRunInputArtifactSchema)
             .where(StepRunInputArtifactSchema.name == input_name)
             .where(
                 StepRunInputArtifactSchema.artifact_id == artifact_version_id
@@ -9492,7 +10637,7 @@ class SqlZenStore(BaseZenStore):
                 f"artifact version `{artifact_version_id}` and step run "
                 f"`{cached_step_run_id}`."
             )
-        return StepRunInputArtifactType(result)
+        return result
 
     def _get_step_run_input_type_from_config(
         self,
@@ -9510,7 +10655,7 @@ class SqlZenStore(BaseZenStore):
         Returns:
             The input type of the artifact.
         """
-        if input_name in step_spec.inputs:
+        if input_name in step_spec.inputs_v2:
             return StepRunInputArtifactType.STEP_OUTPUT
         if input_name in step_config.external_input_artifacts:
             return StepRunInputArtifactType.EXTERNAL
@@ -9573,6 +10718,9 @@ class SqlZenStore(BaseZenStore):
         name: str,
         input_type: StepRunInputArtifactType,
         session: Session,
+        index: Optional[int] = None,
+        chunk_index: Optional[int] = None,
+        chunk_size: Optional[int] = None,
     ) -> None:
         """Sets an artifact as an input of a step run.
 
@@ -9582,6 +10730,11 @@ class SqlZenStore(BaseZenStore):
             name: The name of the input in the step run.
             input_type: In which way the artifact was loaded in the step.
             session: The database session to use.
+            index: The index of the input in the step run.
+            chunk_index: The chunk index if this input only refers to a chunk
+                of a larger artifact.
+            chunk_size: The size of the chunk if this input only refers to
+                a chunk of a larger artifact.
         """
         # Check if the artifact exists.
         self._get_reference_schema_by_id(
@@ -9592,24 +10745,29 @@ class SqlZenStore(BaseZenStore):
             reference_type="input artifact",
         )
 
-        # Check if the input is already set.
-        assignment = session.exec(
-            select(StepRunInputArtifactSchema)
-            .where(StepRunInputArtifactSchema.step_id == step_run.id)
-            .where(
-                StepRunInputArtifactSchema.artifact_id == artifact_version_id
-            )
-            .where(StepRunInputArtifactSchema.name == name)
-        ).first()
-        if assignment is not None:
-            return
+        if input_type == StepRunInputArtifactType.MANUAL:
+            # For manual inputs, we don't store if they were loaded multiple
+            # times
+            assignment = session.exec(
+                select(StepRunInputArtifactSchema)
+                .where(StepRunInputArtifactSchema.step_id == step_run.id)
+                .where(
+                    StepRunInputArtifactSchema.artifact_id
+                    == artifact_version_id
+                )
+                .where(StepRunInputArtifactSchema.name == name)
+            ).first()
+            if assignment is not None:
+                return
 
-        # Save the input assignment in the database.
         assignment = StepRunInputArtifactSchema(
             step_id=step_run.id,
             artifact_id=artifact_version_id,
             name=name,
             type=input_type.value,
+            input_index=index or 0,
+            chunk_index=chunk_index,
+            chunk_size=chunk_size,
         )
         session.add(assignment)
 
@@ -9683,21 +10841,20 @@ class SqlZenStore(BaseZenStore):
             .where(col(StepRunSchema.status) != ExecutionStatus.RETRIED.value)
         ).all()
 
-        # Deployment always exists for pipeline runs of newer versions
-        assert pipeline_run.deployment
-        num_steps = pipeline_run.deployment.step_count
+        # Snapshots always exists for pipeline runs of newer versions
+        assert pipeline_run.snapshot
+        num_steps = pipeline_run.snapshot.step_count
+        is_dynamic_pipeline = pipeline_run.snapshot.is_dynamic
         new_status = get_pipeline_run_status(
             run_status=ExecutionStatus(pipeline_run.status),
             step_statuses=[
                 ExecutionStatus(status) for status in step_run_statuses
             ],
             num_steps=num_steps,
+            is_dynamic_pipeline=is_dynamic_pipeline,
         )
 
-        if new_status == pipeline_run.status or (
-            pipeline_run.is_placeholder_run() and not new_status.is_finished
-        ):
-            # The status hasn't changed -> no need to update the status.
+        if pipeline_run.is_placeholder_run() and not new_status.is_finished:
             # If the pipeline run is a placeholder run (=no step has been started
             # for the run yet), this means the orchestrator hasn't started
             # running yet, and this method is most likely being called as
@@ -9729,7 +10886,7 @@ class SqlZenStore(BaseZenStore):
                 start_time_str = None
                 duration_seconds = None
 
-            stack = pipeline_run.deployment.stack
+            stack = pipeline_run.snapshot.stack
             assert stack
             stack_metadata = {
                 str(component.type): component.flavor
@@ -9741,7 +10898,7 @@ class SqlZenStore(BaseZenStore):
                 analytics_handler.metadata = {
                     "project_id": pipeline_run.project_id,
                     "pipeline_run_id": pipeline_run_id,
-                    "template_id": pipeline_run.deployment.template_id,
+                    "source_snapshot_id": pipeline_run.snapshot.source_snapshot_id,
                     "status": new_status,
                     "num_steps": num_steps,
                     "start_time": start_time_str,
@@ -9749,12 +10906,12 @@ class SqlZenStore(BaseZenStore):
                         "%Y-%m-%dT%H:%M:%S.%fZ"
                     ),
                     "duration_seconds": duration_seconds,
+                    "dynamic": pipeline_run.snapshot.is_dynamic,
                     **stack_metadata,
                 }
 
             completed_onboarding_steps: Set[str] = {
                 OnboardingStep.PIPELINE_RUN,
-                OnboardingStep.OSS_ONBOARDING_COMPLETED,
             }
             if stack_metadata["orchestrator"] not in {
                 "local",
@@ -9769,7 +10926,6 @@ class SqlZenStore(BaseZenStore):
                 completed_onboarding_steps.update(
                     {
                         OnboardingStep.PIPELINE_RUN_WITH_REMOTE_ARTIFACT_STORE,
-                        OnboardingStep.PRO_ONBOARDING_COMPLETED,
                     }
                 )
 
@@ -10092,7 +11248,7 @@ class SqlZenStore(BaseZenStore):
         for resource_attr in resource_attrs:
             # Extract the target schema from the annotation
             annotation = UserSchema.__annotations__[resource_attr]
-            if get_origin(annotation) == Mapped:
+            if get_origin(annotation) == Mapped:  # type: ignore[comparison-overlap]
                 annotation = annotation.__args__[0]
 
             # The annotation must be of the form
@@ -10110,8 +11266,10 @@ class SqlZenStore(BaseZenStore):
                     vars(zenml_schemas), {}, recursive_guard=frozenset()
                 )
             else:
-                target_schema = schema_ref._evaluate(
-                    vars(zenml_schemas), {}, frozenset()
+                target_schema = schema_ref._evaluate(  # type: ignore[unused-ignore, call-arg, call-overload]
+                    vars(zenml_schemas),
+                    {},
+                    frozenset(),  # type: ignore[unused-ignore, arg-type]
                 )
             assert target_schema is not None
             assert issubclass(target_schema, SQLModel)
@@ -11278,7 +12436,6 @@ class SqlZenStore(BaseZenStore):
             raise RuntimeError(f"Schema {schema_class.__name__} has no name.")
 
         operation: Literal["create", "update"] = "create"
-        project_id: Optional[UUID] = None
         if isinstance(resource, BaseRequest):
             # Create operation
             if isinstance(resource, ProjectScopedRequest):
@@ -11306,6 +12463,12 @@ class SqlZenStore(BaseZenStore):
             operation = "update"
 
         query = select(schema_class).where(schema_class.name == name)
+
+        # Exclude from existing name checks the update target itself.
+        if isinstance(resource, BaseUpdate) and isinstance(
+            schema, NamedSchema
+        ):
+            query = query.where(schema_class.id != schema.id)
 
         # We "detect" if the entity is project-scoped by looking at the
         # project_id attribute.
@@ -12514,6 +13677,8 @@ class SqlZenStore(BaseZenStore):
             PipelineSchema: TaggableResourceTypes.PIPELINE,
             PipelineRunSchema: TaggableResourceTypes.PIPELINE_RUN,
             RunTemplateSchema: TaggableResourceTypes.RUN_TEMPLATE,
+            PipelineSnapshotSchema: TaggableResourceTypes.PIPELINE_SNAPSHOT,
+            DeploymentSchema: TaggableResourceTypes.DEPLOYMENT,
         }
         if type(resource) not in resource_types:
             raise ValueError(
@@ -12541,6 +13706,7 @@ class SqlZenStore(BaseZenStore):
             ModelVersionSchema,
             PipelineRunSchema,
             PipelineSchema,
+            PipelineSnapshotSchema,
             RunTemplateSchema,
         )
 
@@ -12554,6 +13720,8 @@ class SqlZenStore(BaseZenStore):
             TaggableResourceTypes.PIPELINE: PipelineSchema,
             TaggableResourceTypes.PIPELINE_RUN: PipelineRunSchema,
             TaggableResourceTypes.RUN_TEMPLATE: RunTemplateSchema,
+            TaggableResourceTypes.PIPELINE_SNAPSHOT: PipelineSnapshotSchema,
+            TaggableResourceTypes.DEPLOYMENT: DeploymentSchema,
         }
 
         return resource_type_to_schema_mapping[resource_type]
@@ -12764,16 +13932,17 @@ class SqlZenStore(BaseZenStore):
 
     def delete_tag(
         self,
-        tag_name_or_id: Union[str, UUID],
+        tag_id: UUID,
     ) -> None:
         """Deletes a tag.
 
         Args:
-            tag_name_or_id: name or id of the tag to delete.
+            tag_id: id of the tag to delete.
         """
         with Session(self.engine) as session:
-            tag = self._get_tag_schema(
-                tag_name_or_id=tag_name_or_id,
+            tag = self._get_schema_by_id(
+                resource_id=tag_id,
+                schema_class=TagSchema,
                 session=session,
             )
             session.delete(tag)
@@ -12781,13 +13950,13 @@ class SqlZenStore(BaseZenStore):
 
     def get_tag(
         self,
-        tag_name_or_id: Union[str, UUID],
+        tag_id: UUID,
         hydrate: bool = True,
     ) -> TagResponse:
         """Get an existing tag.
 
         Args:
-            tag_name_or_id: name or id of the tag to be retrieved.
+            tag_id: id of the tag to be retrieved.
             hydrate: Flag deciding whether to hydrate the output model(s)
                 by including metadata fields in the response.
 
@@ -12795,13 +13964,11 @@ class SqlZenStore(BaseZenStore):
             The tag of interest.
         """
         with Session(self.engine) as session:
-            tag = self._get_tag_schema(
-                tag_name_or_id=tag_name_or_id,
+            return self._get_schema_by_id(
+                resource_id=tag_id,
+                schema_class=TagSchema,
                 session=session,
-            )
-            return tag.to_model(
-                include_metadata=hydrate, include_resources=True
-            )
+            ).to_model(include_metadata=hydrate, include_resources=True)
 
     def list_tags(
         self,
@@ -12830,13 +13997,13 @@ class SqlZenStore(BaseZenStore):
 
     def update_tag(
         self,
-        tag_name_or_id: Union[str, UUID],
+        tag_id: UUID,
         tag_update_model: TagUpdate,
     ) -> TagResponse:
         """Update tag.
 
         Args:
-            tag_name_or_id: name or id of the tag to be updated.
+            tag_id: id of the tag to be updated.
             tag_update_model: Tag to use for the update.
 
         Returns:
@@ -12847,8 +14014,9 @@ class SqlZenStore(BaseZenStore):
                 to it being associated to multiple entities.
         """
         with Session(self.engine) as session:
-            tag = self._get_tag_schema(
-                tag_name_or_id=tag_name_or_id,
+            tag = self._get_schema_by_id(
+                resource_id=tag_id,
+                schema_class=TagSchema,
                 session=session,
             )
             self._verify_name_uniqueness(
@@ -12865,6 +14033,7 @@ class SqlZenStore(BaseZenStore):
                     TaggableResourceTypes.PIPELINE_RUN.value,
                     TaggableResourceTypes.ARTIFACT_VERSION.value,
                     TaggableResourceTypes.RUN_TEMPLATE.value,
+                    TaggableResourceTypes.PIPELINE_SNAPSHOT.value,
                 ]
 
                 # Check if tag is associated with any non-allowed resource types
@@ -12910,12 +14079,17 @@ class SqlZenStore(BaseZenStore):
                         RunTemplateSchema.id,
                         None,  # Special case - will be handled differently
                     ),
+                    (
+                        TaggableResourceTypes.PIPELINE_SNAPSHOT,
+                        PipelineSnapshotSchema.id,
+                        PipelineSnapshotSchema.pipeline_id,
+                    ),
                 ]:
                     # Special handling for run templates as they don't have direct pipeline_id
                     if resource_type == TaggableResourceTypes.RUN_TEMPLATE:
                         query = (
                             select(
-                                PipelineDeploymentSchema.pipeline_id,
+                                PipelineSnapshotSchema.pipeline_id,
                                 func.count().label("count"),
                             )
                             .select_from(RunTemplateSchema)
@@ -12929,12 +14103,12 @@ class SqlZenStore(BaseZenStore):
                                 ),
                             )
                             .join(
-                                PipelineDeploymentSchema,
-                                RunTemplateSchema.source_deployment_id  # type: ignore[arg-type]
-                                == PipelineDeploymentSchema.id,
+                                PipelineSnapshotSchema,
+                                RunTemplateSchema.source_snapshot_id  # type: ignore[arg-type]
+                                == PipelineSnapshotSchema.id,
                             )
                             .where(TagResourceSchema.tag_id == tag.id)
-                            .group_by(PipelineDeploymentSchema.pipeline_id)  # type: ignore[arg-type]
+                            .group_by(PipelineSnapshotSchema.pipeline_id)  # type: ignore[arg-type]
                         )
 
                         results = session.exec(query).all()
@@ -13167,11 +14341,9 @@ class SqlZenStore(BaseZenStore):
                                 )
                     elif isinstance(resource, RunTemplateSchema):
                         scope_id = None
-                        if resource.source_deployment:
-                            if resource.source_deployment.pipeline_id:
-                                scope_id = (
-                                    resource.source_deployment.pipeline_id
-                                )
+                        if resource.source_snapshot:
+                            if resource.source_snapshot.pipeline_id:
+                                scope_id = resource.source_snapshot.pipeline_id
                                 scope_ids[
                                     TaggableResourceTypes.RUN_TEMPLATE
                                 ].append(scope_id)
@@ -13194,14 +14366,63 @@ class SqlZenStore(BaseZenStore):
                                             resource_type=TaggableResourceTypes.RUN_TEMPLATE,
                                         )
                                     )
+                    elif isinstance(resource, PipelineSnapshotSchema):
+                        scope_id = resource.pipeline_id
+                        scope_ids[
+                            TaggableResourceTypes.PIPELINE_SNAPSHOT
+                        ].append(scope_id)
+
+                        # TODO: This is very inefficient, we should use a
+                        # better query
+                        older_snapshots = self.list_snapshots(
+                            PipelineSnapshotFilter(
+                                id=f"notequals:{resource.id}",
+                                project=resource.project.id,
+                                pipeline=scope_id,
+                                tags=[tag_schema.name],
+                            )
+                        )
+                        if older_snapshots.items:
+                            detach_resources.append(
+                                TagResourceRequest(
+                                    tag_id=tag_schema.id,
+                                    resource_id=older_snapshots.items[0].id,
+                                    resource_type=TaggableResourceTypes.PIPELINE_SNAPSHOT,
+                                )
+                            )
+                    elif isinstance(resource, DeploymentSchema):
+                        if not resource.snapshot:
+                            continue
+                        scope_id = resource.snapshot.pipeline_id
+                        scope_ids[TaggableResourceTypes.DEPLOYMENT].append(
+                            scope_id
+                        )
+
+                        # TODO: This is very inefficient, we should use a
+                        # better query
+                        older_deployments = self.list_deployments(
+                            DeploymentFilter(
+                                id=f"notequals:{resource.id}",
+                                project=resource.project.id,
+                                pipeline=scope_id,
+                                tags=[tag_schema.name],
+                            )
+                        )
+                        if older_deployments.items:
+                            detach_resources.append(
+                                TagResourceRequest(
+                                    tag_id=tag_schema.id,
+                                    resource_id=older_deployments.items[0].id,
+                                    resource_type=TaggableResourceTypes.DEPLOYMENT,
+                                )
+                            )
                     else:
                         raise ValueError(
                             "Can not attach exclusive tag to resource of type "
                             f"{resource_type.value} with ID: `{resource.id}`. "
                             "Exclusive tag functionality only works for "
-                            "templates, for pipeline runs (within the scope of "
-                            "pipelines) and for artifact versions (within the "
-                            "scope of artifacts)."
+                            "pipeline runs, pipeline snapshots, pipeline "
+                            "deployments and artifact versions"
                         )
 
                     # Check for duplicate IDs in any of the scope_ids list

@@ -44,7 +44,7 @@ def test_syslog_handler(
             )
         else:
             expected = (
-                r"^<12>1 \d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z %s %s %d - - %sSyslog is weird%s$"
+                r"^<12>1 \d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z %s %s %d - - %sSyslog is weird%s$"  # noqa: UP031
                 % (
                     socket.gethostname(),
                     app_name if app_name else "testlogger",
@@ -57,7 +57,7 @@ def test_syslog_handler(
         handler = logbook.SyslogHandler(app_name, inc.getsockname(), socktype=socktype)
 
         with activation_strategy(handler):
-            logger.warn("Syslog is weird")
+            logger.warning("Syslog is weird")
 
         if socktype == socket.SOCK_STREAM:
             with closing(inc.accept()[0]) as inc2:

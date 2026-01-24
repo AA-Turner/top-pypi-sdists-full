@@ -42,7 +42,7 @@ from temporalio.api.cloud.usage.v1 import (
 )
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n9temporal/api/cloud/cloudservice/v1/request_response.proto\x12"temporal.api.cloud.cloudservice.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a-temporal/api/cloud/operation/v1/message.proto\x1a,temporal/api/cloud/identity/v1/message.proto\x1a-temporal/api/cloud/namespace/v1/message.proto\x1a)temporal/api/cloud/nexus/v1/message.proto\x1a*temporal/api/cloud/region/v1/message.proto\x1a+temporal/api/cloud/account/v1/message.proto\x1a)temporal/api/cloud/usage/v1/message.proto\x1a\x34temporal/api/cloud/connectivityrule/v1/message.proto"Z\n\x0fGetUsersRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\r\n\x05\x65mail\x18\x03 \x01(\t\x12\x11\n\tnamespace\x18\x04 \x01(\t"`\n\x10GetUsersResponse\x12\x33\n\x05users\x18\x01 \x03(\x0b\x32$.temporal.api.cloud.identity.v1.User\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t"!\n\x0eGetUserRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t"E\n\x0fGetUserResponse\x12\x32\n\x04user\x18\x01 \x01(\x0b\x32$.temporal.api.cloud.identity.v1.User"g\n\x11\x43reateUserRequest\x12\x36\n\x04spec\x18\x01 \x01(\x0b\x32(.temporal.api.cloud.identity.v1.UserSpec\x12\x1a\n\x12\x61sync_operation_id\x18\x02 \x01(\t"o\n\x12\x43reateUserResponse\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12H\n\x0f\x61sync_operation\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x92\x01\n\x11UpdateUserRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x36\n\x04spec\x18\x02 \x01(\x0b\x32(.temporal.api.cloud.identity.v1.UserSpec\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"^\n\x12UpdateUserResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"Z\n\x11\x44\x65leteUserRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x18\n\x10resource_version\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"^\n\x12\x44\x65leteUserResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\xba\x01\n\x1dSetUserNamespaceAccessRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12?\n\x06\x61\x63\x63\x65ss\x18\x03 \x01(\x0b\x32/.temporal.api.cloud.identity.v1.NamespaceAccess\x12\x18\n\x10resource_version\x18\x04 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x05 \x01(\t"j\n\x1eSetUserNamespaceAccessResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"6\n\x18GetAsyncOperationRequest\x12\x1a\n\x12\x61sync_operation_id\x18\x01 \x01(\t"e\n\x19GetAsyncOperationResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\xf3\x01\n\x16\x43reateNamespaceRequest\x12<\n\x04spec\x18\x02 \x01(\x0b\x32..temporal.api.cloud.namespace.v1.NamespaceSpec\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t\x12R\n\x04tags\x18\x04 \x03(\x0b\x32\x44.temporal.api.cloud.cloudservice.v1.CreateNamespaceRequest.TagsEntry\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01"v\n\x17\x43reateNamespaceResponse\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12H\n\x0f\x61sync_operation\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"K\n\x14GetNamespacesRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t"p\n\x15GetNamespacesResponse\x12>\n\nnamespaces\x18\x01 \x03(\x0b\x32*.temporal.api.cloud.namespace.v1.Namespace\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t"(\n\x13GetNamespaceRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t"U\n\x14GetNamespaceResponse\x12=\n\tnamespace\x18\x01 \x01(\x0b\x32*.temporal.api.cloud.namespace.v1.Namespace"\x9f\x01\n\x16UpdateNamespaceRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12<\n\x04spec\x18\x02 \x01(\x0b\x32..temporal.api.cloud.namespace.v1.NamespaceSpec\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"c\n\x17UpdateNamespaceResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\xc6\x01\n"RenameCustomSearchAttributeRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12-\n%existing_custom_search_attribute_name\x18\x02 \x01(\t\x12(\n new_custom_search_attribute_name\x18\x03 \x01(\t\x12\x18\n\x10resource_version\x18\x04 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x05 \x01(\t"o\n#RenameCustomSearchAttributeResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"a\n\x16\x44\x65leteNamespaceRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x18\n\x10resource_version\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"c\n\x17\x44\x65leteNamespaceResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"_\n\x1e\x46\x61iloverNamespaceRegionRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x0e\n\x06region\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"k\n\x1f\x46\x61iloverNamespaceRegionResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"t\n\x19\x41\x64\x64NamespaceRegionRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x0e\n\x06region\x18\x02 \x01(\t\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"f\n\x1a\x41\x64\x64NamespaceRegionResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"w\n\x1c\x44\x65leteNamespaceRegionRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x0e\n\x06region\x18\x02 \x01(\t\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"i\n\x1d\x44\x65leteNamespaceRegionResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x13\n\x11GetRegionsRequest"K\n\x12GetRegionsResponse\x12\x35\n\x07regions\x18\x01 \x03(\x0b\x32$.temporal.api.cloud.region.v1.Region""\n\x10GetRegionRequest\x12\x0e\n\x06region\x18\x01 \x01(\t"I\n\x11GetRegionResponse\x12\x34\n\x06region\x18\x01 \x01(\x0b\x32$.temporal.api.cloud.region.v1.Region"\xae\x01\n\x11GetApiKeysRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x10\n\x08owner_id\x18\x03 \x01(\t\x12!\n\x15owner_type_deprecated\x18\x04 \x01(\tB\x02\x18\x01\x12=\n\nowner_type\x18\x05 \x01(\x0e\x32).temporal.api.cloud.identity.v1.OwnerType"g\n\x12GetApiKeysResponse\x12\x38\n\x08\x61pi_keys\x18\x01 \x03(\x0b\x32&.temporal.api.cloud.identity.v1.ApiKey\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t""\n\x10GetApiKeyRequest\x12\x0e\n\x06key_id\x18\x01 \x01(\t"L\n\x11GetApiKeyResponse\x12\x37\n\x07\x61pi_key\x18\x01 \x01(\x0b\x32&.temporal.api.cloud.identity.v1.ApiKey"k\n\x13\x43reateApiKeyRequest\x12\x38\n\x04spec\x18\x01 \x01(\x0b\x32*.temporal.api.cloud.identity.v1.ApiKeySpec\x12\x1a\n\x12\x61sync_operation_id\x18\x02 \x01(\t"\x7f\n\x14\x43reateApiKeyResponse\x12\x0e\n\x06key_id\x18\x01 \x01(\t\x12\r\n\x05token\x18\x02 \x01(\t\x12H\n\x0f\x61sync_operation\x18\x03 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x95\x01\n\x13UpdateApiKeyRequest\x12\x0e\n\x06key_id\x18\x01 \x01(\t\x12\x38\n\x04spec\x18\x02 \x01(\x0b\x32*.temporal.api.cloud.identity.v1.ApiKeySpec\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"`\n\x14UpdateApiKeyResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"[\n\x13\x44\x65leteApiKeyRequest\x12\x0e\n\x06key_id\x18\x01 \x01(\t\x12\x18\n\x10resource_version\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"`\n\x14\x44\x65leteApiKeyResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x87\x01\n\x18GetNexusEndpointsRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x1b\n\x13target_namespace_id\x18\x03 \x01(\t\x12\x19\n\x11target_task_queue\x18\x04 \x01(\t\x12\x0c\n\x04name\x18\x05 \x01(\t"n\n\x19GetNexusEndpointsResponse\x12\x38\n\tendpoints\x18\x01 \x03(\x0b\x32%.temporal.api.cloud.nexus.v1.Endpoint\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t".\n\x17GetNexusEndpointRequest\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t"S\n\x18GetNexusEndpointResponse\x12\x37\n\x08\x65ndpoint\x18\x01 \x01(\x0b\x32%.temporal.api.cloud.nexus.v1.Endpoint"q\n\x1a\x43reateNexusEndpointRequest\x12\x37\n\x04spec\x18\x01 \x01(\x0b\x32).temporal.api.cloud.nexus.v1.EndpointSpec\x12\x1a\n\x12\x61sync_operation_id\x18\x02 \x01(\t"|\n\x1b\x43reateNexusEndpointResponse\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t\x12H\n\x0f\x61sync_operation\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\xa0\x01\n\x1aUpdateNexusEndpointRequest\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t\x12\x37\n\x04spec\x18\x02 \x01(\x0b\x32).temporal.api.cloud.nexus.v1.EndpointSpec\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"g\n\x1bUpdateNexusEndpointResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"g\n\x1a\x44\x65leteNexusEndpointRequest\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t\x12\x18\n\x10resource_version\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"g\n\x1b\x44\x65leteNexusEndpointResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\xf5\x02\n\x14GetUserGroupsRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x11\n\tnamespace\x18\x03 \x01(\t\x12\x14\n\x0c\x64isplay_name\x18\x04 \x01(\t\x12`\n\x0cgoogle_group\x18\x05 \x01(\x0b\x32J.temporal.api.cloud.cloudservice.v1.GetUserGroupsRequest.GoogleGroupFilter\x12\\\n\nscim_group\x18\x06 \x01(\x0b\x32H.temporal.api.cloud.cloudservice.v1.GetUserGroupsRequest.SCIMGroupFilter\x1a*\n\x11GoogleGroupFilter\x12\x15\n\remail_address\x18\x01 \x01(\t\x1a!\n\x0fSCIMGroupFilter\x12\x0e\n\x06idp_id\x18\x01 \x01(\t"k\n\x15GetUserGroupsResponse\x12\x39\n\x06groups\x18\x01 \x03(\x0b\x32).temporal.api.cloud.identity.v1.UserGroup\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t"\'\n\x13GetUserGroupRequest\x12\x10\n\x08group_id\x18\x01 \x01(\t"P\n\x14GetUserGroupResponse\x12\x38\n\x05group\x18\x01 \x01(\x0b\x32).temporal.api.cloud.identity.v1.UserGroup"q\n\x16\x43reateUserGroupRequest\x12;\n\x04spec\x18\x01 \x01(\x0b\x32-.temporal.api.cloud.identity.v1.UserGroupSpec\x12\x1a\n\x12\x61sync_operation_id\x18\x02 \x01(\t"u\n\x17\x43reateUserGroupResponse\x12\x10\n\x08group_id\x18\x01 \x01(\t\x12H\n\x0f\x61sync_operation\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x9d\x01\n\x16UpdateUserGroupRequest\x12\x10\n\x08group_id\x18\x01 \x01(\t\x12;\n\x04spec\x18\x02 \x01(\x0b\x32-.temporal.api.cloud.identity.v1.UserGroupSpec\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"c\n\x17UpdateUserGroupResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"`\n\x16\x44\x65leteUserGroupRequest\x12\x10\n\x08group_id\x18\x01 \x01(\t\x12\x18\n\x10resource_version\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"c\n\x17\x44\x65leteUserGroupResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\xc0\x01\n"SetUserGroupNamespaceAccessRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x10\n\x08group_id\x18\x02 \x01(\t\x12?\n\x06\x61\x63\x63\x65ss\x18\x03 \x01(\x0b\x32/.temporal.api.cloud.identity.v1.NamespaceAccess\x12\x18\n\x10resource_version\x18\x04 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x05 \x01(\t"o\n#SetUserGroupNamespaceAccessResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x8f\x01\n\x19\x41\x64\x64UserGroupMemberRequest\x12\x10\n\x08group_id\x18\x01 \x01(\t\x12\x44\n\tmember_id\x18\x02 \x01(\x0b\x32\x31.temporal.api.cloud.identity.v1.UserGroupMemberId\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"f\n\x1a\x41\x64\x64UserGroupMemberResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x92\x01\n\x1cRemoveUserGroupMemberRequest\x12\x10\n\x08group_id\x18\x01 \x01(\t\x12\x44\n\tmember_id\x18\x02 \x01(\x0b\x32\x31.temporal.api.cloud.identity.v1.UserGroupMemberId\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"i\n\x1dRemoveUserGroupMemberResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"U\n\x1aGetUserGroupMembersRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x10\n\x08group_id\x18\x03 \x01(\t"x\n\x1bGetUserGroupMembersResponse\x12@\n\x07members\x18\x01 \x03(\x0b\x32/.temporal.api.cloud.identity.v1.UserGroupMember\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t"{\n\x1b\x43reateServiceAccountRequest\x12@\n\x04spec\x18\x01 \x01(\x0b\x32\x32.temporal.api.cloud.identity.v1.ServiceAccountSpec\x12\x1a\n\x12\x61sync_operation_id\x18\x02 \x01(\t"\x84\x01\n\x1c\x43reateServiceAccountResponse\x12\x1a\n\x12service_account_id\x18\x01 \x01(\t\x12H\n\x0f\x61sync_operation\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"6\n\x18GetServiceAccountRequest\x12\x1a\n\x12service_account_id\x18\x01 \x01(\t"d\n\x19GetServiceAccountResponse\x12G\n\x0fservice_account\x18\x01 \x01(\x0b\x32..temporal.api.cloud.identity.v1.ServiceAccount"B\n\x19GetServiceAccountsRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t"~\n\x1aGetServiceAccountsResponse\x12G\n\x0fservice_account\x18\x01 \x03(\x0b\x32..temporal.api.cloud.identity.v1.ServiceAccount\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t"\xb1\x01\n\x1bUpdateServiceAccountRequest\x12\x1a\n\x12service_account_id\x18\x01 \x01(\t\x12@\n\x04spec\x18\x02 \x01(\x0b\x32\x32.temporal.api.cloud.identity.v1.ServiceAccountSpec\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"h\n\x1cUpdateServiceAccountResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"o\n\x1b\x44\x65leteServiceAccountRequest\x12\x1a\n\x12service_account_id\x18\x01 \x01(\t\x12\x18\n\x10resource_version\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"h\n\x1c\x44\x65leteServiceAccountResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\xaa\x01\n\x0fGetUsageRequest\x12\x38\n\x14start_time_inclusive\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x36\n\x12\x65nd_time_exclusive\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x11\n\tpage_size\x18\x03 \x01(\x05\x12\x12\n\npage_token\x18\x04 \x01(\t"d\n\x10GetUsageResponse\x12\x37\n\tsummaries\x18\x01 \x03(\x0b\x32$.temporal.api.cloud.usage.v1.Summary\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t"\x13\n\x11GetAccountRequest"M\n\x12GetAccountResponse\x12\x37\n\x07\x61\x63\x63ount\x18\x01 \x01(\x0b\x32&.temporal.api.cloud.account.v1.Account"\x86\x01\n\x14UpdateAccountRequest\x12\x38\n\x04spec\x18\x01 \x01(\x0b\x32*.temporal.api.cloud.account.v1.AccountSpec\x12\x18\n\x10resource_version\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"a\n\x15UpdateAccountResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x90\x01\n CreateNamespaceExportSinkRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12=\n\x04spec\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.namespace.v1.ExportSinkSpec\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"m\n!CreateNamespaceExportSinkResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"@\n\x1dGetNamespaceExportSinkRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t"[\n\x1eGetNamespaceExportSinkResponse\x12\x39\n\x04sink\x18\x01 \x01(\x0b\x32+.temporal.api.cloud.namespace.v1.ExportSink"Z\n\x1eGetNamespaceExportSinksRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x11\n\tpage_size\x18\x02 \x01(\x05\x12\x12\n\npage_token\x18\x03 \x01(\t"v\n\x1fGetNamespaceExportSinksResponse\x12:\n\x05sinks\x18\x01 \x03(\x0b\x32+.temporal.api.cloud.namespace.v1.ExportSink\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t"\xaa\x01\n UpdateNamespaceExportSinkRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12=\n\x04spec\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.namespace.v1.ExportSinkSpec\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"m\n!UpdateNamespaceExportSinkResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"y\n DeleteNamespaceExportSinkRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"m\n!DeleteNamespaceExportSinkResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"v\n"ValidateNamespaceExportSinkRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12=\n\x04spec\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.namespace.v1.ExportSinkSpec"%\n#ValidateNamespaceExportSinkResponse"\x82\x02\n\x1aUpdateNamespaceTagsRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12h\n\x0etags_to_upsert\x18\x02 \x03(\x0b\x32P.temporal.api.cloud.cloudservice.v1.UpdateNamespaceTagsRequest.TagsToUpsertEntry\x12\x16\n\x0etags_to_remove\x18\x03 \x03(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t\x1a\x33\n\x11TagsToUpsertEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01"g\n\x1bUpdateNamespaceTagsResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x87\x01\n\x1d\x43reateConnectivityRuleRequest\x12J\n\x04spec\x18\x01 \x01(\x0b\x32<.temporal.api.cloud.connectivityrule.v1.ConnectivityRuleSpec\x12\x1a\n\x12\x61sync_operation_id\x18\x02 \x01(\t"\x88\x01\n\x1e\x43reateConnectivityRuleResponse\x12\x1c\n\x14\x63onnectivity_rule_id\x18\x01 \x01(\t\x12H\n\x0f\x61sync_operation\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation":\n\x1aGetConnectivityRuleRequest\x12\x1c\n\x14\x63onnectivity_rule_id\x18\x01 \x01(\t"r\n\x1bGetConnectivityRuleResponse\x12S\n\x11\x63onnectivity_rule\x18\x01 \x01(\x0b\x32\x38.temporal.api.cloud.connectivityrule.v1.ConnectivityRule"W\n\x1bGetConnectivityRulesRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x11\n\tnamespace\x18\x03 \x01(\t"\x8d\x01\n\x1cGetConnectivityRulesResponse\x12T\n\x12\x63onnectivity_rules\x18\x01 \x03(\x0b\x32\x38.temporal.api.cloud.connectivityrule.v1.ConnectivityRule\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t"s\n\x1d\x44\x65leteConnectivityRuleRequest\x12\x1c\n\x14\x63onnectivity_rule_id\x18\x01 \x01(\t\x12\x18\n\x10resource_version\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"j\n\x1e\x44\x65leteConnectivityRuleResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperationB\xc8\x01\n%io.temporal.api.cloud.cloudservice.v1B\x14RequestResponseProtoP\x01Z5go.temporal.io/api/cloud/cloudservice/v1;cloudservice\xaa\x02$Temporalio.Api.Cloud.CloudService.V1\xea\x02(Temporalio::Api::Cloud::CloudService::V1b\x06proto3'
+    b'\n9temporal/api/cloud/cloudservice/v1/request_response.proto\x12"temporal.api.cloud.cloudservice.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a-temporal/api/cloud/operation/v1/message.proto\x1a,temporal/api/cloud/identity/v1/message.proto\x1a-temporal/api/cloud/namespace/v1/message.proto\x1a)temporal/api/cloud/nexus/v1/message.proto\x1a*temporal/api/cloud/region/v1/message.proto\x1a+temporal/api/cloud/account/v1/message.proto\x1a)temporal/api/cloud/usage/v1/message.proto\x1a\x34temporal/api/cloud/connectivityrule/v1/message.proto"Z\n\x0fGetUsersRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\r\n\x05\x65mail\x18\x03 \x01(\t\x12\x11\n\tnamespace\x18\x04 \x01(\t"`\n\x10GetUsersResponse\x12\x33\n\x05users\x18\x01 \x03(\x0b\x32$.temporal.api.cloud.identity.v1.User\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t"!\n\x0eGetUserRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t"E\n\x0fGetUserResponse\x12\x32\n\x04user\x18\x01 \x01(\x0b\x32$.temporal.api.cloud.identity.v1.User"g\n\x11\x43reateUserRequest\x12\x36\n\x04spec\x18\x01 \x01(\x0b\x32(.temporal.api.cloud.identity.v1.UserSpec\x12\x1a\n\x12\x61sync_operation_id\x18\x02 \x01(\t"o\n\x12\x43reateUserResponse\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12H\n\x0f\x61sync_operation\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x92\x01\n\x11UpdateUserRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x36\n\x04spec\x18\x02 \x01(\x0b\x32(.temporal.api.cloud.identity.v1.UserSpec\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"^\n\x12UpdateUserResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"Z\n\x11\x44\x65leteUserRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x18\n\x10resource_version\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"^\n\x12\x44\x65leteUserResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\xba\x01\n\x1dSetUserNamespaceAccessRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12?\n\x06\x61\x63\x63\x65ss\x18\x03 \x01(\x0b\x32/.temporal.api.cloud.identity.v1.NamespaceAccess\x12\x18\n\x10resource_version\x18\x04 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x05 \x01(\t"j\n\x1eSetUserNamespaceAccessResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"6\n\x18GetAsyncOperationRequest\x12\x1a\n\x12\x61sync_operation_id\x18\x01 \x01(\t"e\n\x19GetAsyncOperationResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\xf3\x01\n\x16\x43reateNamespaceRequest\x12<\n\x04spec\x18\x02 \x01(\x0b\x32..temporal.api.cloud.namespace.v1.NamespaceSpec\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t\x12R\n\x04tags\x18\x04 \x03(\x0b\x32\x44.temporal.api.cloud.cloudservice.v1.CreateNamespaceRequest.TagsEntry\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01"v\n\x17\x43reateNamespaceResponse\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12H\n\x0f\x61sync_operation\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"K\n\x14GetNamespacesRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t"p\n\x15GetNamespacesResponse\x12>\n\nnamespaces\x18\x01 \x03(\x0b\x32*.temporal.api.cloud.namespace.v1.Namespace\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t"(\n\x13GetNamespaceRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t"U\n\x14GetNamespaceResponse\x12=\n\tnamespace\x18\x01 \x01(\x0b\x32*.temporal.api.cloud.namespace.v1.Namespace"\x9f\x01\n\x16UpdateNamespaceRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12<\n\x04spec\x18\x02 \x01(\x0b\x32..temporal.api.cloud.namespace.v1.NamespaceSpec\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"c\n\x17UpdateNamespaceResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\xc6\x01\n"RenameCustomSearchAttributeRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12-\n%existing_custom_search_attribute_name\x18\x02 \x01(\t\x12(\n new_custom_search_attribute_name\x18\x03 \x01(\t\x12\x18\n\x10resource_version\x18\x04 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x05 \x01(\t"o\n#RenameCustomSearchAttributeResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"a\n\x16\x44\x65leteNamespaceRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x18\n\x10resource_version\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"c\n\x17\x44\x65leteNamespaceResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"_\n\x1e\x46\x61iloverNamespaceRegionRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x0e\n\x06region\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"k\n\x1f\x46\x61iloverNamespaceRegionResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"t\n\x19\x41\x64\x64NamespaceRegionRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x0e\n\x06region\x18\x02 \x01(\t\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"f\n\x1a\x41\x64\x64NamespaceRegionResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"w\n\x1c\x44\x65leteNamespaceRegionRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x0e\n\x06region\x18\x02 \x01(\t\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"i\n\x1d\x44\x65leteNamespaceRegionResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x13\n\x11GetRegionsRequest"K\n\x12GetRegionsResponse\x12\x35\n\x07regions\x18\x01 \x03(\x0b\x32$.temporal.api.cloud.region.v1.Region""\n\x10GetRegionRequest\x12\x0e\n\x06region\x18\x01 \x01(\t"I\n\x11GetRegionResponse\x12\x34\n\x06region\x18\x01 \x01(\x0b\x32$.temporal.api.cloud.region.v1.Region"\xae\x01\n\x11GetApiKeysRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x10\n\x08owner_id\x18\x03 \x01(\t\x12!\n\x15owner_type_deprecated\x18\x04 \x01(\tB\x02\x18\x01\x12=\n\nowner_type\x18\x05 \x01(\x0e\x32).temporal.api.cloud.identity.v1.OwnerType"g\n\x12GetApiKeysResponse\x12\x38\n\x08\x61pi_keys\x18\x01 \x03(\x0b\x32&.temporal.api.cloud.identity.v1.ApiKey\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t""\n\x10GetApiKeyRequest\x12\x0e\n\x06key_id\x18\x01 \x01(\t"L\n\x11GetApiKeyResponse\x12\x37\n\x07\x61pi_key\x18\x01 \x01(\x0b\x32&.temporal.api.cloud.identity.v1.ApiKey"k\n\x13\x43reateApiKeyRequest\x12\x38\n\x04spec\x18\x01 \x01(\x0b\x32*.temporal.api.cloud.identity.v1.ApiKeySpec\x12\x1a\n\x12\x61sync_operation_id\x18\x02 \x01(\t"\x7f\n\x14\x43reateApiKeyResponse\x12\x0e\n\x06key_id\x18\x01 \x01(\t\x12\r\n\x05token\x18\x02 \x01(\t\x12H\n\x0f\x61sync_operation\x18\x03 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x95\x01\n\x13UpdateApiKeyRequest\x12\x0e\n\x06key_id\x18\x01 \x01(\t\x12\x38\n\x04spec\x18\x02 \x01(\x0b\x32*.temporal.api.cloud.identity.v1.ApiKeySpec\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"`\n\x14UpdateApiKeyResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"[\n\x13\x44\x65leteApiKeyRequest\x12\x0e\n\x06key_id\x18\x01 \x01(\t\x12\x18\n\x10resource_version\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"`\n\x14\x44\x65leteApiKeyResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x87\x01\n\x18GetNexusEndpointsRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x1b\n\x13target_namespace_id\x18\x03 \x01(\t\x12\x19\n\x11target_task_queue\x18\x04 \x01(\t\x12\x0c\n\x04name\x18\x05 \x01(\t"n\n\x19GetNexusEndpointsResponse\x12\x38\n\tendpoints\x18\x01 \x03(\x0b\x32%.temporal.api.cloud.nexus.v1.Endpoint\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t".\n\x17GetNexusEndpointRequest\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t"S\n\x18GetNexusEndpointResponse\x12\x37\n\x08\x65ndpoint\x18\x01 \x01(\x0b\x32%.temporal.api.cloud.nexus.v1.Endpoint"q\n\x1a\x43reateNexusEndpointRequest\x12\x37\n\x04spec\x18\x01 \x01(\x0b\x32).temporal.api.cloud.nexus.v1.EndpointSpec\x12\x1a\n\x12\x61sync_operation_id\x18\x02 \x01(\t"|\n\x1b\x43reateNexusEndpointResponse\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t\x12H\n\x0f\x61sync_operation\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\xa0\x01\n\x1aUpdateNexusEndpointRequest\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t\x12\x37\n\x04spec\x18\x02 \x01(\x0b\x32).temporal.api.cloud.nexus.v1.EndpointSpec\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"g\n\x1bUpdateNexusEndpointResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"g\n\x1a\x44\x65leteNexusEndpointRequest\x12\x13\n\x0b\x65ndpoint_id\x18\x01 \x01(\t\x12\x18\n\x10resource_version\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"g\n\x1b\x44\x65leteNexusEndpointResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\xf5\x02\n\x14GetUserGroupsRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x11\n\tnamespace\x18\x03 \x01(\t\x12\x14\n\x0c\x64isplay_name\x18\x04 \x01(\t\x12`\n\x0cgoogle_group\x18\x05 \x01(\x0b\x32J.temporal.api.cloud.cloudservice.v1.GetUserGroupsRequest.GoogleGroupFilter\x12\\\n\nscim_group\x18\x06 \x01(\x0b\x32H.temporal.api.cloud.cloudservice.v1.GetUserGroupsRequest.SCIMGroupFilter\x1a*\n\x11GoogleGroupFilter\x12\x15\n\remail_address\x18\x01 \x01(\t\x1a!\n\x0fSCIMGroupFilter\x12\x0e\n\x06idp_id\x18\x01 \x01(\t"k\n\x15GetUserGroupsResponse\x12\x39\n\x06groups\x18\x01 \x03(\x0b\x32).temporal.api.cloud.identity.v1.UserGroup\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t"\'\n\x13GetUserGroupRequest\x12\x10\n\x08group_id\x18\x01 \x01(\t"P\n\x14GetUserGroupResponse\x12\x38\n\x05group\x18\x01 \x01(\x0b\x32).temporal.api.cloud.identity.v1.UserGroup"q\n\x16\x43reateUserGroupRequest\x12;\n\x04spec\x18\x01 \x01(\x0b\x32-.temporal.api.cloud.identity.v1.UserGroupSpec\x12\x1a\n\x12\x61sync_operation_id\x18\x02 \x01(\t"u\n\x17\x43reateUserGroupResponse\x12\x10\n\x08group_id\x18\x01 \x01(\t\x12H\n\x0f\x61sync_operation\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x9d\x01\n\x16UpdateUserGroupRequest\x12\x10\n\x08group_id\x18\x01 \x01(\t\x12;\n\x04spec\x18\x02 \x01(\x0b\x32-.temporal.api.cloud.identity.v1.UserGroupSpec\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"c\n\x17UpdateUserGroupResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"`\n\x16\x44\x65leteUserGroupRequest\x12\x10\n\x08group_id\x18\x01 \x01(\t\x12\x18\n\x10resource_version\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"c\n\x17\x44\x65leteUserGroupResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\xc0\x01\n"SetUserGroupNamespaceAccessRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x10\n\x08group_id\x18\x02 \x01(\t\x12?\n\x06\x61\x63\x63\x65ss\x18\x03 \x01(\x0b\x32/.temporal.api.cloud.identity.v1.NamespaceAccess\x12\x18\n\x10resource_version\x18\x04 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x05 \x01(\t"o\n#SetUserGroupNamespaceAccessResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x8f\x01\n\x19\x41\x64\x64UserGroupMemberRequest\x12\x10\n\x08group_id\x18\x01 \x01(\t\x12\x44\n\tmember_id\x18\x02 \x01(\x0b\x32\x31.temporal.api.cloud.identity.v1.UserGroupMemberId\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"f\n\x1a\x41\x64\x64UserGroupMemberResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x92\x01\n\x1cRemoveUserGroupMemberRequest\x12\x10\n\x08group_id\x18\x01 \x01(\t\x12\x44\n\tmember_id\x18\x02 \x01(\x0b\x32\x31.temporal.api.cloud.identity.v1.UserGroupMemberId\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"i\n\x1dRemoveUserGroupMemberResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"U\n\x1aGetUserGroupMembersRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x10\n\x08group_id\x18\x03 \x01(\t"x\n\x1bGetUserGroupMembersResponse\x12@\n\x07members\x18\x01 \x03(\x0b\x32/.temporal.api.cloud.identity.v1.UserGroupMember\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t"{\n\x1b\x43reateServiceAccountRequest\x12@\n\x04spec\x18\x01 \x01(\x0b\x32\x32.temporal.api.cloud.identity.v1.ServiceAccountSpec\x12\x1a\n\x12\x61sync_operation_id\x18\x02 \x01(\t"\x84\x01\n\x1c\x43reateServiceAccountResponse\x12\x1a\n\x12service_account_id\x18\x01 \x01(\t\x12H\n\x0f\x61sync_operation\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"6\n\x18GetServiceAccountRequest\x12\x1a\n\x12service_account_id\x18\x01 \x01(\t"d\n\x19GetServiceAccountResponse\x12G\n\x0fservice_account\x18\x01 \x01(\x0b\x32..temporal.api.cloud.identity.v1.ServiceAccount"B\n\x19GetServiceAccountsRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t"~\n\x1aGetServiceAccountsResponse\x12G\n\x0fservice_account\x18\x01 \x03(\x0b\x32..temporal.api.cloud.identity.v1.ServiceAccount\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t"\xb1\x01\n\x1bUpdateServiceAccountRequest\x12\x1a\n\x12service_account_id\x18\x01 \x01(\t\x12@\n\x04spec\x18\x02 \x01(\x0b\x32\x32.temporal.api.cloud.identity.v1.ServiceAccountSpec\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"h\n\x1cUpdateServiceAccountResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\xcf\x01\n\'SetServiceAccountNamespaceAccessRequest\x12\x1a\n\x12service_account_id\x18\x01 \x01(\t\x12\x11\n\tnamespace\x18\x02 \x01(\t\x12?\n\x06\x61\x63\x63\x65ss\x18\x03 \x01(\x0b\x32/.temporal.api.cloud.identity.v1.NamespaceAccess\x12\x18\n\x10resource_version\x18\x04 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x05 \x01(\t"t\n(SetServiceAccountNamespaceAccessResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"o\n\x1b\x44\x65leteServiceAccountRequest\x12\x1a\n\x12service_account_id\x18\x01 \x01(\t\x12\x18\n\x10resource_version\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"h\n\x1c\x44\x65leteServiceAccountResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\xaa\x01\n\x0fGetUsageRequest\x12\x38\n\x14start_time_inclusive\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x36\n\x12\x65nd_time_exclusive\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x11\n\tpage_size\x18\x03 \x01(\x05\x12\x12\n\npage_token\x18\x04 \x01(\t"d\n\x10GetUsageResponse\x12\x37\n\tsummaries\x18\x01 \x03(\x0b\x32$.temporal.api.cloud.usage.v1.Summary\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t"\x13\n\x11GetAccountRequest"M\n\x12GetAccountResponse\x12\x37\n\x07\x61\x63\x63ount\x18\x01 \x01(\x0b\x32&.temporal.api.cloud.account.v1.Account"\x86\x01\n\x14UpdateAccountRequest\x12\x38\n\x04spec\x18\x01 \x01(\x0b\x32*.temporal.api.cloud.account.v1.AccountSpec\x12\x18\n\x10resource_version\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"a\n\x15UpdateAccountResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x90\x01\n CreateNamespaceExportSinkRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12=\n\x04spec\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.namespace.v1.ExportSinkSpec\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"m\n!CreateNamespaceExportSinkResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"@\n\x1dGetNamespaceExportSinkRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t"[\n\x1eGetNamespaceExportSinkResponse\x12\x39\n\x04sink\x18\x01 \x01(\x0b\x32+.temporal.api.cloud.namespace.v1.ExportSink"Z\n\x1eGetNamespaceExportSinksRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x11\n\tpage_size\x18\x02 \x01(\x05\x12\x12\n\npage_token\x18\x03 \x01(\t"v\n\x1fGetNamespaceExportSinksResponse\x12:\n\x05sinks\x18\x01 \x03(\x0b\x32+.temporal.api.cloud.namespace.v1.ExportSink\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t"\xaa\x01\n UpdateNamespaceExportSinkRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12=\n\x04spec\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.namespace.v1.ExportSinkSpec\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"m\n!UpdateNamespaceExportSinkResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"y\n DeleteNamespaceExportSinkRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x18\n\x10resource_version\x18\x03 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t"m\n!DeleteNamespaceExportSinkResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"v\n"ValidateNamespaceExportSinkRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12=\n\x04spec\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.namespace.v1.ExportSinkSpec"%\n#ValidateNamespaceExportSinkResponse"\x82\x02\n\x1aUpdateNamespaceTagsRequest\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12h\n\x0etags_to_upsert\x18\x02 \x03(\x0b\x32P.temporal.api.cloud.cloudservice.v1.UpdateNamespaceTagsRequest.TagsToUpsertEntry\x12\x16\n\x0etags_to_remove\x18\x03 \x03(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x04 \x01(\t\x1a\x33\n\x11TagsToUpsertEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01"g\n\x1bUpdateNamespaceTagsResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"\x87\x01\n\x1d\x43reateConnectivityRuleRequest\x12J\n\x04spec\x18\x01 \x01(\x0b\x32<.temporal.api.cloud.connectivityrule.v1.ConnectivityRuleSpec\x12\x1a\n\x12\x61sync_operation_id\x18\x02 \x01(\t"\x88\x01\n\x1e\x43reateConnectivityRuleResponse\x12\x1c\n\x14\x63onnectivity_rule_id\x18\x01 \x01(\t\x12H\n\x0f\x61sync_operation\x18\x02 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation":\n\x1aGetConnectivityRuleRequest\x12\x1c\n\x14\x63onnectivity_rule_id\x18\x01 \x01(\t"r\n\x1bGetConnectivityRuleResponse\x12S\n\x11\x63onnectivity_rule\x18\x01 \x01(\x0b\x32\x38.temporal.api.cloud.connectivityrule.v1.ConnectivityRule"W\n\x1bGetConnectivityRulesRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x11\n\tnamespace\x18\x03 \x01(\t"\x8d\x01\n\x1cGetConnectivityRulesResponse\x12T\n\x12\x63onnectivity_rules\x18\x01 \x03(\x0b\x32\x38.temporal.api.cloud.connectivityrule.v1.ConnectivityRule\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t"s\n\x1d\x44\x65leteConnectivityRuleRequest\x12\x1c\n\x14\x63onnectivity_rule_id\x18\x01 \x01(\t\x12\x18\n\x10resource_version\x18\x02 \x01(\t\x12\x1a\n\x12\x61sync_operation_id\x18\x03 \x01(\t"j\n\x1e\x44\x65leteConnectivityRuleResponse\x12H\n\x0f\x61sync_operation\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.operation.v1.AsyncOperation"c\n"ValidateAccountAuditLogSinkRequest\x12=\n\x04spec\x18\x01 \x01(\x0b\x32/.temporal.api.cloud.account.v1.AuditLogSinkSpec"%\n#ValidateAccountAuditLogSinkResponseB\xc8\x01\n%io.temporal.api.cloud.cloudservice.v1B\x14RequestResponseProtoP\x01Z5go.temporal.io/api/cloud/cloudservice/v1;cloudservice\xaa\x02$Temporalio.Api.Cloud.CloudService.V1\xea\x02(Temporalio::Api::Cloud::CloudService::V1b\x06proto3'
 )
 
 
@@ -203,6 +203,12 @@ _UPDATESERVICEACCOUNTREQUEST = DESCRIPTOR.message_types_by_name[
 _UPDATESERVICEACCOUNTRESPONSE = DESCRIPTOR.message_types_by_name[
     "UpdateServiceAccountResponse"
 ]
+_SETSERVICEACCOUNTNAMESPACEACCESSREQUEST = DESCRIPTOR.message_types_by_name[
+    "SetServiceAccountNamespaceAccessRequest"
+]
+_SETSERVICEACCOUNTNAMESPACEACCESSRESPONSE = DESCRIPTOR.message_types_by_name[
+    "SetServiceAccountNamespaceAccessResponse"
+]
 _DELETESERVICEACCOUNTREQUEST = DESCRIPTOR.message_types_by_name[
     "DeleteServiceAccountRequest"
 ]
@@ -284,12 +290,18 @@ _DELETECONNECTIVITYRULEREQUEST = DESCRIPTOR.message_types_by_name[
 _DELETECONNECTIVITYRULERESPONSE = DESCRIPTOR.message_types_by_name[
     "DeleteConnectivityRuleResponse"
 ]
+_VALIDATEACCOUNTAUDITLOGSINKREQUEST = DESCRIPTOR.message_types_by_name[
+    "ValidateAccountAuditLogSinkRequest"
+]
+_VALIDATEACCOUNTAUDITLOGSINKRESPONSE = DESCRIPTOR.message_types_by_name[
+    "ValidateAccountAuditLogSinkResponse"
+]
 GetUsersRequest = _reflection.GeneratedProtocolMessageType(
     "GetUsersRequest",
     (_message.Message,),
     {
         "DESCRIPTOR": _GETUSERSREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetUsersRequest)
     },
 )
@@ -300,7 +312,7 @@ GetUsersResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETUSERSRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetUsersResponse)
     },
 )
@@ -311,7 +323,7 @@ GetUserRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETUSERREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetUserRequest)
     },
 )
@@ -322,7 +334,7 @@ GetUserResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETUSERRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetUserResponse)
     },
 )
@@ -333,7 +345,7 @@ CreateUserRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _CREATEUSERREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.CreateUserRequest)
     },
 )
@@ -344,7 +356,7 @@ CreateUserResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _CREATEUSERRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.CreateUserResponse)
     },
 )
@@ -355,7 +367,7 @@ UpdateUserRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _UPDATEUSERREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateUserRequest)
     },
 )
@@ -366,7 +378,7 @@ UpdateUserResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _UPDATEUSERRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateUserResponse)
     },
 )
@@ -377,7 +389,7 @@ DeleteUserRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETEUSERREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteUserRequest)
     },
 )
@@ -388,7 +400,7 @@ DeleteUserResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETEUSERRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteUserResponse)
     },
 )
@@ -399,7 +411,7 @@ SetUserNamespaceAccessRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _SETUSERNAMESPACEACCESSREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.SetUserNamespaceAccessRequest)
     },
 )
@@ -410,7 +422,7 @@ SetUserNamespaceAccessResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _SETUSERNAMESPACEACCESSRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.SetUserNamespaceAccessResponse)
     },
 )
@@ -421,7 +433,7 @@ GetAsyncOperationRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETASYNCOPERATIONREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetAsyncOperationRequest)
     },
 )
@@ -432,7 +444,7 @@ GetAsyncOperationResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETASYNCOPERATIONRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetAsyncOperationResponse)
     },
 )
@@ -447,12 +459,12 @@ CreateNamespaceRequest = _reflection.GeneratedProtocolMessageType(
             (_message.Message,),
             {
                 "DESCRIPTOR": _CREATENAMESPACEREQUEST_TAGSENTRY,
-                "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+                "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
                 # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.CreateNamespaceRequest.TagsEntry)
             },
         ),
         "DESCRIPTOR": _CREATENAMESPACEREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.CreateNamespaceRequest)
     },
 )
@@ -464,7 +476,7 @@ CreateNamespaceResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _CREATENAMESPACERESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.CreateNamespaceResponse)
     },
 )
@@ -475,7 +487,7 @@ GetNamespacesRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETNAMESPACESREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetNamespacesRequest)
     },
 )
@@ -486,7 +498,7 @@ GetNamespacesResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETNAMESPACESRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetNamespacesResponse)
     },
 )
@@ -497,7 +509,7 @@ GetNamespaceRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETNAMESPACEREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetNamespaceRequest)
     },
 )
@@ -508,7 +520,7 @@ GetNamespaceResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETNAMESPACERESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetNamespaceResponse)
     },
 )
@@ -519,7 +531,7 @@ UpdateNamespaceRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _UPDATENAMESPACEREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateNamespaceRequest)
     },
 )
@@ -530,7 +542,7 @@ UpdateNamespaceResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _UPDATENAMESPACERESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateNamespaceResponse)
     },
 )
@@ -541,7 +553,7 @@ RenameCustomSearchAttributeRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _RENAMECUSTOMSEARCHATTRIBUTEREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.RenameCustomSearchAttributeRequest)
     },
 )
@@ -552,7 +564,7 @@ RenameCustomSearchAttributeResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _RENAMECUSTOMSEARCHATTRIBUTERESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.RenameCustomSearchAttributeResponse)
     },
 )
@@ -563,7 +575,7 @@ DeleteNamespaceRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETENAMESPACEREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteNamespaceRequest)
     },
 )
@@ -574,7 +586,7 @@ DeleteNamespaceResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETENAMESPACERESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteNamespaceResponse)
     },
 )
@@ -585,7 +597,7 @@ FailoverNamespaceRegionRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _FAILOVERNAMESPACEREGIONREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.FailoverNamespaceRegionRequest)
     },
 )
@@ -596,7 +608,7 @@ FailoverNamespaceRegionResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _FAILOVERNAMESPACEREGIONRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.FailoverNamespaceRegionResponse)
     },
 )
@@ -607,7 +619,7 @@ AddNamespaceRegionRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _ADDNAMESPACEREGIONREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.AddNamespaceRegionRequest)
     },
 )
@@ -618,7 +630,7 @@ AddNamespaceRegionResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _ADDNAMESPACEREGIONRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.AddNamespaceRegionResponse)
     },
 )
@@ -629,7 +641,7 @@ DeleteNamespaceRegionRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETENAMESPACEREGIONREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteNamespaceRegionRequest)
     },
 )
@@ -640,7 +652,7 @@ DeleteNamespaceRegionResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETENAMESPACEREGIONRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteNamespaceRegionResponse)
     },
 )
@@ -651,7 +663,7 @@ GetRegionsRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETREGIONSREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetRegionsRequest)
     },
 )
@@ -662,7 +674,7 @@ GetRegionsResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETREGIONSRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetRegionsResponse)
     },
 )
@@ -673,7 +685,7 @@ GetRegionRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETREGIONREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetRegionRequest)
     },
 )
@@ -684,7 +696,7 @@ GetRegionResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETREGIONRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetRegionResponse)
     },
 )
@@ -695,7 +707,7 @@ GetApiKeysRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETAPIKEYSREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetApiKeysRequest)
     },
 )
@@ -706,7 +718,7 @@ GetApiKeysResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETAPIKEYSRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetApiKeysResponse)
     },
 )
@@ -717,7 +729,7 @@ GetApiKeyRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETAPIKEYREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetApiKeyRequest)
     },
 )
@@ -728,7 +740,7 @@ GetApiKeyResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETAPIKEYRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetApiKeyResponse)
     },
 )
@@ -739,7 +751,7 @@ CreateApiKeyRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _CREATEAPIKEYREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.CreateApiKeyRequest)
     },
 )
@@ -750,7 +762,7 @@ CreateApiKeyResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _CREATEAPIKEYRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.CreateApiKeyResponse)
     },
 )
@@ -761,7 +773,7 @@ UpdateApiKeyRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _UPDATEAPIKEYREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateApiKeyRequest)
     },
 )
@@ -772,7 +784,7 @@ UpdateApiKeyResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _UPDATEAPIKEYRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateApiKeyResponse)
     },
 )
@@ -783,7 +795,7 @@ DeleteApiKeyRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETEAPIKEYREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteApiKeyRequest)
     },
 )
@@ -794,7 +806,7 @@ DeleteApiKeyResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETEAPIKEYRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteApiKeyResponse)
     },
 )
@@ -805,7 +817,7 @@ GetNexusEndpointsRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETNEXUSENDPOINTSREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetNexusEndpointsRequest)
     },
 )
@@ -816,7 +828,7 @@ GetNexusEndpointsResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETNEXUSENDPOINTSRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetNexusEndpointsResponse)
     },
 )
@@ -827,7 +839,7 @@ GetNexusEndpointRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETNEXUSENDPOINTREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetNexusEndpointRequest)
     },
 )
@@ -838,7 +850,7 @@ GetNexusEndpointResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETNEXUSENDPOINTRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetNexusEndpointResponse)
     },
 )
@@ -849,7 +861,7 @@ CreateNexusEndpointRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _CREATENEXUSENDPOINTREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.CreateNexusEndpointRequest)
     },
 )
@@ -860,7 +872,7 @@ CreateNexusEndpointResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _CREATENEXUSENDPOINTRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.CreateNexusEndpointResponse)
     },
 )
@@ -871,7 +883,7 @@ UpdateNexusEndpointRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _UPDATENEXUSENDPOINTREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateNexusEndpointRequest)
     },
 )
@@ -882,7 +894,7 @@ UpdateNexusEndpointResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _UPDATENEXUSENDPOINTRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateNexusEndpointResponse)
     },
 )
@@ -893,7 +905,7 @@ DeleteNexusEndpointRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETENEXUSENDPOINTREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteNexusEndpointRequest)
     },
 )
@@ -904,7 +916,7 @@ DeleteNexusEndpointResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETENEXUSENDPOINTRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteNexusEndpointResponse)
     },
 )
@@ -919,7 +931,7 @@ GetUserGroupsRequest = _reflection.GeneratedProtocolMessageType(
             (_message.Message,),
             {
                 "DESCRIPTOR": _GETUSERGROUPSREQUEST_GOOGLEGROUPFILTER,
-                "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+                "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
                 # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetUserGroupsRequest.GoogleGroupFilter)
             },
         ),
@@ -928,12 +940,12 @@ GetUserGroupsRequest = _reflection.GeneratedProtocolMessageType(
             (_message.Message,),
             {
                 "DESCRIPTOR": _GETUSERGROUPSREQUEST_SCIMGROUPFILTER,
-                "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+                "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
                 # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetUserGroupsRequest.SCIMGroupFilter)
             },
         ),
         "DESCRIPTOR": _GETUSERGROUPSREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetUserGroupsRequest)
     },
 )
@@ -946,7 +958,7 @@ GetUserGroupsResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETUSERGROUPSRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetUserGroupsResponse)
     },
 )
@@ -957,7 +969,7 @@ GetUserGroupRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETUSERGROUPREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetUserGroupRequest)
     },
 )
@@ -968,7 +980,7 @@ GetUserGroupResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETUSERGROUPRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetUserGroupResponse)
     },
 )
@@ -979,7 +991,7 @@ CreateUserGroupRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _CREATEUSERGROUPREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.CreateUserGroupRequest)
     },
 )
@@ -990,7 +1002,7 @@ CreateUserGroupResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _CREATEUSERGROUPRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.CreateUserGroupResponse)
     },
 )
@@ -1001,7 +1013,7 @@ UpdateUserGroupRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _UPDATEUSERGROUPREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateUserGroupRequest)
     },
 )
@@ -1012,7 +1024,7 @@ UpdateUserGroupResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _UPDATEUSERGROUPRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateUserGroupResponse)
     },
 )
@@ -1023,7 +1035,7 @@ DeleteUserGroupRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETEUSERGROUPREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteUserGroupRequest)
     },
 )
@@ -1034,7 +1046,7 @@ DeleteUserGroupResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETEUSERGROUPRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteUserGroupResponse)
     },
 )
@@ -1045,7 +1057,7 @@ SetUserGroupNamespaceAccessRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _SETUSERGROUPNAMESPACEACCESSREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.SetUserGroupNamespaceAccessRequest)
     },
 )
@@ -1056,7 +1068,7 @@ SetUserGroupNamespaceAccessResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _SETUSERGROUPNAMESPACEACCESSRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.SetUserGroupNamespaceAccessResponse)
     },
 )
@@ -1067,7 +1079,7 @@ AddUserGroupMemberRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _ADDUSERGROUPMEMBERREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.AddUserGroupMemberRequest)
     },
 )
@@ -1078,7 +1090,7 @@ AddUserGroupMemberResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _ADDUSERGROUPMEMBERRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.AddUserGroupMemberResponse)
     },
 )
@@ -1089,7 +1101,7 @@ RemoveUserGroupMemberRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _REMOVEUSERGROUPMEMBERREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.RemoveUserGroupMemberRequest)
     },
 )
@@ -1100,7 +1112,7 @@ RemoveUserGroupMemberResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _REMOVEUSERGROUPMEMBERRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.RemoveUserGroupMemberResponse)
     },
 )
@@ -1111,7 +1123,7 @@ GetUserGroupMembersRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETUSERGROUPMEMBERSREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetUserGroupMembersRequest)
     },
 )
@@ -1122,7 +1134,7 @@ GetUserGroupMembersResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETUSERGROUPMEMBERSRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetUserGroupMembersResponse)
     },
 )
@@ -1133,7 +1145,7 @@ CreateServiceAccountRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _CREATESERVICEACCOUNTREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.CreateServiceAccountRequest)
     },
 )
@@ -1144,7 +1156,7 @@ CreateServiceAccountResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _CREATESERVICEACCOUNTRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.CreateServiceAccountResponse)
     },
 )
@@ -1155,7 +1167,7 @@ GetServiceAccountRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETSERVICEACCOUNTREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetServiceAccountRequest)
     },
 )
@@ -1166,7 +1178,7 @@ GetServiceAccountResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETSERVICEACCOUNTRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetServiceAccountResponse)
     },
 )
@@ -1177,7 +1189,7 @@ GetServiceAccountsRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETSERVICEACCOUNTSREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetServiceAccountsRequest)
     },
 )
@@ -1188,7 +1200,7 @@ GetServiceAccountsResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETSERVICEACCOUNTSRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetServiceAccountsResponse)
     },
 )
@@ -1199,7 +1211,7 @@ UpdateServiceAccountRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _UPDATESERVICEACCOUNTREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateServiceAccountRequest)
     },
 )
@@ -1210,18 +1222,40 @@ UpdateServiceAccountResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _UPDATESERVICEACCOUNTRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateServiceAccountResponse)
     },
 )
 _sym_db.RegisterMessage(UpdateServiceAccountResponse)
+
+SetServiceAccountNamespaceAccessRequest = _reflection.GeneratedProtocolMessageType(
+    "SetServiceAccountNamespaceAccessRequest",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _SETSERVICEACCOUNTNAMESPACEACCESSREQUEST,
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
+        # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.SetServiceAccountNamespaceAccessRequest)
+    },
+)
+_sym_db.RegisterMessage(SetServiceAccountNamespaceAccessRequest)
+
+SetServiceAccountNamespaceAccessResponse = _reflection.GeneratedProtocolMessageType(
+    "SetServiceAccountNamespaceAccessResponse",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _SETSERVICEACCOUNTNAMESPACEACCESSRESPONSE,
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
+        # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.SetServiceAccountNamespaceAccessResponse)
+    },
+)
+_sym_db.RegisterMessage(SetServiceAccountNamespaceAccessResponse)
 
 DeleteServiceAccountRequest = _reflection.GeneratedProtocolMessageType(
     "DeleteServiceAccountRequest",
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETESERVICEACCOUNTREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteServiceAccountRequest)
     },
 )
@@ -1232,7 +1266,7 @@ DeleteServiceAccountResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETESERVICEACCOUNTRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteServiceAccountResponse)
     },
 )
@@ -1243,7 +1277,7 @@ GetUsageRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETUSAGEREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetUsageRequest)
     },
 )
@@ -1254,7 +1288,7 @@ GetUsageResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETUSAGERESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetUsageResponse)
     },
 )
@@ -1265,7 +1299,7 @@ GetAccountRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETACCOUNTREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetAccountRequest)
     },
 )
@@ -1276,7 +1310,7 @@ GetAccountResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETACCOUNTRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetAccountResponse)
     },
 )
@@ -1287,7 +1321,7 @@ UpdateAccountRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _UPDATEACCOUNTREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateAccountRequest)
     },
 )
@@ -1298,7 +1332,7 @@ UpdateAccountResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _UPDATEACCOUNTRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateAccountResponse)
     },
 )
@@ -1309,7 +1343,7 @@ CreateNamespaceExportSinkRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _CREATENAMESPACEEXPORTSINKREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.CreateNamespaceExportSinkRequest)
     },
 )
@@ -1320,7 +1354,7 @@ CreateNamespaceExportSinkResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _CREATENAMESPACEEXPORTSINKRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.CreateNamespaceExportSinkResponse)
     },
 )
@@ -1331,7 +1365,7 @@ GetNamespaceExportSinkRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETNAMESPACEEXPORTSINKREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetNamespaceExportSinkRequest)
     },
 )
@@ -1342,7 +1376,7 @@ GetNamespaceExportSinkResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETNAMESPACEEXPORTSINKRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetNamespaceExportSinkResponse)
     },
 )
@@ -1353,7 +1387,7 @@ GetNamespaceExportSinksRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETNAMESPACEEXPORTSINKSREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetNamespaceExportSinksRequest)
     },
 )
@@ -1364,7 +1398,7 @@ GetNamespaceExportSinksResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETNAMESPACEEXPORTSINKSRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetNamespaceExportSinksResponse)
     },
 )
@@ -1375,7 +1409,7 @@ UpdateNamespaceExportSinkRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _UPDATENAMESPACEEXPORTSINKREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateNamespaceExportSinkRequest)
     },
 )
@@ -1386,7 +1420,7 @@ UpdateNamespaceExportSinkResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _UPDATENAMESPACEEXPORTSINKRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateNamespaceExportSinkResponse)
     },
 )
@@ -1397,7 +1431,7 @@ DeleteNamespaceExportSinkRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETENAMESPACEEXPORTSINKREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteNamespaceExportSinkRequest)
     },
 )
@@ -1408,7 +1442,7 @@ DeleteNamespaceExportSinkResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETENAMESPACEEXPORTSINKRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteNamespaceExportSinkResponse)
     },
 )
@@ -1419,7 +1453,7 @@ ValidateNamespaceExportSinkRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _VALIDATENAMESPACEEXPORTSINKREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.ValidateNamespaceExportSinkRequest)
     },
 )
@@ -1430,7 +1464,7 @@ ValidateNamespaceExportSinkResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _VALIDATENAMESPACEEXPORTSINKRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.ValidateNamespaceExportSinkResponse)
     },
 )
@@ -1445,12 +1479,12 @@ UpdateNamespaceTagsRequest = _reflection.GeneratedProtocolMessageType(
             (_message.Message,),
             {
                 "DESCRIPTOR": _UPDATENAMESPACETAGSREQUEST_TAGSTOUPSERTENTRY,
-                "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+                "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
                 # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateNamespaceTagsRequest.TagsToUpsertEntry)
             },
         ),
         "DESCRIPTOR": _UPDATENAMESPACETAGSREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateNamespaceTagsRequest)
     },
 )
@@ -1462,7 +1496,7 @@ UpdateNamespaceTagsResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _UPDATENAMESPACETAGSRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.UpdateNamespaceTagsResponse)
     },
 )
@@ -1473,7 +1507,7 @@ CreateConnectivityRuleRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _CREATECONNECTIVITYRULEREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.CreateConnectivityRuleRequest)
     },
 )
@@ -1484,7 +1518,7 @@ CreateConnectivityRuleResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _CREATECONNECTIVITYRULERESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.CreateConnectivityRuleResponse)
     },
 )
@@ -1495,7 +1529,7 @@ GetConnectivityRuleRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETCONNECTIVITYRULEREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetConnectivityRuleRequest)
     },
 )
@@ -1506,7 +1540,7 @@ GetConnectivityRuleResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETCONNECTIVITYRULERESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetConnectivityRuleResponse)
     },
 )
@@ -1517,7 +1551,7 @@ GetConnectivityRulesRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETCONNECTIVITYRULESREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetConnectivityRulesRequest)
     },
 )
@@ -1528,7 +1562,7 @@ GetConnectivityRulesResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _GETCONNECTIVITYRULESRESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.GetConnectivityRulesResponse)
     },
 )
@@ -1539,7 +1573,7 @@ DeleteConnectivityRuleRequest = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETECONNECTIVITYRULEREQUEST,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteConnectivityRuleRequest)
     },
 )
@@ -1550,11 +1584,33 @@ DeleteConnectivityRuleResponse = _reflection.GeneratedProtocolMessageType(
     (_message.Message,),
     {
         "DESCRIPTOR": _DELETECONNECTIVITYRULERESPONSE,
-        "__module__": "temporal.api.cloud.cloudservice.v1.request_response_pb2",
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
         # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.DeleteConnectivityRuleResponse)
     },
 )
 _sym_db.RegisterMessage(DeleteConnectivityRuleResponse)
+
+ValidateAccountAuditLogSinkRequest = _reflection.GeneratedProtocolMessageType(
+    "ValidateAccountAuditLogSinkRequest",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _VALIDATEACCOUNTAUDITLOGSINKREQUEST,
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
+        # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.ValidateAccountAuditLogSinkRequest)
+    },
+)
+_sym_db.RegisterMessage(ValidateAccountAuditLogSinkRequest)
+
+ValidateAccountAuditLogSinkResponse = _reflection.GeneratedProtocolMessageType(
+    "ValidateAccountAuditLogSinkResponse",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _VALIDATEACCOUNTAUDITLOGSINKRESPONSE,
+        "__module__": "temporalio.api.cloud.cloudservice.v1.request_response_pb2",
+        # @@protoc_insertion_point(class_scope:temporal.api.cloud.cloudservice.v1.ValidateAccountAuditLogSinkResponse)
+    },
+)
+_sym_db.RegisterMessage(ValidateAccountAuditLogSinkResponse)
 
 if _descriptor._USE_C_DESCRIPTORS == False:
     DESCRIPTOR._options = None
@@ -1737,66 +1793,74 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _UPDATESERVICEACCOUNTREQUEST._serialized_end = 9524
     _UPDATESERVICEACCOUNTRESPONSE._serialized_start = 9526
     _UPDATESERVICEACCOUNTRESPONSE._serialized_end = 9630
-    _DELETESERVICEACCOUNTREQUEST._serialized_start = 9632
-    _DELETESERVICEACCOUNTREQUEST._serialized_end = 9743
-    _DELETESERVICEACCOUNTRESPONSE._serialized_start = 9745
-    _DELETESERVICEACCOUNTRESPONSE._serialized_end = 9849
-    _GETUSAGEREQUEST._serialized_start = 9852
-    _GETUSAGEREQUEST._serialized_end = 10022
-    _GETUSAGERESPONSE._serialized_start = 10024
-    _GETUSAGERESPONSE._serialized_end = 10124
-    _GETACCOUNTREQUEST._serialized_start = 10126
-    _GETACCOUNTREQUEST._serialized_end = 10145
-    _GETACCOUNTRESPONSE._serialized_start = 10147
-    _GETACCOUNTRESPONSE._serialized_end = 10224
-    _UPDATEACCOUNTREQUEST._serialized_start = 10227
-    _UPDATEACCOUNTREQUEST._serialized_end = 10361
-    _UPDATEACCOUNTRESPONSE._serialized_start = 10363
-    _UPDATEACCOUNTRESPONSE._serialized_end = 10460
-    _CREATENAMESPACEEXPORTSINKREQUEST._serialized_start = 10463
-    _CREATENAMESPACEEXPORTSINKREQUEST._serialized_end = 10607
-    _CREATENAMESPACEEXPORTSINKRESPONSE._serialized_start = 10609
-    _CREATENAMESPACEEXPORTSINKRESPONSE._serialized_end = 10718
-    _GETNAMESPACEEXPORTSINKREQUEST._serialized_start = 10720
-    _GETNAMESPACEEXPORTSINKREQUEST._serialized_end = 10784
-    _GETNAMESPACEEXPORTSINKRESPONSE._serialized_start = 10786
-    _GETNAMESPACEEXPORTSINKRESPONSE._serialized_end = 10877
-    _GETNAMESPACEEXPORTSINKSREQUEST._serialized_start = 10879
-    _GETNAMESPACEEXPORTSINKSREQUEST._serialized_end = 10969
-    _GETNAMESPACEEXPORTSINKSRESPONSE._serialized_start = 10971
-    _GETNAMESPACEEXPORTSINKSRESPONSE._serialized_end = 11089
-    _UPDATENAMESPACEEXPORTSINKREQUEST._serialized_start = 11092
-    _UPDATENAMESPACEEXPORTSINKREQUEST._serialized_end = 11262
-    _UPDATENAMESPACEEXPORTSINKRESPONSE._serialized_start = 11264
-    _UPDATENAMESPACEEXPORTSINKRESPONSE._serialized_end = 11373
-    _DELETENAMESPACEEXPORTSINKREQUEST._serialized_start = 11375
-    _DELETENAMESPACEEXPORTSINKREQUEST._serialized_end = 11496
-    _DELETENAMESPACEEXPORTSINKRESPONSE._serialized_start = 11498
-    _DELETENAMESPACEEXPORTSINKRESPONSE._serialized_end = 11607
-    _VALIDATENAMESPACEEXPORTSINKREQUEST._serialized_start = 11609
-    _VALIDATENAMESPACEEXPORTSINKREQUEST._serialized_end = 11727
-    _VALIDATENAMESPACEEXPORTSINKRESPONSE._serialized_start = 11729
-    _VALIDATENAMESPACEEXPORTSINKRESPONSE._serialized_end = 11766
-    _UPDATENAMESPACETAGSREQUEST._serialized_start = 11769
-    _UPDATENAMESPACETAGSREQUEST._serialized_end = 12027
-    _UPDATENAMESPACETAGSREQUEST_TAGSTOUPSERTENTRY._serialized_start = 11976
-    _UPDATENAMESPACETAGSREQUEST_TAGSTOUPSERTENTRY._serialized_end = 12027
-    _UPDATENAMESPACETAGSRESPONSE._serialized_start = 12029
-    _UPDATENAMESPACETAGSRESPONSE._serialized_end = 12132
-    _CREATECONNECTIVITYRULEREQUEST._serialized_start = 12135
-    _CREATECONNECTIVITYRULEREQUEST._serialized_end = 12270
-    _CREATECONNECTIVITYRULERESPONSE._serialized_start = 12273
-    _CREATECONNECTIVITYRULERESPONSE._serialized_end = 12409
-    _GETCONNECTIVITYRULEREQUEST._serialized_start = 12411
-    _GETCONNECTIVITYRULEREQUEST._serialized_end = 12469
-    _GETCONNECTIVITYRULERESPONSE._serialized_start = 12471
-    _GETCONNECTIVITYRULERESPONSE._serialized_end = 12585
-    _GETCONNECTIVITYRULESREQUEST._serialized_start = 12587
-    _GETCONNECTIVITYRULESREQUEST._serialized_end = 12674
-    _GETCONNECTIVITYRULESRESPONSE._serialized_start = 12677
-    _GETCONNECTIVITYRULESRESPONSE._serialized_end = 12818
-    _DELETECONNECTIVITYRULEREQUEST._serialized_start = 12820
-    _DELETECONNECTIVITYRULEREQUEST._serialized_end = 12935
-    _DELETECONNECTIVITYRULERESPONSE._serialized_start = 12937
-    _DELETECONNECTIVITYRULERESPONSE._serialized_end = 13043
+    _SETSERVICEACCOUNTNAMESPACEACCESSREQUEST._serialized_start = 9633
+    _SETSERVICEACCOUNTNAMESPACEACCESSREQUEST._serialized_end = 9840
+    _SETSERVICEACCOUNTNAMESPACEACCESSRESPONSE._serialized_start = 9842
+    _SETSERVICEACCOUNTNAMESPACEACCESSRESPONSE._serialized_end = 9958
+    _DELETESERVICEACCOUNTREQUEST._serialized_start = 9960
+    _DELETESERVICEACCOUNTREQUEST._serialized_end = 10071
+    _DELETESERVICEACCOUNTRESPONSE._serialized_start = 10073
+    _DELETESERVICEACCOUNTRESPONSE._serialized_end = 10177
+    _GETUSAGEREQUEST._serialized_start = 10180
+    _GETUSAGEREQUEST._serialized_end = 10350
+    _GETUSAGERESPONSE._serialized_start = 10352
+    _GETUSAGERESPONSE._serialized_end = 10452
+    _GETACCOUNTREQUEST._serialized_start = 10454
+    _GETACCOUNTREQUEST._serialized_end = 10473
+    _GETACCOUNTRESPONSE._serialized_start = 10475
+    _GETACCOUNTRESPONSE._serialized_end = 10552
+    _UPDATEACCOUNTREQUEST._serialized_start = 10555
+    _UPDATEACCOUNTREQUEST._serialized_end = 10689
+    _UPDATEACCOUNTRESPONSE._serialized_start = 10691
+    _UPDATEACCOUNTRESPONSE._serialized_end = 10788
+    _CREATENAMESPACEEXPORTSINKREQUEST._serialized_start = 10791
+    _CREATENAMESPACEEXPORTSINKREQUEST._serialized_end = 10935
+    _CREATENAMESPACEEXPORTSINKRESPONSE._serialized_start = 10937
+    _CREATENAMESPACEEXPORTSINKRESPONSE._serialized_end = 11046
+    _GETNAMESPACEEXPORTSINKREQUEST._serialized_start = 11048
+    _GETNAMESPACEEXPORTSINKREQUEST._serialized_end = 11112
+    _GETNAMESPACEEXPORTSINKRESPONSE._serialized_start = 11114
+    _GETNAMESPACEEXPORTSINKRESPONSE._serialized_end = 11205
+    _GETNAMESPACEEXPORTSINKSREQUEST._serialized_start = 11207
+    _GETNAMESPACEEXPORTSINKSREQUEST._serialized_end = 11297
+    _GETNAMESPACEEXPORTSINKSRESPONSE._serialized_start = 11299
+    _GETNAMESPACEEXPORTSINKSRESPONSE._serialized_end = 11417
+    _UPDATENAMESPACEEXPORTSINKREQUEST._serialized_start = 11420
+    _UPDATENAMESPACEEXPORTSINKREQUEST._serialized_end = 11590
+    _UPDATENAMESPACEEXPORTSINKRESPONSE._serialized_start = 11592
+    _UPDATENAMESPACEEXPORTSINKRESPONSE._serialized_end = 11701
+    _DELETENAMESPACEEXPORTSINKREQUEST._serialized_start = 11703
+    _DELETENAMESPACEEXPORTSINKREQUEST._serialized_end = 11824
+    _DELETENAMESPACEEXPORTSINKRESPONSE._serialized_start = 11826
+    _DELETENAMESPACEEXPORTSINKRESPONSE._serialized_end = 11935
+    _VALIDATENAMESPACEEXPORTSINKREQUEST._serialized_start = 11937
+    _VALIDATENAMESPACEEXPORTSINKREQUEST._serialized_end = 12055
+    _VALIDATENAMESPACEEXPORTSINKRESPONSE._serialized_start = 12057
+    _VALIDATENAMESPACEEXPORTSINKRESPONSE._serialized_end = 12094
+    _UPDATENAMESPACETAGSREQUEST._serialized_start = 12097
+    _UPDATENAMESPACETAGSREQUEST._serialized_end = 12355
+    _UPDATENAMESPACETAGSREQUEST_TAGSTOUPSERTENTRY._serialized_start = 12304
+    _UPDATENAMESPACETAGSREQUEST_TAGSTOUPSERTENTRY._serialized_end = 12355
+    _UPDATENAMESPACETAGSRESPONSE._serialized_start = 12357
+    _UPDATENAMESPACETAGSRESPONSE._serialized_end = 12460
+    _CREATECONNECTIVITYRULEREQUEST._serialized_start = 12463
+    _CREATECONNECTIVITYRULEREQUEST._serialized_end = 12598
+    _CREATECONNECTIVITYRULERESPONSE._serialized_start = 12601
+    _CREATECONNECTIVITYRULERESPONSE._serialized_end = 12737
+    _GETCONNECTIVITYRULEREQUEST._serialized_start = 12739
+    _GETCONNECTIVITYRULEREQUEST._serialized_end = 12797
+    _GETCONNECTIVITYRULERESPONSE._serialized_start = 12799
+    _GETCONNECTIVITYRULERESPONSE._serialized_end = 12913
+    _GETCONNECTIVITYRULESREQUEST._serialized_start = 12915
+    _GETCONNECTIVITYRULESREQUEST._serialized_end = 13002
+    _GETCONNECTIVITYRULESRESPONSE._serialized_start = 13005
+    _GETCONNECTIVITYRULESRESPONSE._serialized_end = 13146
+    _DELETECONNECTIVITYRULEREQUEST._serialized_start = 13148
+    _DELETECONNECTIVITYRULEREQUEST._serialized_end = 13263
+    _DELETECONNECTIVITYRULERESPONSE._serialized_start = 13265
+    _DELETECONNECTIVITYRULERESPONSE._serialized_end = 13371
+    _VALIDATEACCOUNTAUDITLOGSINKREQUEST._serialized_start = 13373
+    _VALIDATEACCOUNTAUDITLOGSINKREQUEST._serialized_end = 13472
+    _VALIDATEACCOUNTAUDITLOGSINKRESPONSE._serialized_start = 13474
+    _VALIDATEACCOUNTAUDITLOGSINKRESPONSE._serialized_end = 13511
 # @@protoc_insertion_point(module_scope)

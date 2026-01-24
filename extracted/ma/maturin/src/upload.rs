@@ -2,9 +2,9 @@
 //! documentation at https://warehouse.readthedocs.io/api-reference/legacy/#upload-api
 
 use crate::build_context::hash_file;
-use anyhow::{bail, Context, Result};
-use base64::engine::general_purpose::STANDARD;
+use anyhow::{Context, Result, bail};
 use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use bytesize::ByteSize;
 use configparser::ini::Ini;
 use fs_err as fs;
@@ -65,6 +65,16 @@ impl PublishOpt {
 
     /// Set to non interactive mode if we're running on CI
     pub fn non_interactive_on_ci(&mut self) {
+        let msg = "⚠️  Warning: The maturin upload and publish commands are deprecated and will be removed in the future. For more information see: https://github.com/PyO3/maturin/issues/2334";
+        eprintln!("{msg}");
+        if env::var("GITHUB_ACTIONS")
+            .map(|v| v == "true")
+            .unwrap_or_default()
+        {
+            // Also emit a warning annotation on the GH action
+            println!("::warning::{msg}");
+        }
+
         if !self.non_interactive && env::var("CI").map(|v| v == "true").unwrap_or_default() {
             eprintln!("🎛️ Running in non-interactive mode on CI");
             self.non_interactive = true;
@@ -377,7 +387,6 @@ fn tls_ca_bundle() -> Option<OsString> {
 
 // Prefer rustls if both native-tls and rustls features are enabled
 #[cfg(all(feature = "native-tls", not(feature = "rustls")))]
-#[allow(clippy::result_large_err)]
 fn http_agent() -> Result<ureq::Agent, UploadError> {
     use std::sync::Arc;
 
@@ -395,7 +404,6 @@ fn http_agent() -> Result<ureq::Agent, UploadError> {
 }
 
 #[cfg(feature = "rustls")]
-#[allow(clippy::result_large_err)]
 fn http_agent() -> Result<ureq::Agent, UploadError> {
     use std::sync::Arc;
 
@@ -415,14 +423,12 @@ fn http_agent() -> Result<ureq::Agent, UploadError> {
 }
 
 #[cfg(not(any(feature = "native-tls", feature = "rustls")))]
-#[allow(clippy::result_large_err)]
 fn http_agent() -> Result<ureq::Agent, UploadError> {
     let builder = ureq::builder().try_proxy_from_env(true);
     Ok(builder.build())
 }
 
 /// Uploads a single wheel to the registry
-#[allow(clippy::result_large_err)]
 pub fn upload(registry: &Registry, wheel_path: &Path) -> Result<(), UploadError> {
     let hash_hex = hash_file(wheel_path)?;
 

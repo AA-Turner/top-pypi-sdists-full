@@ -52,10 +52,10 @@ class TestPaymentOrders:
             description="description",
             documents=[
                 {
-                    "documentable_id": "documentable_id",
-                    "documentable_type": "counterparties",
                     "file": b"raw file contents",
                     "document_type": "document_type",
+                    "documentable_id": "documentable_id",
+                    "documentable_type": "connections",
                 }
             ],
             effective_date=parse_date("2019-12-27"),
@@ -70,6 +70,7 @@ class TestPaymentOrders:
                         "direction": "credit",
                         "ledger_account_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                         "available_balance_amount": {"foo": 0},
+                        "effective_at": parse_datetime("2019-12-27T18:11:19.117Z"),
                         "lock_version": 0,
                         "metadata": {
                             "key": "value",
@@ -175,6 +176,7 @@ class TestPaymentOrders:
                 ],
             },
             receiving_account_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            reconciliation_status="unreconciled",
             remittance_information="remittance_information",
             send_remittance_advice=True,
             statement_descriptor="statement_descriptor",
@@ -366,6 +368,7 @@ class TestPaymentOrders:
                 ],
             },
             receiving_account_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            reconciliation_status="unreconciled",
             remittance_information="remittance_information",
             send_remittance_advice=True,
             statement_descriptor="statement_descriptor",
@@ -497,6 +500,7 @@ class TestPaymentOrders:
                         "direction": "credit",
                         "ledger_account_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                         "available_balance_amount": {"foo": 0},
+                        "effective_at": parse_datetime("2019-12-27T18:11:19.117Z"),
                         "lock_version": 0,
                         "metadata": {
                             "key": "value",
@@ -602,6 +606,7 @@ class TestPaymentOrders:
                 ],
             },
             receiving_account_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            reconciliation_status="unreconciled",
             remittance_information="remittance_information",
             send_remittance_advice=True,
             statement_descriptor="statement_descriptor",
@@ -680,10 +685,10 @@ class TestAsyncPaymentOrders:
             description="description",
             documents=[
                 {
-                    "documentable_id": "documentable_id",
-                    "documentable_type": "counterparties",
                     "file": b"raw file contents",
                     "document_type": "document_type",
+                    "documentable_id": "documentable_id",
+                    "documentable_type": "connections",
                 }
             ],
             effective_date=parse_date("2019-12-27"),
@@ -698,6 +703,7 @@ class TestAsyncPaymentOrders:
                         "direction": "credit",
                         "ledger_account_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                         "available_balance_amount": {"foo": 0},
+                        "effective_at": parse_datetime("2019-12-27T18:11:19.117Z"),
                         "lock_version": 0,
                         "metadata": {
                             "key": "value",
@@ -803,6 +809,7 @@ class TestAsyncPaymentOrders:
                 ],
             },
             receiving_account_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            reconciliation_status="unreconciled",
             remittance_information="remittance_information",
             send_remittance_advice=True,
             statement_descriptor="statement_descriptor",
@@ -994,6 +1001,7 @@ class TestAsyncPaymentOrders:
                 ],
             },
             receiving_account_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            reconciliation_status="unreconciled",
             remittance_information="remittance_information",
             send_remittance_advice=True,
             statement_descriptor="statement_descriptor",
@@ -1125,6 +1133,7 @@ class TestAsyncPaymentOrders:
                         "direction": "credit",
                         "ledger_account_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                         "available_balance_amount": {"foo": 0},
+                        "effective_at": parse_datetime("2019-12-27T18:11:19.117Z"),
                         "lock_version": 0,
                         "metadata": {
                             "key": "value",
@@ -1230,6 +1239,7 @@ class TestAsyncPaymentOrders:
                 ],
             },
             receiving_account_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            reconciliation_status="unreconciled",
             remittance_information="remittance_information",
             send_remittance_advice=True,
             statement_descriptor="statement_descriptor",

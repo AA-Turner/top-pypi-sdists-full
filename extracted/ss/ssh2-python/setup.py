@@ -1,3 +1,20 @@
+#  This file is part of ssh2-python.
+#  Copyright (C) 2017-2025 Panos Kittenis.
+#  Copyright (C) 2017-2025 ssh2-python Contributors.
+#
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation, version 2.1.
+#
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+
 import os
 import platform
 from glob import glob
@@ -99,9 +116,10 @@ setup(
     version=versioneer.get_version(),
     cmdclass=cmdclass,
     url='https://github.com/ParallelSSH/ssh2-python',
-    license='LGPLv2',
+    license='LGPL-2.1-only',
+    license_files=['LICENSE', 'COPYING'],
     author='Panos Kittenis',
-    author_email='22e889d8@opayq.com',
+    author_email='danst@tutanota.com',
     description='Bindings for libssh2 C library',
     long_description=open('README.rst').read(),
     packages=find_packages(
@@ -113,7 +131,6 @@ setup(
     platforms='any',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
-        'License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)',
         'Intended Audience :: Developers',
         'Operating System :: OS Independent',
         'Programming Language :: C',
@@ -124,6 +141,10 @@ setup(
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
+        'Programming Language :: Python :: Implementation :: CPython',
+        'Programming Language :: Python :: Implementation :: PyPy',
         'Topic :: System :: Shells',
         'Topic :: System :: Networking',
         'Topic :: Software Development :: Libraries',

@@ -15,6 +15,8 @@ from poetry.console.commands.installer_command import InstallerCommand
 
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from cleo.io.inputs.argument import Argument
     from cleo.io.inputs.option import Option
 
@@ -100,10 +102,20 @@ list of installed packages
                     group_name=group_name,
                 )
                 if group_name != MAIN_GROUP:
-                    if not poetry_section and group_name in poetry_groups_content:
-                        del poetry_content["group"][group_name]
+                    if (
+                        not poetry_section
+                        and "dependencies" in poetry_groups_content.get(group_name, {})
+                    ):
+                        del poetry_content["group"][group_name]["dependencies"]
+                        if not poetry_content["group"][group_name]:
+                            del poetry_content["group"][group_name]
                     if not standard_section and group_name in groups_content:
                         del groups_content[group_name]
+                    if (
+                        group_name not in groups_content
+                        and group_name not in poetry_groups_content
+                    ):
+                        self._remove_references_to_group(group_name, content)
 
         elif group == "dev" and "dev-dependencies" in poetry_content:
             # We need to account for the old `dev-dependencies` section
@@ -115,21 +127,20 @@ list of installed packages
                 del poetry_content["dev-dependencies"]
         else:
             removed = set()
-            if "group" in poetry_content:
-                if group in poetry_content["group"]:
-                    removed.update(
-                        self._remove_packages(
-                            packages=packages,
-                            standard_section=[],
-                            poetry_section=poetry_content["group"][group].get(
-                                "dependencies", {}
-                            ),
-                            group_name=group,
-                        )
+            if group_content := poetry_groups_content.get(group):
+                poetry_section = group_content.get("dependencies", {})
+                removed.update(
+                    self._remove_packages(
+                        packages=packages,
+                        standard_section=[],
+                        poetry_section=poetry_section,
+                        group_name=group,
                     )
-
-                if not poetry_content["group"][group]:
-                    del poetry_content["group"][group]
+                )
+                if not poetry_section and "dependencies" in group_content:
+                    del group_content["dependencies"]
+                    if not group_content:
+                        del poetry_content["group"][group]
             if group in groups_content:
                 removed.update(
                     self._remove_packages(
@@ -141,6 +152,8 @@ list of installed packages
                 )
                 if not groups_content[group]:
                     del groups_content[group]
+            if group not in groups_content and group not in poetry_groups_content:
+                self._remove_references_to_group(group, content)
 
         if "group" in poetry_content and not poetry_content["group"]:
             del poetry_content["group"]
@@ -174,7 +187,7 @@ list of installed packages
     def _remove_packages(
         self,
         packages: list[str],
-        standard_section: list[str],
+        standard_section: list[str | Mapping[str, Any]],
         poetry_section: dict[str, Any],
         group_name: str,
     ) -> set[str]:
@@ -184,6 +197,8 @@ list of installed packages
         for package in packages:
             normalized_name = canonicalize_name(package)
             for requirement in standard_section.copy():
+                if not isinstance(requirement, str):
+                    continue
                 if Dependency.create_from_pep_508(requirement).name == normalized_name:
                     standard_section.remove(requirement)
                     removed.add(package)
@@ -196,3 +211,56 @@ list of installed packages
             group.remove_dependency(package)
 
         return removed
+
+    def _remove_references_to_group(
+        self, group_name: str, content: dict[str, Any]
+    ) -> None:
+        """
+        Removes references to the given group from other groups.
+        """
+        # 1. PEP 735: [dependency-groups]
+        if "dependency-groups" in content:
+            groups_to_remove = []
+            for group_key, group_content in content["dependency-groups"].items():
+                if not isinstance(group_content, list):
+                    continue
+
+                to_remove = []
+                for item in group_content:
+                    if (
+                        isinstance(item, dict)
+                        and item.get("include-group") == group_name
+                    ):
+                        to_remove.append(item)
+
+                for item in to_remove:
+                    group_content.remove(item)
+
+                # Clean up now-empty lists (normalize with legacy behavior)
+                # Only remove groups that became empty due to include-group cleanup,
+                # not the target group itself (which is handled by the caller)
+                if not group_content and group_key != group_name:
+                    groups_to_remove.append(group_key)
+
+            for group_key in groups_to_remove:
+                del content["dependency-groups"][group_key]
+
+        # 2. Legacy: [tool.poetry.group.<name>] include-groups = [...]
+        poetry_content = content.get("tool", {}).get("poetry", {})
+        if "group" in poetry_content:
+            groups_to_remove = []
+            for group_key, group_content in poetry_content["group"].items():
+                if "include-groups" not in group_content:
+                    continue
+
+                if group_name in group_content["include-groups"]:
+                    group_content["include-groups"].remove(group_name)
+
+                if not group_content["include-groups"]:
+                    del group_content["include-groups"]
+
+                    if not group_content:
+                        groups_to_remove.append(group_key)
+
+            for group_key in groups_to_remove:
+                del poetry_content["group"][group_key]

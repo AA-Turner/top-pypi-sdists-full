@@ -28,6 +28,7 @@ cdef extern from "lexbor/core/core.h" nogil:
         LXB_STATUS_STOP
 
     lexbor_str_t* lexbor_str_destroy(lexbor_str_t *str, lexbor_mraw_t *mraw, bint destroy_obj)
+
     lexbor_str_t* lexbor_str_create()
     lxb_char_t * lexbor_str_data_noi(lexbor_str_t *str)
 
@@ -215,22 +216,41 @@ cdef extern from "lexbor/html/html.h" nogil:
 
         size_t  ref_count
 
+    ctypedef struct lxb_html_element_t
+
     # Functions
     lxb_html_document_t * lxb_html_document_create()
-    lxb_status_t lxb_html_document_parse(lxb_html_document_t *document,  const lxb_char_t *html, size_t size)
+    lxb_html_element_t * lxb_html_document_create_element(lxb_html_document_t *document,
+                                                          const lxb_char_t *local_name, size_t lname_len,
+                                                          void *reserved_for_opt)
+    lxb_status_t lxb_html_document_parse(lxb_html_document_t *document, const lxb_char_t *html, size_t size)
+    lxb_dom_node_t * lxb_html_document_parse_fragment(lxb_html_document_t *document,
+                                                      lxb_dom_element_t *element,
+                                                      const lxb_char_t *html,
+                                                      size_t size)
     lxb_html_body_element_t * lxb_html_document_body_element_noi(lxb_html_document_t *document)
     lxb_html_head_element_t * lxb_html_document_head_element_noi(lxb_html_document_t *document)
     lxb_dom_element_t * lxb_dom_document_element(lxb_dom_document_t *document)
 
     lxb_status_t lxb_html_serialize_tree_str(lxb_dom_node_t *node, lexbor_str_t *str)
+    lxb_status_t lxb_html_serialize_deep_str(lxb_dom_node_t *node, lexbor_str_t *str)
+    lxb_html_element_t* lxb_html_element_inner_html_set(lxb_html_element_t *element,
+                                                        const lxb_char_t *html, size_t size)
 
 cdef class LexborNode:
     cdef:
         lxb_dom_node_t *node
         public LexborHTMLParser parser
+        cdef bint _is_fragment_root
 
     @staticmethod
     cdef LexborNode new(lxb_dom_node_t *node, LexborHTMLParser parser)
+    cdef void set_as_fragment_root(self)
+    cdef inline LexborNode _get_node(self)
+
+
+cdef bint is_empty_text_node(lxb_dom_node_t *node)
+cdef inline bint _is_whitespace_only(const lxb_char_t *buffer, size_t buffer_length) nogil
 
 
 cdef class LexborCSSSelector:
@@ -241,19 +261,26 @@ cdef class LexborCSSSelector:
     cdef public LexborNode current_node
     cdef int _create_css_parser(self) except -1
     cpdef list find(self, str query, LexborNode node)
+    cpdef list find_first(self, str query, LexborNode node)
+    cpdef list _find(self, str query, LexborNode node, bint only_first)
     cpdef int any_matches(self, str query, LexborNode node) except -1
 
 cdef class LexborHTMLParser:
     cdef lxb_html_document_t *document
+    cdef lxb_html_document_t *_fragment_document
+    cdef bint _is_fragment
     cdef public bytes raw_html
     cdef LexborCSSSelector _selector
-    cdef int _parse_html(self, char* html, size_t html_len) except -1
+    cdef inline void _new_html_document(self)
+    cdef inline lxb_status_t _parse_html_document(self, char *html, size_t html_len) nogil
+    cdef inline lxb_status_t _parse_html_fragment(self, char *html, size_t html_len) nogil
+    cdef int _parse_html(self, char *html, size_t html_len) except -1
     cdef object cached_script_texts
     cdef object cached_script_srcs
 
     @staticmethod
     cdef LexborHTMLParser from_document(lxb_html_document_t * document, bytes raw_html)
-
+    cdef inline lxb_html_document_t* main_document(self) nogil
 
 cdef extern from "lexbor/dom/dom.h" nogil:
     ctypedef enum lexbor_action_t:
@@ -291,9 +318,11 @@ cdef extern from "lexbor/dom/dom.h" nogil:
     lxb_dom_collection_t * lxb_dom_collection_make(lxb_dom_document_t *document, size_t start_list_size)
     lxb_char_t * lxb_dom_node_text_content(lxb_dom_node_t *node, size_t *len)
     lxb_status_t lxb_dom_node_text_content_set(lxb_dom_node_t *node, const lxb_char_t *content, size_t len)
+    bint lxb_dom_node_is_empty(lxb_dom_node_t *node)
     void lxb_dom_node_remove(lxb_dom_node_t *node)
     void * lxb_dom_document_destroy_text_noi(lxb_dom_document_t *document, lxb_char_t *text)
     lxb_dom_node_t * lxb_dom_document_root(lxb_dom_document_t *document)
+    lxb_dom_element_t * lxb_dom_interface_element(lxb_dom_node_t *node)
     lxb_char_t * lxb_dom_element_qualified_name(lxb_dom_element_t *element, size_t *len)
     lxb_dom_node_t * lxb_dom_node_destroy(lxb_dom_node_t *node)
     lxb_dom_node_t * lxb_dom_node_destroy_deep(lxb_dom_node_t *root)
@@ -318,6 +347,7 @@ cdef extern from "lexbor/dom/dom.h" nogil:
     void lxb_dom_node_insert_after(lxb_dom_node_t *to, lxb_dom_node_t *node)
     lxb_dom_text_t * lxb_dom_document_create_text_node(lxb_dom_document_t *document, const lxb_char_t *data, size_t len)
     void lxb_dom_node_simple_walk(lxb_dom_node_t *root, lxb_dom_node_simple_walker_f walker_cb, void *ctx)
+    lxb_dom_node_t* lxb_dom_node_clone(lxb_dom_node_t *node, bint deep)
 
 
 cdef extern from "lexbor/dom/interfaces/element.h" nogil:

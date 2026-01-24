@@ -1,5 +1,6 @@
 from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.server.v1 import incident_pb2 as _incident_pb2
 from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from google.protobuf import descriptor_pb2 as _descriptor_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -17,6 +18,13 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class AlertChannelKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    ALERT_CHANNEL_KIND_UNSPECIFIED: _ClassVar[AlertChannelKind]
+    ALERT_CHANNEL_KIND_SLACK_CHANNEL: _ClassVar[AlertChannelKind]
+    ALERT_CHANNEL_KIND_PAGERDUTY_SERVICE: _ClassVar[AlertChannelKind]
+    ALERT_CHANNEL_KIND_INCIDENTIO_SERVICE: _ClassVar[AlertChannelKind]
+
 class PagerDutySeverity(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     PAGER_DUTY_SEVERITY_UNSPECIFIED: _ClassVar[PagerDutySeverity]
@@ -32,6 +40,10 @@ class PagerDutyEventAction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PAGER_DUTY_EVENT_ACTION_ACKNOWLEDGE: _ClassVar[PagerDutyEventAction]
     PAGER_DUTY_EVENT_ACTION_RESOLVE: _ClassVar[PagerDutyEventAction]
 
+ALERT_CHANNEL_KIND_UNSPECIFIED: AlertChannelKind
+ALERT_CHANNEL_KIND_SLACK_CHANNEL: AlertChannelKind
+ALERT_CHANNEL_KIND_PAGERDUTY_SERVICE: AlertChannelKind
+ALERT_CHANNEL_KIND_INCIDENTIO_SERVICE: AlertChannelKind
 PAGER_DUTY_SEVERITY_UNSPECIFIED: PagerDutySeverity
 PAGER_DUTY_SEVERITY_INFO: PagerDutySeverity
 PAGER_DUTY_SEVERITY_WARNING: PagerDutySeverity
@@ -125,6 +137,45 @@ class PagerDutyEventV2(_message.Message):
         client_url: _Optional[str] = ...,
         links: _Optional[_Iterable[_Union[PagerDutyEventV2Link, _Mapping]]] = ...,
         images: _Optional[_Iterable[_Union[PagerDutyEventV2Image, _Mapping]]] = ...,
+    ) -> None: ...
+
+class SlackIntegration(_message.Message):
+    __slots__ = (
+        "id",
+        "slack_token",
+        "slack_data",
+        "slack_channel",
+        "channels",
+        "team_data",
+        "created_at",
+        "updated_at",
+    )
+    ID_FIELD_NUMBER: _ClassVar[int]
+    SLACK_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    SLACK_DATA_FIELD_NUMBER: _ClassVar[int]
+    SLACK_CHANNEL_FIELD_NUMBER: _ClassVar[int]
+    CHANNELS_FIELD_NUMBER: _ClassVar[int]
+    TEAM_DATA_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    slack_token: str
+    slack_data: str
+    slack_channel: str
+    channels: _containers.RepeatedScalarFieldContainer[str]
+    team_data: str
+    created_at: _timestamp_pb2.Timestamp
+    updated_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        slack_token: _Optional[str] = ...,
+        slack_data: _Optional[str] = ...,
+        slack_channel: _Optional[str] = ...,
+        channels: _Optional[_Iterable[str]] = ...,
+        team_data: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class PagerDutyIntegration(_message.Message):
@@ -387,3 +438,50 @@ class GetAllIncidentIoIntegrationsResponse(_message.Message):
     INTEGRATIONS_FIELD_NUMBER: _ClassVar[int]
     integrations: _containers.RepeatedCompositeFieldContainer[IncidentIoIntegration]
     def __init__(self, integrations: _Optional[_Iterable[_Union[IncidentIoIntegration, _Mapping]]] = ...) -> None: ...
+
+class AlertChannel(_message.Message):
+    __slots__ = ("id", "name", "entity_kind", "entity_id", "created_at", "updated_at", "default")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    ENTITY_KIND_FIELD_NUMBER: _ClassVar[int]
+    ENTITY_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    name: str
+    entity_kind: AlertChannelKind
+    entity_id: str
+    created_at: _timestamp_pb2.Timestamp
+    updated_at: _timestamp_pb2.Timestamp
+    default: bool
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        entity_kind: _Optional[_Union[AlertChannelKind, str]] = ...,
+        entity_id: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        default: bool = ...,
+    ) -> None: ...
+
+class ListAlertChannelsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ListAlertChannelsResponse(_message.Message):
+    __slots__ = ("channels",)
+    CHANNELS_FIELD_NUMBER: _ClassVar[int]
+    channels: _containers.RepeatedCompositeFieldContainer[AlertChannel]
+    def __init__(self, channels: _Optional[_Iterable[_Union[AlertChannel, _Mapping]]] = ...) -> None: ...
+
+class GetSlackIntegrationRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetSlackIntegrationResponse(_message.Message):
+    __slots__ = ("integration",)
+    INTEGRATION_FIELD_NUMBER: _ClassVar[int]
+    integration: SlackIntegration
+    def __init__(self, integration: _Optional[_Union[SlackIntegration, _Mapping]] = ...) -> None: ...

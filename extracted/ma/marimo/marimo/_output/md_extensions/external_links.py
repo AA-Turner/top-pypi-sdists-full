@@ -1,8 +1,13 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
-from xml.etree.ElementTree import Element
 
 from markdown import Extension, Markdown, treeprocessors  # type: ignore
+
+if TYPE_CHECKING:
+    from xml.etree.ElementTree import Element
 
 # Adapted from https://github.com/squidfunk/mkdocs-material/discussions/3660#discussioncomment-6725823  # noqa: E501
 
@@ -23,7 +28,7 @@ class ExternalLinksTreeProcessor(treeprocessors.Treeprocessor):  # type: ignore[
 
             if parsed_url.scheme in ["http", "https"]:
                 element.set("target", "_blank")
-                element.set("rel", "noopener")
+                element.set("rel", "noopener noreferrer")
 
 
 class ExternalLinksExtension(Extension):  # type: ignore[misc]

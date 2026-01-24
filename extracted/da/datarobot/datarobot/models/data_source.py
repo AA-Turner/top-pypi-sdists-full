@@ -38,23 +38,23 @@ if TYPE_CHECKING:
         query: Optional[str]
         fetch_size: Optional[int]
         path: Optional[str]
+        filter: Optional[str]
 
 
 TDataSource = TypeVar("TDataSource", bound="DataSource")
 TDataSourceParameters = TypeVar("TDataSourceParameters", bound="DataSourceParameters")
 
-_data_source_params_converter = t.Dict(
-    {
-        t.Key("data_store_id"): t.Or(String(), t.Null),
-        t.Key("catalog", optional=True): t.Or(String(), t.Null),
-        t.Key("table", optional=True): t.Or(String(), t.Null),
-        t.Key("schema", optional=True): t.Or(String(), t.Null),
-        t.Key("partition_column", optional=True): t.Or(String(), t.Null),
-        t.Key("query", optional=True): t.Or(String(), t.Null),
-        t.Key("fetch_size", optional=True): t.Or(Int(), t.Null),
-        t.Key("path", optional=True): t.Or(String(), t.Null),
-    }
-).ignore_extra("*")
+_data_source_params_converter = t.Dict({
+    t.Key("data_store_id"): t.Or(String(), t.Null),
+    t.Key("catalog", optional=True): t.Or(String(), t.Null),
+    t.Key("table", optional=True): t.Or(String(), t.Null),
+    t.Key("schema", optional=True): t.Or(String(), t.Null),
+    t.Key("partition_column", optional=True): t.Or(String(), t.Null),
+    t.Key("query", optional=True): t.Or(String(), t.Null),
+    t.Key("fetch_size", optional=True): t.Or(Int(), t.Null),
+    t.Key("path", optional=True): t.Or(String(), t.Null),
+    t.Key("filter", optional=True): t.Or(String(), t.Null),
+}).ignore_extra("*")
 
 
 class DataSourceParameters:
@@ -77,6 +77,9 @@ class DataSourceParameters:
         By default a fetchSize will be assigned to balance throughput and memory usage
     path: str
         Optional. The user-specified path for BLOB storage
+    filter: str
+        A connector-specific filter string (e.g., JQL for Jira). Only supported
+        for DataRobot Connector v1, where applicable. (optional)
     """
 
     def __init__(
@@ -89,19 +92,19 @@ class DataSourceParameters:
         query: Optional[str] = None,
         fetch_size: Optional[int] = None,
         path: Optional[str] = None,
+        filter: Optional[str] = None,
     ) -> None:
-        _data_source_params_converter.check(
-            {
-                "data_store_id": data_store_id,
-                "catalog": catalog,
-                "table": table,
-                "schema": schema,
-                "partition_column": partition_column,
-                "query": query,
-                "fetch_size": fetch_size,
-                "path": path,
-            }
-        )
+        _data_source_params_converter.check({
+            "data_store_id": data_store_id,
+            "catalog": catalog,
+            "table": table,
+            "schema": schema,
+            "partition_column": partition_column,
+            "query": query,
+            "fetch_size": fetch_size,
+            "path": path,
+            "filter": filter,
+        })
         self.data_store_id = data_store_id
         self.catalog = catalog
         self.table = table
@@ -110,6 +113,7 @@ class DataSourceParameters:
         self.query = query
         self.fetch_size = fetch_size
         self.path = path
+        self.filter = filter
 
     def collect_payload(self) -> DataSourceParametersPayload:
         return {
@@ -121,6 +125,7 @@ class DataSourceParameters:
             "query": self.query,
             "fetch_size": self.fetch_size,
             "path": self.path,
+            "filter": self.filter,
         }
 
     @classmethod
@@ -161,17 +166,15 @@ class DataSource(APIObject):
     """
 
     _path = "externalDataSources/"
-    _converter = t.Dict(
-        {
-            t.Key("id", optional=True) >> "data_source_id": String(),
-            t.Key("type") >> "data_source_type": String(),
-            t.Key("canonical_name"): String(),
-            t.Key("creator"): String(),
-            t.Key("params"): _data_source_params_converter,
-            t.Key("updated"): parse_time,
-            t.Key("role"): String(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id", optional=True) >> "data_source_id": String(),
+        t.Key("type") >> "data_source_type": String(),
+        t.Key("canonical_name"): String(),
+        t.Key("creator"): String(),
+        t.Key("params"): _data_source_params_converter,
+        t.Key("updated"): parse_time,
+        t.Key("role"): String(),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -296,9 +299,7 @@ class DataSource(APIObject):
         }
         return cls.from_server_data(cls._client.post(cls._path, data=payload).json())
 
-    def update(
-        self, canonical_name: Optional[str] = None, params: Optional[DataSourceParameters] = None
-    ) -> None:
+    def update(self, canonical_name: Optional[str] = None, params: Optional[DataSourceParameters] = None) -> None:
         """
         Creates the data source.
 
@@ -386,9 +387,7 @@ class DataSource(APIObject):
         list of :class:`SharingAccess <datarobot.SharingAccess>`
         """
         url = f"{self._path}{self.id}/accessControl/"
-        return [
-            SharingAccess.from_server_data(datum) for datum in unpaginate(url, {}, self._client)
-        ]
+        return [SharingAccess.from_server_data(datum) for datum in unpaginate(url, {}, self._client)]
 
     def share(self, access_list: List[SharingAccess]) -> None:
         """Modify the ability of users to access this data source
@@ -434,9 +433,7 @@ class DataSource(APIObject):
             DataSource.get('my-data-source-id').share(access_list)
         """
         payload = {"data": [access.collect_payload() for access in access_list]}
-        self._client.patch(
-            f"{self._path}{self.id}/accessControl/", data=payload, keep_attrs={"role"}
-        )
+        self._client.patch(f"{self._path}{self.id}/accessControl/", data=payload, keep_attrs={"role"})
 
     def create_dataset(
         self,

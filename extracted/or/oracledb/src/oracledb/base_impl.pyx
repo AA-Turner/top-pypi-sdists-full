@@ -35,12 +35,14 @@ cimport cython
 cimport cpython
 cimport cpython.datetime as cydatetime
 
+from libc cimport errno
 from libc.stdint cimport int8_t, int16_t, int32_t, int64_t
 from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
 from libc.stdint cimport UINT8_MAX, UINT16_MAX, UINT32_MAX, UINT64_MAX
-from libc.stdlib cimport atoi, atof
+from libc.stdlib cimport strtod, strtof, strtoll, strtoull
 from libc.string cimport memcpy
 from cpython cimport array
+from cpython.conversion cimport PyOS_snprintf
 
 from .constants import VECTOR_META_FLAG_SPARSE_VECTOR
 
@@ -53,12 +55,16 @@ from .arrow_impl cimport (
     NANOARROW_TYPE_NA,
     NANOARROW_TYPE_BOOL,
     NANOARROW_TYPE_BINARY,
+    NANOARROW_TYPE_DATE32,
+    NANOARROW_TYPE_DATE64,
     NANOARROW_TYPE_DECIMAL128,
     NANOARROW_TYPE_DOUBLE,
     NANOARROW_TYPE_FIXED_SIZE_BINARY,
     NANOARROW_TYPE_FIXED_SIZE_LIST,
     NANOARROW_TYPE_FLOAT,
     NANOARROW_TYPE_INT8,
+    NANOARROW_TYPE_INT16,
+    NANOARROW_TYPE_INT32,
     NANOARROW_TYPE_INT64,
     NANOARROW_TYPE_LIST,
     NANOARROW_TYPE_LARGE_BINARY,
@@ -67,12 +73,17 @@ from .arrow_impl cimport (
     NANOARROW_TYPE_STRUCT,
     NANOARROW_TYPE_TIMESTAMP,
     NANOARROW_TYPE_UINT8,
+    NANOARROW_TYPE_UINT16,
+    NANOARROW_TYPE_UINT32,
+    NANOARROW_TYPE_UINT64,
     ArrowArrayImpl,
 )
 
 import array
 
 import base64
+import collections
+import copy
 import copy
 import datetime
 import decimal
@@ -160,6 +171,7 @@ include "impl/base/pool.pyx"
 include "impl/base/cursor.pyx"
 include "impl/base/var.pyx"
 include "impl/base/bind_var.pyx"
+include "impl/base/batch_load_manager.pyx"
 include "impl/base/dbobject.pyx"
 include "impl/base/lob.pyx"
 include "impl/base/soda.pyx"

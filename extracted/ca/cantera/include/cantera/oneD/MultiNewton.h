@@ -6,7 +6,8 @@
 #ifndef CT_MULTINEWTON_H
 #define CT_MULTINEWTON_H
 
-#include "MultiJac.h"
+#include "cantera/numerics/SteadyStateSystem.h"
+#include "OneDim.h" // @todo: remove after Cantera 3.2
 
 namespace Cantera
 {
@@ -37,7 +38,17 @@ public:
 
     //! Compute the undamped Newton step.  The residual function is evaluated
     //! at `x`, but the Jacobian is not recomputed.
-    void step(double* x, double* step, OneDim& r, MultiJac& jac, int loglevel);
+    //! @since Starting in %Cantera 3.2, the Jacobian is accessed via the OneDim object.
+    void step(double* x, double* step, SteadyStateSystem& r, int loglevel);
+
+    //! @deprecated Use version without MultiJac argument. To be removed after
+    //!     %Cantera 3.2.
+    void step(double* x, double* stp, OneDim& r, MultiJac& jac, int loglevel) {
+        warn_deprecated("MultiNewton::step(..., MultiJac&, ...)",
+                        "Use version without MultiJac argument. "
+                        "To be removed after Cantera 3.2");
+        step(x, stp, r, loglevel);
+    }
 
     /**
      * Return the factor by which the undamped Newton step 'step0'
@@ -45,7 +56,7 @@ public:
      * all domains between their specified lower and upper bounds.
      */
     double boundStep(const double* x0, const double* step0,
-                     const OneDim& r, int loglevel);
+                     const SteadyStateSystem& r, int loglevel);
 
     /**
      * Performs a damped Newton step to solve the system of nonlinear equations.
@@ -99,7 +110,6 @@ public:
      * @param[out] s1  norm of the subsequent Newton step after taking the damped Newton
      *     step
      * @param[in] r  domain object, used for evaluating residuals over all domains
-     * @param[in] jac  Jacobian evaluator
      * @param[in] loglevel  controls amount of printed diagnostics
      * @param[in] writetitle  controls if logging title is printed
      *
@@ -109,12 +119,32 @@ public:
      *   - `-2` no suitable damping coefficient was found within the maximum iterations.
      *   - `-3` the current solution `x0` is too close to the solution bounds and the
      *          step would exceed the bounds on one or more components.
+     *   - `-4` Steady-state Jacobian factorization failed.
+     *   - `-5` Error taking Newton step
+     *
+     * @since Starting in %Cantera 3.2, the Jacobian is accessed via the
+     * SteadyStateSystem object.
      */
     int dampStep(const double* x0, const double* step0, double* x1, double* step1,
-                 double& s1, OneDim& r, MultiJac& jac, int loglevel, bool writetitle);
+                 double& s1, SteadyStateSystem& r, int loglevel, bool writetitle);
+
+    //! @deprecated Use version without MultiJac argument. To be removed after
+    //!     %Cantera 3.2.
+    int dampStep(const double* x0, const double* step0, double* x1, double* step1,
+                 double& s1, OneDim& r, MultiJac& jac, int loglevel, bool writetitle)
+    {
+        warn_deprecated("MultiNewton::dampStep(..., MultiJac&, ...)",
+                        "Use version without MultiJac argument. "
+                        "To be removed after Cantera 3.2");
+        return dampStep(x0, step0, x1, step1, s1, r, loglevel, writetitle);
+    }
 
     //! Compute the weighted 2-norm of `step`.
-    double norm2(const double* x, const double* step, OneDim& r) const;
+    double norm2(const double* x, const double* step, OneDim& r) const {
+        warn_deprecated("MultiNewton::norm2", "Replaced by "
+            "SteadyStateSystem::weightedNorm. To be removed after Cantera 3.2.");
+        return r.weightedNorm(step);
+    }
 
     /**
      * Find the solution to F(x) = 0 by damped Newton iteration. On entry, x0
@@ -129,8 +159,20 @@ public:
      *   - `-2` no suitable damping coefficient was found within the maximum iterations.
      *   - `-3` the current solution `x0` is too close to the solution bounds and the
      *          step would exceed the bounds on one or more components.
+     *
+     * @since Starting in %Cantera 3.2, the Jacobian is accessed via the
+     * SteadyStateSystem object.
      */
-    int solve(double* x0, double* x1, OneDim& r, MultiJac& jac, int loglevel);
+    int solve(double* x0, double* x1, SteadyStateSystem& r, int loglevel);
+
+    //! @deprecated Use version without MultiJac argument. To be removed after
+    //!     %Cantera 3.2.
+    int solve(double* x0, double* x1, OneDim& r, MultiJac& jac, int loglevel) {
+        warn_deprecated("MultiNewton::solve(..., MultiJac&, ...)",
+                        "Use version without MultiJac argument. "
+                        "To be removed after Cantera 3.2");
+        return solve(x0, x1, r, loglevel);
+    }
 
     //! Set options.
     //! @param maxJacAge  Maximum number of steps that can be taken before requiring

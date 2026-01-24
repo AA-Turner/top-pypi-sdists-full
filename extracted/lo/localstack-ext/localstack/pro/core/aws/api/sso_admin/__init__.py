@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -24,6 +24,7 @@ InstanceAccessControlAttributeConfigurationStatusReason = str
 InstanceArn = str
 InternalFailureMessage = str
 JMESPath = str
+KmsKeyArn = str
 ListApplicationAccessScopesRequestMaxResultsInteger = int
 ManagedPolicyArn = str
 ManagedPolicyName = str
@@ -56,6 +57,10 @@ TrustedTokenIssuerUrl = str
 URI = str
 UUId = str
 ValidationExceptionMessage = str
+
+
+class AccessDeniedExceptionReason(StrEnum):
+    KMS_AccessDeniedException = "KMS_AccessDeniedException"
 
 
 class ApplicationStatus(StrEnum):
@@ -94,12 +99,24 @@ class InstanceAccessControlAttributeConfigurationStatus(StrEnum):
 
 class InstanceStatus(StrEnum):
     CREATE_IN_PROGRESS = "CREATE_IN_PROGRESS"
+    CREATE_FAILED = "CREATE_FAILED"
     DELETE_IN_PROGRESS = "DELETE_IN_PROGRESS"
     ACTIVE = "ACTIVE"
 
 
 class JwksRetrievalOption(StrEnum):
     OPEN_ID_DISCOVERY = "OPEN_ID_DISCOVERY"
+
+
+class KmsKeyStatus(StrEnum):
+    UPDATING = "UPDATING"
+    ENABLED = "ENABLED"
+    UPDATE_FAILED = "UPDATE_FAILED"
+
+
+class KmsKeyType(StrEnum):
+    AWS_OWNED_KMS_KEY = "AWS_OWNED_KMS_KEY"
+    CUSTOMER_MANAGED_KEY = "CUSTOMER_MANAGED_KEY"
 
 
 class PrincipalType(StrEnum):
@@ -117,6 +134,10 @@ class ProvisioningStatus(StrEnum):
     LATEST_PERMISSION_SET_NOT_PROVISIONED = "LATEST_PERMISSION_SET_NOT_PROVISIONED"
 
 
+class ResourceNotFoundExceptionReason(StrEnum):
+    KMS_NotFoundException = "KMS_NotFoundException"
+
+
 class SignInOrigin(StrEnum):
     IDENTITY_CENTER = "IDENTITY_CENTER"
     APPLICATION = "APPLICATION"
@@ -132,6 +153,10 @@ class TargetType(StrEnum):
     AWS_ACCOUNT = "AWS_ACCOUNT"
 
 
+class ThrottlingExceptionReason(StrEnum):
+    KMS_ThrottlingException = "KMS_ThrottlingException"
+
+
 class TrustedTokenIssuerType(StrEnum):
     OIDC_JWT = "OIDC_JWT"
 
@@ -141,12 +166,19 @@ class UserBackgroundSessionApplicationStatus(StrEnum):
     DISABLED = "DISABLED"
 
 
+class ValidationExceptionReason(StrEnum):
+    KMS_InvalidKeyUsageException = "KMS_InvalidKeyUsageException"
+    KMS_InvalidStateException = "KMS_InvalidStateException"
+    KMS_DisabledException = "KMS_DisabledException"
+
+
 class AccessDeniedException(ServiceException):
     """You do not have sufficient access to perform this action."""
 
     code: str = "AccessDeniedException"
     sender_fault: bool = False
     status_code: int = 400
+    Reason: AccessDeniedExceptionReason | None
 
 
 class ConflictException(ServiceException):
@@ -178,6 +210,7 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
+    Reason: ResourceNotFoundExceptionReason | None
 
 
 class ServiceQuotaExceededException(ServiceException):
@@ -198,6 +231,7 @@ class ThrottlingException(ServiceException):
     code: str = "ThrottlingException"
     sender_fault: bool = False
     status_code: int = 400
+    Reason: ThrottlingExceptionReason | None
 
 
 class ValidationException(ServiceException):
@@ -206,9 +240,10 @@ class ValidationException(ServiceException):
     code: str = "ValidationException"
     sender_fault: bool = False
     status_code: int = 400
+    Reason: ValidationExceptionReason | None
 
 
-AccessControlAttributeValueSourceList = List[AccessControlAttributeValueSource]
+AccessControlAttributeValueSourceList = list[AccessControlAttributeValueSource]
 
 
 class AccessControlAttributeValue(TypedDict, total=False):
@@ -235,7 +270,7 @@ class AccessControlAttribute(TypedDict, total=False):
     Value: AccessControlAttributeValue
 
 
-AccessControlAttributeList = List[AccessControlAttribute]
+AccessControlAttributeList = list[AccessControlAttribute]
 
 
 class AccountAssignment(TypedDict, total=False):
@@ -246,10 +281,10 @@ class AccountAssignment(TypedDict, total=False):
     IAM Identity Center.
     """
 
-    AccountId: Optional[AccountId]
-    PermissionSetArn: Optional[PermissionSetArn]
-    PrincipalType: Optional[PrincipalType]
-    PrincipalId: Optional[PrincipalId]
+    AccountId: AccountId | None
+    PermissionSetArn: PermissionSetArn | None
+    PrincipalType: PrincipalType | None
+    PrincipalId: PrincipalId | None
 
 
 class AccountAssignmentForPrincipal(TypedDict, total=False):
@@ -258,14 +293,14 @@ class AccountAssignmentForPrincipal(TypedDict, total=False):
     account.
     """
 
-    AccountId: Optional[AccountId]
-    PermissionSetArn: Optional[PermissionSetArn]
-    PrincipalId: Optional[PrincipalId]
-    PrincipalType: Optional[PrincipalType]
+    AccountId: AccountId | None
+    PermissionSetArn: PermissionSetArn | None
+    PrincipalId: PrincipalId | None
+    PrincipalType: PrincipalType | None
 
 
-AccountAssignmentList = List[AccountAssignment]
-AccountAssignmentListForPrincipal = List[AccountAssignmentForPrincipal]
+AccountAssignmentList = list[AccountAssignment]
+AccountAssignmentListForPrincipal = list[AccountAssignmentForPrincipal]
 Date = datetime
 
 
@@ -274,27 +309,27 @@ class AccountAssignmentOperationStatus(TypedDict, total=False):
     principal needs to access an account.
     """
 
-    Status: Optional[StatusValues]
-    RequestId: Optional[UUId]
-    FailureReason: Optional[Reason]
-    TargetId: Optional[TargetId]
-    TargetType: Optional[TargetType]
-    PermissionSetArn: Optional[PermissionSetArn]
-    PrincipalType: Optional[PrincipalType]
-    PrincipalId: Optional[PrincipalId]
-    CreatedDate: Optional[Date]
+    Status: StatusValues | None
+    RequestId: UUId | None
+    FailureReason: Reason | None
+    TargetId: TargetId | None
+    TargetType: TargetType | None
+    PermissionSetArn: PermissionSetArn | None
+    PrincipalType: PrincipalType | None
+    PrincipalId: PrincipalId | None
+    CreatedDate: Date | None
 
 
 class AccountAssignmentOperationStatusMetadata(TypedDict, total=False):
     """Provides information about the AccountAssignment creation request."""
 
-    Status: Optional[StatusValues]
-    RequestId: Optional[UUId]
-    CreatedDate: Optional[Date]
+    Status: StatusValues | None
+    RequestId: UUId | None
+    CreatedDate: Date | None
 
 
-AccountAssignmentOperationStatusList = List[AccountAssignmentOperationStatusMetadata]
-AccountList = List[AccountId]
+AccountAssignmentOperationStatusList = list[AccountAssignmentOperationStatusMetadata]
+AccountList = list[AccountId]
 
 
 class ActorPolicyDocument(TypedDict, total=False):
@@ -307,7 +342,7 @@ class SignInOptions(TypedDict, total=False):
     """
 
     Origin: SignInOrigin
-    ApplicationUrl: Optional[ApplicationUrl]
+    ApplicationUrl: ApplicationUrl | None
 
 
 class PortalOptions(TypedDict, total=False):
@@ -315,8 +350,8 @@ class PortalOptions(TypedDict, total=False):
     with an application.
     """
 
-    SignInOptions: Optional[SignInOptions]
-    Visibility: Optional[ApplicationVisibility]
+    SignInOptions: SignInOptions | None
+    Visibility: ApplicationVisibility | None
 
 
 class Application(TypedDict, total=False):
@@ -324,15 +359,15 @@ class Application(TypedDict, total=False):
     for access management.
     """
 
-    ApplicationArn: Optional[ApplicationArn]
-    ApplicationProviderArn: Optional[ApplicationProviderArn]
-    Name: Optional[ApplicationNameType]
-    ApplicationAccount: Optional[AccountId]
-    InstanceArn: Optional[InstanceArn]
-    Status: Optional[ApplicationStatus]
-    PortalOptions: Optional[PortalOptions]
-    Description: Optional[Description]
-    CreatedDate: Optional[Date]
+    ApplicationArn: ApplicationArn | None
+    ApplicationProviderArn: ApplicationProviderArn | None
+    Name: ApplicationNameType | None
+    ApplicationAccount: AccountId | None
+    InstanceArn: InstanceArn | None
+    Status: ApplicationStatus | None
+    PortalOptions: PortalOptions | None
+    Description: Description | None
+    CreatedDate: Date | None
 
 
 class ApplicationAssignment(TypedDict, total=False):
@@ -350,14 +385,14 @@ class ApplicationAssignmentForPrincipal(TypedDict, total=False):
     assigned.
     """
 
-    ApplicationArn: Optional[ApplicationArn]
-    PrincipalId: Optional[PrincipalId]
-    PrincipalType: Optional[PrincipalType]
+    ApplicationArn: ApplicationArn | None
+    PrincipalId: PrincipalId | None
+    PrincipalType: PrincipalType | None
 
 
-ApplicationAssignmentListForPrincipal = List[ApplicationAssignmentForPrincipal]
-ApplicationAssignmentsList = List[ApplicationAssignment]
-ApplicationList = List[Application]
+ApplicationAssignmentListForPrincipal = list[ApplicationAssignmentForPrincipal]
+ApplicationAssignmentsList = list[ApplicationAssignment]
+ApplicationList = list[Application]
 
 
 class ResourceServerScopeDetails(TypedDict, total=False):
@@ -365,17 +400,17 @@ class ResourceServerScopeDetails(TypedDict, total=False):
     scope that is associated with a resource server.
     """
 
-    LongDescription: Optional[Description]
-    DetailedTitle: Optional[Description]
+    LongDescription: Description | None
+    DetailedTitle: Description | None
 
 
-ResourceServerScopes = Dict[ResourceServerScope, ResourceServerScopeDetails]
+ResourceServerScopes = dict[ResourceServerScope, ResourceServerScopeDetails]
 
 
 class ResourceServerConfig(TypedDict, total=False):
     """A structure that describes the configuration of a resource server."""
 
-    Scopes: Optional[ResourceServerScopes]
+    Scopes: ResourceServerScopes | None
 
 
 class DisplayData(TypedDict, total=False):
@@ -383,9 +418,9 @@ class DisplayData(TypedDict, total=False):
     provider.
     """
 
-    DisplayName: Optional[Name]
-    IconUrl: Optional[IconUrl]
-    Description: Optional[Description]
+    DisplayName: Name | None
+    IconUrl: IconUrl | None
+    Description: Description | None
 
 
 class ApplicationProvider(TypedDict, total=False):
@@ -395,12 +430,12 @@ class ApplicationProvider(TypedDict, total=False):
     """
 
     ApplicationProviderArn: ApplicationProviderArn
-    FederationProtocol: Optional[FederationProtocol]
-    DisplayData: Optional[DisplayData]
-    ResourceServerConfig: Optional[ResourceServerConfig]
+    FederationProtocol: FederationProtocol | None
+    DisplayData: DisplayData | None
+    ResourceServerConfig: ResourceServerConfig | None
 
 
-ApplicationProviderList = List[ApplicationProvider]
+ApplicationProviderList = list[ApplicationProvider]
 
 
 class CustomerManagedPolicyReference(TypedDict, total=False):
@@ -410,7 +445,7 @@ class CustomerManagedPolicyReference(TypedDict, total=False):
     """
 
     Name: ManagedPolicyName
-    Path: Optional[ManagedPolicyPath]
+    Path: ManagedPolicyPath | None
 
 
 class AttachCustomerManagedPolicyReferenceToPermissionSetRequest(ServiceRequest):
@@ -438,11 +473,11 @@ class AttachedManagedPolicy(TypedDict, total=False):
     associated Amazon Web Services managed policy.
     """
 
-    Name: Optional[Name]
-    Arn: Optional[ManagedPolicyArn]
+    Name: Name | None
+    Arn: ManagedPolicyArn | None
 
 
-AttachedManagedPolicyList = List[AttachedManagedPolicy]
+AttachedManagedPolicyList = list[AttachedManagedPolicy]
 
 
 class IamAuthenticationMethod(TypedDict, total=False):
@@ -456,18 +491,18 @@ class AuthenticationMethod(TypedDict, total=False):
     an application.
     """
 
-    Iam: Optional[IamAuthenticationMethod]
+    Iam: IamAuthenticationMethod | None
 
 
 class AuthenticationMethodItem(TypedDict, total=False):
     """A structure that describes an authentication method and its type."""
 
-    AuthenticationMethodType: Optional[AuthenticationMethodType]
-    AuthenticationMethod: Optional[AuthenticationMethod]
+    AuthenticationMethodType: AuthenticationMethodType | None
+    AuthenticationMethod: AuthenticationMethod | None
 
 
-AuthenticationMethods = List[AuthenticationMethodItem]
-RedirectUris = List[URI]
+AuthenticationMethods = list[AuthenticationMethodItem]
+RedirectUris = list[URI]
 
 
 class AuthorizationCodeGrant(TypedDict, total=False):
@@ -475,10 +510,10 @@ class AuthorizationCodeGrant(TypedDict, total=False):
     supports the OAuth 2.0 Authorization Code Grant.
     """
 
-    RedirectUris: Optional[RedirectUris]
+    RedirectUris: RedirectUris | None
 
 
-TokenIssuerAudiences = List[TokenIssuerAudience]
+TokenIssuerAudiences = list[TokenIssuerAudience]
 
 
 class AuthorizedTokenIssuer(TypedDict, total=False):
@@ -486,11 +521,11 @@ class AuthorizedTokenIssuer(TypedDict, total=False):
     a set of authorized audiences.
     """
 
-    TrustedTokenIssuerArn: Optional[TrustedTokenIssuerArn]
-    AuthorizedAudiences: Optional[TokenIssuerAudiences]
+    TrustedTokenIssuerArn: TrustedTokenIssuerArn | None
+    AuthorizedAudiences: TokenIssuerAudiences | None
 
 
-AuthorizedTokenIssuers = List[AuthorizedTokenIssuer]
+AuthorizedTokenIssuers = list[AuthorizedTokenIssuer]
 
 
 class CreateAccountAssignmentRequest(ServiceRequest):
@@ -503,7 +538,7 @@ class CreateAccountAssignmentRequest(ServiceRequest):
 
 
 class CreateAccountAssignmentResponse(TypedDict, total=False):
-    AccountAssignmentCreationStatus: Optional[AccountAssignmentOperationStatus]
+    AccountAssignmentCreationStatus: AccountAssignmentOperationStatus | None
 
 
 class CreateApplicationAssignmentRequest(ServiceRequest):
@@ -527,22 +562,22 @@ class Tag(TypedDict, total=False):
     Value: TagValue
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class CreateApplicationRequest(ServiceRequest):
     InstanceArn: InstanceArn
     ApplicationProviderArn: ApplicationProviderArn
     Name: ApplicationNameType
-    Description: Optional[Description]
-    PortalOptions: Optional[PortalOptions]
-    Tags: Optional[TagList]
-    Status: Optional[ApplicationStatus]
-    ClientToken: Optional[ClientToken]
+    Description: Description | None
+    PortalOptions: PortalOptions | None
+    Tags: TagList | None
+    Status: ApplicationStatus | None
+    ClientToken: ClientToken | None
 
 
 class CreateApplicationResponse(TypedDict, total=False):
-    ApplicationArn: Optional[ApplicationArn]
+    ApplicationArn: ApplicationArn | None
 
 
 class InstanceAccessControlAttributeConfiguration(TypedDict, total=False):
@@ -563,37 +598,37 @@ class CreateInstanceAccessControlAttributeConfigurationResponse(TypedDict, total
 
 
 class CreateInstanceRequest(ServiceRequest):
-    Name: Optional[NameType]
-    ClientToken: Optional[ClientToken]
-    Tags: Optional[TagList]
+    Name: NameType | None
+    ClientToken: ClientToken | None
+    Tags: TagList | None
 
 
 class CreateInstanceResponse(TypedDict, total=False):
-    InstanceArn: Optional[InstanceArn]
+    InstanceArn: InstanceArn | None
 
 
 class CreatePermissionSetRequest(ServiceRequest):
     Name: PermissionSetName
-    Description: Optional[PermissionSetDescription]
+    Description: PermissionSetDescription | None
     InstanceArn: InstanceArn
-    SessionDuration: Optional[Duration]
-    RelayState: Optional[RelayState]
-    Tags: Optional[TagList]
+    SessionDuration: Duration | None
+    RelayState: RelayState | None
+    Tags: TagList | None
 
 
 class PermissionSet(TypedDict, total=False):
     """An entity that contains IAM policies."""
 
-    Name: Optional[PermissionSetName]
-    PermissionSetArn: Optional[PermissionSetArn]
-    Description: Optional[PermissionSetDescription]
-    CreatedDate: Optional[Date]
-    SessionDuration: Optional[Duration]
-    RelayState: Optional[RelayState]
+    Name: PermissionSetName | None
+    PermissionSetArn: PermissionSetArn | None
+    Description: PermissionSetDescription | None
+    CreatedDate: Date | None
+    SessionDuration: Duration | None
+    RelayState: RelayState | None
 
 
 class CreatePermissionSetResponse(TypedDict, total=False):
-    PermissionSet: Optional[PermissionSet]
+    PermissionSet: PermissionSet | None
 
 
 class OidcJwtConfiguration(TypedDict, total=False):
@@ -613,7 +648,7 @@ class TrustedTokenIssuerConfiguration(TypedDict, total=False):
     trusted token issuer.
     """
 
-    OidcJwtConfiguration: Optional[OidcJwtConfiguration]
+    OidcJwtConfiguration: OidcJwtConfiguration | None
 
 
 class CreateTrustedTokenIssuerRequest(ServiceRequest):
@@ -621,15 +656,15 @@ class CreateTrustedTokenIssuerRequest(ServiceRequest):
     Name: TrustedTokenIssuerName
     TrustedTokenIssuerType: TrustedTokenIssuerType
     TrustedTokenIssuerConfiguration: TrustedTokenIssuerConfiguration
-    ClientToken: Optional[ClientToken]
-    Tags: Optional[TagList]
+    ClientToken: ClientToken | None
+    Tags: TagList | None
 
 
 class CreateTrustedTokenIssuerResponse(TypedDict, total=False):
-    TrustedTokenIssuerArn: Optional[TrustedTokenIssuerArn]
+    TrustedTokenIssuerArn: TrustedTokenIssuerArn | None
 
 
-CustomerManagedPolicyReferenceList = List[CustomerManagedPolicyReference]
+CustomerManagedPolicyReferenceList = list[CustomerManagedPolicyReference]
 
 
 class DeleteAccountAssignmentRequest(ServiceRequest):
@@ -642,7 +677,7 @@ class DeleteAccountAssignmentRequest(ServiceRequest):
 
 
 class DeleteAccountAssignmentResponse(TypedDict, total=False):
-    AccountAssignmentDeletionStatus: Optional[AccountAssignmentOperationStatus]
+    AccountAssignmentDeletionStatus: AccountAssignmentOperationStatus | None
 
 
 class DeleteApplicationAccessScopeRequest(ServiceRequest):
@@ -735,7 +770,7 @@ class DescribeAccountAssignmentCreationStatusRequest(ServiceRequest):
 
 
 class DescribeAccountAssignmentCreationStatusResponse(TypedDict, total=False):
-    AccountAssignmentCreationStatus: Optional[AccountAssignmentOperationStatus]
+    AccountAssignmentCreationStatus: AccountAssignmentOperationStatus | None
 
 
 class DescribeAccountAssignmentDeletionStatusRequest(ServiceRequest):
@@ -744,7 +779,7 @@ class DescribeAccountAssignmentDeletionStatusRequest(ServiceRequest):
 
 
 class DescribeAccountAssignmentDeletionStatusResponse(TypedDict, total=False):
-    AccountAssignmentDeletionStatus: Optional[AccountAssignmentOperationStatus]
+    AccountAssignmentDeletionStatus: AccountAssignmentOperationStatus | None
 
 
 class DescribeApplicationAssignmentRequest(ServiceRequest):
@@ -754,9 +789,9 @@ class DescribeApplicationAssignmentRequest(ServiceRequest):
 
 
 class DescribeApplicationAssignmentResponse(TypedDict, total=False):
-    PrincipalType: Optional[PrincipalType]
-    PrincipalId: Optional[PrincipalId]
-    ApplicationArn: Optional[ApplicationArn]
+    PrincipalType: PrincipalType | None
+    PrincipalId: PrincipalId | None
+    ApplicationArn: ApplicationArn | None
 
 
 class DescribeApplicationProviderRequest(ServiceRequest):
@@ -765,9 +800,9 @@ class DescribeApplicationProviderRequest(ServiceRequest):
 
 class DescribeApplicationProviderResponse(TypedDict, total=False):
     ApplicationProviderArn: ApplicationProviderArn
-    FederationProtocol: Optional[FederationProtocol]
-    DisplayData: Optional[DisplayData]
-    ResourceServerConfig: Optional[ResourceServerConfig]
+    FederationProtocol: FederationProtocol | None
+    DisplayData: DisplayData | None
+    ResourceServerConfig: ResourceServerConfig | None
 
 
 class DescribeApplicationRequest(ServiceRequest):
@@ -775,15 +810,15 @@ class DescribeApplicationRequest(ServiceRequest):
 
 
 class DescribeApplicationResponse(TypedDict, total=False):
-    ApplicationArn: Optional[ApplicationArn]
-    ApplicationProviderArn: Optional[ApplicationProviderArn]
-    Name: Optional[ApplicationNameType]
-    ApplicationAccount: Optional[AccountId]
-    InstanceArn: Optional[InstanceArn]
-    Status: Optional[ApplicationStatus]
-    PortalOptions: Optional[PortalOptions]
-    Description: Optional[Description]
-    CreatedDate: Optional[Date]
+    ApplicationArn: ApplicationArn | None
+    ApplicationProviderArn: ApplicationProviderArn | None
+    Name: ApplicationNameType | None
+    ApplicationAccount: AccountId | None
+    InstanceArn: InstanceArn | None
+    Status: ApplicationStatus | None
+    PortalOptions: PortalOptions | None
+    Description: Description | None
+    CreatedDate: Date | None
 
 
 class DescribeInstanceAccessControlAttributeConfigurationRequest(ServiceRequest):
@@ -791,24 +826,35 @@ class DescribeInstanceAccessControlAttributeConfigurationRequest(ServiceRequest)
 
 
 class DescribeInstanceAccessControlAttributeConfigurationResponse(TypedDict, total=False):
-    Status: Optional[InstanceAccessControlAttributeConfigurationStatus]
-    StatusReason: Optional[InstanceAccessControlAttributeConfigurationStatusReason]
-    InstanceAccessControlAttributeConfiguration: Optional[
-        InstanceAccessControlAttributeConfiguration
-    ]
+    Status: InstanceAccessControlAttributeConfigurationStatus | None
+    StatusReason: InstanceAccessControlAttributeConfigurationStatusReason | None
+    InstanceAccessControlAttributeConfiguration: InstanceAccessControlAttributeConfiguration | None
 
 
 class DescribeInstanceRequest(ServiceRequest):
     InstanceArn: InstanceArn
 
 
+class EncryptionConfigurationDetails(TypedDict, total=False):
+    """The encryption configuration of your IAM Identity Center instance,
+    including the key type, KMS key ARN, and current encryption status.
+    """
+
+    KeyType: KmsKeyType | None
+    KmsKeyArn: KmsKeyArn | None
+    EncryptionStatus: KmsKeyStatus | None
+    EncryptionStatusReason: Reason | None
+
+
 class DescribeInstanceResponse(TypedDict, total=False):
-    InstanceArn: Optional[InstanceArn]
-    IdentityStoreId: Optional[Id]
-    OwnerAccountId: Optional[AccountId]
-    Name: Optional[NameType]
-    CreatedDate: Optional[Date]
-    Status: Optional[InstanceStatus]
+    InstanceArn: InstanceArn | None
+    IdentityStoreId: Id | None
+    OwnerAccountId: AccountId | None
+    Name: NameType | None
+    CreatedDate: Date | None
+    Status: InstanceStatus | None
+    StatusReason: Reason | None
+    EncryptionConfigurationDetails: EncryptionConfigurationDetails | None
 
 
 class DescribePermissionSetProvisioningStatusRequest(ServiceRequest):
@@ -821,16 +867,16 @@ class PermissionSetProvisioningStatus(TypedDict, total=False):
     operation for a specified permission set.
     """
 
-    Status: Optional[StatusValues]
-    RequestId: Optional[UUId]
-    AccountId: Optional[AccountId]
-    PermissionSetArn: Optional[PermissionSetArn]
-    FailureReason: Optional[Reason]
-    CreatedDate: Optional[Date]
+    Status: StatusValues | None
+    RequestId: UUId | None
+    AccountId: AccountId | None
+    PermissionSetArn: PermissionSetArn | None
+    FailureReason: Reason | None
+    CreatedDate: Date | None
 
 
 class DescribePermissionSetProvisioningStatusResponse(TypedDict, total=False):
-    PermissionSetProvisioningStatus: Optional[PermissionSetProvisioningStatus]
+    PermissionSetProvisioningStatus: PermissionSetProvisioningStatus | None
 
 
 class DescribePermissionSetRequest(ServiceRequest):
@@ -839,7 +885,7 @@ class DescribePermissionSetRequest(ServiceRequest):
 
 
 class DescribePermissionSetResponse(TypedDict, total=False):
-    PermissionSet: Optional[PermissionSet]
+    PermissionSet: PermissionSet | None
 
 
 class DescribeTrustedTokenIssuerRequest(ServiceRequest):
@@ -847,10 +893,10 @@ class DescribeTrustedTokenIssuerRequest(ServiceRequest):
 
 
 class DescribeTrustedTokenIssuerResponse(TypedDict, total=False):
-    TrustedTokenIssuerArn: Optional[TrustedTokenIssuerArn]
-    Name: Optional[TrustedTokenIssuerName]
-    TrustedTokenIssuerType: Optional[TrustedTokenIssuerType]
-    TrustedTokenIssuerConfiguration: Optional[TrustedTokenIssuerConfiguration]
+    TrustedTokenIssuerArn: TrustedTokenIssuerArn | None
+    Name: TrustedTokenIssuerName | None
+    TrustedTokenIssuerType: TrustedTokenIssuerType | None
+    TrustedTokenIssuerConfiguration: TrustedTokenIssuerConfiguration | None
 
 
 class DetachCustomerManagedPolicyReferenceFromPermissionSetRequest(ServiceRequest):
@@ -873,17 +919,26 @@ class DetachManagedPolicyFromPermissionSetResponse(TypedDict, total=False):
     pass
 
 
+class EncryptionConfiguration(TypedDict, total=False):
+    """A structure that specifies the KMS key type and KMS key ARN used to
+    encrypt data in your IAM Identity Center instance.
+    """
+
+    KeyType: KmsKeyType
+    KmsKeyArn: KmsKeyArn | None
+
+
 class GetApplicationAccessScopeRequest(ServiceRequest):
     ApplicationArn: ApplicationArn
     Scope: Scope
 
 
-ScopeTargets = List[ScopeTarget]
+ScopeTargets = list[ScopeTarget]
 
 
 class GetApplicationAccessScopeResponse(TypedDict, total=False):
     Scope: Scope
-    AuthorizedTargets: Optional[ScopeTargets]
+    AuthorizedTargets: ScopeTargets | None
 
 
 class GetApplicationAssignmentConfigurationRequest(ServiceRequest):
@@ -900,7 +955,7 @@ class GetApplicationAuthenticationMethodRequest(ServiceRequest):
 
 
 class GetApplicationAuthenticationMethodResponse(TypedDict, total=False):
-    AuthenticationMethod: Optional[AuthenticationMethod]
+    AuthenticationMethod: AuthenticationMethod | None
 
 
 class GetApplicationGrantRequest(ServiceRequest):
@@ -933,7 +988,7 @@ class JwtBearerGrant(TypedDict, total=False):
     `RFC 7523 <https://datatracker.ietf.org/doc/html/rfc7523>`__.
     """
 
-    AuthorizedTokenIssuers: Optional[AuthorizedTokenIssuers]
+    AuthorizedTokenIssuers: AuthorizedTokenIssuers | None
 
 
 class Grant(TypedDict, total=False):
@@ -942,10 +997,10 @@ class Grant(TypedDict, total=False):
     specified, and must match the grant type selected.
     """
 
-    AuthorizationCode: Optional[AuthorizationCodeGrant]
-    JwtBearer: Optional[JwtBearerGrant]
-    RefreshToken: Optional[RefreshTokenGrant]
-    TokenExchange: Optional[TokenExchangeGrant]
+    AuthorizationCode: AuthorizationCodeGrant | None
+    JwtBearer: JwtBearerGrant | None
+    RefreshToken: RefreshTokenGrant | None
+    TokenExchange: TokenExchangeGrant | None
 
 
 class GetApplicationGrantResponse(TypedDict, total=False):
@@ -957,7 +1012,7 @@ class GetApplicationSessionConfigurationRequest(ServiceRequest):
 
 
 class GetApplicationSessionConfigurationResponse(TypedDict, total=False):
-    UserBackgroundSessionApplicationStatus: Optional[UserBackgroundSessionApplicationStatus]
+    UserBackgroundSessionApplicationStatus: UserBackgroundSessionApplicationStatus | None
 
 
 class GetInlinePolicyForPermissionSetRequest(ServiceRequest):
@@ -966,7 +1021,7 @@ class GetInlinePolicyForPermissionSetRequest(ServiceRequest):
 
 
 class GetInlinePolicyForPermissionSetResponse(TypedDict, total=False):
-    InlinePolicy: Optional[PermissionSetPolicyDocument]
+    InlinePolicy: PermissionSetPolicyDocument | None
 
 
 class GetPermissionsBoundaryForPermissionSetRequest(ServiceRequest):
@@ -992,12 +1047,12 @@ class PermissionsBoundary(TypedDict, total=False):
     in the *IAM User Guide*.
     """
 
-    CustomerManagedPolicyReference: Optional[CustomerManagedPolicyReference]
-    ManagedPolicyArn: Optional[ManagedPolicyArn]
+    CustomerManagedPolicyReference: CustomerManagedPolicyReference | None
+    ManagedPolicyArn: ManagedPolicyArn | None
 
 
 class GetPermissionsBoundaryForPermissionSetResponse(TypedDict, total=False):
-    PermissionsBoundary: Optional[PermissionsBoundary]
+    PermissionsBoundary: PermissionsBoundary | None
 
 
 class GrantItem(TypedDict, total=False):
@@ -1007,103 +1062,104 @@ class GrantItem(TypedDict, total=False):
     Grant: Grant
 
 
-Grants = List[GrantItem]
+Grants = list[GrantItem]
 
 
 class InstanceMetadata(TypedDict, total=False):
     """Provides information about the IAM Identity Center instance."""
 
-    InstanceArn: Optional[InstanceArn]
-    IdentityStoreId: Optional[Id]
-    OwnerAccountId: Optional[AccountId]
-    Name: Optional[NameType]
-    CreatedDate: Optional[Date]
-    Status: Optional[InstanceStatus]
+    InstanceArn: InstanceArn | None
+    IdentityStoreId: Id | None
+    OwnerAccountId: AccountId | None
+    Name: NameType | None
+    CreatedDate: Date | None
+    Status: InstanceStatus | None
+    StatusReason: Reason | None
 
 
-InstanceList = List[InstanceMetadata]
+InstanceList = list[InstanceMetadata]
 
 
 class OperationStatusFilter(TypedDict, total=False):
     """Filters the operation status list based on the passed attribute value."""
 
-    Status: Optional[StatusValues]
+    Status: StatusValues | None
 
 
 class ListAccountAssignmentCreationStatusRequest(ServiceRequest):
     InstanceArn: InstanceArn
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[Token]
-    Filter: Optional[OperationStatusFilter]
+    MaxResults: MaxResults | None
+    NextToken: Token | None
+    Filter: OperationStatusFilter | None
 
 
 class ListAccountAssignmentCreationStatusResponse(TypedDict, total=False):
-    AccountAssignmentsCreationStatus: Optional[AccountAssignmentOperationStatusList]
-    NextToken: Optional[Token]
+    AccountAssignmentsCreationStatus: AccountAssignmentOperationStatusList | None
+    NextToken: Token | None
 
 
 class ListAccountAssignmentDeletionStatusRequest(ServiceRequest):
     InstanceArn: InstanceArn
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[Token]
-    Filter: Optional[OperationStatusFilter]
+    MaxResults: MaxResults | None
+    NextToken: Token | None
+    Filter: OperationStatusFilter | None
 
 
 class ListAccountAssignmentDeletionStatusResponse(TypedDict, total=False):
-    AccountAssignmentsDeletionStatus: Optional[AccountAssignmentOperationStatusList]
-    NextToken: Optional[Token]
+    AccountAssignmentsDeletionStatus: AccountAssignmentOperationStatusList | None
+    NextToken: Token | None
 
 
 class ListAccountAssignmentsFilter(TypedDict, total=False):
     """A structure that describes a filter for account assignments."""
 
-    AccountId: Optional[AccountId]
+    AccountId: AccountId | None
 
 
 class ListAccountAssignmentsForPrincipalRequest(ServiceRequest):
     InstanceArn: InstanceArn
     PrincipalId: PrincipalId
     PrincipalType: PrincipalType
-    Filter: Optional[ListAccountAssignmentsFilter]
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxResults]
+    Filter: ListAccountAssignmentsFilter | None
+    NextToken: Token | None
+    MaxResults: MaxResults | None
 
 
 class ListAccountAssignmentsForPrincipalResponse(TypedDict, total=False):
-    AccountAssignments: Optional[AccountAssignmentListForPrincipal]
-    NextToken: Optional[Token]
+    AccountAssignments: AccountAssignmentListForPrincipal | None
+    NextToken: Token | None
 
 
 class ListAccountAssignmentsRequest(ServiceRequest):
     InstanceArn: InstanceArn
     AccountId: TargetId
     PermissionSetArn: PermissionSetArn
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[Token]
+    MaxResults: MaxResults | None
+    NextToken: Token | None
 
 
 class ListAccountAssignmentsResponse(TypedDict, total=False):
-    AccountAssignments: Optional[AccountAssignmentList]
-    NextToken: Optional[Token]
+    AccountAssignments: AccountAssignmentList | None
+    NextToken: Token | None
 
 
 class ListAccountsForProvisionedPermissionSetRequest(ServiceRequest):
     InstanceArn: InstanceArn
     PermissionSetArn: PermissionSetArn
-    ProvisioningStatus: Optional[ProvisioningStatus]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[Token]
+    ProvisioningStatus: ProvisioningStatus | None
+    MaxResults: MaxResults | None
+    NextToken: Token | None
 
 
 class ListAccountsForProvisionedPermissionSetResponse(TypedDict, total=False):
-    AccountIds: Optional[AccountList]
-    NextToken: Optional[Token]
+    AccountIds: AccountList | None
+    NextToken: Token | None
 
 
 class ListApplicationAccessScopesRequest(ServiceRequest):
     ApplicationArn: ApplicationArn
-    MaxResults: Optional[ListApplicationAccessScopesRequestMaxResultsInteger]
-    NextToken: Optional[Token]
+    MaxResults: ListApplicationAccessScopesRequestMaxResultsInteger | None
+    NextToken: Token | None
 
 
 class ScopeDetails(TypedDict, total=False):
@@ -1112,212 +1168,212 @@ class ScopeDetails(TypedDict, total=False):
     """
 
     Scope: Scope
-    AuthorizedTargets: Optional[ScopeTargets]
+    AuthorizedTargets: ScopeTargets | None
 
 
-Scopes = List[ScopeDetails]
+Scopes = list[ScopeDetails]
 
 
 class ListApplicationAccessScopesResponse(TypedDict, total=False):
     Scopes: Scopes
-    NextToken: Optional[Token]
+    NextToken: Token | None
 
 
 class ListApplicationAssignmentsFilter(TypedDict, total=False):
     """A structure that describes a filter for application assignments."""
 
-    ApplicationArn: Optional[ApplicationArn]
+    ApplicationArn: ApplicationArn | None
 
 
 class ListApplicationAssignmentsForPrincipalRequest(ServiceRequest):
     InstanceArn: InstanceArn
     PrincipalId: PrincipalId
     PrincipalType: PrincipalType
-    Filter: Optional[ListApplicationAssignmentsFilter]
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxResults]
+    Filter: ListApplicationAssignmentsFilter | None
+    NextToken: Token | None
+    MaxResults: MaxResults | None
 
 
 class ListApplicationAssignmentsForPrincipalResponse(TypedDict, total=False):
-    ApplicationAssignments: Optional[ApplicationAssignmentListForPrincipal]
-    NextToken: Optional[Token]
+    ApplicationAssignments: ApplicationAssignmentListForPrincipal | None
+    NextToken: Token | None
 
 
 class ListApplicationAssignmentsRequest(ServiceRequest):
     ApplicationArn: ApplicationArn
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[Token]
+    MaxResults: MaxResults | None
+    NextToken: Token | None
 
 
 class ListApplicationAssignmentsResponse(TypedDict, total=False):
-    ApplicationAssignments: Optional[ApplicationAssignmentsList]
-    NextToken: Optional[Token]
+    ApplicationAssignments: ApplicationAssignmentsList | None
+    NextToken: Token | None
 
 
 class ListApplicationAuthenticationMethodsRequest(ServiceRequest):
     ApplicationArn: ApplicationArn
-    NextToken: Optional[Token]
+    NextToken: Token | None
 
 
 class ListApplicationAuthenticationMethodsResponse(TypedDict, total=False):
-    AuthenticationMethods: Optional[AuthenticationMethods]
-    NextToken: Optional[Token]
+    AuthenticationMethods: AuthenticationMethods | None
+    NextToken: Token | None
 
 
 class ListApplicationGrantsRequest(ServiceRequest):
     ApplicationArn: ApplicationArn
-    NextToken: Optional[Token]
+    NextToken: Token | None
 
 
 class ListApplicationGrantsResponse(TypedDict, total=False):
     Grants: Grants
-    NextToken: Optional[Token]
+    NextToken: Token | None
 
 
 class ListApplicationProvidersRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[Token]
+    MaxResults: MaxResults | None
+    NextToken: Token | None
 
 
 class ListApplicationProvidersResponse(TypedDict, total=False):
-    ApplicationProviders: Optional[ApplicationProviderList]
-    NextToken: Optional[Token]
+    ApplicationProviders: ApplicationProviderList | None
+    NextToken: Token | None
 
 
 class ListApplicationsFilter(TypedDict, total=False):
     """A structure that describes a filter for applications."""
 
-    ApplicationAccount: Optional[AccountId]
-    ApplicationProvider: Optional[ApplicationProviderArn]
+    ApplicationAccount: AccountId | None
+    ApplicationProvider: ApplicationProviderArn | None
 
 
 class ListApplicationsRequest(ServiceRequest):
     InstanceArn: InstanceArn
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[Token]
-    Filter: Optional[ListApplicationsFilter]
+    MaxResults: MaxResults | None
+    NextToken: Token | None
+    Filter: ListApplicationsFilter | None
 
 
 class ListApplicationsResponse(TypedDict, total=False):
-    Applications: Optional[ApplicationList]
-    NextToken: Optional[Token]
+    Applications: ApplicationList | None
+    NextToken: Token | None
 
 
 class ListCustomerManagedPolicyReferencesInPermissionSetRequest(ServiceRequest):
     InstanceArn: InstanceArn
     PermissionSetArn: PermissionSetArn
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[Token]
+    MaxResults: MaxResults | None
+    NextToken: Token | None
 
 
 class ListCustomerManagedPolicyReferencesInPermissionSetResponse(TypedDict, total=False):
-    CustomerManagedPolicyReferences: Optional[CustomerManagedPolicyReferenceList]
-    NextToken: Optional[Token]
+    CustomerManagedPolicyReferences: CustomerManagedPolicyReferenceList | None
+    NextToken: Token | None
 
 
 class ListInstancesRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[Token]
+    MaxResults: MaxResults | None
+    NextToken: Token | None
 
 
 class ListInstancesResponse(TypedDict, total=False):
-    Instances: Optional[InstanceList]
-    NextToken: Optional[Token]
+    Instances: InstanceList | None
+    NextToken: Token | None
 
 
 class ListManagedPoliciesInPermissionSetRequest(ServiceRequest):
     InstanceArn: InstanceArn
     PermissionSetArn: PermissionSetArn
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[Token]
+    MaxResults: MaxResults | None
+    NextToken: Token | None
 
 
 class ListManagedPoliciesInPermissionSetResponse(TypedDict, total=False):
-    AttachedManagedPolicies: Optional[AttachedManagedPolicyList]
-    NextToken: Optional[Token]
+    AttachedManagedPolicies: AttachedManagedPolicyList | None
+    NextToken: Token | None
 
 
 class ListPermissionSetProvisioningStatusRequest(ServiceRequest):
     InstanceArn: InstanceArn
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[Token]
-    Filter: Optional[OperationStatusFilter]
+    MaxResults: MaxResults | None
+    NextToken: Token | None
+    Filter: OperationStatusFilter | None
 
 
 class PermissionSetProvisioningStatusMetadata(TypedDict, total=False):
     """Provides information about the permission set provisioning status."""
 
-    Status: Optional[StatusValues]
-    RequestId: Optional[UUId]
-    CreatedDate: Optional[Date]
+    Status: StatusValues | None
+    RequestId: UUId | None
+    CreatedDate: Date | None
 
 
-PermissionSetProvisioningStatusList = List[PermissionSetProvisioningStatusMetadata]
+PermissionSetProvisioningStatusList = list[PermissionSetProvisioningStatusMetadata]
 
 
 class ListPermissionSetProvisioningStatusResponse(TypedDict, total=False):
-    PermissionSetsProvisioningStatus: Optional[PermissionSetProvisioningStatusList]
-    NextToken: Optional[Token]
+    PermissionSetsProvisioningStatus: PermissionSetProvisioningStatusList | None
+    NextToken: Token | None
 
 
 class ListPermissionSetsProvisionedToAccountRequest(ServiceRequest):
     InstanceArn: InstanceArn
     AccountId: AccountId
-    ProvisioningStatus: Optional[ProvisioningStatus]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[Token]
+    ProvisioningStatus: ProvisioningStatus | None
+    MaxResults: MaxResults | None
+    NextToken: Token | None
 
 
-PermissionSetList = List[PermissionSetArn]
+PermissionSetList = list[PermissionSetArn]
 
 
 class ListPermissionSetsProvisionedToAccountResponse(TypedDict, total=False):
-    NextToken: Optional[Token]
-    PermissionSets: Optional[PermissionSetList]
+    NextToken: Token | None
+    PermissionSets: PermissionSetList | None
 
 
 class ListPermissionSetsRequest(ServiceRequest):
     InstanceArn: InstanceArn
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxResults]
+    NextToken: Token | None
+    MaxResults: MaxResults | None
 
 
 class ListPermissionSetsResponse(TypedDict, total=False):
-    PermissionSets: Optional[PermissionSetList]
-    NextToken: Optional[Token]
+    PermissionSets: PermissionSetList | None
+    NextToken: Token | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
-    InstanceArn: Optional[InstanceArn]
+    InstanceArn: InstanceArn | None
     ResourceArn: TaggableResourceArn
-    NextToken: Optional[Token]
+    NextToken: Token | None
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    Tags: Optional[TagList]
-    NextToken: Optional[Token]
+    Tags: TagList | None
+    NextToken: Token | None
 
 
 class ListTrustedTokenIssuersRequest(ServiceRequest):
     InstanceArn: InstanceArn
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[Token]
+    MaxResults: MaxResults | None
+    NextToken: Token | None
 
 
 class TrustedTokenIssuerMetadata(TypedDict, total=False):
     """A structure that describes a trusted token issuer."""
 
-    TrustedTokenIssuerArn: Optional[TrustedTokenIssuerArn]
-    Name: Optional[TrustedTokenIssuerName]
-    TrustedTokenIssuerType: Optional[TrustedTokenIssuerType]
+    TrustedTokenIssuerArn: TrustedTokenIssuerArn | None
+    Name: TrustedTokenIssuerName | None
+    TrustedTokenIssuerType: TrustedTokenIssuerType | None
 
 
-TrustedTokenIssuerList = List[TrustedTokenIssuerMetadata]
+TrustedTokenIssuerList = list[TrustedTokenIssuerMetadata]
 
 
 class ListTrustedTokenIssuersResponse(TypedDict, total=False):
-    TrustedTokenIssuers: Optional[TrustedTokenIssuerList]
-    NextToken: Optional[Token]
+    TrustedTokenIssuers: TrustedTokenIssuerList | None
+    NextToken: Token | None
 
 
 class OidcJwtUpdateConfiguration(TypedDict, total=False):
@@ -1326,25 +1382,25 @@ class OidcJwtUpdateConfiguration(TypedDict, total=False):
     (JWTs).
     """
 
-    ClaimAttributePath: Optional[ClaimAttributePath]
-    IdentityStoreAttributePath: Optional[JMESPath]
-    JwksRetrievalOption: Optional[JwksRetrievalOption]
+    ClaimAttributePath: ClaimAttributePath | None
+    IdentityStoreAttributePath: JMESPath | None
+    JwksRetrievalOption: JwksRetrievalOption | None
 
 
 class ProvisionPermissionSetRequest(ServiceRequest):
     InstanceArn: InstanceArn
     PermissionSetArn: PermissionSetArn
-    TargetId: Optional[TargetId]
+    TargetId: TargetId | None
     TargetType: ProvisionTargetType
 
 
 class ProvisionPermissionSetResponse(TypedDict, total=False):
-    PermissionSetProvisioningStatus: Optional[PermissionSetProvisioningStatus]
+    PermissionSetProvisioningStatus: PermissionSetProvisioningStatus | None
 
 
 class PutApplicationAccessScopeRequest(ServiceRequest):
     Scope: Scope
-    AuthorizedTargets: Optional[ScopeTargets]
+    AuthorizedTargets: ScopeTargets | None
     ApplicationArn: ApplicationArn
 
 
@@ -1371,7 +1427,7 @@ class PutApplicationGrantRequest(ServiceRequest):
 
 class PutApplicationSessionConfigurationRequest(ServiceRequest):
     ApplicationArn: ApplicationArn
-    UserBackgroundSessionApplicationStatus: Optional[UserBackgroundSessionApplicationStatus]
+    UserBackgroundSessionApplicationStatus: UserBackgroundSessionApplicationStatus | None
 
 
 class PutApplicationSessionConfigurationResponse(TypedDict, total=False):
@@ -1398,11 +1454,11 @@ class PutPermissionsBoundaryToPermissionSetResponse(TypedDict, total=False):
     pass
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
-    InstanceArn: Optional[InstanceArn]
+    InstanceArn: InstanceArn | None
     ResourceArn: TaggableResourceArn
     Tags: TagList
 
@@ -1417,11 +1473,11 @@ class TrustedTokenIssuerUpdateConfiguration(TypedDict, total=False):
     depend on the type of the trusted token issuer being updated.
     """
 
-    OidcJwtConfiguration: Optional[OidcJwtUpdateConfiguration]
+    OidcJwtConfiguration: OidcJwtUpdateConfiguration | None
 
 
 class UntagResourceRequest(ServiceRequest):
-    InstanceArn: Optional[InstanceArn]
+    InstanceArn: InstanceArn | None
     ResourceArn: TaggableResourceArn
     TagKeys: TagKeyList
 
@@ -1435,15 +1491,15 @@ class UpdateApplicationPortalOptions(TypedDict, total=False):
     with an application that can be updated.
     """
 
-    SignInOptions: Optional[SignInOptions]
+    SignInOptions: SignInOptions | None
 
 
 class UpdateApplicationRequest(ServiceRequest):
     ApplicationArn: ApplicationArn
-    Name: Optional[ApplicationNameType]
-    Description: Optional[Description]
-    Status: Optional[ApplicationStatus]
-    PortalOptions: Optional[UpdateApplicationPortalOptions]
+    Name: ApplicationNameType | None
+    Description: Description | None
+    Status: ApplicationStatus | None
+    PortalOptions: UpdateApplicationPortalOptions | None
 
 
 class UpdateApplicationResponse(TypedDict, total=False):
@@ -1460,8 +1516,9 @@ class UpdateInstanceAccessControlAttributeConfigurationResponse(TypedDict, total
 
 
 class UpdateInstanceRequest(ServiceRequest):
-    Name: NameType
+    Name: NameType | None
     InstanceArn: InstanceArn
+    EncryptionConfiguration: EncryptionConfiguration | None
 
 
 class UpdateInstanceResponse(TypedDict, total=False):
@@ -1471,9 +1528,9 @@ class UpdateInstanceResponse(TypedDict, total=False):
 class UpdatePermissionSetRequest(ServiceRequest):
     InstanceArn: InstanceArn
     PermissionSetArn: PermissionSetArn
-    Description: Optional[PermissionSetDescription]
-    SessionDuration: Optional[Duration]
-    RelayState: Optional[RelayState]
+    Description: PermissionSetDescription | None
+    SessionDuration: Duration | None
+    RelayState: RelayState | None
 
 
 class UpdatePermissionSetResponse(TypedDict, total=False):
@@ -1482,8 +1539,8 @@ class UpdatePermissionSetResponse(TypedDict, total=False):
 
 class UpdateTrustedTokenIssuerRequest(ServiceRequest):
     TrustedTokenIssuerArn: TrustedTokenIssuerArn
-    Name: Optional[TrustedTokenIssuerName]
-    TrustedTokenIssuerConfiguration: Optional[TrustedTokenIssuerUpdateConfiguration]
+    Name: TrustedTokenIssuerName | None
+    TrustedTokenIssuerConfiguration: TrustedTokenIssuerUpdateConfiguration | None
 
 
 class UpdateTrustedTokenIssuerResponse(TypedDict, total=False):
@@ -1491,8 +1548,8 @@ class UpdateTrustedTokenIssuerResponse(TypedDict, total=False):
 
 
 class SsoAdminApi:
-    service = "sso-admin"
-    version = "2020-07-20"
+    service: str = "sso-admin"
+    version: str = "2020-07-20"
 
     @handler("AttachCustomerManagedPolicyReferenceToPermissionSet")
     def attach_customer_managed_policy_reference_to_permission_set(
@@ -3434,17 +3491,25 @@ class SsoAdminApi:
 
     @handler("UpdateInstance")
     def update_instance(
-        self, context: RequestContext, name: NameType, instance_arn: InstanceArn, **kwargs
+        self,
+        context: RequestContext,
+        instance_arn: InstanceArn,
+        name: NameType | None = None,
+        encryption_configuration: EncryptionConfiguration | None = None,
+        **kwargs,
     ) -> UpdateInstanceResponse:
         """Update the details for the instance of IAM Identity Center that is owned
         by the Amazon Web Services account.
 
-        :param name: Updates the instance name.
         :param instance_arn: The ARN of the instance of IAM Identity Center under which the operation
         will run.
+        :param name: Updates the instance name.
+        :param encryption_configuration: Specifies the encryption configuration for your IAM Identity Center
+        instance.
         :returns: UpdateInstanceResponse
         :raises ThrottlingException:
         :raises InternalServerException:
+        :raises ResourceNotFoundException:
         :raises AccessDeniedException:
         :raises ValidationException:
         :raises ConflictException:

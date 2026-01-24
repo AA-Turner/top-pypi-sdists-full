@@ -23,6 +23,7 @@ from vellum import (
 from vellum.client.core import RequestOptions
 from vellum.client.core.api_error import ApiError
 from vellum.client.types.code_executor_secret_input import CodeExecutorSecretInput
+from vellum.workflows.constants import undefined
 from vellum.workflows.errors.types import WorkflowErrorCode
 from vellum.workflows.exceptions import NodeException
 from vellum.workflows.nodes.bases import BaseNode
@@ -77,6 +78,10 @@ class CodeExecutionNode(BaseNode[StateType], Generic[StateType, _OutputType], me
     request_options: Optional[RequestOptions] = None - The request options to use for the custom script.
     """
 
+    class Display(BaseNode.Display):
+        icon = "vellum:icon:rectangle-code"
+        color = "lime"
+
     filepath: ClassVar[Optional[str]] = None
     code: ClassVar[Optional[str]] = None
 
@@ -99,7 +104,7 @@ class CodeExecutionNode(BaseNode[StateType], Generic[StateType, _OutputType], me
         output_type = self.__class__.get_output_type()
         code, filepath = self._resolve_code()
         if not self.packages and self.runtime == "PYTHON_3_11_6" and not self._has_secrets_in_code_inputs():
-            logs, result = run_code_inline(code, self.code_inputs, output_type, filepath)
+            logs, result = run_code_inline(code, self.code_inputs, output_type, filepath, self._context.vellum_client)
             return self.Outputs(result=result, log=logs)
 
         else:
@@ -116,13 +121,7 @@ class CodeExecutionNode(BaseNode[StateType], Generic[StateType, _OutputType], me
                     request_options=self.request_options,
                 )
             except ApiError as e:
-                if e.status_code == 400 and isinstance(e.body, dict) and "message" in e.body:
-                    raise NodeException(
-                        message=e.body["message"],
-                        code=WorkflowErrorCode.INVALID_INPUTS,
-                    )
-
-                raise
+                self._handle_api_error(e)
 
             if code_execution_result.output.type != expected_output_type:
                 actual_type = code_execution_result.output.type
@@ -132,6 +131,18 @@ class CodeExecutionNode(BaseNode[StateType], Generic[StateType, _OutputType], me
                 )
 
             return self.Outputs(result=code_execution_result.output.value, log=code_execution_result.log)
+
+    def _handle_api_error(self, e: ApiError) -> None:
+        body = e.body if isinstance(e.body, dict) else {}
+        message = body.get("detail") or body.get("message") or "Failed to execute code"
+
+        if e.status_code == 400:
+            raise NodeException(message=message, code=WorkflowErrorCode.INVALID_INPUTS) from e
+
+        if e.status_code and e.status_code >= 500:
+            raise NodeException(message=message, code=WorkflowErrorCode.INTERNAL_ERROR) from e
+
+        raise NodeException(message=message, code=WorkflowErrorCode.NODE_EXECUTION) from e
 
     def _has_secrets_in_code_inputs(self) -> bool:
         """Check if any code_inputs contain VellumSecret instances that require API execution."""
@@ -147,6 +158,8 @@ class CodeExecutionNode(BaseNode[StateType], Generic[StateType, _OutputType], me
         compiled_inputs: List[CodeExecutorInput] = []
 
         for input_name, input_value in self.code_inputs.items():
+            if input_value is undefined:
+                continue
             if isinstance(input_value, str):
                 compiled_inputs.append(
                     StringInput(

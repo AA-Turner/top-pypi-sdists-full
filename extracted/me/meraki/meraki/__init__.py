@@ -6,6 +6,7 @@ from meraki.api.appliance import Appliance
 # Batch class imports
 from meraki.api.batch import Batch
 from meraki.api.camera import Camera
+from meraki.api.campusGateway import CampusGateway
 from meraki.api.cellularGateway import CellularGateway
 from meraki.api.devices import Devices
 from meraki.api.insight import Insight
@@ -14,8 +15,10 @@ from meraki.api.networks import Networks
 from meraki.api.organizations import Organizations
 from meraki.api.sensor import Sensor
 from meraki.api.sm import Sm
+from meraki.api.spaces import Spaces
 from meraki.api.switch import Switch
 from meraki.api.wireless import Wireless
+from meraki.api.wirelessController import WirelessController
 # Config import
 from meraki.config import (
     API_KEY_ENVIRONMENT_VARIABLE,
@@ -43,8 +46,8 @@ from meraki.config import (
 )
 from meraki.rest_session import *
 
-__version__ = '2.0.3'
-__api_version__ = '1.58.0'
+__version__ = '2.1.0'
+__api_version__ = '1.65.0'
 
 
 class DashboardAPI(object):
@@ -182,6 +185,9 @@ class DashboardAPI(object):
         self.sm = Sm(self._session)
         self.switch = Switch(self._session)
         self.wireless = Wireless(self._session)
+        self.spaces = Spaces(self._session)
+        self.wirelessController = WirelessController(self._session)
+        self.campusGateway = CampusGateway(self._session)
 
         # Batch definitions
         self.batch = Batch()

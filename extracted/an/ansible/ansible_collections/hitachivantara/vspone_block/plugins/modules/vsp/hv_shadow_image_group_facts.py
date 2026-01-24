@@ -35,18 +35,27 @@ options:
     suboptions:
       name:
         description: The local copy group name. If not provided, list of all copy groups will be returned.
+          Required for the Get one ShadowImage group using copy group name
+          /Get shadow image group details by specifying name, primary_volume_device_group_name, and
+          secondary_volume_device_group_name
+          /Get one shadow image group details using copy group name tasks.
         type: str
         required: false
       primary_volume_device_group_name:
         description: Specify the device group name for the P-VOL. Value should not exceed 31 characters. The name is case sensitive.
+          Required for the Get shadow image group details by specifying name,
+          primary_volume_device_group_name, and secondary_volume_device_group_name task.
         type: str
         required: false
       secondary_volume_device_group_name:
         description: Specify the device group name for the S-VOL. Value should not exceed 31 characters. The name is case sensitive.
+          Required for the Get shadow image group details by specifying name,
+          primary_volume_device_group_name, and secondary_volume_device_group_name task.
         type: str
         required: false
       should_include_copy_pairs:
         description: Whether we want to get all local copy pairs from a specific copy group. Should be specified along with the 'name' parameter in spec.
+          Optional for the Get one shadow image group details using copy group name task.
         type: bool
         required: false
 """
@@ -94,20 +103,25 @@ ansible_facts:
         copy_group_name:
           description: The name of the local copy group.
           type: str
-          sample: "CG_366_444"
+          sample: "SI_768"
         pvol_device_group_name:
           description: The name of the primary volume device group.
           type: str
-          sample: "CG_366_444P_"
+          sample: "PSI768_"
         svol_device_group_name:
           description: The name of the secondary volume device group.
           type: str
-          sample: "CG_366_444S_"
+          sample: "SSI768_"
         local_clone_copygroup_id:
           description: The ID of the local clone copy group.
           type: str
-          sample: "CG_366_444,CG_366_444P_,CG_366_444S_,CP_366_444"
+          sample: "SI_768,PSI768_,SSI768_"
+        storage_serial_number:
+          description: The serial number of the storage system.
+          type: str
+          sample: "810045"
 """
+
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.reconciler.vsp_local_copy_group import (
     VSPLocalCopyGroupReconciler,

@@ -7,19 +7,11 @@
  */
 
 #include <Python.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <sys/sysctl.h>
 #include <sys/socket.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <string.h>
-#include <sys/cdefs.h>
 #include <arpa/inet.h>
 #include <sys/queue.h>
 #include <sys/un.h>
-#include <sys/file.h>
 
 #include "../../arch/all/init.h"
 
@@ -105,7 +97,7 @@ psutil_get_files(void) {
     mib[5] = 0;
 
     if (sysctl(mib, 6, NULL, &len, NULL, 0) == -1) {
-        PyErr_SetFromErrno(PyExc_OSError);
+        psutil_oserror();
         goto error;
     }
 
@@ -118,7 +110,7 @@ psutil_get_files(void) {
     }
 
     if (sysctl(mib, 6, buf + offset, &len, NULL, 0) == -1) {
-        PyErr_SetFromErrno(PyExc_OSError);
+        psutil_oserror();
         goto error;
     }
 
@@ -169,12 +161,12 @@ psutil_get_sockets(const char *name) {
     memset(mib, 0, sizeof(mib));
 
     if (sysctlnametomib(name, mib, &namelen) == -1) {
-        PyErr_SetFromErrno(PyExc_OSError);
+        psutil_oserror();
         goto error;
     }
 
     if (sysctl(mib, __arraycount(mib), NULL, &len, NULL, 0) == -1) {
-        PyErr_SetFromErrno(PyExc_OSError);
+        psutil_oserror();
         goto error;
     }
 
@@ -188,7 +180,7 @@ psutil_get_sockets(const char *name) {
     mib[7] = len / sizeof(*pcb);
 
     if (sysctl(mib, __arraycount(mib), pcb, &len, NULL, 0) == -1) {
-        PyErr_SetFromErrno(PyExc_OSError);
+        psutil_oserror();
         goto error;
     }
 
@@ -332,7 +324,7 @@ psutil_net_connections(PyObject *self, PyObject *args) {
     if (py_retlist == NULL)
         return NULL;
 
-    if (! PyArg_ParseTuple(args, _Py_PARSE_PID "s", &pid, &kind)) {
+    if (!PyArg_ParseTuple(args, _Py_PARSE_PID "s", &pid, &kind)) {
         goto error;
     }
 
@@ -354,37 +346,41 @@ psutil_net_connections(PyObject *self, PyObject *args) {
                 continue;
 
             // IPv4 or IPv6
-            if ((kp->kpcb->ki_family == AF_INET) ||
-                    (kp->kpcb->ki_family == AF_INET6)) {
-
+            if ((kp->kpcb->ki_family == AF_INET)
+                || (kp->kpcb->ki_family == AF_INET6))
+            {
                 if (kp->kpcb->ki_family == AF_INET) {
                     // IPv4
-                    struct sockaddr_in *sin_src =
-                        (struct sockaddr_in *)&kp->kpcb->ki_src;
-                    struct sockaddr_in *sin_dst =
-                        (struct sockaddr_in *)&kp->kpcb->ki_dst;
+                    struct sockaddr_in *sin_src = (struct sockaddr_in *)&kp
+                                                      ->kpcb->ki_src;
+                    struct sockaddr_in *sin_dst = (struct sockaddr_in *)&kp
+                                                      ->kpcb->ki_dst;
                     // source addr and port
-                    inet_ntop(AF_INET, &sin_src->sin_addr, laddr,
-                              sizeof(laddr));
+                    inet_ntop(
+                        AF_INET, &sin_src->sin_addr, laddr, sizeof(laddr)
+                    );
                     lport = ntohs(sin_src->sin_port);
                     // remote addr and port
-                    inet_ntop(AF_INET, &sin_dst->sin_addr, raddr,
-                              sizeof(raddr));
+                    inet_ntop(
+                        AF_INET, &sin_dst->sin_addr, raddr, sizeof(raddr)
+                    );
                     rport = ntohs(sin_dst->sin_port);
                 }
                 else {
                     // IPv6
-                    struct sockaddr_in6 *sin6_src =
-                        (struct sockaddr_in6 *)&kp->kpcb->ki_src;
-                    struct sockaddr_in6 *sin6_dst =
-                        (struct sockaddr_in6 *)&kp->kpcb->ki_dst;
+                    struct sockaddr_in6 *sin6_src = (struct sockaddr_in6 *)&kp
+                                                        ->kpcb->ki_src;
+                    struct sockaddr_in6 *sin6_dst = (struct sockaddr_in6 *)&kp
+                                                        ->kpcb->ki_dst;
                     // local addr and port
-                    inet_ntop(AF_INET6, &sin6_src->sin6_addr, laddr,
-                              sizeof(laddr));
+                    inet_ntop(
+                        AF_INET6, &sin6_src->sin6_addr, laddr, sizeof(laddr)
+                    );
                     lport = ntohs(sin6_src->sin6_port);
                     // remote addr and port
-                    inet_ntop(AF_INET6, &sin6_dst->sin6_addr, raddr,
-                              sizeof(raddr));
+                    inet_ntop(
+                        AF_INET6, &sin6_dst->sin6_addr, raddr, sizeof(raddr)
+                    );
                     rport = ntohs(sin6_dst->sin6_port);
                 }
 
@@ -396,29 +392,29 @@ psutil_net_connections(PyObject *self, PyObject *args) {
 
                 // build addr tuple
                 py_laddr = Py_BuildValue("(si)", laddr, lport);
-                if (! py_laddr)
+                if (!py_laddr)
                     goto error;
                 if (rport != 0)
                     py_raddr = Py_BuildValue("(si)", raddr, rport);
                 else
                     py_raddr = Py_BuildValue("()");
-                if (! py_raddr)
+                if (!py_raddr)
                     goto error;
             }
             else if (kp->kpcb->ki_family == AF_UNIX) {
                 // UNIX sockets
-                struct sockaddr_un *sun_src =
-                    (struct sockaddr_un *)&kp->kpcb->ki_src;
-                struct sockaddr_un *sun_dst =
-                    (struct sockaddr_un *)&kp->kpcb->ki_dst;
-                strcpy(laddr, sun_src->sun_path);
-                strcpy(raddr, sun_dst->sun_path);
+                struct sockaddr_un *sun_src = (struct sockaddr_un *)&kp->kpcb
+                                                  ->ki_src;
+                struct sockaddr_un *sun_dst = (struct sockaddr_un *)&kp->kpcb
+                                                  ->ki_dst;
+                str_copy(laddr, sizeof(sun_src->sun_path), sun_src->sun_path);
+                str_copy(raddr, sizeof(sun_dst->sun_path), sun_dst->sun_path);
                 status = PSUTIL_CONN_NONE;
                 py_laddr = PyUnicode_DecodeFSDefault(laddr);
-                if (! py_laddr)
+                if (!py_laddr)
                     goto error;
                 py_raddr = PyUnicode_DecodeFSDefault(raddr);
-                if (! py_raddr)
+                if (!py_raddr)
                     goto error;
             }
             else {
@@ -434,8 +430,9 @@ psutil_net_connections(PyObject *self, PyObject *args) {
                 py_laddr,
                 py_raddr,
                 status,
-                k->kif->ki_pid);
-            if (! py_tuple)
+                k->kif->ki_pid
+            );
+            if (!py_tuple)
                 goto error;
             if (PyList_Append(py_retlist, py_tuple))
                 goto error;

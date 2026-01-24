@@ -1,17 +1,23 @@
 from __future__ import annotations
 
+__all__ = [
+    "grating_coupler_elliptical_arbitrary",
+    "grating_coupler_elliptical_uniform",
+]
+
 from typing import Any
 
 import numpy as np
 
 import gdsfactory as gf
 from gdsfactory.component import Component
-from gdsfactory.components.grating_couplers.functions import (
+from gdsfactory.functions import DEG2RAD
+from gdsfactory.typings import CrossSectionSpec, Floats, LayerSpec
+
+from ..grating_couplers.functions import (
     grating_taper_points,
     grating_tooth_points,
 )
-from gdsfactory.functions import DEG2RAD
-from gdsfactory.typings import CrossSectionSpec, Floats, LayerSpec
 
 _gaps = (0.1,) * 10
 _widths = (0.5,) * 10

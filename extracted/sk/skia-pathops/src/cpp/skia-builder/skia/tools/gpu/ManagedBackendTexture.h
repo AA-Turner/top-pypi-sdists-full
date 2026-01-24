@@ -11,21 +11,27 @@
 #include "include/core/SkRefCnt.h"
 #include "include/core/SkYUVAInfo.h"
 #ifdef SK_GANESH
-#include "include/gpu/GrDirectContext.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
 #endif
 #ifdef SK_GRAPHITE
 #include "include/gpu/graphite/BackendTexture.h"
+#include "include/gpu/graphite/Context.h"
+#include "src/gpu/graphite/RecorderPriv.h"
 #endif
 
 namespace skgpu {
 class RefCntedCallback;
 }
 namespace skgpu::graphite {
-class Context;
 class Recorder;
 }
 class SkBitmap;
 struct SkImageInfo;
+
+#ifdef SK_GRAPHITE
+using Recorder = skgpu::graphite::Recorder;
+#endif
 
 namespace sk_gpu_test {
 
@@ -91,7 +97,7 @@ public:
     void wasAdopted();
 
     /**
-     * SkImage::MakeFromYUVATextures takes a single release proc that is called once for all the
+     * SkImages::TextureFromYUVATextures takes a single release proc that is called once for all the
      * textures. This makes a single release context for the group of textures. It's used with the
      * standard ReleaseProc. Like releaseContext(), it must be balanced by a ReleaseProc call for
      * proper ref counting.
@@ -145,14 +151,35 @@ inline sk_sp<ManagedBackendTexture> ManagedBackendTexture::MakeWithoutData(
  */
 class ManagedGraphiteTexture : public SkNVRefCnt<ManagedGraphiteTexture> {
 public:
-    static sk_sp<ManagedGraphiteTexture> MakeFromPixmap(skgpu::graphite::Recorder*,
+    static sk_sp<ManagedGraphiteTexture> MakeUnInit(Recorder*,
+                                                    const SkImageInfo&,
+                                                    skgpu::Mipmapped,
+                                                    skgpu::Renderable,
+                                                    skgpu::Protected = skgpu::Protected::kNo);
+
+    static sk_sp<ManagedGraphiteTexture> MakeFromPixmap(Recorder*,
                                                         const SkPixmap&,
                                                         skgpu::Mipmapped,
                                                         skgpu::Renderable,
                                                         skgpu::Protected = skgpu::Protected::kNo);
 
+    static sk_sp<ManagedGraphiteTexture> MakeMipmappedFromPixmaps(
+            Recorder*,
+            SkSpan<const SkPixmap> levels,
+            skgpu::Renderable,
+            skgpu::Protected = skgpu::Protected::kNo);
+
+    static sk_sp<ManagedGraphiteTexture> MakeFromCompressedData(
+            Recorder*,
+            SkISize dimmensions,
+            SkTextureCompressionType,
+            sk_sp<SkData>,
+            skgpu::Mipmapped,
+            skgpu::Protected = skgpu::Protected::kNo);
+
     /** finished and image/surface release procs */
     static void FinishedProc(void* context, skgpu::CallbackResult);
+    static void ReleaseProc(void* context);
     static void ImageReleaseProc(void* context);
 
     ~ManagedGraphiteTexture();
@@ -183,6 +210,7 @@ private:
     skgpu::graphite::Context* fContext;
     skgpu::graphite::BackendTexture fTexture;
 };
+
 #endif  // SK_GRAPHITE
 
 }  // namespace sk_gpu_test

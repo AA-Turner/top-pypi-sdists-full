@@ -15,11 +15,11 @@ from bids.utils import matches_entities, convert_JSON, listify
 from bids.variables import (BIDSVariableCollection, merge_collections)
 from bids.modeling import transformations as tm
 from .model_spec import GLMMSpec, MetaAnalysisSpec
-from .report.utils import node_report
+from .report.utils import node_report, snake_to_camel
 import warnings
 
 
-def validate_model(model):
+def validate_model(model, *, stacklevel=2):
     """Validate a BIDS-StatsModel structure.
 
     Parameters
@@ -39,6 +39,13 @@ def validate_model(model):
                             " all nodes in the model have unique names."
                             .format(duplicates))
 
+    def capitalize(obj):
+        if isinstance(obj, list):
+            return [capitalize(i) for i in obj]
+        if isinstance(obj, dict):
+            return {snake_to_camel(k).capitalize(): capitalize(v) for k, v in obj.items()}
+        return obj
+
     if 'edges' in model:
         for edge in model['edges']:
             if edge['source'] not in names:
@@ -49,20 +56,34 @@ def validate_model(model):
 
     # XXX: May 2021: Helping old models to work. This shouldn't last more than 2 years.
     for node in model["nodes"]:
+        messages = []
         if "type" in node.get("dummy_contrasts", {}):
-            warnings.warn(f"[Node {node['name']}]: Contrast 'Type' is now 'Test'.")
             node["dummy_contrasts"]["test"] = node["dummy_contrasts"].pop("type")
+            messages.append(
+                '"DummyContrasts": Contrast "Type" is now "Test".'
+            )
         for contrast in node.get("contrasts", []):
             if "type" in contrast:
-                warnings.warn(f"[Node {node['name']}; Contrast {contrast['name']}]:"
-                              "Contrast 'Type' is now 'Test'.")
                 contrast["test"] = contrast.pop("type")
+                messages.append(
+                    'Contrast {contrast["name"]}]: '
+                    'Contrast "Type" is now "Test".'
+                )
         if isinstance(node.get("transformations"), list):
             transformations = {"transformer": "pybids-transforms-v1",
                                "instructions": node["transformations"]}
-            warnings.warn(f"[Node {node['name']}]:"
-                          f"Transformations reformatted to {transformations}")
             node["transformations"] = transformations
+            messages.append(
+                'Transformations are now a dictionary '
+                'with "Transformer" and "Instructions" keys.'
+            )
+        if messages:
+            new_text = json.dumps(capitalize(node), indent=2)
+            notes = "\n  ".join(messages)
+            warnings.warn(
+                f'[Node "{node["name"]}"] notes:\n  {notes}\n'
+                f'[Node "{node["name"]}"] reformatted:\n{new_text}\n',
+                stacklevel=stacklevel)
     return True
 
 
@@ -119,7 +140,7 @@ class BIDSStatsModelsGraph:
         # Convert JSON from CamelCase to snake_case keys
         model = convert_JSON(model)
         if validate:
-            validate_model(model)
+            validate_model(model, stacklevel=4)  # Warn the caller of __init__
         return model
 
     @staticmethod
@@ -436,8 +457,9 @@ class BIDSStatsModelsNode:
         return groups
 
     def run(self, inputs=None, group_by=None, force_dense=True,
-              sampling_rate='TR', invalid_contrasts='drop', missing_values=None,
-              transformation_history=False, node_reports=False, **filters):
+              sampling_rate='TR', invalid_inputs='error', invalid_contrasts='drop',
+              missing_values=None, transformation_history=False, node_reports=False,
+              **filters):
         """Execute node with provided inputs.
 
         Parameters
@@ -467,6 +489,12 @@ class BIDSStatsModelsNode:
             with run-level variables and returning dense output. Ignored if
             there are no run-level variables, or if force_dense is False and
             all available variables are sparse.
+        invalid_inputs: str
+            Indicates how to handle invalid inputs--i.e., ones where the `X`
+            specification contains variables that aren't found at run-time.
+            Valid values:
+                * 'drop': Drop invalid contrasts, retain the rest.
+                * 'error' (default): Raise an error.
         invalid_contrasts: str
             Indicates how to handle invalid contrasts--i.e., ones where the
             specification contains variables that aren't found at run-time.
@@ -523,8 +551,8 @@ class BIDSStatsModelsNode:
             node_output = BIDSStatsModelsNodeOutput(
                 node=self, entities=dict(grp_ents), collections=grp_colls,
                 inputs=grp_inputs, force_dense=force_dense,
-                sampling_rate=sampling_rate, invalid_contrasts=invalid_contrasts,
-                missing_values=missing_values,
+                sampling_rate=sampling_rate, invalid_inputs=invalid_inputs,
+                invalid_contrasts=invalid_contrasts, missing_values=missing_values,
                 transformation_history=transformation_history, node_reports=node_reports)
             results.append(node_output)
 
@@ -619,6 +647,12 @@ class BIDSStatsModelsNodeOutput:
         run-level variables and returning dense output. Ignored if there are no
         run-level variables, or if force_dense is False and all available
         variables are sparse.
+    invalid_inputs: str
+        Indicates how to handle invalid inputs--i.e., ones where the `X`
+        specification contains variables that aren't found at run-time.
+        Valid values:
+            * 'drop': Drop invalid contrasts, retain the rest.
+            * 'error' (default): Raise an error.
     invalid_contrasts: str
         Indicates how to handle invalid contrasts--i.e., ones where the
         specification contains variables that aren't found at run-time.
@@ -639,9 +673,9 @@ class BIDSStatsModelsNodeOutput:
         If True, a report will be generated for each node output.
     """
     def __init__(self, node, entities={}, collections=None, inputs=None,
-                 force_dense=True, sampling_rate='TR', invalid_contrasts='drop',
-                 missing_values=None, *, transformation_history=False,
-                 node_reports=False):
+                 force_dense=True, sampling_rate='TR', invalid_inputs='error',
+                 invalid_contrasts='drop', missing_values=None, *,
+                 transformation_history=False, node_reports=False):
         """Initialize a new BIDSStatsModelsNodeOutput instance.
         Applies the node's model to the specified collections and inputs, including
         applying transformations and generating final model specs and design matrices (X).
@@ -653,6 +687,7 @@ class BIDSStatsModelsNodeOutput:
         self.entities = entities
         self.force_dense = force_dense
         self.sampling_rate = sampling_rate
+        self.invalid_inputs = invalid_inputs
         self.invalid_contrasts = invalid_contrasts
         self.coll_hist = None
 
@@ -693,8 +728,18 @@ class BIDSStatsModelsNodeOutput:
         # Verify all X names are actually present
         missing = list(set(var_names) - set(df.columns))
         if missing:
-            raise ValueError("X specification includes variable(s) {}, but "
-                             "these were not found in data matrix.".format(missing))
+            if self.invalid_inputs == 'drop':
+                # warn caller of BIDSStatsModelsNode.run()
+                warnings.warn("X specification includes variable(s) {}, "
+                              "but these were not found in data matrix. "
+                              "These will be dropped.".format(missing), stacklevel=3)
+                var_names = [v for v in var_names if v not in missing]
+            elif self.invalid_inputs == 'error':
+                raise ValueError("X specification includes variable(s) {}, but "
+                                 "these were not found in data matrix.".format(missing))
+            else:
+                raise ValueError("invalid_inputs must be one of ['drop', 'error'], "
+                                 "got {}".format(self.invalid_inputs))
 
         # separate the design columns from the entity columns
         self.data = df.loc[:, var_names]
@@ -711,7 +756,8 @@ class BIDSStatsModelsNodeOutput:
                     if missing_values is None:
                         base_message += " were replaced with 0.  Consider "\
                             " handling missing values using transformations."
-                        warnings.warn(base_message)
+                        # warn caller of BIDSStatsModelsNode.run()
+                        warnings.warn(base_message, stacklevel=3)
                 elif missing_values == 'error':
                     base_message += ". Explicitly replace missing values using transformations."
                     raise ValueError(base_message)
@@ -808,9 +854,11 @@ class BIDSStatsModelsNodeOutput:
         dummies = self.node.dummy_contrasts
         if dummies:
             if {'conditions', 'condition_list'} & set(dummies):
+                # warn caller of BIDSStatsModelsNode.run()
                 warnings.warn(
                     "Use 'Contrasts' not 'Conditions' or 'ConditionList' to specify"
-                    "DummyContrasts. Renaming to 'Contrasts' for now.")
+                    "DummyContrasts. Renaming to 'Contrasts' for now.",
+                    stacklevel=4)
                 dummies['contrasts'] = dummies.pop('conditions', None) or dummies.pop('condition_list', None)
 
             if 'contrasts' in dummies:

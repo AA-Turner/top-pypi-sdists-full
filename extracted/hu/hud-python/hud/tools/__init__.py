@@ -4,25 +4,37 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from .agent import AgentTool
 from .base import BaseHub, BaseTool
 from .bash import BashTool
 from .edit import EditTool
+from .memory import MemoryTool
 from .playwright import PlaywrightTool
 from .response import ResponseTool
 from .submit import SubmitTool
 
 if TYPE_CHECKING:
-    from .computer import AnthropicComputerTool, HudComputerTool, OpenAIComputerTool
+    from .computer import (
+        AnthropicComputerTool,
+        GeminiComputerTool,
+        HudComputerTool,
+        OpenAIComputerTool,
+        QwenComputerTool,
+    )
 
 __all__ = [
+    "AgentTool",
     "AnthropicComputerTool",
     "BaseHub",
     "BaseTool",
     "BashTool",
     "EditTool",
+    "GeminiComputerTool",
     "HudComputerTool",
+    "MemoryTool",
     "OpenAIComputerTool",
     "PlaywrightTool",
+    "QwenComputerTool",
     "ResponseTool",
     "SubmitTool",
 ]
@@ -30,7 +42,13 @@ __all__ = [
 
 def __getattr__(name: str) -> Any:
     """Lazy import computer tools to avoid importing pyautogui unless needed."""
-    if name in ("AnthropicComputerTool", "HudComputerTool", "OpenAIComputerTool"):
+    if name in (
+        "AnthropicComputerTool",
+        "HudComputerTool",
+        "OpenAIComputerTool",
+        "GeminiComputerTool",
+        "QwenComputerTool",
+    ):
         from . import computer
 
         return getattr(computer, name)

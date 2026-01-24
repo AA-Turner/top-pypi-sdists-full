@@ -17,7 +17,6 @@
 
 from __future__ import annotations
 
-import os
 import sys
 import typing as t
 
@@ -33,7 +32,6 @@ from ansible.inventory.host import Host
 from ansible.inventory.helpers import sort_groups, get_group_vars
 from ansible.inventory.manager import InventoryManager
 from ansible.module_utils.datatag import native_type_name
-from ansible.module_utils.six import text_type
 from ansible.parsing.dataloader import DataLoader
 from ansible._internal._templating._engine import TemplateEngine
 from ansible.plugins.loader import cache_loader
@@ -50,13 +48,18 @@ if t.TYPE_CHECKING:
 
 display = Display()
 
-# deprecated: description='enable top-level facts deprecation' core_version='2.20'
-# _DEPRECATE_TOP_LEVEL_FACT_TAG = _tags.Deprecated(
-#     msg='Top-level facts are deprecated.',
-#     version='2.24',
-#     deprecator=_deprecator.ANSIBLE_CORE_DEPRECATOR,
-#     help_text='Use `ansible_facts` instead.',
-# )
+_DEPRECATE_TOP_LEVEL_FACT_TAG = _tags.Deprecated(
+    msg='INJECT_FACTS_AS_VARS default to `True` is deprecated, top-level facts will not be auto injected after the change.',
+    version='2.24',
+    deprecator=_deprecator.ANSIBLE_CORE_DEPRECATOR,
+    help_text='Use `ansible_facts["fact_name"]` (no `ansible_` prefix) instead.',
+)
+_DEPRECATE_VARS = _tags.Deprecated(
+    msg='The internal "vars" dictionary is deprecated.',
+    version='2.24',
+    deprecator=_deprecator.ANSIBLE_CORE_DEPRECATOR,
+    help_text='Use the `vars` and `varnames` lookups instead.',
+)
 
 
 def _deprecate_top_level_fact(value: t.Any) -> t.Any:
@@ -65,9 +68,7 @@ def _deprecate_top_level_fact(value: t.Any) -> t.Any:
     The inner values are shared to aid in message de-duplication across hosts/values, and reduce intra-process memory usage.
     Unique tag instances are required to achieve the correct de-duplication within a top-level templating operation.
     """
-    # deprecated: description='enable top-level facts deprecation' core_version='2.20'
-    # return _DEPRECATE_TOP_LEVEL_FACT_TAG.tag(value)
-    return value
+    return _DEPRECATE_TOP_LEVEL_FACT_TAG.tag(value)
 
 
 def preprocess_vars(a):
@@ -285,8 +286,7 @@ class VariableManager:
             all_vars = _combine_and_track(all_vars, _plugins_inventory([host]), "inventory host_vars for '%s'" % host)
             all_vars = _combine_and_track(all_vars, _plugins_play([host]), "playbook host_vars for '%s'" % host)
 
-            # finally, the facts caches for this host, if it exists
-            # TODO: cleaning of facts should eventually become part of taskresults instead of vars
+            # finally, the facts caches for this host, if they exist
             try:
                 try:
                     facts = self._fact_cache.get(host.name)
@@ -295,12 +295,16 @@ class VariableManager:
 
                 all_vars |= namespace_facts(facts)
 
+                inject, origin = C.config.get_config_value_and_origin('INJECT_FACTS_AS_VARS')
                 # push facts to main namespace
-                if C.INJECT_FACTS_AS_VARS:
-                    deprecated_facts_vars = {k: _deprecate_top_level_fact(v) for k, v in clean_facts(facts).items()}
-                    all_vars = _combine_and_track(all_vars, deprecated_facts_vars, "facts")
+                if inject:
+                    if origin == 'default':
+                        clean_top = {k: _deprecate_top_level_fact(v) for k, v in clean_facts(facts).items()}
+                    else:
+                        clean_top = clean_facts(facts)
+                    all_vars = _combine_and_track(all_vars, clean_top, "facts")
                 else:
-                    # always 'promote' ansible_local
+                    # always 'promote' ansible_local, even if empty
                     all_vars = _combine_and_track(all_vars, {'ansible_local': facts.get('ansible_local', {})}, "facts")
             except KeyError:
                 pass
@@ -345,18 +349,16 @@ class VariableManager:
                             data = preprocess_vars(self._loader.load_from_file(found_file, unsafe=True, cache='vaulted', trusted_as_template=True))
                             if data is not None:
                                 for item in data:
-                                    all_vars = _combine_and_track(all_vars, item, "play vars_files from '%s'" % vars_file)
+                                    all_vars = _combine_and_track(all_vars, item, f"play vars_files from {vars_file!r}")
                             display.vvv(f"Read `vars_file` {found_file!r}.")
                             break
                         except AnsibleFileNotFound:
                             # we continue on loader failures
                             continue
-                        except AnsibleParserError:
+                        except (AnsibleParserError, AnsibleUndefinedVariable):
                             raise
-                        except AnsibleUndefinedVariable:
-                            raise
-                        except Exception as ex:
-                            raise AnsibleParserError(f"Error reading `vars_files` file {vars_file!r}.", obj=vars_file) from ex
+                        except AnsibleError as e:
+                            raise AnsibleError(f"Invalid vars_files file {found_file!r}.") from e
 
                 except AnsibleUndefinedVariable as ex:
                     if host is not None:
@@ -419,8 +421,10 @@ class VariableManager:
 
         # 'vars' magic var
         if task or play:
-            # has to be copy, otherwise recursive ref
-            all_vars['vars'] = all_vars.copy()
+            all_vars['vars'] = _DEPRECATE_VARS.tag({})
+            for k, v in all_vars.items():
+                # has to be copy, otherwise recursive ref
+                all_vars['vars'][k] = _DEPRECATE_VARS.tag(v)
 
         display.debug("done with get_vars()")
         return all_vars
@@ -440,7 +444,7 @@ class VariableManager:
         """
 
         variables = {}
-        variables['playbook_dir'] = os.path.abspath(self._loader.get_basedir())
+        variables['playbook_dir'] = self._loader.get_basedir()
         variables['ansible_playbook_python'] = sys.executable
         variables['ansible_config_file'] = C.CONFIG_FILE
 
@@ -467,7 +471,7 @@ class VariableManager:
             if task._role:
                 variables['role_name'] = task._role.get_name(include_role_fqcn=False)
                 variables['role_path'] = task._role._role_path
-                variables['role_uuid'] = text_type(task._role._uuid)
+                variables['role_uuid'] = str(task._role._uuid)
                 variables['ansible_collection_name'] = task._role._role_collection
                 variables['ansible_role_name'] = task._role.get_name()
 

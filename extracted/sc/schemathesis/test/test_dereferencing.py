@@ -3,86 +3,18 @@ import platform
 from pathlib import Path
 
 import pytest
+from flask import Flask, jsonify
 from hypothesis import HealthCheck, given, settings
-from hypothesis_jsonschema._canonicalise import HypothesisRefResolutionError
 from jsonschema.validators import Draft4Validator
+from werkzeug.exceptions import InternalServerError
 
 import schemathesis
-from schemathesis.core.errors import LoaderError
+from schemathesis.core.errors import InvalidSchema
+from schemathesis.core.result import Ok
 from schemathesis.generation.modes import GenerationMode
+from schemathesis.specs.openapi.stateful import dependencies
 
-from .utils import as_param, get_schema, integer
-
-
-@pytest.fixture
-def petstore():
-    return get_schema("petstore_v2.yaml")
-
-
-@pytest.mark.parametrize(
-    ("ref", "expected"),
-    [
-        (
-            {"$ref": "#/definitions/Category"},
-            {
-                "properties": {"id": {"format": "int64", "type": "integer"}, "name": {"type": "string"}},
-                "type": "object",
-                "xml": {"name": "Category"},
-            },
-        ),
-        (
-            {"$ref": "#/definitions/Pet"},
-            {
-                "properties": {
-                    "category": {
-                        "properties": {"id": {"format": "int64", "type": "integer"}, "name": {"type": "string"}},
-                        "type": "object",
-                        "xml": {"name": "Category"},
-                    },
-                    "id": {"format": "int64", "type": "integer"},
-                    "name": {"example": "doggie", "type": "string"},
-                    "photoUrls": {
-                        "items": {"type": "string"},
-                        "type": "array",
-                        "xml": {"name": "photoUrl", "wrapped": True},
-                        "example": ["https://photourl.com"],
-                    },
-                    "status": {
-                        "description": "pet status in the store",
-                        "enum": ["available", "pending", "sold"],
-                        "type": "string",
-                    },
-                    "tags": {
-                        "items": {
-                            "properties": {"id": {"format": "int64", "type": "integer"}, "name": {"type": "string"}},
-                            "type": "object",
-                            "xml": {"name": "Tag"},
-                        },
-                        "type": "array",
-                        "xml": {"name": "tag", "wrapped": True},
-                    },
-                },
-                "required": ["name", "photoUrls"],
-                "type": "object",
-                "xml": {"name": "Pet"},
-            },
-        ),
-    ],
-)
-def test_resolve(petstore, ref, expected):
-    assert petstore.resolver.resolve_all(ref) == expected
-
-
-def test_recursive_reference(mocker, schema_with_recursive_references):
-    mocker.patch("schemathesis.specs.openapi.references.RECURSION_DEPTH_LIMIT", 1)
-    reference = {"$ref": "#/components/schemas/Node"}
-    schema = schemathesis.openapi.from_dict(schema_with_recursive_references)
-    assert schema.resolver.resolve_all(reference) == {
-        "properties": {"child": {"properties": {"child": reference}, "required": ["child"], "type": "object"}},
-        "required": ["child"],
-        "type": "object",
-    }
-
+from .utils import as_param, get_schema_path, integer
 
 USER_REFERENCE = {"$ref": "#/components/schemas/User"}
 ELIDABLE_SCHEMA = {"description": "Test", "type": "object", "properties": {"foo": {"type": "integer"}}}
@@ -140,7 +72,6 @@ def build_schema_with_recursion(schema, definition):
             "properties": {"parent": {"allOf": [ELIDABLE_SCHEMA, USER_REFERENCE]}},
         },
         {"type": "array", "items": {"allOf": [USER_REFERENCE]}, "maxItems": 1},
-        ALL_OF_ROOT,
     ],
     ids=[
         "properties",
@@ -153,7 +84,6 @@ def build_schema_with_recursion(schema, definition):
         "allOf-one-item-properties-with-elidable-schema-1",
         "allOf-one-item-properties-with-elidable-schema-2",
         "allOf-one-item-items",
-        "allOf-one-item-root",
     ],
 )
 @pytest.mark.hypothesis_nested
@@ -173,9 +103,6 @@ def test_drop_recursive_references_from_the_last_resolution_level(ctx, definitio
         try:
             validator.validate(case.body)
         except RecursionError:
-            # jsonschema infinitely recurse on some cases
-            if definition is not ALL_OF_ROOT:
-                raise
             pass
 
     test()
@@ -203,6 +130,7 @@ def test_drop_recursive_references_from_the_last_resolution_level(ctx, definitio
                     ]
                 }
             },
+            "required": ["parent"],
         },
     ],
 )
@@ -212,13 +140,8 @@ def test_non_removable_recursive_references(ctx, definition):
     build_schema_with_recursion(schema, definition)
     schema = schemathesis.openapi.from_dict(schema)
 
-    @given(case=schema["/users"]["POST"].as_strategy())
-    @settings(max_examples=1)
-    def test(case):
-        pass
-
-    with pytest.raises(HypothesisRefResolutionError):
-        test()
+    with pytest.raises(InvalidSchema):
+        schema["/users"]["POST"]
 
 
 def test_nested_recursive_references(ctx):
@@ -534,7 +457,7 @@ def test_(request, case):
     assert case.path == "/users"
     assert case.method == "POST"
     if not hasattr(case.meta.phase.data, "description"):
-        assert case.body is None
+        assert isinstance(case.body, int) or case.body is None
 """,
         paths={
             "/users": {
@@ -601,7 +524,7 @@ def test_(request, case):
     assert case.path == "/users"
     assert case.method == "GET"
     if not hasattr(case.meta.phase.data, "description"):
-        assert case.query["id"] == "null"
+        assert case.query["id"] in ("null", 1, 2)
 """,
         **as_param(integer(name="id", required=True, enum=[1, 2], **{"x-nullable": True})),
         generation_modes=[GenerationMode.POSITIVE],
@@ -612,25 +535,27 @@ def test_(request, case):
     result.stdout.re_match_lines([r"Hypothesis calls: 4$"])
 
 
-def test_complex_dereference(testdir, complex_schema):
+def test_complex_dereference(complex_schema):
     schema = schemathesis.openapi.from_path(complex_schema)
-    path = Path(str(testdir))
     body_definition = {
         "schema": {
-            "additionalProperties": False,
-            "description": "Test",
-            "properties": {
-                "profile": {
+            "$ref": "#/x-bundled/schema1",
+            "x-bundled": {
+                "schema1": {
+                    "additionalProperties": False,
+                    "description": "Test",
+                    "properties": {"profile": {"$ref": "#/x-bundled/schema2"}, "username": {"type": "string"}},
+                    "required": ["username", "profile"],
+                    "type": "object",
+                },
+                "schema2": {
                     "additionalProperties": False,
                     "description": "Test",
                     "properties": {"id": {"type": "integer"}},
                     "required": ["id"],
                     "type": "object",
                 },
-                "username": {"type": "string"},
             },
-            "required": ["username", "profile"],
-            "type": "object",
         }
     }
     operation = schema["/teapot"]["POST"]
@@ -638,7 +563,7 @@ def test_complex_dereference(testdir, complex_schema):
     assert operation.path == "/teapot"
     assert operation.method == "post"
     assert len(operation.body) == 1
-    assert operation.body[0].required
+    assert operation.body[0].is_required
     assert operation.body[0].media_type == "application/json"
     assert operation.body[0].definition == body_definition
     assert operation.definition.raw == {
@@ -651,39 +576,6 @@ def test_complex_dereference(testdir, complex_schema):
         "summary": "Test",
         "tags": ["ancillaries"],
     }
-    assert operation.definition.resolved == {
-        "requestBody": {
-            "content": {"application/json": body_definition},
-            "description": "Test.",
-            "required": True,
-        },
-        "responses": {
-            "default": {
-                "content": {
-                    "application/json": {
-                        "schema": {
-                            "additionalProperties": False,
-                            "properties": {
-                                # Note, these `nullable` keywords are not transformed at this point
-                                # It is done during the response validation.
-                                "key": {"type": "string", "nullable": True},
-                                "referenced": {"type": "string", "nullable": True},
-                            },
-                            "required": ["key", "referenced"],
-                            "type": "object",
-                        }
-                    }
-                },
-                "description": "Probably an error",
-            }
-        },
-        "summary": "Test",
-        "tags": ["ancillaries"],
-    }
-    assert operation.definition.scope == f"{path.as_uri()}/root/paths/teapot.yaml#/TeapotCreatePath"
-    assert operation.body[0].required
-    assert operation.body[0].media_type == "application/json"
-    assert operation.body[0].definition == body_definition
 
 
 def test_remote_reference_to_yaml(swagger_20, schema_url):
@@ -781,19 +673,15 @@ def test_unresolvable_reference_during_generation(ctx, testdir):
     main.write_text(json.dumps(schema), "utf8")
     schema = schemathesis.openapi.from_path(str(main))
 
-    @given(case=schema["/test"]["GET"].as_strategy())
-    def test(case):
-        pass
-
-    with pytest.raises(LoaderError, match="Unresolvable JSON pointer in the schema: /components/schemas/Key8"):
-        test()
+    with pytest.raises(InvalidSchema, match="Unresolvable reference in the schema"):
+        schema["/test"]["GET"].as_strategy()
 
 
 @pytest.mark.parametrize(
     ("key", "expected"),
     [
-        ("Key7", 'Can not generate data for query parameter "key"! Its schema should be an object, got None'),
-        ("Key8", "Unresolvable JSON pointer: 'components/schemas/Key8'"),
+        ("Key7", "Invalid Schema Object definition for `Key7`"),
+        ("Key8", "Invalid Schema Object definition for `Key8`"),
     ],
 )
 def test_uncommon_type_in_generation(ctx, testdir, key, expected):
@@ -810,11 +698,12 @@ def test_uncommon_type_in_generation(ctx, testdir, key, expected):
     main.write_text(json.dumps(schema), "utf8")
     schema = schemathesis.openapi.from_path(str(main))
 
-    @given(case=schema["/test"]["GET"].as_strategy())
-    def test(case):
-        pass
-
     with pytest.raises(Exception, match=expected):
+
+        @given(case=schema["/test"]["GET"].as_strategy())
+        def test(case):
+            pass
+
         test()
 
 
@@ -872,3 +761,628 @@ def test_missing_file_in_resolution(ctx, testdir, cli, snapshot_cli, openapi3_ba
     raw_schema_path.write_text(json.dumps(schema), "utf8")
 
     assert cli.run(str(raw_schema_path), f"--url={openapi3_base_url}") == snapshot_cli
+
+
+def test_unresolvable_operation(ctx, cli, snapshot_cli, openapi3_base_url):
+    schema_path = ctx.openapi.write_schema(
+        {
+            "/test": {
+                "post": {
+                    "$ref": "#/0",
+                    "responses": {
+                        "default": {
+                            "description": "Ok",
+                        }
+                    },
+                }
+            }
+        }
+    )
+    assert cli.run(str(schema_path), f"--url={openapi3_base_url}", "--phases=fuzzing") == snapshot_cli
+
+
+@pytest.mark.parametrize(
+    ["paths", "components"],
+    [
+        (
+            {
+                "/changes": {
+                    "post": {
+                        "requestBody": {
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/issue_change"}}}
+                        },
+                        "responses": {"default": {"description": "Ok"}},
+                    }
+                }
+            },
+            {
+                "schemas": {
+                    "account": {"$ref": "#/components/schemas/object"},
+                    "issue": {
+                        "allOf": [
+                            {"$ref": "#/components/schemas/object"},
+                            {"properties": {"key": {"$ref": "#/components/schemas/account"}}},
+                        ]
+                    },
+                    "issue_change": {
+                        "properties": {"key": {"$ref": "#/components/schemas/issue"}},
+                        "example": {"key": 42},
+                    },
+                    "object": {},
+                }
+            },
+        ),
+        (
+            {
+                "/changes": {
+                    "post": {
+                        "requestBody": {
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/issue_change"}}}
+                        }
+                    }
+                }
+            },
+            {
+                "schemas": {
+                    "issue": {
+                        "allOf": [
+                            {"$ref": "#/components/schemas/object"},
+                            {"properties": {"key": {"$ref": "#/components/schemas/milestone"}}},
+                        ]
+                    },
+                    "issue_change": {
+                        "properties": {"key": {"$ref": "#/components/schemas/issue"}},
+                        "example": {"key": 42},
+                    },
+                    "milestone": {"allOf": [{"$ref": "#/components/schemas/object"}]},
+                    "object": {},
+                }
+            },
+        ),
+    ],
+)
+@pytest.mark.filterwarnings("error")
+def test_multiple_hops_references(ctx, cli, openapi3_base_url, snapshot_cli, paths, components):
+    schema_path = ctx.openapi.write_schema(paths, components=components)
+    # There should be no recursion error in another thread
+    assert (
+        cli.run(
+            str(schema_path),
+            f"--url={openapi3_base_url}",
+            "--phases=examples",
+            "--checks=not_a_server_error",
+            config={"warnings": False},
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.filterwarnings("error")
+def test_multiple_hops_references_swagger(ctx, cli, openapi3_base_url, snapshot_cli):
+    schema_path = ctx.openapi.write_schema(
+        {
+            "/items": {
+                "put": {
+                    "parameters": [
+                        {
+                            "in": "body",
+                            "schema": {
+                                "$ref": "#/definitions/A1",
+                            },
+                        }
+                    ]
+                }
+            }
+        },
+        definitions={
+            "A1": {
+                "properties": {
+                    "": {
+                        "$ref": "#/definitions/A2",
+                    }
+                }
+            },
+            "A2": {
+                "allOf": [
+                    {"$ref": "#/definitions/allOf"},
+                    {"$ref": "#/definitions/A3"},
+                ]
+            },
+            "A3": {
+                "properties": {
+                    "key": {
+                        "items": {"$ref": "#/definitions/A4"},
+                    }
+                }
+            },
+            "A4": {
+                "properties": {
+                    "key": {"$ref": "#/definitions/A5"},
+                }
+            },
+            "A5": {"$ref": "#/definitions/allOf"},
+            "allOf": {},
+        },
+        version="2.0",
+    )
+    # There should be no recursion error in another thread
+    assert (
+        cli.run(
+            str(schema_path),
+            f"--url={openapi3_base_url}",
+            "--phases=examples",
+            "--checks=not_a_server_error",
+            config={"warnings": False},
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.filterwarnings("error")
+def test_responses_in_another_file(ctx, cli, openapi3_base_url, snapshot_cli):
+    schema_path = ctx.openapi.write_schema(
+        {
+            "/api/v1/items": {
+                "get": {
+                    "responses": {
+                        "200": {"description": "ОК"},
+                        "400": {"$ref": "./schemas/responses.json#/BadRequest"},
+                        "500": {"$ref": "./schemas/responses.json#/InternalServerError"},
+                    }
+                }
+            }
+        },
+        version="3.1.0",
+    )
+    ctx.makefile(
+        {
+            "BadRequest": {"content": {"application/json": {"schema": {"$ref": "#/Error"}}}},
+            "InternalServerError": {"content": {"application/json": {"schema": {"$ref": "#/Error"}}}},
+            "Error": {"type": "object", "properties": {"message": {"type": "string"}}},
+        },
+        filename="responses",
+        parent="schemas",
+    )
+    assert cli.run(str(schema_path), f"--url={openapi3_base_url}") == snapshot_cli
+
+
+def test_iter_when_ref_resolves_to_none_in_body(ctx):
+    # Key0 -> Key1 -> Key2 -> Key3 (None)
+    schema = ctx.openapi.build_schema(
+        {
+            "/test": {
+                "get": {
+                    "requestBody": {
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Key0"}}},
+                        "required": True,
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                **{f"Key{idx}": {"$ref": f"#/components/schemas/Key{idx + 1}"} for idx in range(3)},
+                "Key3": None,
+            }
+        },
+    )
+
+    schema = schemathesis.openapi.from_dict(schema)
+
+    # Should not fail
+    for _ in schema.get_all_operations():
+        pass
+
+
+def test_resolve_large_schema():
+    path = get_schema_path("openapi3.json")
+    raw_schema = {
+        "openapi": "3.0.3",
+        "info": {"version": "1.0.0", "title": "My API", "description": "My HTTP interface."},
+        "paths": {
+            "/": {
+                "get": {
+                    "summary": "OpenAPI description (this document)",
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/openapi+json": {
+                                    "schema": {
+                                        "$ref": Path(path).as_uri(),
+                                    }
+                                }
+                            },
+                        }
+                    },
+                }
+            }
+        },
+    }
+    schema = schemathesis.openapi.from_dict(raw_schema)
+
+    # Should not fail
+    for _ in schema.get_all_operations():
+        pass
+
+
+@pytest.mark.parametrize(
+    "kind",
+    ["html", "500", "number"],
+    ids=["html_instead_of_yaml", "500", "number"],
+)
+def test_remote_ref_fails(ctx, kind, cli, snapshot_cli, app_runner):
+    app = Flask(__name__)
+    path = "/external/schemas/user.yaml"
+
+    @app.route("/openapi.json")
+    def openapi():
+        return jsonify(
+            ctx.openapi.build_schema(
+                {
+                    "/test": {
+                        "get": {
+                            "requestBody": {
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": f"http://127.0.0.1:{port}{path}#/User",
+                                        }
+                                    }
+                                },
+                                "required": True,
+                            },
+                        }
+                    }
+                }
+            )
+        )
+
+    if kind == "html":
+
+        @app.route(path)
+        def external():
+            html = "<!doctype html><html><title>Not YAML</title><body>Oops</body></html>"
+            return html, 200, {"Content-Type": "text/html"}
+
+    elif kind == "500":
+
+        @app.route(path)
+        def external():
+            raise InternalServerError
+
+    elif kind == "number":
+
+        @app.route(path)
+        def external():
+            return jsonify(42)
+
+    port = app_runner.run_flask_app(app)
+
+    assert (
+        cli.run(
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--phases=fuzzing",
+            "--checks=not_a_server_error",
+            config={"warnings": False},
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.hypothesis_nested
+def test_bundling_cache_with_shared_references(ctx):
+    schema = ctx.openapi.build_schema(
+        {
+            "/items": {
+                "put": {
+                    "parameters": [
+                        {"in": "path", "name": "key", "type": "string"},
+                        {"in": "body", "schema": {"$ref": "#/definitions/Connection"}},
+                    ]
+                }
+            }
+        },
+        version="2.0",
+        definitions={
+            "Connection": {
+                "allOf": [{"$ref": "#/definitions/Resource"}],
+                "properties": {"key": {"properties": {"api": {"$ref": "#/definitions/ExpandedParent[ApiEntity]"}}}},
+            },
+            "ExpandedParent[ApiEntity]": {"$ref": "#/definitions/Resource"},
+            "Resource": {},
+        },
+    )
+
+    schema = schemathesis.openapi.from_dict(schema)
+    operation = next(schema.get_all_operations()).ok()
+
+    @given(case=operation.as_strategy())
+    @settings(max_examples=3)
+    def test(case):
+        pass
+
+    test()
+
+
+@pytest.mark.hypothesis_nested
+def test_bundling_cache_returns_independent_copies(ctx):
+    schema = ctx.openapi.build_schema(
+        {
+            "/path1": {
+                "get": {
+                    "parameters": [
+                        {"in": "body", "schema": {"$ref": "#/definitions/Model"}},
+                    ]
+                }
+            },
+            "/path2": {
+                "post": {
+                    "parameters": [
+                        {"in": "body", "schema": {"$ref": "#/definitions/Model"}},
+                    ]
+                }
+            },
+        },
+        version="2.0",
+        definitions={
+            "Model": {"type": "object", "properties": {"id": {"type": "integer"}}},
+        },
+    )
+
+    schema = schemathesis.openapi.from_dict(schema)
+    ops = list(schema.get_all_operations())
+
+    op1 = ops[0].ok()
+    op2 = ops[1].ok()
+
+    @given(case=op1.as_strategy())
+    @settings(max_examples=1)
+    def test1(case):
+        pass
+
+    @given(case=op2.as_strategy())
+    @settings(max_examples=1)
+    def test2(case):
+        pass
+
+    test1()
+    test2()
+
+
+def test_nested_external_refs_with_relative_paths(ctx):
+    # See GH-3361
+    schema_path = ctx.openapi.write_schema(
+        {"/media": {"$ref": "media/feed.json#/paths/Feed"}},
+        version="3.1.0",
+    )
+
+    # types.json - sibling to parameters.json
+    ctx.makefile({"MetaPage": {"type": "integer", "minimum": 1, "maximum": 100}}, filename="types")
+
+    # parameters.json - references types.json (sibling file)
+    ctx.makefile(
+        {"Page": {"name": "page", "in": "query", "schema": {"$ref": "types.json#/MetaPage"}}},
+        filename="parameters",
+    )
+
+    # media/feed.json - references ../parameters.json (parent directory)
+    ctx.makefile(
+        {
+            "paths": {
+                "Feed": {
+                    "get": {
+                        "operationId": "media.feed",
+                        "responses": {"200": {"description": "OK"}},
+                        "parameters": [{"$ref": "../parameters.json#/Page"}],
+                    }
+                }
+            }
+        },
+        filename="feed",
+        parent="media",
+    )
+
+    schema = schemathesis.openapi.from_path(str(schema_path))
+
+    # Should successfully iterate operations without reference resolution errors
+    operations = list(schema.get_all_operations())
+    assert len(operations) == 1
+
+    result = operations[0]
+    assert isinstance(result, Ok)
+
+    operation = result.ok()
+    assert operation.path == "/media"
+    assert operation.method == "get"
+
+    params = list(operation.iter_parameters())
+    assert len(params) == 1
+    assert params[0].name == "page"
+
+
+def test_nested_external_refs_in_request_body(ctx):
+    # Similar to GH-3361 but for requestBody in OpenAPI 3.x
+    schema_path = ctx.openapi.write_schema(
+        {
+            "/items": {
+                "post": {
+                    "operationId": "createItem",
+                    "requestBody": {"$ref": "requests/body.json#/CreateItem"},
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+    )
+
+    # types.json - in root, sibling to schema.json
+    ctx.makefile(
+        {"Item": {"type": "object", "properties": {"name": {"type": "string"}}}},
+        filename="types",
+    )
+
+    # requests/body.json - references ../types.json
+    ctx.makefile(
+        {
+            "CreateItem": {
+                "required": True,
+                "content": {"application/json": {"schema": {"$ref": "../types.json#/Item"}}},
+            }
+        },
+        filename="body",
+        parent="requests",
+    )
+
+    schema = schemathesis.openapi.from_path(str(schema_path))
+
+    operations = list(schema.get_all_operations())
+    assert len(operations) == 1
+
+    result = operations[0]
+    assert isinstance(result, Ok)
+
+    operation = result.ok()
+    assert operation.path == "/items"
+    assert operation.method == "post"
+    assert len(operation.body) == 1
+
+
+def test_nested_external_refs_in_response_for_stateful(ctx):
+    # Response schemas with nested external refs should resolve correctly for stateful testing
+    schema_path = ctx.openapi.write_schema(
+        {
+            "/items": {
+                "get": {
+                    "operationId": "getItems",
+                    "responses": {"200": {"$ref": "responses/item.json#/ItemResponse"}},
+                }
+            }
+        },
+        version="3.1.0",
+    )
+
+    # types.json - in root
+    ctx.makefile(
+        {"Item": {"type": "object", "properties": {"id": {"type": "integer"}, "name": {"type": "string"}}}},
+        filename="types",
+    )
+
+    # responses/item.json - references ../types.json
+    ctx.makefile(
+        {
+            "ItemResponse": {
+                "description": "Success",
+                "content": {"application/json": {"schema": {"$ref": "../types.json#/Item"}}},
+            }
+        },
+        filename="item",
+        parent="responses",
+    )
+
+    schema = schemathesis.openapi.from_path(str(schema_path))
+
+    graph = dependencies.analyze(schema)
+
+    # Should find the Item resource from the response schema
+    assert len(graph.resources) > 0 or len(graph.operations) > 0
+
+
+def test_nested_external_refs_in_array_items_for_stateful(ctx):
+    # Nested $refs inside array items should resolve correctly for stateful testing
+    schema_path = ctx.openapi.write_schema(
+        {
+            "/items": {
+                "get": {
+                    "operationId": "getItems",
+                    "responses": {"200": {"$ref": "responses/list.json#/ListResponse"}},
+                }
+            }
+        },
+        version="3.1.0",
+    )
+
+    # types.json - in root
+    ctx.makefile(
+        {"Item": {"type": "object", "properties": {"id": {"type": "integer"}, "name": {"type": "string"}}}},
+        filename="types",
+    )
+
+    # responses/list.json - has array with items referencing ../types.json
+    ctx.makefile(
+        {
+            "ListResponse": {
+                "description": "Success",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"items": {"type": "array", "items": {"$ref": "../types.json#/Item"}}},
+                        }
+                    }
+                },
+            }
+        },
+        filename="list",
+        parent="responses",
+    )
+
+    schema = schemathesis.openapi.from_path(str(schema_path))
+
+    graph = dependencies.analyze(schema)
+
+    # Should find resources - the array items ref should resolve correctly
+    assert len(graph.resources) > 0 or len(graph.operations) > 0
+
+
+@pytest.mark.hypothesis_nested
+def test_prefix_items_with_ref(ctx):
+    schema = ctx.openapi.build_schema(
+        {
+            "/v1/customers/": {
+                "patch": {
+                    "requestBody": {
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CustomerUpdate"}}},
+                        "required": True,
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+        components={
+            "schemas": {
+                "CustomerUpdate": {
+                    "properties": {
+                        "key": {
+                            "anyOf": [
+                                {
+                                    "prefixItems": [{"$ref": "#/components/schemas/TaxIDFormat"}],
+                                    "minItems": 2,
+                                    "maxItems": 2,
+                                    "type": "array",
+                                },
+                                {"type": "null"},
+                            ]
+                        }
+                    },
+                    "type": "object",
+                },
+                "TaxIDFormat": {"type": "string"},
+            }
+        },
+    )
+
+    schema = schemathesis.openapi.from_dict(schema)
+
+    @given(case=schema["/v1/customers/"]["PATCH"].as_strategy())
+    @settings(max_examples=50)
+    def test(case):
+        key = case.body.get("key")
+        if key is not None:
+            assert isinstance(key, list)
+            assert len(key) == 2
+            assert isinstance(key[0], str)
+
+    test()

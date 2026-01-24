@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 """Setup module."""
+from typing import List
 try:
     from setuptools import setup
 except ImportError:
     from distutils.core import setup
 
 
-def get_requires():
+def get_requires() -> List[str]:
     """Read requirements.txt."""
     requirements = open("requirements.txt", "r").read()
     return list(filter(lambda x: x != "", requirements.split()))
 
 
-def read_description():
+def read_description() -> str:
     """Read README.md and CHANGELOG.md."""
     try:
         with open("README.md") as r:
@@ -36,14 +37,14 @@ def read_description():
 setup(
     name='pycm',
     packages=['pycm'],
-    version='4.4',
+    version='4.5',
     description='Multi-class confusion matrix library in Python',
     long_description=read_description(),
     long_description_content_type='text/markdown',
     author='PyCM Development Team',
     author_email='info@pycm.io',
     url='https://github.com/sepandhaghighi/pycm',
-    download_url='https://github.com/sepandhaghighi/pycm/tarball/v4.4',
+    download_url='https://github.com/sepandhaghighi/pycm/tarball/v4.5',
     keywords="confusion-matrix python3 python machine_learning ML",
     project_urls={
         'Webpage': 'https://www.pycm.io',

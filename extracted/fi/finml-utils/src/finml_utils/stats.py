@@ -132,7 +132,7 @@ def safe_pearson(x: pd.Series, y: pd.Series) -> float:
     return x.corr(y, method="pearson")
 
 
-def cagr(returns, rf=0.0, compounded=True, periods=252):
+def cagr(returns, periods: int):
     """
     Calculates the communicative annualized growth return
     (CAGR%) of access returns

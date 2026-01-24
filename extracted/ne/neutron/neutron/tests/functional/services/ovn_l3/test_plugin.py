@@ -346,8 +346,9 @@ class TestRouter(base.TestOVNFunctionalBase):
                 if (ovn_const.OVN_ROUTER_NAME_EXT_ID_KEY
                         not in row.external_ids):
                     continue
-                if row.external_ids[
-                        ovn_const.OVN_ROUTER_NAME_EXT_ID_KEY] == router['id']:
+                ext_ids_rtr_name = row.external_ids[
+                    ovn_const.OVN_ROUTER_NAME_EXT_ID_KEY]
+                if ext_ids_rtr_name == ovn_utils.ovn_name(router['id']):
                     chassis = {}
                     for gwc in row.gateway_chassis:
                         chassis[gwc.priority] = gwc.chassis_name
@@ -754,7 +755,7 @@ class TestRouter(base.TestOVNFunctionalBase):
                           'Logical_Router', ovn_utils.ovn_name(router['id']))
         for lrp_name in lrps:
             if self.nb_api.bfd_find(
-                    lrp.name, default_gw).execute(check_error=True):
+                    lrp_name, default_gw).execute(check_error=True):
                 raise AssertionError('Unexpectedly found BFD rows.')
 
     def test_update_router_single_gw_bfd(self):
@@ -791,7 +792,7 @@ class TestRouter(base.TestOVNFunctionalBase):
         # Tries to create 5 routers with a gateway. Since we're using
         # physnet4, the chassis candidates will be chassis4 initially.
         num_routers = len(self._create_routers_wait_pb(
-            1, 20, gw_info=gw_info, bind_chassis=chassis4))
+            1, 5, gw_info=gw_info, bind_chassis=chassis4))
         self.l3_plugin.schedule_unhosted_gateways()
         expected = {chassis4: {1: num_routers}}
         self.assertEqual(expected, self._get_gwc_dict())

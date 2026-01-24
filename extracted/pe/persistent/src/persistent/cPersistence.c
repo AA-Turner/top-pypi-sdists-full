@@ -314,6 +314,7 @@ Per__p_deactivate(cPersistentObject *self)
         PyObject **dictptr = _PyObject_GetDictPtr((PyObject *)self);
         if (dictptr && *dictptr)
         {
+            PyDict_Clear(*dictptr);
             Py_DECREF(*dictptr);
             *dictptr = NULL;
         }
@@ -1451,11 +1452,16 @@ Per_repr(cPersistentObject *self)
             | ((uint64_t)oid_bytes[6] << 8)
             | ((uint64_t)oid_bytes[7]);
         /*
-          Python's PyUnicode_FromFormat doesn't understand the ll
+          Before 3.12, python's PyUnicode_FromFormat did not understand the ll
           length modifier for %x, so to format a 64-bit value we need to
           use stdio.
         */
         snprintf(buf, sizeof(buf) - 1, "%" PRIx64, oid_value);
+        int len = strlen(buf);
+        if (len < 8 && (len % 2 == 1)) {
+            memmove(buf + 1, buf, len + 1);
+            buf[0] = '0';
+        }
         oid_str = PyUnicode_FromFormat(" oid 0x%s", buf);
     }
 

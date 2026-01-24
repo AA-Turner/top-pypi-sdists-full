@@ -18,7 +18,7 @@ options:
         This is a list and can support multiple package managers per system, since version 2.8.
       - The V(portage) and V(pkg) options were added in version 2.8.
       - The V(apk) option was added in version 2.11.
-      - The V(pkg_info)' option was added in version 2.13.
+      - The V(pkg_info) option was added in version 2.13.
       - Aliases were added in 2.18, to support using C(manager={{ansible_facts['pkg_mgr']}})
     default: ['auto']
     choices:
@@ -278,11 +278,11 @@ class RPM(RespawningLibMgr):
         return self._lib.TransactionSet().dbMatch()
 
     def get_package_details(self, package):
-        return dict(name=package[self._lib.RPMTAG_NAME],
-                    version=package[self._lib.RPMTAG_VERSION],
-                    release=package[self._lib.RPMTAG_RELEASE],
-                    epoch=package[self._lib.RPMTAG_EPOCH],
-                    arch=package[self._lib.RPMTAG_ARCH],)
+        return dict(name=to_text(package[self._lib.RPMTAG_NAME]),
+                    version=to_text(package[self._lib.RPMTAG_VERSION]),
+                    release=to_text(package[self._lib.RPMTAG_RELEASE]),
+                    epoch=to_text(package[self._lib.RPMTAG_EPOCH]),
+                    arch=to_text(package[self._lib.RPMTAG_ARCH]),)
 
 
 class APT(RespawningLibMgr):

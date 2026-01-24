@@ -10,15 +10,17 @@ __all__ = [
     "IsInstance",
     "LessThan",
     "MatchesRegex",
+    "Nearly",
     "NotEquals",
     "SameMembers",
     "StartsWith",
 ]
 
 import operator
-from pprint import pformat
 import re
-import warnings
+from collections.abc import Callable
+from pprint import pformat
+from typing import Any
 
 from ..compat import (
     text_repr,
@@ -35,8 +37,7 @@ from ._impl import (
 
 
 def _format(thing):
-    """
-    Blocks of text with newlines are formatted as triple-quote
+    """Blocks of text with newlines are formatted as triple-quote
     strings. Everything else is pretty-printed.
     """
     if isinstance(thing, (str, bytes)):
@@ -46,6 +47,10 @@ def _format(thing):
 
 class _BinaryComparison:
     """Matcher that compares an object to another object."""
+
+    mismatch_string: str
+    # comparator is defined by subclasses - using Any to allow different signatures
+    comparator: Callable[..., Any]
 
     def __init__(self, expected):
         self.expected = expected
@@ -58,9 +63,6 @@ class _BinaryComparison:
             return None
         return _BinaryMismatch(other, self.mismatch_string, self.expected)
 
-    def comparator(self, expected, other):
-        raise NotImplementedError(self.comparator)
-
 
 class _BinaryMismatch(Mismatch):
     """Two things did not match."""
@@ -71,30 +73,22 @@ class _BinaryMismatch(Mismatch):
         self._reference = reference
         self._reference_on_right = reference_on_right
 
-    @property
-    def expected(self):
-        warnings.warn(
-            f"{self.__class__.__name__}.expected deprecated after 1.8.1",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._reference
-
-    @property
-    def other(self):
-        warnings.warn(
-            f"{self.__class__.__name__}.other deprecated after 1.8.1",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._actual
-
     def describe(self):
+        # Special handling for set comparisons
+        if (
+            self._mismatch_string == "!="
+            and isinstance(self._reference, set)
+            and isinstance(self._actual, set)
+        ):
+            return self._describe_set_difference()
+
         actual = repr(self._actual)
         reference = repr(self._reference)
         if len(actual) + len(reference) > 70:
-            return "{}:\nreference = {}\nactual    = {}\n".format(
-                self._mismatch_string, _format(self._reference), _format(self._actual)
+            return (
+                f"{self._mismatch_string}:\n"
+                f"reference = {_format(self._reference)}\n"
+                f"actual    = {_format(self._actual)}\n"
             )
         else:
             if self._reference_on_right:
@@ -102,6 +96,27 @@ class _BinaryMismatch(Mismatch):
             else:
                 left, right = reference, actual
             return f"{left} {self._mismatch_string} {right}"
+
+    def _describe_set_difference(self):
+        """Describe the difference between two sets in a readable format."""
+        reference_only = sorted(
+            self._reference - self._actual, key=lambda x: (type(x).__name__, x)
+        )
+        actual_only = sorted(
+            self._actual - self._reference, key=lambda x: (type(x).__name__, x)
+        )
+
+        lines = ["!=:"]
+        if reference_only:
+            lines.append(
+                f"Items in expected but not in actual:\n{_format(reference_only)}"
+            )
+        if actual_only:
+            lines.append(
+                f"Items in actual but not in expected:\n{_format(actual_only)}"
+            )
+
+        return "\n".join(lines)
 
 
 class Equals(_BinaryComparison):
@@ -152,15 +167,74 @@ class Is(_BinaryComparison):
 class LessThan(_BinaryComparison):
     """Matches if the item is less than the matchers reference object."""
 
-    comparator = operator.__lt__
+    comparator = operator.lt
     mismatch_string = ">="
 
 
 class GreaterThan(_BinaryComparison):
     """Matches if the item is greater than the matchers reference object."""
 
-    comparator = operator.__gt__
+    comparator = operator.gt
     mismatch_string = "<="
+
+
+class _NotNearlyEqual(Mismatch):
+    """Mismatch for Nearly matcher."""
+
+    def __init__(self, actual, expected, delta):
+        self.actual = actual
+        self.expected = expected
+        self.delta = delta
+
+    def describe(self):
+        try:
+            diff = abs(self.actual - self.expected)
+            return (
+                f"{self.actual!r} is not nearly equal to {self.expected!r}: "
+                f"difference {diff!r} exceeds tolerance {self.delta!r}"
+            )
+        except (TypeError, AttributeError):
+            return (
+                f"{self.actual!r} is not nearly equal to {self.expected!r} "
+                f"within {self.delta!r}"
+            )
+
+
+class Nearly(Matcher):
+    """Matches if a value is nearly equal to the expected value.
+
+    This matcher is useful for comparing floating point values where exact
+    equality cannot be relied upon due to precision limitations.
+
+    The matcher checks if the absolute difference between the actual and
+    expected values is less than or equal to a specified tolerance (delta).
+
+    This works for any type that supports subtraction and absolute value
+    operations (e.g., integers, floats, Decimal, etc.).
+    """
+
+    def __init__(self, expected, delta=0.001):
+        """Create a Nearly matcher.
+
+        :param expected: The expected value to compare against.
+        :param delta: The maximum allowed absolute difference (tolerance).
+            Default is 0.001.
+        """
+        self.expected = expected
+        self.delta = delta
+
+    def __str__(self):
+        return f"Nearly({self.expected!r}, delta={self.delta!r})"
+
+    def match(self, actual):
+        try:
+            diff = abs(actual - self.expected)
+            if diff <= self.delta:
+                return None
+        except (TypeError, AttributeError):
+            # Can't compute difference - definitely not nearly equal
+            pass
+        return _NotNearlyEqual(actual, self.expected, self.delta)
 
 
 class SameMembers(Matcher):
@@ -183,8 +257,9 @@ class SameMembers(Matcher):
         if expected_only == observed_only == []:
             return
         return PostfixedMismatch(
-            "\nmissing:    {}\nextra:      {}".format(
-                _format(expected_only), _format(observed_only)
+            (
+                f"\nmissing:    {_format(expected_only)}\n"
+                f"extra:      {_format(observed_only)}"
             ),
             _BinaryMismatch(observed, "elements differ", self.expected),
         )
@@ -201,8 +276,8 @@ class DoesNotStartWith(Mismatch):
         self.expected = expected
 
     def describe(self):
-        return "{} does not start with {}.".format(
-            text_repr(self.matchee), text_repr(self.expected)
+        return (
+            f"{text_repr(self.matchee)} does not start with {text_repr(self.expected)}."
         )
 
 
@@ -236,8 +311,8 @@ class DoesNotEndWith(Mismatch):
         self.expected = expected
 
     def describe(self):
-        return "{} does not end with {}.".format(
-            text_repr(self.matchee), text_repr(self.expected)
+        return (
+            f"{text_repr(self.matchee)} does not end with {text_repr(self.expected)}."
         )
 
 
@@ -291,7 +366,9 @@ class NotAnInstance(Mismatch):
         if len(self.types) == 1:
             typestr = self.types[0].__name__
         else:
-            typestr = "any of (%s)" % ", ".join(type.__name__ for type in self.types)
+            typestr = "any of ({})".format(
+                ", ".join(type.__name__ for type in self.types)
+            )
         return f"'{self.matchee}' is not an instance of {typestr}"
 
 
@@ -340,13 +417,13 @@ class MatchesRegex:
         self.flags = flags
 
     def __str__(self):
-        args = ["%r" % self.pattern]
+        args = [f"{self.pattern!r}"]
         flag_arg = []
         # dir() sorts the attributes for us, so we don't need to do it again.
         for flag in dir(re):
             if len(flag) == 1:
                 if self.flags & getattr(re, flag):
-                    flag_arg.append("re.%s" % flag)
+                    flag_arg.append(f"re.{flag}")
         if flag_arg:
             args.append("|".join(flag_arg))
         return "{}({})".format(self.__class__.__name__, ", ".join(args))

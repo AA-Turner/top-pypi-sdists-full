@@ -9,26 +9,44 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal, Union
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 
 
-class PorterAuthor(GitHubModel):
-    """Porter Author
+class ContentSubmodule(GitHubModel):
+    """Submodule Content
 
-    Porter Author
+    An object describing a submodule
     """
 
-    id: int = Field()
-    remote_id: str = Field()
-    remote_name: str = Field()
-    email: str = Field()
+    type: Literal["submodule"] = Field()
+    submodule_git_url: str = Field()
+    size: int = Field()
     name: str = Field()
+    path: str = Field()
+    sha: str = Field()
     url: str = Field()
-    import_url: str = Field()
+    git_url: Union[str, None] = Field()
+    html_url: Union[str, None] = Field()
+    download_url: Union[str, None] = Field()
+    links: ContentSubmodulePropLinks = Field(alias="_links")
 
 
-model_rebuild(PorterAuthor)
+class ContentSubmodulePropLinks(GitHubModel):
+    """ContentSubmodulePropLinks"""
 
-__all__ = ("PorterAuthor",)
+    git: Union[str, None] = Field()
+    html: Union[str, None] = Field()
+    self_: str = Field(alias="self")
+
+
+model_rebuild(ContentSubmodule)
+model_rebuild(ContentSubmodulePropLinks)
+
+__all__ = (
+    "ContentSubmodule",
+    "ContentSubmodulePropLinks",
+)

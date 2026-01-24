@@ -15,14 +15,18 @@ public:
         this->logger = logger;
     }
 
-    virtual ~Pl_PythonLogger()                          = default;
-    Pl_PythonLogger(const Pl_PythonLogger &)            = delete;
+    // LCOV_EXCL_START - destructor never called due to no_op_deleter
+    virtual ~Pl_PythonLogger() = default;
+    Pl_PythonLogger(const Pl_PythonLogger &) = delete;
     Pl_PythonLogger &operator=(const Pl_PythonLogger &) = delete;
-    Pl_PythonLogger(Pl_PythonLogger &&)                 = delete;
-    Pl_PythonLogger &operator=(Pl_PythonLogger &&)      = delete;
+    Pl_PythonLogger(Pl_PythonLogger &&) = delete;
+    Pl_PythonLogger &operator=(Pl_PythonLogger &&) = delete;
+    // LCOV_EXCL_STOP
 
     void write(const unsigned char *buf, size_t len) override;
+    // LCOV_EXCL_START - qpdf logger doesn't call finish() on pipelines
     void finish() override;
+    // LCOV_EXCL_STOP
 
 private:
     py::object logger;
@@ -36,11 +40,13 @@ void Pl_PythonLogger::write(const unsigned char *buf, size_t len)
     this->logger.attr(this->level)(msg);
 }
 
+// LCOV_EXCL_START - qpdf logger doesn't call finish() on pipelines
 void Pl_PythonLogger::finish()
 {
     py::gil_scoped_acquire gil;
     this->logger.attr("flush")();
 }
+// LCOV_EXCL_STOP
 
 std::shared_ptr<QPDFLogger> get_pikepdf_logger()
 {
@@ -48,16 +54,32 @@ std::shared_ptr<QPDFLogger> get_pikepdf_logger()
     return QPDFLogger::defaultLogger();
 }
 
+// LCOV_EXCL_START
+static void no_op_deleter(void *ptr) noexcept
+{
+    // Intentionally left empty. The object is never deleted by the shared_ptr.
+    // The memory will be reclaimed when the program terminates.
+    // As a result, we deliberately leak memory associated with Pl_PythonLogger
+    // objects to avoid shutdown sequencing issues between Python and C++
+    // destructors.
+    // https://github.com/pikepdf/pikepdf/issues/686
+    (void)ptr;
+}
+// LCOV_EXCL_STOP
+
 void init_logger(py::module_ &m)
 {
     auto py_logger = py::module_::import("logging").attr("getLogger")("pikepdf._core");
 
-    std::shared_ptr<Pipeline> pl_log_info = std::make_shared<Pl_PythonLogger>(
-        "qpdf to Python logging pipeline", py_logger, "info");
-    std::shared_ptr<Pipeline> pl_log_warn = std::make_shared<Pl_PythonLogger>(
-        "qpdf to Python logging pipeline", py_logger, "warning");
-    std::shared_ptr<Pipeline> pl_log_error = std::make_shared<Pl_PythonLogger>(
-        "qpdf to Python logging pipeline", py_logger, "error");
+    std::shared_ptr<Pipeline> pl_log_info = std::shared_ptr<Pl_PythonLogger>(
+        new Pl_PythonLogger("qpdf to Python logging pipeline", py_logger, "info"),
+        no_op_deleter);
+    std::shared_ptr<Pipeline> pl_log_warn = std::shared_ptr<Pl_PythonLogger>(
+        new Pl_PythonLogger("qpdf to Python logging pipeline", py_logger, "warning"),
+        no_op_deleter);
+    std::shared_ptr<Pipeline> pl_log_error = std::shared_ptr<Pl_PythonLogger>(
+        new Pl_PythonLogger("qpdf to Python logging pipeline", py_logger, "error"),
+        no_op_deleter);
 
     auto pikepdf_logger = get_pikepdf_logger();
     pikepdf_logger->setInfo(pl_log_info);

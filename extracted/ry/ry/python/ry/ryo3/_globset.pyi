@@ -12,10 +12,11 @@ class Glob:
         pattern: str,
         /,
         *,
-        case_insensitive: bool | None = None,
-        literal_separator: bool | None = None,
-        backslash_escape: bool | None = None,
+        case_insensitive: bool = False,
+        literal_separator: bool = False,
+        backslash_escape: bool = ...,  # True on windows, False otherwise
     ) -> None: ...
+    @property
     def regex(self) -> str: ...
     def is_match(self, path: str | PathLike[str]) -> bool: ...
     def is_match_str(self, path: str) -> bool: ...
@@ -33,9 +34,9 @@ class GlobSet:
         patterns: list[str],
         /,
         *,
-        case_insensitive: bool | None = None,
-        literal_separator: bool | None = None,
-        backslash_escape: bool | None = None,
+        case_insensitive: bool = False,
+        literal_separator: bool = False,
+        backslash_escape: bool = ...,  # True on windows, False otherwise
     ) -> None: ...
     def is_empty(self) -> bool: ...
     def is_match(self, path: str) -> bool: ...
@@ -60,9 +61,9 @@ class Globster:
         patterns: list[str],
         /,
         *,
-        case_insensitive: bool | None = None,
-        literal_separator: bool | None = None,
-        backslash_escape: bool | None = None,
+        case_insensitive: bool = False,
+        literal_separator: bool = False,
+        backslash_escape: bool = ...,  # True on windows, False otherwise
     ) -> None: ...
     def is_empty(self) -> bool: ...
     def is_match(self, path: str | PathLike[str]) -> bool: ...
@@ -75,7 +76,7 @@ def globster(
     patterns: list[str] | tuple[str, ...],
     /,
     *,
-    case_insensitive: bool | None = None,
-    literal_separator: bool | None = None,
-    backslash_escape: bool | None = None,
+    case_insensitive: bool = False,
+    literal_separator: bool = False,
+    backslash_escape: bool = ...,  # True on windows, False otherwise
 ) -> Globster: ...

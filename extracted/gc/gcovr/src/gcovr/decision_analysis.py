@@ -2,12 +2,12 @@
 
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.3, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.3
+# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.6
 #
 # _____________________________________________________________________________
 #
-# Copyright (c) 2013-2025 the gcovr authors
+# Copyright (c) 2013-2026 the gcovr authors
 # Copyright (c) 2013 Sandia Corporation.
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 # the U.S. Government retains certain rights in this software.
@@ -19,17 +19,17 @@
 
 # cspell:ignore ault
 
-import logging
 import re
 
-from .coverage import (
+from .data_model.coverage import (
     DecisionCoverageUncheckable,
     DecisionCoverageConditional,
     DecisionCoverageSwitch,
     FileCoverage,
+    LineCoverage,
 )
-
-LOGGER = logging.getLogger("gcovr")
+from .exceptions import SanityCheckError
+from .logging import LOGGER
 
 _CHARACTERS_TO_ADD_SPACES = re.compile(r"([;:\(\)\{\}])")
 _C_STYLE_COMMENT_PATTERN = re.compile(r"/\*.*?\*/")
@@ -159,8 +159,14 @@ class DecisionParser:
             The encoding of the source files
     """
 
-    def __init__(self, coverage: FileCoverage, lines: list[str]) -> None:
-        self.coverage = coverage
+    def __init__(self, filecov: FileCoverage, lines: list[str]) -> None:
+        # If there are several line coverage definitions for the same line we ignore all of them
+        self.linecov_by_line: dict[int, LineCoverage | None] = {}
+        for linecov_collection in filecov.lines():
+            if len(linecov_collection) == 1:
+                self.linecov_by_line[linecov_collection.lineno] = list(
+                    linecov_collection.linecov()
+                )[0]
         self.lines = lines
 
         # status variables for decision analysis
@@ -182,7 +188,7 @@ class DecisionParser:
 
     def _parse_one_line(self, lineno: int, code: str) -> None:
         """Parse a single line"""
-        linecov = self.coverage.lines.get(lineno)
+        linecov = self.linecov_by_line.get(lineno)
 
         if linecov is None and not _is_a_switch(code):
             return
@@ -199,25 +205,30 @@ class DecisionParser:
             return
 
         # check if a branch exists (prevent misdetection caused by inaccurate parsing)
-        if linecov and len(linecov.branches.items()) > 0:
+        if linecov and linecov.has_reportable_branches:
+            branchcov_list = list(linecov.branches())
             if (
                 _is_a_loop(code)
                 or _is_a_oneline_branch(code)
-                or (_is_a_closed_branch(code) and (len(linecov.branches.items()) == 2))
+                or (_is_a_closed_branch(code) and (len(branchcov_list) == 2))
             ):
-                if len(linecov.branches.items()) == 2:
-                    keys = sorted(linecov.branches)
+                if len(branchcov_list) == 2:
                     # if it's a compact decision, we can only use the fallback to analyze
                     # simple decisions via branch calls
                     linecov.decision = DecisionCoverageConditional(
-                        linecov.branches[keys[0]].count,
-                        linecov.branches[keys[1]].count,
+                        linecov,
+                        linecov.data_sources,
+                        count_true=branchcov_list[0].count,
+                        count_false=branchcov_list[1].count,
                     )
                 else:
                     # it's a complex decision with more than 2 branches. No accurate detection possible
                     # Set the decision to uncheckable
-                    linecov.decision = DecisionCoverageUncheckable()
-                    LOGGER.debug(f"Uncheckable decision at line {lineno}")
+                    linecov.decision = DecisionCoverageUncheckable(
+                        linecov,
+                        linecov.data_sources,
+                    )
+                    LOGGER.debug("Uncheckable decision at line %d", lineno)
             else:
                 self._start_multiline_decision_analysis(lineno, code)
 
@@ -225,13 +236,15 @@ class DecisionParser:
         elif _is_a_switch(code):
             # Get the coverage of the next line before a break
             max_lineno = lineno + 1
-            if self.coverage.lines:
-                max_lineno = max(max_lineno, *self.coverage.lines.keys())
+            if self.linecov_by_line:
+                max_lineno = max(max_lineno, *self.linecov_by_line.keys())
 
             for next_lineno in range(lineno, max_lineno):
-                linecov = self.coverage.lines.get(next_lineno)
+                linecov = self.linecov_by_line.get(next_lineno)
                 if linecov is not None:
-                    linecov.decision = DecisionCoverageSwitch(linecov.count)
+                    linecov.decision = DecisionCoverageSwitch(
+                        linecov, linecov.data_sources, count=linecov.count
+                    )
                     break
                 if " break ;" in _prepare_decision_string(code):
                     break
@@ -247,28 +260,32 @@ class DecisionParser:
 
     def _continue_multiline_decision_analysis(self, lineno: int, code: str) -> None:
         """Handler for a decision which is continued on the current line."""
-        linecov = self.coverage.lines.get(lineno)
+        linecov = self.linecov_by_line.get(lineno)
         exec_count = 0 if linecov is None else linecov.count
-        last_decision_line_cov = self.coverage.lines.get(self.last_decision_line)
-        if last_decision_line_cov is None:
-            raise AssertionError(
-                "Sanity check failed, last decision must be present for multi line analysis."
+        last_decision_linecov = self.linecov_by_line.get(self.last_decision_line)
+        if last_decision_linecov is None:
+            raise SanityCheckError(
+                "Last decision must be present for multi line analysis."
             )
 
         # check, if the branch statement was finished in the last line
         if self.decision_analysis_open_brackets == 0:
             # set execution counts for the decision. true is the exec_count.
             # false is the delta between executed blocks and executions of the decision statement.
-            delta_count = last_decision_line_cov.count - exec_count
+            delta_count = last_decision_linecov.count - exec_count
             if delta_count >= 0:
-                last_decision_line_cov.decision = DecisionCoverageConditional(
-                    exec_count,
-                    delta_count,
+                last_decision_linecov.decision = DecisionCoverageConditional(
+                    linecov,
+                    "unknown" if linecov is None else linecov.data_sources,
+                    count_true=exec_count,
+                    count_false=delta_count,
                 )
             else:
-                last_decision_line_cov.decision = DecisionCoverageUncheckable()
+                last_decision_linecov.decision = DecisionCoverageUncheckable(
+                    linecov, "unknown" if linecov is None else linecov.data_sources
+                )
                 LOGGER.debug(
-                    f"Uncheckable decision at line {lineno}. (Delta = {delta_count})"
+                    "Uncheckable decision at line %d. (Delta = %d)", lineno, delta_count
                 )
 
             # disable the current decision analysis

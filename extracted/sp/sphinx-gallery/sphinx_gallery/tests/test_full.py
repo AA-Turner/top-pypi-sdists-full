@@ -46,7 +46,7 @@ N_FAILING = 4
 N_GOOD = N_EXAMPLES - N_FAILING  # galleries that run w/o error
 # passthroughs and non-executed examples in
 # (examples + examples_rst_index + examples_with_rst + examples_README_header)
-N_PASS = 3 + 0 + 2 + 0
+N_PASS = 4 + 0 + 2 + 0
 # indices SG generates  (extra non-plot*.py file) in
 # (examples + examples_rst_index + examples_with_rst + examples_README_header)
 N_INDEX = 2 + 1 + 3 + 1
@@ -680,6 +680,33 @@ def test_backreferences(sphinx_app):
     assert "figure_rst.html" not in html  # excluded
 
 
+def test_backreferences_dirhtml(sphinx_dirhtml_app):
+    """Test backreferences in dirhtml doc."""
+    out_dir = sphinx_dirhtml_app.outdir
+    mod_file = op.join(out_dir, "gen_modules", "sphinx_gallery.sorting", "index.html")
+    with codecs.open(mod_file, "r", "utf-8") as fid:
+        lines = fid.read()
+    assert "ExplicitOrder" in lines  # in API doc
+    assert "plot_second_future_imports/" in lines  # backref via code use
+    assert "FileNameSortKey" in lines  # in API doc
+    assert "plot_numpy_matplotlib/" in lines  # backref via :class: in str
+    mod_file = op.join(
+        out_dir, "gen_modules", "sphinx_gallery.backreferences", "index.html"
+    )
+    with codecs.open(mod_file, "r", "utf-8") as fid:
+        lines = fid.read()
+    assert "NameFinder" in lines  # in API doc
+    assert "plot_future_imports/" in lines  # backref via doc block
+    # rendered file
+    html = op.join(out_dir, "auto_examples", "plot_second_future_imports", "index.html")
+    assert op.isfile(html)
+    with codecs.open(html, "r", "utf-8") as fid:
+        html = fid.read()
+    assert "sphinx_gallery.sorting/#sphinx_gallery.sorting.ExplicitOrder" in html  # noqa: E501
+    assert "sphinx_gallery.scrapers/#sphinx_gallery.scrapers.clean_modules" in html  # noqa: E501
+    assert "figure_rst.html" not in html  # excluded
+
+
 @pytest.mark.parametrize(
     "rst_file, example_used_in",
     [
@@ -921,7 +948,7 @@ def test_rebuild(tmpdir_factory, sphinx_app):
     else:
         assert (
             re.match(
-                ".*[0|1] added, ([1-9]|1[0-1]) changed, 0 removed$.*",
+                ".*[0|1] added, ([1-9]|1[0-2]) changed, 0 removed$.*",
                 status,
                 re.MULTILINE | re.DOTALL,
             )
@@ -987,6 +1014,10 @@ def test_rebuild(tmpdir_factory, sphinx_app):
         "plot_scraper_broken",
         "plot_failing_example",
         "plot_failing_example_thumbnail",
+        # the rst of rst-input gallery entries is updated, because
+        # inputs are currently always copied over and "execution"
+        # is no-op.
+        "rst_gallery_entry",
     )
     _assert_mtimes(generated_rst_0, generated_rst_1, ignore=ignore)
 
@@ -1083,6 +1114,7 @@ def _rerun(
     # - auto_examples/plot_failing_example
     # - auto_examples/plot_failing_example_thumbnail
     # - auto_examples/plot_scraper_broken
+    # - auto_examples/rst_gallery_entry
     # - auto_examples/sg_execution_times
     # - auto_examples_rst_index/sg_execution_times
     # - auto_examples_with_rst/sg_execution_times
@@ -1098,7 +1130,7 @@ def _rerun(
     if how == "modify":
         n_ch = "([3-9]|1[0-3])"  # 3-13
     else:
-        n_ch = "([1-9]|1[01])"  # 1-11
+        n_ch = "([1-9]|1[0-2])"  # 1-12
     lines = "\n".join([f"\n{how} != {n_ch}:"] + lines)
     want = f".*updating environment:.*[0|1] added, {n_ch} changed, 0 removed.*"
     assert re.match(want, status, flags) is not None, lines
@@ -1164,6 +1196,10 @@ def _rerun(
         "plot_scraper_broken",
         "plot_failing_example",
         "plot_failing_example_thumbnail",
+        # the rst of rst-input gallery entries is updated, because
+        # inputs are currently always copied over and "execution"
+        # is no-op.
+        "rst_gallery_entry",
     )
     # not reliable on Windows and one Ubuntu run
     bad = sys.platform.startswith("win") or os.getenv("BAD_MTIME", "0") == "1"
@@ -1272,6 +1308,16 @@ def test_alt_text_thumbnail(sphinx_app):
     with codecs.open(generated_examples_index, "r", "utf-8") as fid:
         rst = fid.read()
     assert ":alt:" in rst
+
+
+def test_noqa_removal(sphinx_app):
+    """Test that "noqa: E501" is removed from end of text blocks."""
+    src_dir = sphinx_app.srcdir
+
+    example_rst = op.join(src_dir, "auto_examples", "plot_matplotlib_alt.rst")
+    with codecs.open(example_rst, "r", "utf-8") as fid:
+        rst = fid.read()
+    assert "# noqa: E501" not in rst
 
 
 def test_backreference_labels(sphinx_app):
@@ -1594,15 +1640,18 @@ def test_recommend_n_examples(sphinx_app):
     with codecs.open(fname, "r", "utf-8") as fid:
         html = fid.read()
 
-    count = html.count('<div class="sphx-glr-thumbnail-title">')
-    n_examples = sphinx_app.config.sphinx_gallery_conf["recommender"]["n_examples"]
+    (related_html,) = re.findall(
+        '<p class="rubric">Related examples</p>(.*)</section>', html, re.DOTALL
+    )
 
-    assert '<p class="rubric">Related examples</p>' in html
-    assert count == n_examples
+    n_thumbnails = related_html.count('<div class="sphx-glr-thumbnail-title">')
+    n_examples = sphinx_app.config.sphinx_gallery_conf["recommender"]["n_examples"]
+    assert n_thumbnails == n_examples
+
     # Check the same 3 related examples are shown (can change when new examples added)
-    assert "sphx-glr-auto-examples-plot-defer-figures-py" in html
-    assert "sphx-glr-auto-examples-plot-webp-py" in html
-    assert "sphx-glr-auto-examples-plot-command-line-args-py" in html
+    assert 'href="plot_webp.html"' in related_html
+    assert 'href="plot_command_line_args.html"' in related_html
+    assert 'href="plot_numpy_matplotlib.html"' in related_html
 
 
 def test_sidebar_components_download_links(sphinx_app):

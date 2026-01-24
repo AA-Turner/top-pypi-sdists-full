@@ -59,6 +59,7 @@ sdist.include = [
   "python/*.h*",
   "python/stubs.pat",
   "python/gemmi/__init__.py",
+  "python/gemmi/fetch.py",
   "third_party/README",
   "third_party/*.h",
   "third_party/zlib/*",
@@ -116,3 +117,6 @@ exceptions.overgeneral-exceptions = ["builtins.BaseException"]
   "duplicate-code", "import-outside-toplevel", "unspecified-encoding",
   "consider-using-f-string"
 ]
+
+[tool.ty]
+environment.extra-paths = ["build/py/gemmi"]

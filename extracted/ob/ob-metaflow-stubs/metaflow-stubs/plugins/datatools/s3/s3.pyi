@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.738393                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.911502                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -28,6 +28,8 @@ DATATOOLS_S3ROOT: None
 S3_RETRY_COUNT: int
 
 S3_TRANSIENT_RETRY_COUNT: int
+
+S3_LOG_TRANSIENT_RETRIES: bool
 
 S3_SERVER_SIDE_ENCRYPTION: None
 
@@ -410,16 +412,18 @@ class S3(object, metaclass=type):
     
     Parameters
     ----------
-    tmproot : str, default: '.'
+    tmproot : str, default '.'
         Where to store the temporary directory.
-    bucket : str, optional
+    bucket : str, optional, default None
         Override the bucket from `DATATOOLS_S3ROOT` when `run` is specified.
-    prefix : str, optional
+    prefix : str, optional, default None
         Override the path from `DATATOOLS_S3ROOT` when `run` is specified.
-    run : FlowSpec or Run, optional
+    run : FlowSpec or Run, optional, default None
         Derive path prefix from the current or a past run ID, e.g. S3(run=self).
-    s3root : str, optional
+    s3root : str, optional, default None
         If `run` is not specified, use this as the S3 prefix.
+    encryption : str, optional, default None
+        Server-side encryption to use when uploading objects to S3.
     """
     @classmethod
     def get_root_from_config(cls, echo, create_on_absent = True):

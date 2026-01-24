@@ -18,11 +18,13 @@ T = TypeVar("T", bound="UpdateWebsocketTriggerJsonBodyRetry")
 
 @_attrs_define
 class UpdateWebsocketTriggerJsonBodyRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, UpdateWebsocketTriggerJsonBodyRetryConstant]):
-        exponential (Union[Unset, UpdateWebsocketTriggerJsonBodyRetryExponential]):
-        retry_if (Union[Unset, UpdateWebsocketTriggerJsonBodyRetryRetryIf]):
+        constant (Union[Unset, UpdateWebsocketTriggerJsonBodyRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, UpdateWebsocketTriggerJsonBodyRetryExponential]): Retry with exponential backoff
+            (delay doubles each time)
+        retry_if (Union[Unset, UpdateWebsocketTriggerJsonBodyRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "UpdateWebsocketTriggerJsonBodyRetryConstant"] = UNSET

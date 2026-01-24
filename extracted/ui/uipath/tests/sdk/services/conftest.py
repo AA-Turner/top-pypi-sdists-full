@@ -1,11 +1,9 @@
 import importlib
-from functools import wraps
+from pathlib import Path
 
 import pytest
 
-from uipath._config import Config
-from uipath._execution_context import ExecutionContext
-from uipath.tracing._traced import TracingManager
+from uipath.platform import UiPathApiConfig, UiPathExecutionContext
 
 
 @pytest.fixture
@@ -29,8 +27,8 @@ def secret() -> str:
 
 
 @pytest.fixture
-def config(base_url: str, org: str, tenant: str, secret: str) -> Config:
-    return Config(base_url=f"{base_url}{org}{tenant}", secret=secret)
+def config(base_url: str, org: str, tenant: str, secret: str) -> UiPathApiConfig:
+    return UiPathApiConfig(base_url=f"{base_url}{org}{tenant}", secret=secret)
 
 
 @pytest.fixture
@@ -41,23 +39,18 @@ def version(monkeypatch: pytest.MonkeyPatch) -> str:
 
 
 @pytest.fixture
-def execution_context(monkeypatch: pytest.MonkeyPatch) -> ExecutionContext:
+def execution_context(monkeypatch: pytest.MonkeyPatch) -> UiPathExecutionContext:
     monkeypatch.setenv("UIPATH_ROBOT_KEY", "test-robot-key")
-    return ExecutionContext()
+    return UiPathExecutionContext()
 
 
-@pytest.fixture(autouse=True)
-def mock_tracer():
-    def mock_tracer_impl(**kwargs):
-        def decorator(func):
-            @wraps(func)
-            def wrapper(*args, **kwargs):
-                return func(*args, **kwargs)
+@pytest.fixture
+def tests_data_path() -> Path:
+    return Path(__file__).resolve().parent / "tests_data"
 
-            return wrapper
 
-        return decorator
+@pytest.fixture
+def jobs_service(config, execution_context):
+    from uipath.platform.orchestrator import JobsService
 
-    TracingManager.reapply_traced_decorator(mock_tracer_impl)
-    yield
-    TracingManager.reapply_traced_decorator(None)
+    return JobsService(config, execution_context)

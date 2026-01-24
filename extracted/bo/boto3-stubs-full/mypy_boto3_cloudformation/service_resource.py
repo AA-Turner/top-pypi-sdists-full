@@ -3,7 +3,7 @@ Type annotations for cloudformation service ServiceResource.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/service_resource/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -26,6 +26,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterator, Sequence
 from datetime import datetime
 
 from boto3.resources.base import ResourceMeta, ServiceResource
@@ -46,6 +47,7 @@ from .type_defs import (
     CreateStackInputServiceResourceCreateStackTypeDef,
     DeleteStackInputStackDeleteTypeDef,
     ModuleInfoTypeDef,
+    OperationEntryTypeDef,
     OutputTypeDef,
     ParameterTypeDef,
     RollbackConfigurationOutputTypeDef,
@@ -57,11 +59,6 @@ from .type_defs import (
     UpdateStackOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import list as List
-    from collections.abc import Iterator, Sequence
-else:
-    from typing import Iterator, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -123,7 +120,7 @@ class ServiceResourceStacksCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/service_resource/#serviceresourcestackscollection)
         """
 
-    def pages(self) -> Iterator[List[Stack]]:
+    def pages(self) -> Iterator[list[Stack]]:
         """
         A generator which yields pages of Stacks.
 
@@ -156,7 +153,7 @@ class StackEventsCollection(ResourceCollection):
         """
 
     def filter(  # type: ignore[override]
-        self, *, StackName: str = ..., NextToken: str = ...
+        self, *, NextToken: str = ...
     ) -> StackEventsCollection:
         """
         Get items from the collection, passing keyword arguments along as parameters to
@@ -183,7 +180,7 @@ class StackEventsCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/service_resource/#stackevents)
         """
 
-    def pages(self) -> Iterator[List[Event]]:
+    def pages(self) -> Iterator[list[Event]]:
         """
         A generator which yields pages of Events.
 
@@ -243,7 +240,7 @@ class StackResourceSummariesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/service_resource/#stackresource_summaries)
         """
 
-    def pages(self) -> Iterator[List[StackResourceSummary]]:
+    def pages(self) -> Iterator[list[StackResourceSummary]]:
         """
         A generator which yields pages of StackResourceSummarys.
 
@@ -270,6 +267,7 @@ class Event(ServiceResource):
     stack_id: str
     event_id: str
     stack_name: str
+    operation_id: str
     logical_resource_id: str
     physical_resource_id: str
     resource_type: str
@@ -312,7 +310,7 @@ class Stack(ServiceResource):
     stack_name: str
     change_set_id: str
     description: str
-    parameters: List[ParameterTypeDef]
+    parameters: list[ParameterTypeDef]
     creation_time: datetime
     deletion_time: datetime
     last_updated_time: datetime
@@ -320,12 +318,12 @@ class Stack(ServiceResource):
     stack_status: StackStatusType
     stack_status_reason: str
     disable_rollback: bool
-    notification_arns: List[str]
+    notification_arns: list[str]
     timeout_in_minutes: int
-    capabilities: List[CapabilityType]
-    outputs: List[OutputTypeDef]
+    capabilities: list[CapabilityType]
+    outputs: list[OutputTypeDef]
     role_arn: str
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     enable_termination_protection: bool
     parent_id: str
     root_id: str
@@ -333,6 +331,7 @@ class Stack(ServiceResource):
     retain_except_on_create: bool
     deletion_mode: DeletionModeType
     detailed_status: DetailedStatusType
+    last_operations: list[OperationEntryTypeDef]
     meta: CloudFormationResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:

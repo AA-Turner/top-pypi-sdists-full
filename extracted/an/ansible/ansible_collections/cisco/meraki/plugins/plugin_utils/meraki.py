@@ -39,10 +39,10 @@ def has_diff_elem(ls1, ls2):
     return any(elem not in ls1 for elem in ls2)
 
 
-def compare_dicts(dict1, dict2):
+def compare_dicts(dict1, dict2, common_keys):
     """Compares two dictionaries considering the defined rules."""
     for key in dict1:
-        if key in dict2:
+        if key in dict2 and key in common_keys:
             val1, val2 = dict1[key], dict2[key]
 
             if isinstance(val1, str) and have_to_change_to_lowercase(val1.lower()):
@@ -52,8 +52,15 @@ def compare_dicts(dict1, dict2):
                 if has_diff_elem(val1, val2):
                     return True
             else:
-                if str(val1) != str(val2):
-                    return True
+                if isinstance(val1, dict) and isinstance(val2, dict):
+                    # common_keys between val1 and val2
+                    new_common_keys = set(val1.keys()) & set(val2.keys())
+                    compare_dicts(val1, val2, new_common_keys)
+                    if compare_dicts(val1, val2, new_common_keys):
+                        return True
+                else:
+                    if str(val1) != str(val2):
+                        return True
     return False
 
 
@@ -62,12 +69,22 @@ def has_diff_elem2(ls1, ls2):
     if len(ls1) != len(ls2):
         return True
 
+    # Check if first elements are dictionaries before accessing keys
+    if not (isinstance(ls1[0], dict) and isinstance(ls2[0], dict)):
+        # If not both dicts, fall back to simple comparison
+        for i, elem in enumerate(ls2):
+            if str(ls1[i]) != str(elem):
+                return True
+        return False
+
+    # Only compare common keys between ls1 and ls2
+    common_keys = set(ls1[0].keys()) & set(ls2[0].keys())
     for i, elem in enumerate(ls2):
         if isinstance(elem, dict):
             # Ensure ls1[i] is also a dictionary
             if not isinstance(ls1[i], dict):
                 return True
-            if compare_dicts(ls1[i], elem):
+            if compare_dicts(ls1[i], elem, common_keys):
                 return True
         else:
             # If elements are not dictionaries, compare them directly
@@ -144,9 +161,14 @@ def meraki_compare_equality(current_value, requested_value):
 
 def meraki_compare_equality2(current_value, requested_value):
     # print("meraki_compare_equality", current_value, requested_value)
+    if requested_value is not None and current_value is None:
+        # print("requested_value is not None and current_value is None", False)
+        return False
     if requested_value is None:
+        # print("requested_value is None", True)
         return True
     if current_value is None:
+        # print("current_value", True)
         return True
     if isinstance(current_value, dict) and isinstance(requested_value, dict):
         all_dict_params = list(current_value.keys()) + \
@@ -155,6 +177,7 @@ def meraki_compare_equality2(current_value, requested_value):
     elif isinstance(current_value, list) and isinstance(requested_value, list):
         return compare_list(current_value, requested_value)
     else:
+        # print("current_value == requested_value", current_value == requested_value)
         return current_value == requested_value
 
 

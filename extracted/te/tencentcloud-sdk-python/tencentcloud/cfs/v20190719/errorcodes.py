@@ -119,6 +119,9 @@ INVALIDPARAMETERVALUE_DUPLICATEDRULEAUTHCLIENTIP = 'InvalidParameterValue.Duplic
 # 标签键重复
 INVALIDPARAMETERVALUE_DUPLICATEDTAGKEY = 'InvalidParameterValue.DuplicatedTagKey'
 
+# ExternalStorage 生命周期模式只支持数据流动
+INVALIDPARAMETERVALUE_EXTERNALSTORAGESUPPORTDATAFLOWONLY = 'InvalidParameterValue.ExternalStorageSupportDataflowOnly'
+
 # 用户自定义名称过长（超过64字节)。
 INVALIDPARAMETERVALUE_FSNAMELIMITEXCEEDED = 'InvalidParameterValue.FsNameLimitExceeded'
 
@@ -317,6 +320,9 @@ INVALIDPARAMETERVALUE_MISSINGZONEID = 'InvalidParameterValue.MissingZoneId'
 # 用户区域选择错误 (Zone) 或 (Zone_id)二者必选一。
 INVALIDPARAMETERVALUE_MISSINGZONEORZONEID = 'InvalidParameterValue.MissingZoneOrZoneId'
 
+# 该文件系统目录已配置数据流动，请配置其他规则
+INVALIDPARAMETERVALUE_PATHUSEDINDATAFLOW = 'InvalidParameterValue.PathUsedInDataflow'
+
 # 权限组描述长度超过限制（不能超过255字节）。
 INVALIDPARAMETERVALUE_PGROUPDESCINFOLIMITEXCEEDED = 'InvalidParameterValue.PgroupDescinfoLimitExceeded'
 
@@ -371,7 +377,7 @@ INVALIDPARAMETERVALUE_TAGVALUELIMITEXCEEDED = 'InvalidParameterValue.TagValueLim
 # 该可用区无法提供服务。
 INVALIDPARAMETERVALUE_UNAVAILABLEREGION = 'InvalidParameterValue.UnavailableRegion'
 
-# 该地域无法提供服务。
+# 该地域或可用区无法提供服务。
 INVALIDPARAMETERVALUE_UNAVAILABLEZONE = 'InvalidParameterValue.UnavailableZone'
 
 # 生命周期数据任务数超限
@@ -460,6 +466,9 @@ UNSUPPORTEDOPERATION = 'UnsupportedOperation'
 
 # 该可用区不支持基础网络。
 UNSUPPORTEDOPERATION_BASICNETINTERFACENOTSUPPORTED = 'UnsupportedOperation.BasicNetInterfaceNotSupported'
+
+# 该文件系统版本不支持当前操作
+UNSUPPORTEDOPERATION_INVALIDCFSVERSION = 'UnsupportedOperation.InvalidCfsVersion'
 
 # 该数据流动不支持删除，关联该数据流动的数据管理任务正在执行中，请等待执行完成或终止执行。
 UNSUPPORTEDOPERATION_INVALIDLIFECYCLEDATATASKSTATUS = 'UnsupportedOperation.InvalidLifecycleDataTaskStatus'

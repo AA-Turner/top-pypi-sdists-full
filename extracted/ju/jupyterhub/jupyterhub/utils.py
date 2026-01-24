@@ -170,7 +170,8 @@ def make_ssl_context(
     ssl_context.load_default_certs()
 
     ssl_context.load_cert_chain(certfile, keyfile)
-    ssl_context.check_hostname = check_hostname
+    if check_hostname is not None:
+        ssl_context.check_hostname = check_hostname
     return ssl_context
 
 
@@ -983,3 +984,13 @@ def fmt_ip_url(ip):
     if ":" in ip:
         return f"[{ip}]"
     return ip
+
+
+def format_exception(exc, *, only_jupyterhub=False):
+    """
+    Format an exception into a text string and HTML pair.
+    """
+    default_message = None if only_jupyterhub else str(exc)
+    return getattr(exc, "jupyterhub_message", default_message), getattr(
+        exc, "jupyterhub_html_message", None
+    )

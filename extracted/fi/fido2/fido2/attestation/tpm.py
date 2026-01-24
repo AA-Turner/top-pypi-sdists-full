@@ -79,7 +79,7 @@ class TpmAlgHash(IntEnum):
 
     def _hash_alg(self) -> hashes.HashAlgorithm:
         if self == TpmAlgHash.SHA1:
-            return hashes.SHA1()  # nosec
+            return hashes.SHA1()  # noqa: S303
         elif self == TpmAlgHash.SHA256:
             return hashes.SHA256()
         elif self == TpmAlgHash.SHA384:
@@ -529,6 +529,7 @@ class TpmAttestation(Attestation):
         # Verify that the public key specified by the parameters and unique
         # fields of pubArea is identical to the credentialPublicKey in the
         # attestedCredentialData in authenticatorData.
+        assert auth_data.credential_data is not None  # noqa: S101
         if (
             auth_data.credential_data.public_key.from_cryptography_key(
                 pub_area.public_key()

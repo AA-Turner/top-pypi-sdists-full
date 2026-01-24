@@ -6,6 +6,7 @@ Miscelleanous tools used by tryton
 """
 import importlib
 import io
+import math
 import os
 import re
 import types
@@ -13,7 +14,7 @@ import unicodedata
 import warnings
 from array import array
 from collections.abc import Iterable, Sized
-from functools import wraps
+from functools import cache, wraps
 from itertools import chain, islice, tee, zip_longest
 
 from sql import As, Literal, Select
@@ -26,14 +27,11 @@ try:
     from backports.entry_points_selectable import entry_points as _entry_points
 except ImportError:
     from importlib.metadata import entry_points as _entry_points
-_ENTRY_POINTS = None
 
 
+@cache
 def entry_points():
-    global _ENTRY_POINTS
-    if _ENTRY_POINTS is None:
-        _ENTRY_POINTS = _entry_points()
-    return _ENTRY_POINTS
+    return _entry_points()
 
 
 def import_module(name):
@@ -50,9 +48,12 @@ def file_open(name, mode="r", subdir='modules', encoding=None):
     return io.open(path, mode, encoding=encoding)
 
 
+_root_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+@cache
 def find_path(name, subdir='modules', _test=os.path.isfile):
     "Return path from the root directory, using subdir folder"
-    root_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     def secure_join(root, *paths):
         "Join paths and ensure it still below root"
@@ -69,20 +70,20 @@ def find_path(name, subdir='modules', _test=os.path.isfile):
             except ValueError:
                 module_name, module_path = name, ''
             if module_name in {'ir', 'res', 'tests'}:
-                path = secure_join(root_path, module_name, module_path)
+                path = secure_join(_root_path, module_name, module_path)
             else:
                 try:
                     module = import_module(module_name)
                 except ModuleNotFoundError:
-                    path = secure_join(root_path, subdir, name)
+                    path = secure_join(_root_path, subdir, name)
                 else:
                     path = os.path.dirname(module.__file__)
                     if module_path:
                         path = secure_join(path, module_path)
         else:
-            path = secure_join(root_path, subdir, name)
+            path = secure_join(_root_path, subdir, name)
     else:
-        path = secure_join(root_path, name)
+        path = secure_join(_root_path, name)
 
     if not _test or _test(path):
         return path
@@ -304,6 +305,32 @@ def sql_pairing(x, y):
     return Case(
         (x < y, (y * y) + x),
         else_=(x * x) + x + y)
+
+
+def pair(x, y):
+    "Returns z as a pair of x and y"
+    if x < 0 or y < 0:
+        raise ValueError("x and y must be non-negative")
+    if x < y:
+        z = y ** 2 + x
+    else:
+        z = x ** 2 + x + y
+    return z
+
+
+def unpair(z):
+    "Returns the x and y pair associated with z"
+    if z < 0:
+        raise ValueError("z must be non-negative")
+    sqrtz = math.isqrt(z)
+    sq = sqrtz ** 2
+    if z - sq < sqrtz:
+        x = z - sq
+        y = sqrtz
+    else:
+        x = sqrtz
+        y = z - sq - sqrtz
+    return x, y
 
 
 def sqlite_apply_types(select, types):

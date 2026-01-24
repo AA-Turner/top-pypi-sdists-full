@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: RTFDE
-Version: 0.1.2.1
+Version: 0.1.2.2
 Summary: A library for extracting HTML content from RTF encapsulated HTML as commonly found in the exchange MSG email format.
 Home-page: https://github.com/seamustuohy/RTFDE
 Author: seamus tuohy
@@ -15,12 +15,12 @@ Classifier: Topic :: Communications :: Email :: Filters
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: lark~=1.1.8
+Requires-Dist: lark~=1.3.0
 Requires-Dist: oletools>=0.56
 Provides-Extra: msg-parse
 Requires-Dist: extract_msg~=0.27; extra == "msg-parse"
 Provides-Extra: dev
-Requires-Dist: lxml~=4.6; extra == "dev"
+Requires-Dist: lxml~=6.0; extra == "dev"
 Requires-Dist: mypy~=1.1; extra == "dev"
 Requires-Dist: pdoc3~=0.10.0; extra == "dev"
 Requires-Dist: coverage~=7.2.2; extra == "dev"

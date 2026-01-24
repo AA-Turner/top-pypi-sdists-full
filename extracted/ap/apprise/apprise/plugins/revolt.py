@@ -59,7 +59,7 @@ class NotifyRevolt(NotifyBase):
     secure_protocol = "revolt"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_revolt"
+    setup_url = "https://appriseit.com/services/revolt/"
 
     # Revolt Channel Message
     notify_url = "https://api.revolt.chat/"
@@ -212,7 +212,7 @@ class NotifyRevolt(NotifyBase):
         has_error = False
         channel_ids = list(self.targets)
         for channel_id in channel_ids:
-            postokay, response = self._send(payload, channel_id)
+            postokay, _response = self._send(payload, channel_id)
             if not postokay:
                 # Failed to send message
                 has_error = True
@@ -302,8 +302,8 @@ class NotifyRevolt(NotifyBase):
 
                 # Some details to debug by
                 self.logger.debug(
-                    f"Response Details:\r\n{content if content else r.content}"
-                )
+                    "Response Details:\r\n%r",
+                    content if content else (r.content or b"")[:2000])
 
                 # We had a problem
                 status_str = NotifyBase.http_response_code_lookup(

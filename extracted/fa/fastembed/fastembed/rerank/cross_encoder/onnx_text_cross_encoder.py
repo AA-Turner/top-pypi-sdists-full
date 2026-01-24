@@ -111,6 +111,7 @@ class OnnxTextCrossEncoder(TextCrossEncoderBase, OnnxCrossEncoderModel):
         super().__init__(model_name, cache_dir, threads, **kwargs)
         self.providers = providers
         self.lazy_load = lazy_load
+        self._extra_session_options = self._select_exposed_session_options(kwargs)
 
         # List of device ids, that can be used for data parallel processing in workers
         self.device_ids = device_ids
@@ -150,6 +151,7 @@ class OnnxTextCrossEncoder(TextCrossEncoderBase, OnnxCrossEncoderModel):
             providers=self.providers,
             cuda=self.cuda,
             device_id=self.device_id,
+            extra_session_options=self._extra_session_options,
         )
 
     def rerank(
@@ -192,6 +194,7 @@ class OnnxTextCrossEncoder(TextCrossEncoderBase, OnnxCrossEncoderModel):
             device_ids=self.device_ids,
             local_files_only=self._local_files_only,
             specific_model_path=self._specific_model_path,
+            extra_session_options=self._extra_session_options,
             **kwargs,
         )
 
@@ -203,6 +206,20 @@ class OnnxTextCrossEncoder(TextCrossEncoderBase, OnnxCrossEncoderModel):
         self, output: OnnxOutputContext, **kwargs: Any
     ) -> Iterable[float]:
         return (float(elem) for elem in output.model_output)
+
+    def token_count(
+        self, pairs: Iterable[tuple[str, str]], batch_size: int = 1024, **kwargs: Any
+    ) -> int:
+        """Returns the number of tokens in the pairs.
+
+        Args:
+            pairs: Iterable of tuples, where each tuple contains a query and a document to be tokenized
+            batch_size: Batch size for tokenizing
+
+        Returns:
+            token count: overall number of tokens in the pairs
+        """
+        return self._token_count(pairs, batch_size=batch_size, **kwargs)
 
 
 class TextCrossEncoderWorker(TextRerankerWorker):

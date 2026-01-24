@@ -11,12 +11,11 @@ Currently only ``.h5ad`` (`AnnData <https://anndata.readthedocs.io/>`_) is suppo
 from __future__ import annotations
 
 import json
+from collections.abc import KeysView, Sequence
 from concurrent.futures import Future
 from typing import (
     TYPE_CHECKING,
     Any,
-    KeysView,
-    Sequence,
     Union,
     cast,
 )
@@ -27,24 +26,15 @@ import pandas as pd
 import pyarrow as pa
 import scipy.sparse as sp
 
-from .. import (
-    Collection,
-    DataFrame,
-    DenseNDArray,
-    Experiment,
-    Measurement,
-    SparseNDArray,
-    _util,
-    logging,
-)
-from .._constants import SOMA_JOINID
-from .._dask.load import SOMADaskConfig, load_daskarray
-from .._exception import SOMAError
-from .._types import NPNDArray, Path
-from .._util import MISSING, Sentinel, _resolve_futures
+from tiledbsoma import Collection, DataFrame, DenseNDArray, Experiment, Measurement, SparseNDArray, _util, logging
+from tiledbsoma._constants import SOMA_DATAFRAME_ORIGINAL_INDEX_NAME_JSON, SOMA_JOINID
+from tiledbsoma._dask.load import SOMADaskConfig, load_daskarray
+from tiledbsoma._exception import SOMAError
+from tiledbsoma._types import NPNDArray, Path
+from tiledbsoma._util import MISSING, Sentinel, _df_set_index, _resolve_futures
+
 from . import conversions
 from ._common import (
-    _DATAFRAME_ORIGINAL_INDEX_NAME_JSON,
     _UNS_OUTGEST_COLUMN_NAME_1D,
     _UNS_OUTGEST_COLUMN_PREFIX_2D,
     _UNS_OUTGEST_HINT_1D,
@@ -98,9 +88,7 @@ def to_h5ad(
 
     logging.log_io(None, _util.format_elapsed(s2, f"FINISH write {h5ad_path}"))
 
-    logging.log_io(
-        None, _util.format_elapsed(s, f"FINISH Experiment.to_h5ad -> {h5ad_path}")
-    )
+    logging.log_io(None, _util.format_elapsed(s, f"FINISH Experiment.to_h5ad -> {h5ad_path}"))
 
 
 def _read_partitioned_sparse(X: SparseNDArray, d0_size: int) -> pa.Table:
@@ -111,7 +99,7 @@ def _read_partitioned_sparse(X: SparseNDArray, d0_size: int) -> pa.Table:
     fallback_row_count = 32768
     try:
         # frag_cell_count is >= nnz, as it does not account for deletes and double-counts updates
-        frag_cell_count: int | None = X._handle._handle.fragment_cell_count()
+        frag_cell_count: int | None = X._handle.fragment_cell_count()
     except SOMAError:
         frag_cell_count = None
     partition_sz = (
@@ -119,21 +107,15 @@ def _read_partitioned_sparse(X: SparseNDArray, d0_size: int) -> pa.Table:
         if frag_cell_count is not None and frag_cell_count > 0
         else min(fallback_row_count, d0_size)
     )
-    partitions = [
-        slice(st, min(st + partition_sz - 1, d0_size - 1))
-        for st in range(0, d0_size, partition_sz)
-    ]
+    partitions = [slice(st, min(st + partition_sz - 1, d0_size - 1)) for st in range(0, d0_size, partition_sz)]
     n_partitions = len(partitions)
 
     def _read_sparse_X(A: SparseNDArray, row_slc: slice) -> pa.Table:
         return A.read(coords=(row_slc,)).tables().concat()
 
     if n_partitions > 1:  # don't consume threads unless there is a reason to do so
-        return pa.concat_tables(
-            X.context.threadpool.map(_read_sparse_X, (X,) * n_partitions, partitions)
-        )
-    else:
-        return _read_sparse_X(X, partitions[0])
+        return pa.concat_tables(X.context.threadpool.map(_read_sparse_X, (X,) * n_partitions, partitions))
+    return _read_sparse_X(X, partitions[0])
 
 
 if TYPE_CHECKING:
@@ -149,12 +131,10 @@ def _extract_X_key(
     nobs: int,
     nvar: int,
     dask: SOMADaskConfig | None = None,
-) -> Union[Future[Matrix], "da.Array"]:
+) -> Future[Matrix] | da.Array:
     """Helper function for to_anndata."""
     if X_layer_name not in measurement.X:
-        raise ValueError(
-            f"X_layer_name {X_layer_name} not found in data: {measurement.X.keys()}"
-        )
+        raise ValueError(f"X_layer_name {X_layer_name} not found in data: {measurement.X.keys()}")
 
     # Acquire handle to TileDB-SOMA data
     X = measurement.X[X_layer_name]
@@ -167,25 +147,22 @@ def _extract_X_key(
             **dask,
         )
     # Read data from SOMA into memory
-    elif isinstance(X, DenseNDArray):
+    if isinstance(X, DenseNDArray):
 
         def _read_dense_X(A: DenseNDArray) -> Matrix:
             return A.read((slice(None), slice(None))).to_numpy()
 
         return tp.submit(_read_dense_X, X)
 
-    elif isinstance(X, SparseNDArray):
+    if isinstance(X, SparseNDArray):
 
         def _read_X_partitions() -> Matrix:
             stk_of_coo = _read_partitioned_sparse(X, nobs)
-            return conversions.csr_from_coo_table(
-                stk_of_coo, nobs, nvar, context=X.context
-            )
+            return conversions.csr_from_coo_table(stk_of_coo, nobs, nvar, context=X.context)
 
         return X.context.threadpool.submit(_read_X_partitions)
 
-    else:
-        raise TypeError(f"Unexpected NDArray type {type(X)}")
+    raise TypeError(f"Unexpected NDArray type {type(X)}")
 
 
 def _read_dataframe(
@@ -208,14 +185,10 @@ def _read_dataframe(
     `test_dataframe_io_roundtrips.py` / https://github.com/single-cell-data/TileDB-SOMA/issues/2829.
     """
     # Read and validate the "original index metadata" stored alongside this SOMA DataFrame.
-    original_index_metadata = json.loads(
-        df.metadata.get(_DATAFRAME_ORIGINAL_INDEX_NAME_JSON, "null")
-    )
-    if not (
-        original_index_metadata is None or isinstance(original_index_metadata, str)
-    ):
+    original_index_metadata = json.loads(df.metadata.get(SOMA_DATAFRAME_ORIGINAL_INDEX_NAME_JSON, "null"))
+    if not (original_index_metadata is None or isinstance(original_index_metadata, str)):
         raise ValueError(
-            f"{df.uri}: invalid {_DATAFRAME_ORIGINAL_INDEX_NAME_JSON} metadata: {original_index_metadata}"
+            f"{df.uri}: invalid {SOMA_DATAFRAME_ORIGINAL_INDEX_NAME_JSON} metadata: {original_index_metadata}",
         )
 
     pdf: pd.DataFrame = df.read().concat().to_pandas()
@@ -223,27 +196,7 @@ def _read_dataframe(
     pdf.drop(columns=SOMA_JOINID, inplace=True)
 
     default_index_name = default_index_name or original_index_metadata
-    if default_index_name is not None:
-        # One or both of the following was true:
-        # - Original DataFrame had an index name (other than "index") ⇒ that name was written as `OriginalIndexMetadata`
-        # - `default_index_name` was provided (e.g. `{obs,var}_id_name` args to `to_anndata`)
-        #
-        # ⇒ Verify a column with that name exists, and set it as index (keeping its name).
-        if default_index_name not in pdf.keys():
-            raise ValueError(
-                f"Requested ID column name {default_index_name} not found in input: {pdf.keys()}"
-            )
-        pdf.set_index(default_index_name, inplace=True)
-    else:
-        # The assumption here is that the original index was unnamed, and was given a "fallback name" (e.g. "obs_id",
-        # "var_id") during ingest that matches the `fallback_index_name` arg here. In this case, we restore that column
-        # as index, and remove the name.
-        #
-        # NOTE: several edge cases result in the outgested DF not matching the original DF; see
-        # https://github.com/single-cell-data/TileDB-SOMA/issues/2829.
-        if fallback_index_name is not None and fallback_index_name in pdf:
-            pdf.set_index(fallback_index_name, inplace=True)
-            pdf.index.name = None
+    _df_set_index(pdf, default_index_name, fallback_index_name)
 
     return pdf
 
@@ -315,10 +268,8 @@ def to_anndata(
     s = _util.get_start_stamp()
     logging.log_io(None, "START  Experiment.to_anndata")
 
-    if measurement_name not in experiment.ms.keys():
-        raise ValueError(
-            f"requested measurement name {measurement_name} not found in input: {experiment.ms.keys()}"
-        )
+    if measurement_name not in experiment.ms:
+        raise ValueError(f"requested measurement name {measurement_name} not found in input: {experiment.ms.keys()}")
     measurement = experiment.ms[measurement_name]
     tp = experiment.context.threadpool
 
@@ -340,7 +291,7 @@ def to_anndata(
     anndata_layers_futures = {}
 
     # Let them use
-    #   extra_X_layer_names=exp.ms["RNA"].X.keys()
+    #   extra_X_layer_names=exp.ms["RNA"].X.keys()  # noqa: ERA001
     # while avoiding
     #   TypeError: 'ABCMeta' object is not subscriptable
     if isinstance(extra_X_layer_names, KeysView):
@@ -348,9 +299,7 @@ def to_anndata(
 
     if X_layer_name is None and extra_X_layer_names:
         # The latter boolean check covers both not None and not []
-        raise ValueError(
-            "If X_layer_name is None, extra_X_layer_names must not be provided"
-        )
+        raise ValueError("If X_layer_name is None, extra_X_layer_names must not be provided")
 
     # Problem: when the specified layer name does not exist.
     # * If they didn't specify X_layer_name at all:
@@ -368,21 +317,17 @@ def to_anndata(
     # * We could use **kwargs -- but that would bork the online help docs.
     # * Our consolation: check if the layer name is the _default_,
     #   and the experiment doesn't have it.
-    anndata_X_future: Future[Matrix] | "da.Array" | None = None
+    anndata_X_future: Future[Matrix] | da.Array | None = None
 
     if X_layer_name == MISSING:
         if "data" in measurement.X:
-            anndata_X_future = _extract_X_key(
-                measurement, "data", nobs, nvar, dask=dask
-            )
+            anndata_X_future = _extract_X_key(measurement, "data", nobs, nvar, dask=dask)
     elif X_layer_name is not None:
         if X_layer_name not in measurement.X:
-            raise ValueError(
-                f"X_layer_name '{X_layer_name}' not found in measurement: {measurement.X.keys()}"
-            )
+            raise ValueError(f"X_layer_name '{X_layer_name}' not found in measurement: {measurement.X.keys()}")
         anndata_X_future = _extract_X_key(
             measurement=measurement,
-            X_layer_name=cast(str, X_layer_name),
+            X_layer_name=cast("str", X_layer_name),
             nobs=nobs,
             nvar=nvar,
             dask=dask,
@@ -407,7 +352,7 @@ def to_anndata(
     obsm = {}
     if "obsm" in measurement:
         obsm_width_hints = obsm_varm_width_hints.get("obsm", {})
-        for key in measurement.obsm.keys():
+        for key in measurement.obsm:
             obsm[key] = tp.submit(
                 _extract_obsm_or_varm,
                 measurement.obsm[key],
@@ -420,7 +365,7 @@ def to_anndata(
     varm = {}
     if "varm" in measurement:
         varm_width_hints = obsm_varm_width_hints.get("obsm", {})
-        for key in measurement.varm.keys():
+        for key in measurement.varm:
             varm[key] = tp.submit(
                 _extract_obsm_or_varm,
                 measurement.varm[key],
@@ -442,7 +387,7 @@ def to_anndata(
                 A.context,
             )
 
-        for key in measurement.obsp.keys():
+        for key in measurement.obsp:
             obsp[key] = tp.submit(load_obsp, measurement, key, nobs)
 
     varp = {}
@@ -457,13 +402,13 @@ def to_anndata(
                 A.context,
             )
 
-        for key in measurement.varp.keys():
+        for key in measurement.varp:
             varp[key] = tp.submit(load_varp, measurement, key, nvar)
 
     uns_future: Future[dict[str, FutureUnsDictNode]] | None = None
     if "uns" in measurement:
         s = _util.get_start_stamp()
-        uns_coll = cast(Collection[Any], measurement["uns"])
+        uns_coll = cast("Collection[Any]", measurement["uns"])
         logging.log_io(None, f"Start  writing uns for {uns_coll.uri}")
         uns_future = tp.submit(_extract_uns, uns_coll, uns_keys=uns_keys)
         logging.log_io(
@@ -476,17 +421,9 @@ def to_anndata(
     varm = _resolve_futures(varm)
     obsp = _resolve_futures(obsp)
     varp = _resolve_futures(varp)
-    anndata_X = (
-        anndata_X_future.result()
-        if isinstance(anndata_X_future, Future)
-        else anndata_X_future
-    )
+    anndata_X = anndata_X_future.result() if isinstance(anndata_X_future, Future) else anndata_X_future
     anndata_layers = _resolve_futures(anndata_layers_futures)
-    uns: UnsDict = (
-        _resolve_futures(uns_future.result(), deep=True)
-        if uns_future is not None
-        else {}
-    )
+    uns: UnsDict = _resolve_futures(uns_future.result(), deep=True) if uns_future is not None else {}
 
     anndata = ad.AnnData(
         X=anndata_X,
@@ -498,7 +435,6 @@ def to_anndata(
         obsp=obsp,
         varp=varp,
         uns=uns,
-        dtype=anndata_X.dtype if anndata_X is not None else None,
     )
 
     logging.log_io(None, _util.format_elapsed(s, "FINISH Experiment.to_anndata"))
@@ -521,10 +457,9 @@ def _extract_obsm_or_varm(
         raise ValueError(f"expected shape == 2; got {shape}")
 
     if isinstance(soma_nd_array, DenseNDArray):
-        matrix = soma_nd_array.read().to_numpy()
         # The spelling ``sp.csr_array`` is more idiomatic but doesn't exist until Python
         # 3.8 and we still support Python 3.7
-        return matrix
+        return soma_nd_array.read().to_numpy()
 
     matrix_tbl = _read_partitioned_sparse(soma_nd_array, num_rows)
 
@@ -554,7 +489,7 @@ def _extract_obsm_or_varm(
     description = f'{collection_name}["{element_name}"]'
 
     # First, try width config
-    num_cols = width_configs.get(element_name, None)
+    num_cols = width_configs.get(element_name)
 
     # Second, try the shape feature introduced in TileDB-SOMA 1.15
     if num_cols is None and soma_nd_array.tiledbsoma_has_upgraded_shape:
@@ -571,9 +506,7 @@ def _extract_obsm_or_varm(
         num_rows_times_width, coo_column_count = matrix_tbl.shape
 
         if coo_column_count != 3:
-            raise SOMAError(
-                f"internal error: expect COO width of 3; got {coo_column_count} for {description}"
-            )
+            raise SOMAError(f"internal error: expect COO width of 3; got {coo_column_count} for {description}")
 
         if num_rows_times_width % num_rows == 0:
             num_cols = num_rows_times_width // num_rows
@@ -584,9 +517,7 @@ def _extract_obsm_or_varm(
         num_rows = ned[0][1] + 1
         num_cols = ned[1][1] + 1
 
-    return conversions.csr_from_coo_table(
-        matrix_tbl, num_rows, num_cols, soma_nd_array.context
-    ).toarray()
+    return conversions.csr_from_coo_table(matrix_tbl, num_rows, num_cols, soma_nd_array.context).toarray()
 
 
 def _extract_uns(
@@ -597,7 +528,7 @@ def _extract_uns(
     """This is a helper function for ``to_anndata`` of ``uns`` elements."""
     extracted: dict[str, FutureUnsDictNode] = {}
     tp = collection.context.threadpool
-    for key in collection.keys():
+    for key in collection:
         if level == 0 and uns_keys is not None and key not in uns_keys:
             continue
 
@@ -607,34 +538,27 @@ def _extract_uns(
         elif isinstance(element, DataFrame):
             hint = element.metadata.get(_UNS_OUTGEST_HINT_KEY)
 
-            def _outgest_df(
-                element: Any, hint: Any, key: Any, collection: Collection[Any]
-            ) -> NPNDArray | pd.DataFrame:
+            def _outgest_df(element: Any, hint: Any, key: Any, collection: Collection[Any]) -> NPNDArray | pd.DataFrame:  # noqa: ANN401
                 if hint == _UNS_OUTGEST_HINT_1D:
                     pdf = element.read().concat().to_pandas()
                     return _outgest_uns_1d_string_array(pdf, element.uri)
-                elif hint == _UNS_OUTGEST_HINT_2D:
+                if hint == _UNS_OUTGEST_HINT_2D:
                     pdf = element.read().concat().to_pandas()
                     return _outgest_uns_2d_string_array(pdf, element.uri)
-                else:
-                    if hint is not None:
-                        logging.log_io_same(
-                            f"Warning: uns {collection.uri}[{key!r}] has {_UNS_OUTGEST_HINT_KEY} as unrecognized {hint}: leaving this as Pandas DataFrame"
-                        )
-                    return _read_dataframe(element, fallback_index_name="index")
+                if hint is not None:
+                    logging.log_io_same(
+                        f"Warning: uns {collection.uri}[{key!r}] has {_UNS_OUTGEST_HINT_KEY} as unrecognized {hint}: leaving this as Pandas DataFrame",
+                    )
+                return _read_dataframe(element, fallback_index_name="index")
 
             extracted[key] = tp.submit(_outgest_df, element, hint, key, collection)
 
         elif isinstance(element, SparseNDArray):
-            extracted[key] = tp.submit(
-                lambda e: e.read().tables().concat().to_pandas(), element
-            )
+            extracted[key] = tp.submit(lambda e: e.read().tables().concat().to_pandas(), element)
         elif isinstance(element, DenseNDArray):
             extracted[key] = tp.submit(lambda e: e.read().to_numpy(), element)
         else:
-            logging.log_io_same(
-                f"Skipping uns key {key} with unhandled type {element.soma_type}"
-            )
+            logging.log_io_same(f"Skipping uns key {key} with unhandled type {element.soma_type}")
 
     # Primitives got set on the SOMA-experiment uns metadata.
     for key, value in collection.metadata.items():
@@ -648,7 +572,7 @@ def _extract_uns(
 
 def _outgest_uns_1d_string_array(pdf: pd.DataFrame, uri_for_logging: str) -> NPNDArray:
     """Helper methods for _extract_uns."""
-    num_rows, num_cols = pdf.shape
+    _, num_cols = pdf.shape
     # An array like ["a", "b", "c"] had become a DataFrame like
     # soma_joinid value
     # 0           a
@@ -663,7 +587,7 @@ def _outgest_uns_1d_string_array(pdf: pd.DataFrame, uri_for_logging: str) -> NPN
 
 def _outgest_uns_2d_string_array(pdf: pd.DataFrame, uri_for_logging: str) -> NPNDArray:
     """Helper methods for _extract_uns."""
-    num_rows, num_cols = pdf.shape
+    _, num_cols = pdf.shape
     if num_cols < 2:
         raise SOMAError(f"Expected 2 columns in {uri_for_logging}; got {num_cols}")
     if SOMA_JOINID not in pdf:

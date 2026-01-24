@@ -12,22 +12,25 @@ from __future__ import annotations
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
+
+from .group_0115 import RepositoryRulesetConditionsPropRefName
+from .group_0164 import RepositoryRulesetConditionsRepositoryIdTargetPropRepositoryId
 
 
-class CombinedBillingUsage(GitHubModel):
-    """CombinedBillingUsage"""
+class OrgRulesetConditionsOneof1(GitHubModel):
+    """repository_id_and_ref_name
 
-    days_left_in_billing_cycle: int = Field(
-        description="Numbers of days left in billing cycle."
+    Conditions to target repositories by id and refs by name
+    """
+
+    ref_name: Missing[RepositoryRulesetConditionsPropRefName] = Field(default=UNSET)
+    repository_id: RepositoryRulesetConditionsRepositoryIdTargetPropRepositoryId = (
+        Field()
     )
-    estimated_paid_storage_for_month: int = Field(
-        description="Estimated storage space (GB) used in billing cycle."
-    )
-    estimated_storage_for_month: int = Field(
-        description="Estimated sum of free and paid storage space (GB) used in billing cycle."
-    )
 
 
-model_rebuild(CombinedBillingUsage)
+model_rebuild(OrgRulesetConditionsOneof1)
 
-__all__ = ("CombinedBillingUsage",)
+__all__ = ("OrgRulesetConditionsOneof1",)

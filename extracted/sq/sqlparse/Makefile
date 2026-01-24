@@ -10,10 +10,20 @@ help:
 	@sed -n '/^[a-zA-Z0-9_.]*:/s/:.*//p' <Makefile | sort
 
 test:
-	tox
+	pixi run test-all
+
+lint:
+	pixi run lint
 
 coverage:
-	pytest --cov=sqlparse --cov-report=html --cov-report=term
+	pixi run -e py311 coverage
+	pixi run -e py311 coverage-combine
+	pixi run -e py311 coverage-report
+
+coverage-xml:
+	pixi run -e py311 coverage
+	pixi run -e py311 coverage-combine
+	pixi run -e py311 coverage-xml
 
 clean:
 	$(PYTHON) setup.py clean

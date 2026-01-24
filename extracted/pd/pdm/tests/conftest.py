@@ -116,6 +116,7 @@ def fixture_project(project_no_init: Project, request: pytest.FixtureRequest, lo
         source = FIXTURES / "projects" / project_name
         copytree(source, project_no_init.root)
         project_no_init.pyproject.reload()
+        project_no_init.pyproject.open_for_write()
         if "local_finder" in request.fixturenames:
             project_no_init.pyproject.settings["source"] = [
                 {
@@ -146,14 +147,3 @@ def is_editable(request):
 @pytest.fixture(params=[False, True])
 def dev_option(request) -> Iterable[str]:
     return ("--dev",) if request.param else ()
-
-
-@pytest.fixture(autouse=True)
-def random_msgpack_implementation(monkeypatch, request):
-    """Randomly set the MsgPackSerializer implementation to JSONMsgPack."""
-    import random
-
-    from pdm.models import serializers
-
-    if "msgpack" not in request.keywords and random.random() < 0.5:
-        monkeypatch.setattr(serializers.MsgPackSerializer, "implementation", serializers.JSONMsgPack)

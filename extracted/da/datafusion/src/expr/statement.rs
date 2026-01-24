@@ -15,17 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::sync::Arc;
+
+use arrow::datatypes::Field;
+use arrow::pyarrow::PyArrowType;
 use datafusion::logical_expr::{
     Deallocate, Execute, Prepare, SetVariable, TransactionAccessMode, TransactionConclusion,
     TransactionEnd, TransactionIsolationLevel, TransactionStart,
 };
-use pyo3::{prelude::*, IntoPyObjectExt};
+use pyo3::prelude::*;
+use pyo3::IntoPyObjectExt;
 
-use crate::{common::data_type::PyDataType, sql::logical::PyLogicalPlan};
+use super::logical_node::LogicalNode;
+use super::PyExpr;
+use crate::sql::logical::PyLogicalPlan;
 
-use super::{logical_node::LogicalNode, PyExpr};
-
-#[pyclass(name = "TransactionStart", module = "datafusion.expr", subclass)]
+#[pyclass(
+    frozen,
+    name = "TransactionStart",
+    module = "datafusion.expr",
+    subclass
+)]
 #[derive(Clone)]
 pub struct PyTransactionStart {
     transaction_start: TransactionStart,
@@ -56,7 +66,13 @@ impl LogicalNode for PyTransactionStart {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[pyclass(eq, eq_int, name = "TransactionAccessMode", module = "datafusion.expr")]
+#[pyclass(
+    frozen,
+    eq,
+    eq_int,
+    name = "TransactionAccessMode",
+    module = "datafusion.expr"
+)]
 pub enum PyTransactionAccessMode {
     ReadOnly,
     ReadWrite,
@@ -84,6 +100,7 @@ impl TryFrom<PyTransactionAccessMode> for TransactionAccessMode {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[pyclass(
+    frozen,
     eq,
     eq_int,
     name = "TransactionIsolationLevel",
@@ -161,7 +178,7 @@ impl PyTransactionStart {
     }
 }
 
-#[pyclass(name = "TransactionEnd", module = "datafusion.expr", subclass)]
+#[pyclass(frozen, name = "TransactionEnd", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PyTransactionEnd {
     transaction_end: TransactionEnd,
@@ -192,7 +209,13 @@ impl LogicalNode for PyTransactionEnd {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[pyclass(eq, eq_int, name = "TransactionConclusion", module = "datafusion.expr")]
+#[pyclass(
+    frozen,
+    eq,
+    eq_int,
+    name = "TransactionConclusion",
+    module = "datafusion.expr"
+)]
 pub enum PyTransactionConclusion {
     Commit,
     Rollback,
@@ -236,7 +259,7 @@ impl PyTransactionEnd {
     }
 }
 
-#[pyclass(name = "SetVariable", module = "datafusion.expr", subclass)]
+#[pyclass(frozen, name = "SetVariable", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PySetVariable {
     set_variable: SetVariable,
@@ -284,7 +307,7 @@ impl PySetVariable {
     }
 }
 
-#[pyclass(name = "Prepare", module = "datafusion.expr", subclass)]
+#[pyclass(frozen, name = "Prepare", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PyPrepare {
     prepare: Prepare,
@@ -317,16 +340,13 @@ impl LogicalNode for PyPrepare {
 #[pymethods]
 impl PyPrepare {
     #[new]
-    pub fn new(name: String, data_types: Vec<PyDataType>, input: PyLogicalPlan) -> Self {
+    pub fn new(name: String, fields: Vec<PyArrowType<Field>>, input: PyLogicalPlan) -> Self {
         let input = input.plan().clone();
-        let data_types = data_types
-            .into_iter()
-            .map(|data_type| data_type.into())
-            .collect();
+        let fields = fields.into_iter().map(|field| Arc::new(field.0)).collect();
         PyPrepare {
             prepare: Prepare {
                 name,
-                data_types,
+                fields,
                 input,
             },
         }
@@ -336,12 +356,12 @@ impl PyPrepare {
         self.prepare.name.clone()
     }
 
-    pub fn data_types(&self) -> Vec<PyDataType> {
+    pub fn fields(&self) -> Vec<PyArrowType<Field>> {
         self.prepare
-            .data_types
+            .fields
             .clone()
             .into_iter()
-            .map(|t| t.into())
+            .map(|f| f.as_ref().clone().into())
             .collect()
     }
 
@@ -352,7 +372,7 @@ impl PyPrepare {
     }
 }
 
-#[pyclass(name = "Execute", module = "datafusion.expr", subclass)]
+#[pyclass(frozen, name = "Execute", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PyExecute {
     execute: Execute,
@@ -409,7 +429,7 @@ impl PyExecute {
     }
 }
 
-#[pyclass(name = "Deallocate", module = "datafusion.expr", subclass)]
+#[pyclass(frozen, name = "Deallocate", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PyDeallocate {
     deallocate: Deallocate,

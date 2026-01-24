@@ -31,6 +31,16 @@ class ChangesetID(Scalar):
     object of type Changeset."""
 
 
+class CheckGroupID(Scalar):
+    """The `CheckGroupID` scalar type represents an identifier for an
+    object of type CheckGroup."""
+
+
+class CheckID(Scalar):
+    """The `CheckID` scalar type represents an identifier for an object of
+    type Check."""
+
+
 class CloudID(Scalar):
     """The `CloudID` scalar type represents an identifier for an object of
     type Cloud."""
@@ -266,6 +276,11 @@ class SourceMapID(Scalar):
     object of type SourceMap."""
 
 
+class StatID(Scalar):
+    """The `StatID` scalar type represents an identifier for an object of
+    type Stat."""
+
+
 class TerminalID(Scalar):
     """The `TerminalID` scalar type represents an identifier for an object
     of type Terminal."""
@@ -307,6 +322,38 @@ class ExistsType(Enum):
     """Tests path is a symlink"""
 
 
+class FileType(Enum):
+    """File type."""
+
+    DIRECTORY = "DIRECTORY"
+    """directory file type"""
+    DIRECTORY_TYPE = "DIRECTORY"
+    """directory file type"""
+
+    REGULAR = "REGULAR"
+    """regular file type"""
+    REGULAR_TYPE = "REGULAR"
+    """regular file type"""
+
+    SYMLINK = "SYMLINK"
+    """symlink file type"""
+    SYMLINK_TYPE = "SYMLINK"
+    """symlink file type"""
+
+    UNKNOWN = "UNKNOWN"
+    """unknown file type"""
+
+
+class FunctionCachePolicy(Enum):
+    """The behavior configured for function result caching."""
+
+    Default = "Default"
+
+    Never = "Never"
+
+    PerSession = "PerSession"
+
+
 class ImageLayerCompression(Enum):
     """Compression algorithm to use for image layers."""
 
@@ -331,6 +378,13 @@ class ImageMediaTypes(Enum):
 
     OCIMediaTypes = "OCIMediaTypes"
     OCI = "OCIMediaTypes"
+
+
+class ModuleSourceExperimentalFeature(Enum):
+    """Experimental features of a module"""
+
+    SELF_CALLS = "SELF_CALLS"
+    """Self calls"""
 
 
 class ModuleSourceKind(Enum):
@@ -512,12 +566,14 @@ class Address(Type):
         *,
         exclude: list[str] | None = None,
         include: list[str] | None = None,
+        gitignore: bool | None = False,
         no_cache: bool | None = False,
     ) -> "Directory":
         """Load a directory from the address."""
         _args = [
             Arg("exclude", [] if exclude is None else exclude, []),
             Arg("include", [] if include is None else include, []),
+            Arg("gitignore", gitignore, False),
             Arg("noCache", no_cache, False),
         ]
         _ctx = self._select("directory", _args)
@@ -528,12 +584,14 @@ class Address(Type):
         *,
         exclude: list[str] | None = None,
         include: list[str] | None = None,
+        gitignore: bool | None = False,
         no_cache: bool | None = False,
     ) -> "File":
         """Load a file from the address."""
         _args = [
             Arg("exclude", [] if exclude is None else exclude, []),
             Arg("include", [] if include is None else include, []),
+            Arg("gitignore", gitignore, False),
             Arg("noCache", no_cache, False),
         ]
         _ctx = self._select("file", _args)
@@ -635,6 +693,18 @@ class Binding(Type):
         _ctx = self._select("asChangeset", _args)
         return Changeset(_ctx)
 
+    def as_check(self) -> "Check":
+        """Retrieve the binding value, as type Check"""
+        _args: list[Arg] = []
+        _ctx = self._select("asCheck", _args)
+        return Check(_ctx)
+
+    def as_check_group(self) -> "CheckGroup":
+        """Retrieve the binding value, as type CheckGroup"""
+        _args: list[Arg] = []
+        _ctx = self._select("asCheckGroup", _args)
+        return CheckGroup(_ctx)
+
     def as_cloud(self) -> "Cloud":
         """Retrieve the binding value, as type Cloud"""
         _args: list[Arg] = []
@@ -689,12 +759,6 @@ class Binding(Type):
         _ctx = self._select("asJSONValue", _args)
         return JSONValue(_ctx)
 
-    def as_llm(self) -> "LLM":
-        """Retrieve the binding value, as type LLM"""
-        _args: list[Arg] = []
-        _ctx = self._select("asLLM", _args)
-        return LLM(_ctx)
-
     def as_module(self) -> "Module":
         """Retrieve the binding value, as type Module"""
         _args: list[Arg] = []
@@ -743,8 +807,14 @@ class Binding(Type):
         _ctx = self._select("asSocket", _args)
         return Socket(_ctx)
 
+    def as_stat(self) -> "Stat":
+        """Retrieve the binding value, as type Stat"""
+        _args: list[Arg] = []
+        _ctx = self._select("asStat", _args)
+        return Stat(_ctx)
+
     async def as_string(self) -> str | None:
-        """The binding's string value
+        """Returns the binding's string value
 
         Returns
         -------
@@ -765,7 +835,7 @@ class Binding(Type):
         return await _ctx.execute(str | None)
 
     async def digest(self) -> str:
-        """The digest of the binding value
+        """Returns the digest of the binding value
 
         Returns
         -------
@@ -829,7 +899,7 @@ class Binding(Type):
         return await _ctx.execute(bool)
 
     async def name(self) -> str:
-        """The binding name
+        """Returns the binding name
 
         Returns
         -------
@@ -850,7 +920,7 @@ class Binding(Type):
         return await _ctx.execute(str)
 
     async def type_name(self) -> str:
-        """The binding type
+        """Returns the binding type
 
         Returns
         -------
@@ -996,6 +1066,25 @@ class Changeset(Type):
         _ctx = self._select("id", _args)
         return await _ctx.execute(ChangesetID)
 
+    async def is_empty(self) -> bool:
+        """Returns true if the changeset is empty (i.e. there are no changes).
+
+        Returns
+        -------
+        bool
+            The `Boolean` scalar type represents `true` or `false`.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("isEmpty", _args)
+        return await _ctx.execute(bool)
+
     def layer(self) -> "Directory":
         """Return a snapshot containing only the created and modified files"""
         _args: list[Arg] = []
@@ -1061,6 +1150,226 @@ class Changeset(Type):
 
     def __await__(self):
         return self.sync().__await__()
+
+
+@typecheck
+class Check(Type):
+    async def completed(self) -> bool:
+        """Whether the check completed
+
+        Returns
+        -------
+        bool
+            The `Boolean` scalar type represents `true` or `false`.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("completed", _args)
+        return await _ctx.execute(bool)
+
+    async def description(self) -> str:
+        """The description of the check
+
+        Returns
+        -------
+        str
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("description", _args)
+        return await _ctx.execute(str)
+
+    async def id(self) -> CheckID:
+        """A unique identifier for this Check.
+
+        Note
+        ----
+        This is lazily evaluated, no operation is actually run.
+
+        Returns
+        -------
+        CheckID
+            The `CheckID` scalar type represents an identifier for an object
+            of type Check.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("id", _args)
+        return await _ctx.execute(CheckID)
+
+    async def name(self) -> str:
+        """Return the fully qualified name of the check
+
+        Returns
+        -------
+        str
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("name", _args)
+        return await _ctx.execute(str)
+
+    async def passed(self) -> bool:
+        """Whether the check passed
+
+        Returns
+        -------
+        bool
+            The `Boolean` scalar type represents `true` or `false`.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("passed", _args)
+        return await _ctx.execute(bool)
+
+    async def path(self) -> list[str]:
+        """The path of the check within its module
+
+        Returns
+        -------
+        list[str]
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("path", _args)
+        return await _ctx.execute(list[str])
+
+    async def result_emoji(self) -> str:
+        """An emoji representing the result of the check
+
+        Returns
+        -------
+        str
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("resultEmoji", _args)
+        return await _ctx.execute(str)
+
+    def run(self) -> Self:
+        """Execute the check"""
+        _args: list[Arg] = []
+        _ctx = self._select("run", _args)
+        return Check(_ctx)
+
+    def source(self) -> "ModuleSource":
+        """The module source where the check is defined (i.e., toolchains)"""
+        _args: list[Arg] = []
+        _ctx = self._select("source", _args)
+        return ModuleSource(_ctx)
+
+    def with_(self, cb: Callable[["Check"], "Check"]) -> "Check":
+        """Call the provided callable with current Check.
+
+        This is useful for reusability and readability by not breaking the calling chain.
+        """
+        return cb(self)
+
+
+@typecheck
+class CheckGroup(Type):
+    async def id(self) -> CheckGroupID:
+        """A unique identifier for this CheckGroup.
+
+        Note
+        ----
+        This is lazily evaluated, no operation is actually run.
+
+        Returns
+        -------
+        CheckGroupID
+            The `CheckGroupID` scalar type represents an identifier for an
+            object of type CheckGroup.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("id", _args)
+        return await _ctx.execute(CheckGroupID)
+
+    async def list_(self) -> list[Check]:
+        """Return a list of individual checks and their details"""
+        _args: list[Arg] = []
+        _ctx = self._select("list", _args)
+        return await _ctx.execute_object_list(Check)
+
+    def report(self) -> "File":
+        """Generate a markdown report"""
+        _args: list[Arg] = []
+        _ctx = self._select("report", _args)
+        return File(_ctx)
+
+    def run(self) -> Self:
+        """Execute all selected checks"""
+        _args: list[Arg] = []
+        _ctx = self._select("run", _args)
+        return CheckGroup(_ctx)
+
+    def with_(self, cb: Callable[["CheckGroup"], "CheckGroup"]) -> "CheckGroup":
+        """Call the provided callable with current CheckGroup.
+
+        This is useful for reusability and readability by not breaking the calling chain.
+        """
+        return cb(self)
 
 
 @typecheck
@@ -1210,63 +1519,6 @@ class Container(Type):
         ]
         _ctx = self._select("asTarball", _args)
         return File(_ctx)
-
-    def build(
-        self,
-        context: "Directory",
-        *,
-        dockerfile: str | None = "Dockerfile",
-        target: str | None = "",
-        build_args: list[BuildArg] | None = None,
-        secrets: "list[Secret] | None" = None,
-        no_init: bool | None = False,
-    ) -> Self:
-        """Initializes this container from a Dockerfile build.
-
-        .. deprecated::
-            Use `Directory.build` instead
-
-        Parameters
-        ----------
-        context:
-            Directory context used by the Dockerfile.
-        dockerfile:
-            Path to the Dockerfile to use.
-        target:
-            Target build stage to build.
-        build_args:
-            Additional build arguments.
-        secrets:
-            Secrets to pass to the build.
-            They will be mounted at /run/secrets/[secret-name] in the build
-            container
-            They can be accessed in the Dockerfile using the "secret" mount
-            type and mount path /run/secrets/[secret-name], e.g. RUN
-            --mount=type=secret,id=my-secret curl
-            [http://example.com?token=$(cat /run/secrets/my-
-            secret)](http://example.com?token=$(cat /run/secrets/my-secret))
-        no_init:
-            If set, skip the automatic init process injected into containers
-            created by RUN statements.
-            This should only be used if the user requires that their exec
-            processes be the pid 1 process in the container. Otherwise it may
-            result in unexpected behavior.
-        """
-        warnings.warn(
-            'Method "build" is deprecated: Use `Directory.build` instead',
-            DeprecationWarning,
-            stacklevel=4,
-        )
-        _args = [
-            Arg("context", context),
-            Arg("dockerfile", dockerfile, "Dockerfile"),
-            Arg("target", target, ""),
-            Arg("buildArgs", [] if build_args is None else build_args, []),
-            Arg("secrets", [] if secrets is None else secrets, []),
-            Arg("noInit", no_init, False),
-        ]
-        _ctx = self._select("build", _args)
-        return Container(_ctx)
 
     async def combined_output(self) -> str:
         """The combined buffered standard output and standard error stream of the
@@ -1883,6 +2135,28 @@ class Container(Type):
         _ctx = self._select("rootfs", _args)
         return Directory(_ctx)
 
+    def stat(
+        self,
+        path: str,
+        *,
+        do_not_follow_symlinks: bool | None = False,
+    ) -> "Stat":
+        """Return file status
+
+        Parameters
+        ----------
+        path:
+            Path to check (e.g., "/file.txt").
+        do_not_follow_symlinks:
+            If specified, do not follow symlinks.
+        """
+        _args = [
+            Arg("path", path),
+            Arg("doNotFollowSymlinks", do_not_follow_symlinks, False),
+        ]
+        _ctx = self._select("stat", _args)
+        return Stat(_ctx)
+
     async def stderr(self) -> str:
         """The buffered standard error stream of the last executed command
 
@@ -2081,7 +2355,7 @@ class Container(Type):
         return await _ctx.execute(str)
 
     def with_annotation(self, name: str, value: str) -> Self:
-        """Retrieves this container plus the given OCI anotation.
+        """Retrieves this container plus the given OCI annotation.
 
         Parameters
         ----------
@@ -2148,10 +2422,11 @@ class Container(Type):
     def with_directory(
         self,
         path: str,
-        directory: "Directory",
+        source: "Directory",
         *,
         exclude: list[str] | None = None,
         include: list[str] | None = None,
+        gitignore: bool | None = False,
         owner: str | None = "",
         expand: bool | None = False,
     ) -> Self:
@@ -2162,7 +2437,7 @@ class Container(Type):
         ----------
         path:
             Location of the written directory (e.g., "/tmp/directory").
-        directory:
+        source:
             Identifier of the directory to write
         exclude:
             Patterns to exclude in the written directory (e.g.
@@ -2170,6 +2445,8 @@ class Container(Type):
         include:
             Patterns to include in the written directory (e.g. ["*.go",
             "go.mod", "go.sum"]).
+        gitignore:
+            Apply .gitignore rules when writing the directory.
         owner:
             A user:group to set for the directory and its contents.
             The user and group can either be an ID (1000:1000) or a name
@@ -2182,9 +2459,10 @@ class Container(Type):
         """
         _args = [
             Arg("path", path),
-            Arg("directory", directory),
+            Arg("source", source),
             Arg("exclude", [] if exclude is None else exclude, []),
             Arg("include", [] if include is None else include, []),
+            Arg("gitignore", gitignore, False),
             Arg("owner", owner, ""),
             Arg("expand", expand, False),
         ]
@@ -2216,6 +2494,20 @@ class Container(Type):
         _ctx = self._select("withEntrypoint", _args)
         return Container(_ctx)
 
+    def with_env_file_variables(self, source: "EnvFile") -> Self:
+        """Export environment variables from an env-file to the container.
+
+        Parameters
+        ----------
+        source:
+            Identifier of the envfile
+        """
+        _args = [
+            Arg("source", source),
+        ]
+        _ctx = self._select("withEnvFileVariables", _args)
+        return Container(_ctx)
+
     def with_env_variable(
         self,
         name: str,
@@ -2242,6 +2534,21 @@ class Container(Type):
             Arg("expand", expand, False),
         ]
         _ctx = self._select("withEnvVariable", _args)
+        return Container(_ctx)
+
+    def with_error(self, err: str) -> Self:
+        """Raise an error.
+
+        Parameters
+        ----------
+        err:
+            Message of the error to raise. If empty, the error will be
+            ignored.
+        """
+        _args = [
+            Arg("err", err),
+        ]
+        _ctx = self._select("withError", _args)
         return Container(_ctx)
 
     def with_exec(
@@ -3173,6 +3480,20 @@ class Container(Type):
 class CurrentModule(Type):
     """Reflective module API provided to functions at runtime."""
 
+    async def dependencies(self) -> list["Module"]:
+        """The dependencies of the module."""
+        _args: list[Arg] = []
+        _ctx = self._select("dependencies", _args)
+        return await _ctx.execute_object_list(Module)
+
+    def generated_context_directory(self) -> "Directory":
+        """The generated files and directories made on top of the module source's
+        context directory.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("generatedContextDirectory", _args)
+        return Directory(_ctx)
+
     async def id(self) -> CurrentModuleID:
         """A unique identifier for this CurrentModule.
 
@@ -3232,6 +3553,7 @@ class CurrentModule(Type):
         *,
         exclude: list[str] | None = None,
         include: list[str] | None = None,
+        gitignore: bool | None = False,
     ) -> "Directory":
         """Load a directory from the module's scratch working directory,
         including any changes that may have been made to it during module
@@ -3247,11 +3569,14 @@ class CurrentModule(Type):
         include:
             Include only artifacts that match the given pattern (e.g.,
             ["app/", "package.*"]).
+        gitignore:
+            Apply .gitignore filter rules inside the directory
         """
         _args = [
             Arg("path", path),
             Arg("exclude", [] if exclude is None else exclude, []),
             Arg("include", [] if include is None else include, []),
+            Arg("gitignore", gitignore, False),
         ]
         _ctx = self._select("workdir", _args)
         return Directory(_ctx)
@@ -3591,6 +3916,7 @@ class Directory(Type):
         *,
         exclude: list[str] | None = None,
         include: list[str] | None = None,
+        gitignore: bool | None = False,
     ) -> Self:
         """Return a snapshot with some paths included or excluded
 
@@ -3602,10 +3928,13 @@ class Directory(Type):
         include:
             If set, only paths matching one of these glob patterns is included
             in the new snapshot. Example: (e.g., ["app/", "package.*"]).
+        gitignore:
+            If set, apply .gitignore rules when filtering the directory.
         """
         _args = [
             Arg("exclude", [] if exclude is None else exclude, []),
             Arg("include", [] if include is None else include, []),
+            Arg("gitignore", gitignore, False),
         ]
         _ctx = self._select("filter", _args)
         return Directory(_ctx)
@@ -3778,6 +4107,28 @@ class Directory(Type):
         _ctx = self._select("search", _args)
         return await _ctx.execute_object_list(SearchResult)
 
+    def stat(
+        self,
+        path: str,
+        *,
+        do_not_follow_symlinks: bool | None = False,
+    ) -> "Stat":
+        """Return file status
+
+        Parameters
+        ----------
+        path:
+            Path to stat (e.g., "/file.txt").
+        do_not_follow_symlinks:
+            If specified, do not follow symlinks.
+        """
+        _args = [
+            Arg("path", path),
+            Arg("doNotFollowSymlinks", do_not_follow_symlinks, False),
+        ]
+        _ctx = self._select("stat", _args)
+        return Stat(_ctx)
+
     async def sync(self) -> Self:
         """Force evaluation in the engine.
 
@@ -3849,10 +4200,11 @@ class Directory(Type):
     def with_directory(
         self,
         path: str,
-        directory: Self,
+        source: Self,
         *,
         exclude: list[str] | None = None,
         include: list[str] | None = None,
+        gitignore: bool | None = False,
         owner: str | None = "",
     ) -> Self:
         """Return a snapshot with a directory added
@@ -3861,7 +4213,7 @@ class Directory(Type):
         ----------
         path:
             Location of the written directory (e.g., "/src/").
-        directory:
+        source:
             Identifier of the directory to copy.
         exclude:
             Exclude artifacts that match the given pattern (e.g.,
@@ -3869,6 +4221,8 @@ class Directory(Type):
         include:
             Include only artifacts that match the given pattern (e.g.,
             ["app/", "package.*"]).
+        gitignore:
+            Apply .gitignore filter rules inside the directory
         owner:
             A user:group to set for the copied directory and its contents.
             The user and group must be an ID (1000:1000), not a name
@@ -3877,12 +4231,28 @@ class Directory(Type):
         """
         _args = [
             Arg("path", path),
-            Arg("directory", directory),
+            Arg("source", source),
             Arg("exclude", [] if exclude is None else exclude, []),
             Arg("include", [] if include is None else include, []),
+            Arg("gitignore", gitignore, False),
             Arg("owner", owner, ""),
         ]
         _ctx = self._select("withDirectory", _args)
+        return Directory(_ctx)
+
+    def with_error(self, err: str) -> Self:
+        """Raise an error.
+
+        Parameters
+        ----------
+        err:
+            Message of the error to raise. If empty, the error will be
+            ignored.
+        """
+        _args = [
+            Arg("err", err),
+        ]
+        _ctx = self._select("withError", _args)
         return Directory(_ctx)
 
     def with_file(
@@ -4123,6 +4493,27 @@ class Directory(Type):
 class Engine(Type):
     """The Dagger engine configuration and state"""
 
+    async def clients(self) -> list[str]:
+        """The list of connected client IDs
+
+        Returns
+        -------
+        list[str]
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("clients", _args)
+        return await _ctx.execute(list[str])
+
     async def id(self) -> EngineID:
         """A unique identifier for this Engine.
 
@@ -4152,6 +4543,27 @@ class Engine(Type):
         _args: list[Arg] = []
         _ctx = self._select("localCache", _args)
         return EngineCache(_ctx)
+
+    async def name(self) -> str:
+        """The name of the engine instance.
+
+        Returns
+        -------
+        str
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("name", _args)
+        return await _ctx.execute(str)
 
 
 @typecheck
@@ -4189,36 +4601,6 @@ class EngineCache(Type):
         _args: list[Arg] = []
         _ctx = self._select("id", _args)
         return await _ctx.execute(EngineCacheID)
-
-    async def keep_bytes(self) -> int:
-        """The maximum bytes to keep in the cache without pruning, after which
-        automatic pruning may kick in.
-
-        .. deprecated::
-            Use minFreeSpace instead.
-
-        Returns
-        -------
-        int
-            The `Int` scalar type represents non-fractional signed whole
-            numeric values. Int can represent values between -(2^31) and 2^31
-            - 1.
-
-        Raises
-        ------
-        ExecuteTimeoutError
-            If the time to execute the query exceeds the configured timeout.
-        QueryError
-            If the API returns an error.
-        """
-        warnings.warn(
-            'Method "keep_bytes" is deprecated: Use minFreeSpace instead.',
-            DeprecationWarning,
-            stacklevel=4,
-        )
-        _args: list[Arg] = []
-        _ctx = self._select("keepBytes", _args)
-        return await _ctx.execute(int)
 
     async def max_used_space(self) -> int:
         """The maximum bytes to keep in the cache without pruning.
@@ -4669,6 +5051,27 @@ class EnumTypeDef(Type):
 class EnumValueTypeDef(Type):
     """A definition of a value in a custom enum defined in a Module."""
 
+    async def deprecated(self) -> str | None:
+        """The reason this enum member is deprecated, if any.
+
+        Returns
+        -------
+        str | None
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("deprecated", _args)
+        return await _ctx.execute(str | None)
+
     async def description(self) -> str:
         """A doc string for the enum member, if any.
 
@@ -4790,7 +5193,7 @@ class Env(Type):
         return await _ctx.execute(EnvID)
 
     def input(self, name: str) -> Binding:
-        """retrieve an input value by name"""
+        """Retrieves an input binding by name"""
         _args = [
             Arg("name", name),
         ]
@@ -4798,13 +5201,13 @@ class Env(Type):
         return Binding(_ctx)
 
     async def inputs(self) -> list[Binding]:
-        """return all input values for the environment"""
+        """Returns all input bindings provided to the environment"""
         _args: list[Arg] = []
         _ctx = self._select("inputs", _args)
         return await _ctx.execute_object_list(Binding)
 
     def output(self, name: str) -> Binding:
-        """retrieve an output value by name"""
+        """Retrieves an output binding by name"""
         _args = [
             Arg("name", name),
         ]
@@ -4812,7 +5215,7 @@ class Env(Type):
         return Binding(_ctx)
 
     async def outputs(self) -> list[Binding]:
-        """return all output values for the environment"""
+        """Returns all declared output bindings for the environment"""
         _args: list[Arg] = []
         _ctx = self._select("outputs", _args)
         return await _ctx.execute_object_list(Binding)
@@ -4943,6 +5346,90 @@ class Env(Type):
         _ctx = self._select("withChangesetOutput", _args)
         return Env(_ctx)
 
+    def with_check_group_input(
+        self,
+        name: str,
+        value: CheckGroup,
+        description: str,
+    ) -> Self:
+        """Create or update a binding of type CheckGroup in the environment
+
+        Parameters
+        ----------
+        name:
+            The name of the binding
+        value:
+            The CheckGroup value to assign to the binding
+        description:
+            The purpose of the input
+        """
+        _args = [
+            Arg("name", name),
+            Arg("value", value),
+            Arg("description", description),
+        ]
+        _ctx = self._select("withCheckGroupInput", _args)
+        return Env(_ctx)
+
+    def with_check_group_output(self, name: str, description: str) -> Self:
+        """Declare a desired CheckGroup output to be assigned in the environment
+
+        Parameters
+        ----------
+        name:
+            The name of the binding
+        description:
+            A description of the desired value of the binding
+        """
+        _args = [
+            Arg("name", name),
+            Arg("description", description),
+        ]
+        _ctx = self._select("withCheckGroupOutput", _args)
+        return Env(_ctx)
+
+    def with_check_input(
+        self,
+        name: str,
+        value: Check,
+        description: str,
+    ) -> Self:
+        """Create or update a binding of type Check in the environment
+
+        Parameters
+        ----------
+        name:
+            The name of the binding
+        value:
+            The Check value to assign to the binding
+        description:
+            The purpose of the input
+        """
+        _args = [
+            Arg("name", name),
+            Arg("value", value),
+            Arg("description", description),
+        ]
+        _ctx = self._select("withCheckInput", _args)
+        return Env(_ctx)
+
+    def with_check_output(self, name: str, description: str) -> Self:
+        """Declare a desired Check output to be assigned in the environment
+
+        Parameters
+        ----------
+        name:
+            The name of the binding
+        description:
+            A description of the desired value of the binding
+        """
+        _args = [
+            Arg("name", name),
+            Arg("description", description),
+        ]
+        _ctx = self._select("withCheckOutput", _args)
+        return Env(_ctx)
+
     def with_cloud_input(
         self,
         name: str,
@@ -5025,6 +5512,17 @@ class Env(Type):
             Arg("description", description),
         ]
         _ctx = self._select("withContainerOutput", _args)
+        return Env(_ctx)
+
+    def with_current_module(self) -> Self:
+        """Installs the current module into the environment, exposing its
+        functions to the model
+
+        Contextual path arguments will be populated using the environment's
+        workspace.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("withCurrentModule", _args)
         return Env(_ctx)
 
     def with_directory_input(
@@ -5322,46 +5820,17 @@ class Env(Type):
         _ctx = self._select("withJSONValueOutput", _args)
         return Env(_ctx)
 
-    def with_llm_input(
-        self,
-        name: str,
-        value: "LLM",
-        description: str,
-    ) -> Self:
-        """Create or update a binding of type LLM in the environment
+    def with_module(self, module: "Module") -> Self:
+        """Installs a module into the environment, exposing its functions to the
+        model
 
-        Parameters
-        ----------
-        name:
-            The name of the binding
-        value:
-            The LLM value to assign to the binding
-        description:
-            The purpose of the input
+        Contextual path arguments will be populated using the environment's
+        workspace.
         """
         _args = [
-            Arg("name", name),
-            Arg("value", value),
-            Arg("description", description),
+            Arg("module", module),
         ]
-        _ctx = self._select("withLLMInput", _args)
-        return Env(_ctx)
-
-    def with_llm_output(self, name: str, description: str) -> Self:
-        """Declare a desired LLM output to be assigned in the environment
-
-        Parameters
-        ----------
-        name:
-            The name of the binding
-        description:
-            A description of the desired value of the binding
-        """
-        _args = [
-            Arg("name", name),
-            Arg("description", description),
-        ]
-        _ctx = self._select("withLLMOutput", _args)
+        _ctx = self._select("withModule", _args)
         return Env(_ctx)
 
     def with_module_config_client_input(
@@ -5705,13 +6174,55 @@ class Env(Type):
         _ctx = self._select("withSocketOutput", _args)
         return Env(_ctx)
 
+    def with_stat_input(
+        self,
+        name: str,
+        value: "Stat",
+        description: str,
+    ) -> Self:
+        """Create or update a binding of type Stat in the environment
+
+        Parameters
+        ----------
+        name:
+            The name of the binding
+        value:
+            The Stat value to assign to the binding
+        description:
+            The purpose of the input
+        """
+        _args = [
+            Arg("name", name),
+            Arg("value", value),
+            Arg("description", description),
+        ]
+        _ctx = self._select("withStatInput", _args)
+        return Env(_ctx)
+
+    def with_stat_output(self, name: str, description: str) -> Self:
+        """Declare a desired Stat output to be assigned in the environment
+
+        Parameters
+        ----------
+        name:
+            The name of the binding
+        description:
+            A description of the desired value of the binding
+        """
+        _args = [
+            Arg("name", name),
+            Arg("description", description),
+        ]
+        _ctx = self._select("withStatOutput", _args)
+        return Env(_ctx)
+
     def with_string_input(
         self,
         name: str,
         value: str,
         description: str,
     ) -> Self:
-        """Create or update an input value of type string
+        """Provides a string input binding to the environment
 
         Parameters
         ----------
@@ -5731,7 +6242,7 @@ class Env(Type):
         return Env(_ctx)
 
     def with_string_output(self, name: str, description: str) -> Self:
-        """Create or update an input value of type string
+        """Declares a desired string output binding
 
         Parameters
         ----------
@@ -5746,6 +6257,31 @@ class Env(Type):
         ]
         _ctx = self._select("withStringOutput", _args)
         return Env(_ctx)
+
+    def with_workspace(self, workspace: Directory) -> Self:
+        """Returns a new environment with the provided workspace
+
+        Parameters
+        ----------
+        workspace:
+            The directory to set as the host filesystem
+        """
+        _args = [
+            Arg("workspace", workspace),
+        ]
+        _ctx = self._select("withWorkspace", _args)
+        return Env(_ctx)
+
+    def without_outputs(self) -> Self:
+        """Returns a new environment without any outputs"""
+        _args: list[Arg] = []
+        _ctx = self._select("withoutOutputs", _args)
+        return Env(_ctx)
+
+    def workspace(self) -> Directory:
+        _args: list[Arg] = []
+        _ctx = self._select("workspace", _args)
+        return Directory(_ctx)
 
     def with_(self, cb: Callable[["Env"], "Env"]) -> "Env":
         """Call the provided callable with current Env.
@@ -5791,7 +6327,12 @@ class EnvFile(Type):
         _ctx = self._select("exists", _args)
         return await _ctx.execute(bool)
 
-    async def get(self, name: str) -> str:
+    async def get(
+        self,
+        name: str,
+        *,
+        raw: bool | None = None,
+    ) -> str:
         """Lookup a variable (last occurrence wins) and return its value, or an
         empty string
 
@@ -5799,6 +6340,9 @@ class EnvFile(Type):
         ----------
         name:
             Variable name
+        raw:
+            Return the value exactly as written to the file. No quote removal
+            or variable expansion
 
         Returns
         -------
@@ -5816,6 +6360,7 @@ class EnvFile(Type):
         """
         _args = [
             Arg("name", name),
+            Arg("raw", raw, None),
         ]
         _ctx = self._select("get", _args)
         return await _ctx.execute(str)
@@ -5844,9 +6389,36 @@ class EnvFile(Type):
         _ctx = self._select("id", _args)
         return await _ctx.execute(EnvFileID)
 
-    async def variables(self) -> list["EnvVariable"]:
-        """Return all variables"""
-        _args: list[Arg] = []
+    def namespace(self, prefix: str) -> Self:
+        """Filters variables by prefix and removes the pref from keys. Variables
+        without the prefix are excluded. For example, with the prefix
+        "MY_APP_" and variables: MY_APP_TOKEN=topsecret MY_APP_NAME=hello
+        FOO=bar the resulting environment will contain: TOKEN=topsecret
+        NAME=hello
+
+        Parameters
+        ----------
+        prefix:
+            The prefix to filter by
+        """
+        _args = [
+            Arg("prefix", prefix),
+        ]
+        _ctx = self._select("namespace", _args)
+        return EnvFile(_ctx)
+
+    async def variables(self, *, raw: bool | None = None) -> list["EnvVariable"]:
+        """Return all variables
+
+        Parameters
+        ----------
+        raw:
+            Return values exactly as written to the file. No quote removal or
+            variable expansion
+        """
+        _args = [
+            Arg("raw", raw, None),
+        ]
         _ctx = self._select("variables", _args)
         return await _ctx.execute_object_list(EnvVariable)
 
@@ -6112,6 +6684,27 @@ class FieldTypeDef(Type):
     object whose value is computed by invoking code (and can accept
     arguments)."""
 
+    async def deprecated(self) -> str | None:
+        """The reason this enum member is deprecated, if any.
+
+        Returns
+        -------
+        str | None
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("deprecated", _args)
+        return await _ctx.execute(str | None)
+
     async def description(self) -> str:
         """A doc string for the field, if any.
 
@@ -6202,12 +6795,19 @@ class File(Type):
         ----------
         expand:
             Replace "${VAR}" or "$VAR" with the value of other vars
+            .. deprecated:: Variable expansion is now enabled by default
         """
         _args = [
             Arg("expand", expand, None),
         ]
         _ctx = self._select("asEnvFile", _args)
         return EnvFile(_ctx)
+
+    def as_json(self) -> "JSONValue":
+        """Parse the file contents as JSON."""
+        _args: list[Arg] = []
+        _ctx = self._select("asJSON", _args)
+        return JSONValue(_ctx)
 
     def chown(self, owner: str) -> Self:
         """Change the owner of the file recursively.
@@ -6461,6 +7061,12 @@ class File(Type):
         _ctx = self._select("size", _args)
         return await _ctx.execute(int)
 
+    def stat(self) -> "Stat":
+        """Return file status"""
+        _args: list[Arg] = []
+        _ctx = self._select("stat", _args)
+        return Stat(_ctx)
+
     async def sync(self) -> Self:
         """Force evaluation in the engine.
 
@@ -6567,6 +7173,27 @@ class Function(Type):
         _ctx = self._select("args", _args)
         return await _ctx.execute_object_list(FunctionArg)
 
+    async def deprecated(self) -> str | None:
+        """The reason this function is deprecated, if any.
+
+        Returns
+        -------
+        str | None
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("deprecated", _args)
+        return await _ctx.execute(str | None)
+
     async def description(self) -> str:
         """A doc string for the function, if any.
 
@@ -6655,6 +7282,7 @@ class Function(Type):
         default_path: str | None = "",
         ignore: list[str] | None = None,
         source_map: "SourceMap | None" = None,
+        deprecated: str | None = None,
     ) -> Self:
         """Returns the function with the provided argument
 
@@ -6676,6 +7304,8 @@ class Function(Type):
             Patterns to ignore when loading the contextual argument value.
         source_map:
             The source map for the argument definition.
+        deprecated:
+            If deprecated, the reason or migration path.
         """
         _args = [
             Arg("name", name),
@@ -6685,8 +7315,52 @@ class Function(Type):
             Arg("defaultPath", default_path, ""),
             Arg("ignore", [] if ignore is None else ignore, []),
             Arg("sourceMap", source_map, None),
+            Arg("deprecated", deprecated, None),
         ]
         _ctx = self._select("withArg", _args)
+        return Function(_ctx)
+
+    def with_cache_policy(
+        self,
+        policy: FunctionCachePolicy,
+        *,
+        time_to_live: str | None = None,
+    ) -> Self:
+        """Returns the function updated to use the provided cache policy.
+
+        Parameters
+        ----------
+        policy:
+            The cache policy to use.
+        time_to_live:
+            The TTL for the cache policy, if applicable. Provided as a
+            duration string, e.g. "5m", "1h30s".
+        """
+        _args = [
+            Arg("policy", policy),
+            Arg("timeToLive", time_to_live, None),
+        ]
+        _ctx = self._select("withCachePolicy", _args)
+        return Function(_ctx)
+
+    def with_check(self) -> Self:
+        """Returns the function with a flag indicating it's a check."""
+        _args: list[Arg] = []
+        _ctx = self._select("withCheck", _args)
+        return Function(_ctx)
+
+    def with_deprecated(self, *, reason: str | None = None) -> Self:
+        """Returns the function with the provided deprecation reason.
+
+        Parameters
+        ----------
+        reason:
+            Reason or migration path describing the deprecation.
+        """
+        _args = [
+            Arg("reason", reason, None),
+        ]
+        _ctx = self._select("withDeprecated", _args)
         return Function(_ctx)
 
     def with_description(self, description: str) -> Self:
@@ -6772,6 +7446,27 @@ class FunctionArg(Type):
         _args: list[Arg] = []
         _ctx = self._select("defaultValue", _args)
         return await _ctx.execute(JSON)
+
+    async def deprecated(self) -> str | None:
+        """The reason this function is deprecated, if any.
+
+        Returns
+        -------
+        str | None
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("deprecated", _args)
+        return await _ctx.execute(str | None)
 
     async def description(self) -> str:
         """A doc string for the argument, if any.
@@ -7475,6 +8170,12 @@ class GitRepository(Type):
         _ctx = self._select("tags", _args)
         return await _ctx.execute(list[str])
 
+    def uncommitted(self) -> Changeset:
+        """Returns the changeset of uncommitted changes in the git repository."""
+        _args: list[Arg] = []
+        _ctx = self._select("uncommitted", _args)
+        return Changeset(_ctx)
+
     async def url(self) -> str | None:
         """The URL of the git repository.
 
@@ -7495,60 +8196,6 @@ class GitRepository(Type):
         _args: list[Arg] = []
         _ctx = self._select("url", _args)
         return await _ctx.execute(str | None)
-
-    def with_auth_header(self, header: "Secret") -> Self:
-        """Header to authenticate the remote with.
-
-        .. deprecated::
-            Use "httpAuthHeader" in the constructor instead.
-
-        Parameters
-        ----------
-        header:
-            Secret used to populate the Authorization HTTP header
-        """
-        warnings.warn(
-            'Method "with_auth_header" is deprecated: Use "httpAuthHeader" in the constructor instead.',
-            DeprecationWarning,
-            stacklevel=4,
-        )
-        _args = [
-            Arg("header", header),
-        ]
-        _ctx = self._select("withAuthHeader", _args)
-        return GitRepository(_ctx)
-
-    def with_auth_token(self, token: "Secret") -> Self:
-        """Token to authenticate the remote with.
-
-        .. deprecated::
-            Use "httpAuthToken" in the constructor instead.
-
-        Parameters
-        ----------
-        token:
-            Secret used to populate the password during basic HTTP
-            Authorization
-        """
-        warnings.warn(
-            'Method "with_auth_token" is deprecated: Use "httpAuthToken" in the constructor instead.',
-            DeprecationWarning,
-            stacklevel=4,
-        )
-        _args = [
-            Arg("token", token),
-        ]
-        _ctx = self._select("withAuthToken", _args)
-        return GitRepository(_ctx)
-
-    def with_(
-        self, cb: Callable[["GitRepository"], "GitRepository"]
-    ) -> "GitRepository":
-        """Call the provided callable with current GitRepository.
-
-        This is useful for reusability and readability by not breaking the calling chain.
-        """
-        return cb(self)
 
 
 @typecheck
@@ -7713,35 +8360,6 @@ class Host(Type):
         ]
         _ctx = self._select("service", _args)
         return Service(_ctx)
-
-    def set_secret_file(self, name: str, path: str) -> "Secret":
-        """Sets a secret given a user-defined name and the file path on the host,
-        and returns the secret.
-
-        The file is limited to a size of 512000 bytes.
-
-        .. deprecated::
-            setSecretFile is superceded by use of the secret API with file://
-            URIs
-
-        Parameters
-        ----------
-        name:
-            The user defined name for this secret.
-        path:
-            Location of the file to set as a secret.
-        """
-        warnings.warn(
-            'Method "set_secret_file" is deprecated: setSecretFile is superceded by use of the secret API with file:// URIs',
-            DeprecationWarning,
-            stacklevel=4,
-        )
-        _args = [
-            Arg("name", name),
-            Arg("path", path),
-        ]
-        _ctx = self._select("setSecretFile", _args)
-        return Secret(_ctx)
 
     def tunnel(
         self,
@@ -8225,6 +8843,26 @@ class LLM(Type):
         _ctx = self._select("env", _args)
         return Env(_ctx)
 
+    async def has_prompt(self) -> bool:
+        """Indicates whether there are any queued prompts or tool results to send
+        to the model
+
+        Returns
+        -------
+        bool
+            The `Boolean` scalar type represents `true` or `false`.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("hasPrompt", _args)
+        return await _ctx.execute(bool)
+
     async def history(self) -> list[str]:
         """return the llm message history
 
@@ -8311,7 +8949,9 @@ class LLM(Type):
         return await _ctx.execute(str)
 
     def loop(self) -> Self:
-        """synchronize LLM state"""
+        """Submit the queued prompt, evaluate any tool calls, queue their
+        results, and keep going until the model ends its turn
+        """
         _args: list[Arg] = []
         _ctx = self._select("loop", _args)
         return LLM(_ctx)
@@ -8358,6 +8998,20 @@ class LLM(Type):
         _ctx = self._select("provider", _args)
         return await _ctx.execute(str)
 
+    async def step(self) -> Self:
+        """Submit the queued prompt or tool call results, evaluate any tool
+        calls, and queue their results
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        return await self._ctx.execute_sync(self, "step", _args)
+
     async def sync(self) -> Self:
         """synchronize LLM state
 
@@ -8401,12 +9055,48 @@ class LLM(Type):
         _ctx = self._select("tools", _args)
         return await _ctx.execute(str)
 
+    def with_blocked_function(self, type_name: str, function: str) -> Self:
+        """Return a new LLM with the specified function no longer exposed as a
+        tool
+
+        Parameters
+        ----------
+        type_name:
+            The type name whose function will be blocked
+        function:
+            The function to block
+            Will be converted to lowerCamelCase if necessary.
+        """
+        _args = [
+            Arg("typeName", type_name),
+            Arg("function", function),
+        ]
+        _ctx = self._select("withBlockedFunction", _args)
+        return LLM(_ctx)
+
     def with_env(self, env: Env) -> Self:
         """allow the LLM to interact with an environment via MCP"""
         _args = [
             Arg("env", env),
         ]
         _ctx = self._select("withEnv", _args)
+        return LLM(_ctx)
+
+    def with_mcp_server(self, name: str, service: "Service") -> Self:
+        """Add an external MCP server to the LLM
+
+        Parameters
+        ----------
+        name:
+            The name of the MCP server
+        service:
+            The MCP service to run and communicate with over stdio
+        """
+        _args = [
+            Arg("name", name),
+            Arg("service", service),
+        ]
+        _ctx = self._select("withMCPServer", _args)
         return LLM(_ctx)
 
     def with_model(self, model: str) -> Self:
@@ -8451,6 +9141,14 @@ class LLM(Type):
         _ctx = self._select("withPromptFile", _args)
         return LLM(_ctx)
 
+    def with_static_tools(self) -> Self:
+        """Use a static set of tools for method calls, e.g. for MCP clients that
+        do not support dynamic tool registration
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("withStaticTools", _args)
+        return LLM(_ctx)
+
     def with_system_prompt(self, prompt: str) -> Self:
         """Add a system prompt to the LLM's environment
 
@@ -8469,6 +9167,18 @@ class LLM(Type):
         """Disable the default system prompt"""
         _args: list[Arg] = []
         _ctx = self._select("withoutDefaultSystemPrompt", _args)
+        return LLM(_ctx)
+
+    def without_message_history(self) -> Self:
+        """Clear the message history, leaving only the system prompts"""
+        _args: list[Arg] = []
+        _ctx = self._select("withoutMessageHistory", _args)
+        return LLM(_ctx)
+
+    def without_system_prompts(self) -> Self:
+        """Clear the system prompts, leaving only the default system prompt"""
+        _args: list[Arg] = []
+        _ctx = self._select("withoutSystemPrompts", _args)
         return LLM(_ctx)
 
     def with_(self, cb: Callable[["LLM"], "LLM"]) -> "LLM":
@@ -8711,6 +9421,47 @@ class ListTypeDef(Type):
 class Module(Type):
     """A Dagger module."""
 
+    def check(self, name: str) -> Check:
+        """Return the check defined by the module with the given name. Must match
+        to exactly one check.
+
+        .. caution::
+            Experimental: This API is highly experimental and may be removed
+            or replaced entirely.
+
+        Parameters
+        ----------
+        name:
+            The name of the check to retrieve
+        """
+        _args = [
+            Arg("name", name),
+        ]
+        _ctx = self._select("check", _args)
+        return Check(_ctx)
+
+    def checks(
+        self,
+        *,
+        include: list[str] | None = None,
+    ) -> CheckGroup:
+        """Return all checks defined by the module
+
+        .. caution::
+            Experimental: This API is highly experimental and may be removed
+            or replaced entirely.
+
+        Parameters
+        ----------
+        include:
+            Only include checks matching the specified patterns
+        """
+        _args = [
+            Arg("include", include, None),
+        ]
+        _ctx = self._select("checks", _args)
+        return CheckGroup(_ctx)
+
     async def dependencies(self) -> list["Module"]:
         """The dependencies of the module."""
         _args: list[Arg] = []
@@ -8781,6 +9532,19 @@ class Module(Type):
         _args: list[Arg] = []
         _ctx = self._select("interfaces", _args)
         return await _ctx.execute_object_list(TypeDef)
+
+    def introspection_schema_json(self) -> File:
+        """The introspection schema JSON file for this module.
+
+        This file represents the schema visible to the module's source code,
+        including all core types and those from the dependencies.
+
+        Note: this is in the context of a module, so some core types may be
+        hidden.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("introspectionSchemaJSON", _args)
+        return File(_ctx)
 
     async def name(self) -> str:
         """The name of the module
@@ -8879,6 +9643,12 @@ class Module(Type):
 
     def __await__(self):
         return self.sync().__await__()
+
+    def user_defaults(self) -> EnvFile:
+        """User-defined default values, loaded from local .env files."""
+        _args: list[Arg] = []
+        _ctx = self._select("userDefaults", _args)
+        return EnvFile(_ctx)
 
     def with_description(self, description: str) -> Self:
         """Retrieves the module with the given description
@@ -9254,6 +10024,19 @@ class ModuleSource(Type):
         _ctx = self._select("id", _args)
         return await _ctx.execute(ModuleSourceID)
 
+    def introspection_schema_json(self) -> File:
+        """The introspection schema JSON file for this module source.
+
+        This file represents the schema visible to the module's source code,
+        including all core types and those from the dependencies.
+
+        Note: this is in the context of a module, so some core types may be
+        hidden.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("introspectionSchemaJSON", _args)
+        return File(_ctx)
+
     async def kind(self) -> ModuleSourceKind:
         """The kind of module source (currently local, git or dir).
 
@@ -9471,6 +10254,18 @@ class ModuleSource(Type):
     def __await__(self):
         return self.sync().__await__()
 
+    async def toolchains(self) -> list["ModuleSource"]:
+        """The toolchains referenced by the module source."""
+        _args: list[Arg] = []
+        _ctx = self._select("toolchains", _args)
+        return await _ctx.execute_object_list(ModuleSource)
+
+    def user_defaults(self) -> EnvFile:
+        """User-defined defaults read from local .env files"""
+        _args: list[Arg] = []
+        _ctx = self._select("userDefaults", _args)
+        return EnvFile(_ctx)
+
     async def version(self) -> str:
         """The specified version of the git repo this source points to.
 
@@ -9552,6 +10347,23 @@ class ModuleSource(Type):
         _ctx = self._select("withEngineVersion", _args)
         return ModuleSource(_ctx)
 
+    def with_experimental_features(
+        self,
+        features: list[ModuleSourceExperimentalFeature],
+    ) -> Self:
+        """Enable the experimental features for the module source.
+
+        Parameters
+        ----------
+        features:
+            The experimental features to enable.
+        """
+        _args = [
+            Arg("features", features),
+        ]
+        _ctx = self._select("withExperimentalFeatures", _args)
+        return ModuleSource(_ctx)
+
     def with_includes(self, patterns: list[str]) -> Self:
         """Update the module source with additional include patterns for
         files+directories from its context that are required for building it
@@ -9610,6 +10422,20 @@ class ModuleSource(Type):
         _ctx = self._select("withSourceSubpath", _args)
         return ModuleSource(_ctx)
 
+    def with_toolchains(self, toolchains: list["ModuleSource"]) -> Self:
+        """Add toolchains to the module source.
+
+        Parameters
+        ----------
+        toolchains:
+            The toolchain modules to add.
+        """
+        _args = [
+            Arg("toolchains", toolchains),
+        ]
+        _ctx = self._select("withToolchains", _args)
+        return ModuleSource(_ctx)
+
     def with_update_blueprint(self) -> Self:
         """Update the blueprint module to the latest version."""
         _args: list[Arg] = []
@@ -9628,6 +10454,20 @@ class ModuleSource(Type):
             Arg("dependencies", dependencies),
         ]
         _ctx = self._select("withUpdateDependencies", _args)
+        return ModuleSource(_ctx)
+
+    def with_update_toolchains(self, toolchains: list[str]) -> Self:
+        """Update one or more toolchains.
+
+        Parameters
+        ----------
+        toolchains:
+            The toolchains to update.
+        """
+        _args = [
+            Arg("toolchains", toolchains),
+        ]
+        _ctx = self._select("withUpdateToolchains", _args)
         return ModuleSource(_ctx)
 
     def with_updated_clients(self, clients: list[str]) -> Self:
@@ -9679,6 +10519,37 @@ class ModuleSource(Type):
         _ctx = self._select("withoutDependencies", _args)
         return ModuleSource(_ctx)
 
+    def without_experimental_features(
+        self,
+        features: list[ModuleSourceExperimentalFeature],
+    ) -> Self:
+        """Disable experimental features for the module source.
+
+        Parameters
+        ----------
+        features:
+            The experimental features to disable.
+        """
+        _args = [
+            Arg("features", features),
+        ]
+        _ctx = self._select("withoutExperimentalFeatures", _args)
+        return ModuleSource(_ctx)
+
+    def without_toolchains(self, toolchains: list[str]) -> Self:
+        """Remove the provided toolchains from the module source.
+
+        Parameters
+        ----------
+        toolchains:
+            The toolchains to remove.
+        """
+        _args = [
+            Arg("toolchains", toolchains),
+        ]
+        _ctx = self._select("withoutToolchains", _args)
+        return ModuleSource(_ctx)
+
     def with_(self, cb: Callable[["ModuleSource"], "ModuleSource"]) -> "ModuleSource":
         """Call the provided callable with current ModuleSource.
 
@@ -9696,6 +10567,27 @@ class ObjectTypeDef(Type):
         _args: list[Arg] = []
         _ctx = self._select("constructor", _args)
         return Function(_ctx)
+
+    async def deprecated(self) -> str | None:
+        """The reason this enum member is deprecated, if any.
+
+        Returns
+        -------
+        str | None
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("deprecated", _args)
+        return await _ctx.execute(str | None)
 
     async def description(self) -> str:
         """The doc string for the object, if any.
@@ -9969,6 +10861,27 @@ class Client(Root):
         _ctx = self._select("container", _args)
         return Container(_ctx)
 
+    def current_env(self) -> Env:
+        """Returns the current environment
+
+        When called from a function invoked via an LLM tool call, this will be
+        the LLM's current environment, including any modifications made
+        through calling tools. Env values returned by functions become the new
+        environment for subsequent calls, and Changeset values returned by
+        functions are applied to the environment's workspace.
+
+        When called from a module function outside of an LLM, this returns an
+        Env with the current module installed, and with the current module's
+        source directory as its workspace.
+
+        .. caution::
+            Experimental: Programmatic env access is speculative and might be
+            replaced.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("currentEnv", _args)
+        return Env(_ctx)
+
     def current_function_call(self) -> FunctionCall:
         """The FunctionCall context that the SDK caller is currently executing
         in.
@@ -10033,7 +10946,7 @@ class Client(Root):
         privileged: bool | None = False,
         writable: bool | None = False,
     ) -> Env:
-        """Initialize a new environment
+        """Initializes a new environment
 
         .. caution::
             Experimental: Environments are not yet stabilized
@@ -10060,6 +10973,7 @@ class Client(Root):
         ----------
         expand:
             Replace "${VAR}" or "$VAR" with the value of other vars
+            .. deprecated:: Variable expansion is now enabled by default
         """
         _args = [
             Arg("expand", expand, None),
@@ -10158,6 +11072,7 @@ class Client(Root):
             Suffix ".git" is optional.
         keep_git_dir:
             DEPRECATED: Set to true to keep .git directory.
+            .. deprecated:: Set to true to keep .git directory.
         ssh_known_hosts:
             Set SSH known hosts
         ssh_auth_socket:
@@ -10289,6 +11204,22 @@ class Client(Root):
         ]
         _ctx = self._select("loadChangesetFromID", _args)
         return Changeset(_ctx)
+
+    def load_check_from_id(self, id: CheckID) -> Check:
+        """Load a Check from its ID."""
+        _args = [
+            Arg("id", id),
+        ]
+        _ctx = self._select("loadCheckFromID", _args)
+        return Check(_ctx)
+
+    def load_check_group_from_id(self, id: CheckGroupID) -> CheckGroup:
+        """Load a CheckGroup from its ID."""
+        _args = [
+            Arg("id", id),
+        ]
+        _ctx = self._select("loadCheckGroupFromID", _args)
+        return CheckGroup(_ctx)
 
     def load_cloud_from_id(self, id: CloudID) -> Cloud:
         """Load a Cloud from its ID."""
@@ -10662,6 +11593,14 @@ class Client(Root):
         _ctx = self._select("loadSourceMapFromID", _args)
         return SourceMap(_ctx)
 
+    def load_stat_from_id(self, id: StatID) -> "Stat":
+        """Load a Stat from its ID."""
+        _args = [
+            Arg("id", id),
+        ]
+        _ctx = self._select("loadStatFromID", _args)
+        return Stat(_ctx)
+
     def load_terminal_from_id(self, id: TerminalID) -> "Terminal":
         """Load a Terminal from its ID."""
         _args = [
@@ -10828,6 +11767,26 @@ class Client(Root):
 @typecheck
 class SDKConfig(Type):
     """The SDK config of the module."""
+
+    async def debug(self) -> bool:
+        """Whether to start the SDK runtime in debug mode with an interactive
+        terminal.
+
+        Returns
+        -------
+        bool
+            The `Boolean` scalar type represents `true` or `false`.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("debug", _args)
+        return await _ctx.execute(bool)
 
     async def id(self) -> SDKConfigID:
         """A unique identifier for this SDKConfig.
@@ -11651,6 +12610,117 @@ class SourceMap(Type):
 
 
 @typecheck
+class Stat(Type):
+    """A file or directory status object."""
+
+    async def file_type(self) -> FileType | None:
+        """file type
+
+        Returns
+        -------
+        FileType | None
+            File type.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("fileType", _args)
+        return await _ctx.execute(FileType | None)
+
+    async def id(self) -> StatID:
+        """A unique identifier for this Stat.
+
+        Note
+        ----
+        This is lazily evaluated, no operation is actually run.
+
+        Returns
+        -------
+        StatID
+            The `StatID` scalar type represents an identifier for an object of
+            type Stat.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("id", _args)
+        return await _ctx.execute(StatID)
+
+    async def name(self) -> str:
+        """file name
+
+        Returns
+        -------
+        str
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("name", _args)
+        return await _ctx.execute(str)
+
+    async def permissions(self) -> int:
+        """permission bits
+
+        Returns
+        -------
+        int
+            The `Int` scalar type represents non-fractional signed whole
+            numeric values. Int can represent values between -(2^31) and 2^31
+            - 1.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("permissions", _args)
+        return await _ctx.execute(int)
+
+    async def size(self) -> int:
+        """file size
+
+        Returns
+        -------
+        int
+            The `Int` scalar type represents non-fractional signed whole
+            numeric values. Int can represent values between -(2^31) and 2^31
+            - 1.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("size", _args)
+        return await _ctx.execute(int)
+
+
+@typecheck
 class Terminal(Type):
     """An interactive terminal that clients can connect to."""
 
@@ -11858,6 +12928,7 @@ class TypeDef(Type):
         value: str | None = "",
         description: str | None = "",
         source_map: SourceMap | None = None,
+        deprecated: str | None = None,
     ) -> Self:
         """Adds a static value for an Enum TypeDef, failing if the type is not an
         enum.
@@ -11872,12 +12943,15 @@ class TypeDef(Type):
             A doc string for the member, if any
         source_map:
             The source map for the enum member definition.
+        deprecated:
+            If deprecated, the reason or migration path.
         """
         _args = [
             Arg("name", name),
             Arg("value", value, ""),
             Arg("description", description, ""),
             Arg("sourceMap", source_map, None),
+            Arg("deprecated", deprecated, None),
         ]
         _ctx = self._select("withEnumMember", _args)
         return TypeDef(_ctx)
@@ -11888,6 +12962,7 @@ class TypeDef(Type):
         *,
         description: str | None = "",
         source_map: SourceMap | None = None,
+        deprecated: str | None = None,
     ) -> Self:
         """Adds a static value for an Enum TypeDef, failing if the type is not an
         enum.
@@ -11903,6 +12978,8 @@ class TypeDef(Type):
             A doc string for the value, if any
         source_map:
             The source map for the enum value definition.
+        deprecated:
+            If deprecated, the reason or migration path.
         """
         warnings.warn(
             'Method "with_enum_value" is deprecated: Use "with_enum_member" instead',
@@ -11913,6 +12990,7 @@ class TypeDef(Type):
             Arg("value", value),
             Arg("description", description, ""),
             Arg("sourceMap", source_map, None),
+            Arg("deprecated", deprecated, None),
         ]
         _ctx = self._select("withEnumValue", _args)
         return TypeDef(_ctx)
@@ -11924,6 +13002,7 @@ class TypeDef(Type):
         *,
         description: str | None = "",
         source_map: SourceMap | None = None,
+        deprecated: str | None = None,
     ) -> Self:
         """Adds a static field for an Object TypeDef, failing if the type is not
         an object.
@@ -11938,12 +13017,15 @@ class TypeDef(Type):
             A doc string for the field, if any
         source_map:
             The source map for the field definition.
+        deprecated:
+            If deprecated, the reason or migration path.
         """
         _args = [
             Arg("name", name),
             Arg("typeDef", type_def),
             Arg("description", description, ""),
             Arg("sourceMap", source_map, None),
+            Arg("deprecated", deprecated, None),
         ]
         _ctx = self._select("withField", _args)
         return TypeDef(_ctx)
@@ -11998,6 +13080,7 @@ class TypeDef(Type):
         *,
         description: str | None = "",
         source_map: SourceMap | None = None,
+        deprecated: str | None = None,
     ) -> Self:
         """Returns a TypeDef of kind Object with the provided name.
 
@@ -12009,6 +13092,7 @@ class TypeDef(Type):
             Arg("name", name),
             Arg("description", description, ""),
             Arg("sourceMap", source_map, None),
+            Arg("deprecated", deprecated, None),
         ]
         _ctx = self._select("withObject", _args)
         return TypeDef(_ctx)
@@ -12060,6 +13144,10 @@ __all__ = [
     "CacheVolumeID",
     "Changeset",
     "ChangesetID",
+    "Check",
+    "CheckGroup",
+    "CheckGroupID",
+    "CheckID",
     "Client",
     "Cloud",
     "CloudID",
@@ -12096,9 +13184,11 @@ __all__ = [
     "FieldTypeDefID",
     "File",
     "FileID",
+    "FileType",
     "Function",
     "FunctionArg",
     "FunctionArgID",
+    "FunctionCachePolicy",
     "FunctionCall",
     "FunctionCallArgValue",
     "FunctionCallArgValueID",
@@ -12131,6 +13221,7 @@ __all__ = [
     "ModuleConfigClientID",
     "ModuleID",
     "ModuleSource",
+    "ModuleSourceExperimentalFeature",
     "ModuleSourceID",
     "ModuleSourceKind",
     "NetworkProtocol",
@@ -12158,6 +13249,8 @@ __all__ = [
     "SocketID",
     "SourceMap",
     "SourceMapID",
+    "Stat",
+    "StatID",
     "Terminal",
     "TerminalID",
     "TypeDef",

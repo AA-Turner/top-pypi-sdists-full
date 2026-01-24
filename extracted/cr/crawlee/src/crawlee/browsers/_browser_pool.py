@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-@docs_group('Classes')
+@docs_group('Browser management')
 class BrowserPool:
     """Manage a pool of browsers and pages, handling their lifecycle and resource allocation.
 
@@ -118,7 +118,10 @@ class BrowserPool:
         """Initialize a new instance with a single `PlaywrightBrowserPlugin` configured with the provided options.
 
         Args:
-            browser_type: The type of browser to launch ('chromium', 'firefox', or 'webkit').
+            browser_type: The type of browser to launch:
+                - 'chromium', 'firefox', 'webkit': Use Playwright-managed browsers
+                - 'chrome': Use your locally installed Google Chrome browser. Requires Google Chrome to be installed on
+                    the system.
             user_data_dir: Path to a user data directory, which stores browser session data like cookies
                 and local storage.
             browser_launch_options: Keyword arguments to pass to the browser launch method. These options are provided
@@ -135,7 +138,7 @@ class BrowserPool:
             kwargs: Additional arguments for default constructor.
         """
         plugin_options: dict = defaultdict(dict)
-        plugin_options['browser_launch_options'] = browser_launch_options or {}
+        plugin_options['browser_launch_options'] = dict(browser_launch_options) if browser_launch_options else {}
         plugin_options['browser_new_context_options'] = browser_new_context_options or {}
 
         if headless is not None:

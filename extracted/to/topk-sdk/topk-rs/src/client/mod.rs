@@ -1,4 +1,3 @@
-use crate::create_client;
 use crate::proto::v1::control::collection_service_client::CollectionServiceClient;
 use crate::proto::v1::data::query_service_client::QueryServiceClient;
 use crate::proto::v1::data::write_service_client::WriteServiceClient;
@@ -51,6 +50,14 @@ impl Client {
             config: Arc::new(config),
             channel: Arc::new(OnceCell::new()),
         }
+    }
+
+    pub fn config(&self) -> Arc<ClientConfig> {
+        self.config.clone()
+    }
+
+    pub fn channel(&self) -> Arc<OnceCell<Channel>> {
+        self.channel.clone()
     }
 
     #[cfg(feature = "in_memory")]

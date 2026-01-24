@@ -1,0 +1,63 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "secops"
+version = "0.34.0"
+description = "Python SDK for wrapping the Google SecOps API for common use cases"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [
+    { name = "Google SecOps Team", email = "chronicle@google.com" }
+]
+keywords = ["google", "security", "chronicle", "secops"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+]
+dependencies = [
+    "google-auth>=2.0.0",
+    "google-auth-httplib2>=0.1.0",
+    "google-api-python-client>=2.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/google/secops-wrapper"
+Documentation = "https://github.com/google/secops-wrapper#readme"
+Repository = "https://github.com/google/secops-wrapper.git"
+Issues = "https://github.com/google/secops-wrapper/issues"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=3.0.0",
+    "tox>=3.24.0",
+    "python-dotenv>=0.17.1",
+]
+docs = [
+    "sphinx>=4.0.0",
+    "sphinx-rtd-theme>=1.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=secops"
+markers = [
+    "integration: marks tests as integration tests that interact with real APIs",
+]
+
+[project.scripts]
+secops = "secops.cli:main"
+
+[tool.hatch.build]
+sources = ["src"]

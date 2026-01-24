@@ -41,94 +41,230 @@ class V1ClusterSpec(object):
                             and the value is json key in definition.
     """
     swagger_types = {
+        'ai_pod_v1': 'V1AiPodV1',
         'auth_token': 'str',
-        'available_instance_types': 'list[str]',
+        'available_accelerators': 'list[str]',
         'aws_v1': 'V1AWSDirectV1',
+        'cloud_pricing_enabled': 'bool',
+        'cloudflare_v1': 'V1CloudflareV1',
         'cluster_type': 'V1ClusterType',
+        'compute_cluster_ids': 'list[str]',
+        'compute_cluster_request': 'V1ComputeClusterRequest',
         'deletion_options': 'V1ClusterDeletionOptions',
         'desired_state': 'V1ClusterState',
-        'driver': 'V1ClusterDriver',
+        'domain': 'str',
+        'driver': 'V1CloudProvider',
+        'freeze_accelerators': 'bool',
         'google_cloud_v1': 'V1GoogleCloudDirectV1',
-        'gridlet_version': 'str',
+        'insurer_disabled': 'bool',
+        'kubernetes_v1': 'V1KubernetesDirectV1',
+        'lambda_labs_v1': 'V1LambdaLabsDirectV1',
+        'lightning_elastic_cluster_v1': 'V1LightningElasticClusterV1',
+        'lock_overprovisioning': 'bool',
+        'locked_zones': 'list[str]',
+        'machine_v1': 'V1MachineDirectV1',
+        'monitor_deletion_disabled': 'bool',
+        'nebius_v1': 'V1NebiusDirectV1',
         'overprovisioning': 'list[V1InstanceOverprovisioningSpec]',
+        'parent_cluster_id': 'str',
+        'parent_cluster_type': 'str',
         'pause_automation': 'bool',
-        'performance_profile': 'V1ClusterPerformanceProfile',
+        'reservation_details': 'V1ReservationDetails',
+        'reserved_capacity_provider': 'bool',
+        'reserved_instances_only': 'bool',
         'security_options': 'V1ClusterSecurityOptions',
         'slurm_v1': 'V1SlurmV1',
         'tagging_options': 'V1ClusterTaggingOptions',
-        'user_id': 'str'
+        'unavailability_spikes_detection_enabled': 'bool',
+        'user_id': 'str',
+        'vibe_coding_enabled': 'bool',
+        'voltage_park_v1': 'V1VoltageParkDirectV1',
+        'vultr_v1': 'V1VultrDirectV1'
     }
 
     attribute_map = {
+        'ai_pod_v1': 'aiPodV1',
         'auth_token': 'authToken',
-        'available_instance_types': 'availableInstanceTypes',
+        'available_accelerators': 'availableAccelerators',
         'aws_v1': 'awsV1',
+        'cloud_pricing_enabled': 'cloudPricingEnabled',
+        'cloudflare_v1': 'cloudflareV1',
         'cluster_type': 'clusterType',
+        'compute_cluster_ids': 'computeClusterIds',
+        'compute_cluster_request': 'computeClusterRequest',
         'deletion_options': 'deletionOptions',
         'desired_state': 'desiredState',
+        'domain': 'domain',
         'driver': 'driver',
+        'freeze_accelerators': 'freezeAccelerators',
         'google_cloud_v1': 'googleCloudV1',
-        'gridlet_version': 'gridletVersion',
+        'insurer_disabled': 'insurerDisabled',
+        'kubernetes_v1': 'kubernetesV1',
+        'lambda_labs_v1': 'lambdaLabsV1',
+        'lightning_elastic_cluster_v1': 'lightningElasticClusterV1',
+        'lock_overprovisioning': 'lockOverprovisioning',
+        'locked_zones': 'lockedZones',
+        'machine_v1': 'machineV1',
+        'monitor_deletion_disabled': 'monitorDeletionDisabled',
+        'nebius_v1': 'nebiusV1',
         'overprovisioning': 'overprovisioning',
+        'parent_cluster_id': 'parentClusterId',
+        'parent_cluster_type': 'parentClusterType',
         'pause_automation': 'pauseAutomation',
-        'performance_profile': 'performanceProfile',
+        'reservation_details': 'reservationDetails',
+        'reserved_capacity_provider': 'reservedCapacityProvider',
+        'reserved_instances_only': 'reservedInstancesOnly',
         'security_options': 'securityOptions',
         'slurm_v1': 'slurmV1',
         'tagging_options': 'taggingOptions',
-        'user_id': 'userId'
+        'unavailability_spikes_detection_enabled': 'unavailabilitySpikesDetectionEnabled',
+        'user_id': 'userId',
+        'vibe_coding_enabled': 'vibeCodingEnabled',
+        'voltage_park_v1': 'voltageParkV1',
+        'vultr_v1': 'vultrV1'
     }
 
-    def __init__(self, auth_token: 'str' =None, available_instance_types: 'list[str]' =None, aws_v1: 'V1AWSDirectV1' =None, cluster_type: 'V1ClusterType' =None, deletion_options: 'V1ClusterDeletionOptions' =None, desired_state: 'V1ClusterState' =None, driver: 'V1ClusterDriver' =None, google_cloud_v1: 'V1GoogleCloudDirectV1' =None, gridlet_version: 'str' =None, overprovisioning: 'list[V1InstanceOverprovisioningSpec]' =None, pause_automation: 'bool' =None, performance_profile: 'V1ClusterPerformanceProfile' =None, security_options: 'V1ClusterSecurityOptions' =None, slurm_v1: 'V1SlurmV1' =None, tagging_options: 'V1ClusterTaggingOptions' =None, user_id: 'str' =None):  # noqa: E501
+    def __init__(self, ai_pod_v1: 'V1AiPodV1' =None, auth_token: 'str' =None, available_accelerators: 'list[str]' =None, aws_v1: 'V1AWSDirectV1' =None, cloud_pricing_enabled: 'bool' =None, cloudflare_v1: 'V1CloudflareV1' =None, cluster_type: 'V1ClusterType' =None, compute_cluster_ids: 'list[str]' =None, compute_cluster_request: 'V1ComputeClusterRequest' =None, deletion_options: 'V1ClusterDeletionOptions' =None, desired_state: 'V1ClusterState' =None, domain: 'str' =None, driver: 'V1CloudProvider' =None, freeze_accelerators: 'bool' =None, google_cloud_v1: 'V1GoogleCloudDirectV1' =None, insurer_disabled: 'bool' =None, kubernetes_v1: 'V1KubernetesDirectV1' =None, lambda_labs_v1: 'V1LambdaLabsDirectV1' =None, lightning_elastic_cluster_v1: 'V1LightningElasticClusterV1' =None, lock_overprovisioning: 'bool' =None, locked_zones: 'list[str]' =None, machine_v1: 'V1MachineDirectV1' =None, monitor_deletion_disabled: 'bool' =None, nebius_v1: 'V1NebiusDirectV1' =None, overprovisioning: 'list[V1InstanceOverprovisioningSpec]' =None, parent_cluster_id: 'str' =None, parent_cluster_type: 'str' =None, pause_automation: 'bool' =None, reservation_details: 'V1ReservationDetails' =None, reserved_capacity_provider: 'bool' =None, reserved_instances_only: 'bool' =None, security_options: 'V1ClusterSecurityOptions' =None, slurm_v1: 'V1SlurmV1' =None, tagging_options: 'V1ClusterTaggingOptions' =None, unavailability_spikes_detection_enabled: 'bool' =None, user_id: 'str' =None, vibe_coding_enabled: 'bool' =None, voltage_park_v1: 'V1VoltageParkDirectV1' =None, vultr_v1: 'V1VultrDirectV1' =None):  # noqa: E501
         """V1ClusterSpec - a model defined in Swagger"""  # noqa: E501
+        self._ai_pod_v1 = None
         self._auth_token = None
-        self._available_instance_types = None
+        self._available_accelerators = None
         self._aws_v1 = None
+        self._cloud_pricing_enabled = None
+        self._cloudflare_v1 = None
         self._cluster_type = None
+        self._compute_cluster_ids = None
+        self._compute_cluster_request = None
         self._deletion_options = None
         self._desired_state = None
+        self._domain = None
         self._driver = None
+        self._freeze_accelerators = None
         self._google_cloud_v1 = None
-        self._gridlet_version = None
+        self._insurer_disabled = None
+        self._kubernetes_v1 = None
+        self._lambda_labs_v1 = None
+        self._lightning_elastic_cluster_v1 = None
+        self._lock_overprovisioning = None
+        self._locked_zones = None
+        self._machine_v1 = None
+        self._monitor_deletion_disabled = None
+        self._nebius_v1 = None
         self._overprovisioning = None
+        self._parent_cluster_id = None
+        self._parent_cluster_type = None
         self._pause_automation = None
-        self._performance_profile = None
+        self._reservation_details = None
+        self._reserved_capacity_provider = None
+        self._reserved_instances_only = None
         self._security_options = None
         self._slurm_v1 = None
         self._tagging_options = None
+        self._unavailability_spikes_detection_enabled = None
         self._user_id = None
+        self._vibe_coding_enabled = None
+        self._voltage_park_v1 = None
+        self._vultr_v1 = None
         self.discriminator = None
+        if ai_pod_v1 is not None:
+            self.ai_pod_v1 = ai_pod_v1
         if auth_token is not None:
             self.auth_token = auth_token
-        if available_instance_types is not None:
-            self.available_instance_types = available_instance_types
+        if available_accelerators is not None:
+            self.available_accelerators = available_accelerators
         if aws_v1 is not None:
             self.aws_v1 = aws_v1
+        if cloud_pricing_enabled is not None:
+            self.cloud_pricing_enabled = cloud_pricing_enabled
+        if cloudflare_v1 is not None:
+            self.cloudflare_v1 = cloudflare_v1
         if cluster_type is not None:
             self.cluster_type = cluster_type
+        if compute_cluster_ids is not None:
+            self.compute_cluster_ids = compute_cluster_ids
+        if compute_cluster_request is not None:
+            self.compute_cluster_request = compute_cluster_request
         if deletion_options is not None:
             self.deletion_options = deletion_options
         if desired_state is not None:
             self.desired_state = desired_state
+        if domain is not None:
+            self.domain = domain
         if driver is not None:
             self.driver = driver
+        if freeze_accelerators is not None:
+            self.freeze_accelerators = freeze_accelerators
         if google_cloud_v1 is not None:
             self.google_cloud_v1 = google_cloud_v1
-        if gridlet_version is not None:
-            self.gridlet_version = gridlet_version
+        if insurer_disabled is not None:
+            self.insurer_disabled = insurer_disabled
+        if kubernetes_v1 is not None:
+            self.kubernetes_v1 = kubernetes_v1
+        if lambda_labs_v1 is not None:
+            self.lambda_labs_v1 = lambda_labs_v1
+        if lightning_elastic_cluster_v1 is not None:
+            self.lightning_elastic_cluster_v1 = lightning_elastic_cluster_v1
+        if lock_overprovisioning is not None:
+            self.lock_overprovisioning = lock_overprovisioning
+        if locked_zones is not None:
+            self.locked_zones = locked_zones
+        if machine_v1 is not None:
+            self.machine_v1 = machine_v1
+        if monitor_deletion_disabled is not None:
+            self.monitor_deletion_disabled = monitor_deletion_disabled
+        if nebius_v1 is not None:
+            self.nebius_v1 = nebius_v1
         if overprovisioning is not None:
             self.overprovisioning = overprovisioning
+        if parent_cluster_id is not None:
+            self.parent_cluster_id = parent_cluster_id
+        if parent_cluster_type is not None:
+            self.parent_cluster_type = parent_cluster_type
         if pause_automation is not None:
             self.pause_automation = pause_automation
-        if performance_profile is not None:
-            self.performance_profile = performance_profile
+        if reservation_details is not None:
+            self.reservation_details = reservation_details
+        if reserved_capacity_provider is not None:
+            self.reserved_capacity_provider = reserved_capacity_provider
+        if reserved_instances_only is not None:
+            self.reserved_instances_only = reserved_instances_only
         if security_options is not None:
             self.security_options = security_options
         if slurm_v1 is not None:
             self.slurm_v1 = slurm_v1
         if tagging_options is not None:
             self.tagging_options = tagging_options
+        if unavailability_spikes_detection_enabled is not None:
+            self.unavailability_spikes_detection_enabled = unavailability_spikes_detection_enabled
         if user_id is not None:
             self.user_id = user_id
+        if vibe_coding_enabled is not None:
+            self.vibe_coding_enabled = vibe_coding_enabled
+        if voltage_park_v1 is not None:
+            self.voltage_park_v1 = voltage_park_v1
+        if vultr_v1 is not None:
+            self.vultr_v1 = vultr_v1
+
+    @property
+    def ai_pod_v1(self) -> 'V1AiPodV1':
+        """Gets the ai_pod_v1 of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The ai_pod_v1 of this V1ClusterSpec.  # noqa: E501
+        :rtype: V1AiPodV1
+        """
+        return self._ai_pod_v1
+
+    @ai_pod_v1.setter
+    def ai_pod_v1(self, ai_pod_v1: 'V1AiPodV1'):
+        """Sets the ai_pod_v1 of this V1ClusterSpec.
+
+
+        :param ai_pod_v1: The ai_pod_v1 of this V1ClusterSpec.  # noqa: E501
+        :type: V1AiPodV1
+        """
+
+        self._ai_pod_v1 = ai_pod_v1
 
     @property
     def auth_token(self) -> 'str':
@@ -152,27 +288,25 @@ class V1ClusterSpec(object):
         self._auth_token = auth_token
 
     @property
-    def available_instance_types(self) -> 'list[str]':
-        """Gets the available_instance_types of this V1ClusterSpec.  # noqa: E501
+    def available_accelerators(self) -> 'list[str]':
+        """Gets the available_accelerators of this V1ClusterSpec.  # noqa: E501
 
-        available_instance_types is a list of instance types that are available for the cluster. This is just a soft filter to prevent users from using instances that we haven't prepared for. If the list is empty, no filtering is done.  # noqa: E501
 
-        :return: The available_instance_types of this V1ClusterSpec.  # noqa: E501
+        :return: The available_accelerators of this V1ClusterSpec.  # noqa: E501
         :rtype: list[str]
         """
-        return self._available_instance_types
+        return self._available_accelerators
 
-    @available_instance_types.setter
-    def available_instance_types(self, available_instance_types: 'list[str]'):
-        """Sets the available_instance_types of this V1ClusterSpec.
+    @available_accelerators.setter
+    def available_accelerators(self, available_accelerators: 'list[str]'):
+        """Sets the available_accelerators of this V1ClusterSpec.
 
-        available_instance_types is a list of instance types that are available for the cluster. This is just a soft filter to prevent users from using instances that we haven't prepared for. If the list is empty, no filtering is done.  # noqa: E501
 
-        :param available_instance_types: The available_instance_types of this V1ClusterSpec.  # noqa: E501
+        :param available_accelerators: The available_accelerators of this V1ClusterSpec.  # noqa: E501
         :type: list[str]
         """
 
-        self._available_instance_types = available_instance_types
+        self._available_accelerators = available_accelerators
 
     @property
     def aws_v1(self) -> 'V1AWSDirectV1':
@@ -196,6 +330,48 @@ class V1ClusterSpec(object):
         self._aws_v1 = aws_v1
 
     @property
+    def cloud_pricing_enabled(self) -> 'bool':
+        """Gets the cloud_pricing_enabled of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The cloud_pricing_enabled of this V1ClusterSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._cloud_pricing_enabled
+
+    @cloud_pricing_enabled.setter
+    def cloud_pricing_enabled(self, cloud_pricing_enabled: 'bool'):
+        """Sets the cloud_pricing_enabled of this V1ClusterSpec.
+
+
+        :param cloud_pricing_enabled: The cloud_pricing_enabled of this V1ClusterSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._cloud_pricing_enabled = cloud_pricing_enabled
+
+    @property
+    def cloudflare_v1(self) -> 'V1CloudflareV1':
+        """Gets the cloudflare_v1 of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The cloudflare_v1 of this V1ClusterSpec.  # noqa: E501
+        :rtype: V1CloudflareV1
+        """
+        return self._cloudflare_v1
+
+    @cloudflare_v1.setter
+    def cloudflare_v1(self, cloudflare_v1: 'V1CloudflareV1'):
+        """Sets the cloudflare_v1 of this V1ClusterSpec.
+
+
+        :param cloudflare_v1: The cloudflare_v1 of this V1ClusterSpec.  # noqa: E501
+        :type: V1CloudflareV1
+        """
+
+        self._cloudflare_v1 = cloudflare_v1
+
+    @property
     def cluster_type(self) -> 'V1ClusterType':
         """Gets the cluster_type of this V1ClusterSpec.  # noqa: E501
 
@@ -215,6 +391,48 @@ class V1ClusterSpec(object):
         """
 
         self._cluster_type = cluster_type
+
+    @property
+    def compute_cluster_ids(self) -> 'list[str]':
+        """Gets the compute_cluster_ids of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The compute_cluster_ids of this V1ClusterSpec.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._compute_cluster_ids
+
+    @compute_cluster_ids.setter
+    def compute_cluster_ids(self, compute_cluster_ids: 'list[str]'):
+        """Sets the compute_cluster_ids of this V1ClusterSpec.
+
+
+        :param compute_cluster_ids: The compute_cluster_ids of this V1ClusterSpec.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._compute_cluster_ids = compute_cluster_ids
+
+    @property
+    def compute_cluster_request(self) -> 'V1ComputeClusterRequest':
+        """Gets the compute_cluster_request of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The compute_cluster_request of this V1ClusterSpec.  # noqa: E501
+        :rtype: V1ComputeClusterRequest
+        """
+        return self._compute_cluster_request
+
+    @compute_cluster_request.setter
+    def compute_cluster_request(self, compute_cluster_request: 'V1ComputeClusterRequest'):
+        """Sets the compute_cluster_request of this V1ClusterSpec.
+
+
+        :param compute_cluster_request: The compute_cluster_request of this V1ClusterSpec.  # noqa: E501
+        :type: V1ComputeClusterRequest
+        """
+
+        self._compute_cluster_request = compute_cluster_request
 
     @property
     def deletion_options(self) -> 'V1ClusterDeletionOptions':
@@ -259,25 +477,69 @@ class V1ClusterSpec(object):
         self._desired_state = desired_state
 
     @property
-    def driver(self) -> 'V1ClusterDriver':
+    def domain(self) -> 'str':
+        """Gets the domain of this V1ClusterSpec.  # noqa: E501
+
+        Root domain for deployments, endpoints, studio plugins, etc.  # noqa: E501
+
+        :return: The domain of this V1ClusterSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._domain
+
+    @domain.setter
+    def domain(self, domain: 'str'):
+        """Sets the domain of this V1ClusterSpec.
+
+        Root domain for deployments, endpoints, studio plugins, etc.  # noqa: E501
+
+        :param domain: The domain of this V1ClusterSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._domain = domain
+
+    @property
+    def driver(self) -> 'V1CloudProvider':
         """Gets the driver of this V1ClusterSpec.  # noqa: E501
 
 
         :return: The driver of this V1ClusterSpec.  # noqa: E501
-        :rtype: V1ClusterDriver
+        :rtype: V1CloudProvider
         """
         return self._driver
 
     @driver.setter
-    def driver(self, driver: 'V1ClusterDriver'):
+    def driver(self, driver: 'V1CloudProvider'):
         """Sets the driver of this V1ClusterSpec.
 
 
         :param driver: The driver of this V1ClusterSpec.  # noqa: E501
-        :type: V1ClusterDriver
+        :type: V1CloudProvider
         """
 
         self._driver = driver
+
+    @property
+    def freeze_accelerators(self) -> 'bool':
+        """Gets the freeze_accelerators of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The freeze_accelerators of this V1ClusterSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._freeze_accelerators
+
+    @freeze_accelerators.setter
+    def freeze_accelerators(self, freeze_accelerators: 'bool'):
+        """Sets the freeze_accelerators of this V1ClusterSpec.
+
+
+        :param freeze_accelerators: The freeze_accelerators of this V1ClusterSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._freeze_accelerators = freeze_accelerators
 
     @property
     def google_cloud_v1(self) -> 'V1GoogleCloudDirectV1':
@@ -301,25 +563,193 @@ class V1ClusterSpec(object):
         self._google_cloud_v1 = google_cloud_v1
 
     @property
-    def gridlet_version(self) -> 'str':
-        """Gets the gridlet_version of this V1ClusterSpec.  # noqa: E501
+    def insurer_disabled(self) -> 'bool':
+        """Gets the insurer_disabled of this V1ClusterSpec.  # noqa: E501
 
 
-        :return: The gridlet_version of this V1ClusterSpec.  # noqa: E501
-        :rtype: str
+        :return: The insurer_disabled of this V1ClusterSpec.  # noqa: E501
+        :rtype: bool
         """
-        return self._gridlet_version
+        return self._insurer_disabled
 
-    @gridlet_version.setter
-    def gridlet_version(self, gridlet_version: 'str'):
-        """Sets the gridlet_version of this V1ClusterSpec.
+    @insurer_disabled.setter
+    def insurer_disabled(self, insurer_disabled: 'bool'):
+        """Sets the insurer_disabled of this V1ClusterSpec.
 
 
-        :param gridlet_version: The gridlet_version of this V1ClusterSpec.  # noqa: E501
-        :type: str
+        :param insurer_disabled: The insurer_disabled of this V1ClusterSpec.  # noqa: E501
+        :type: bool
         """
 
-        self._gridlet_version = gridlet_version
+        self._insurer_disabled = insurer_disabled
+
+    @property
+    def kubernetes_v1(self) -> 'V1KubernetesDirectV1':
+        """Gets the kubernetes_v1 of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The kubernetes_v1 of this V1ClusterSpec.  # noqa: E501
+        :rtype: V1KubernetesDirectV1
+        """
+        return self._kubernetes_v1
+
+    @kubernetes_v1.setter
+    def kubernetes_v1(self, kubernetes_v1: 'V1KubernetesDirectV1'):
+        """Sets the kubernetes_v1 of this V1ClusterSpec.
+
+
+        :param kubernetes_v1: The kubernetes_v1 of this V1ClusterSpec.  # noqa: E501
+        :type: V1KubernetesDirectV1
+        """
+
+        self._kubernetes_v1 = kubernetes_v1
+
+    @property
+    def lambda_labs_v1(self) -> 'V1LambdaLabsDirectV1':
+        """Gets the lambda_labs_v1 of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The lambda_labs_v1 of this V1ClusterSpec.  # noqa: E501
+        :rtype: V1LambdaLabsDirectV1
+        """
+        return self._lambda_labs_v1
+
+    @lambda_labs_v1.setter
+    def lambda_labs_v1(self, lambda_labs_v1: 'V1LambdaLabsDirectV1'):
+        """Sets the lambda_labs_v1 of this V1ClusterSpec.
+
+
+        :param lambda_labs_v1: The lambda_labs_v1 of this V1ClusterSpec.  # noqa: E501
+        :type: V1LambdaLabsDirectV1
+        """
+
+        self._lambda_labs_v1 = lambda_labs_v1
+
+    @property
+    def lightning_elastic_cluster_v1(self) -> 'V1LightningElasticClusterV1':
+        """Gets the lightning_elastic_cluster_v1 of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The lightning_elastic_cluster_v1 of this V1ClusterSpec.  # noqa: E501
+        :rtype: V1LightningElasticClusterV1
+        """
+        return self._lightning_elastic_cluster_v1
+
+    @lightning_elastic_cluster_v1.setter
+    def lightning_elastic_cluster_v1(self, lightning_elastic_cluster_v1: 'V1LightningElasticClusterV1'):
+        """Sets the lightning_elastic_cluster_v1 of this V1ClusterSpec.
+
+
+        :param lightning_elastic_cluster_v1: The lightning_elastic_cluster_v1 of this V1ClusterSpec.  # noqa: E501
+        :type: V1LightningElasticClusterV1
+        """
+
+        self._lightning_elastic_cluster_v1 = lightning_elastic_cluster_v1
+
+    @property
+    def lock_overprovisioning(self) -> 'bool':
+        """Gets the lock_overprovisioning of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The lock_overprovisioning of this V1ClusterSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._lock_overprovisioning
+
+    @lock_overprovisioning.setter
+    def lock_overprovisioning(self, lock_overprovisioning: 'bool'):
+        """Sets the lock_overprovisioning of this V1ClusterSpec.
+
+
+        :param lock_overprovisioning: The lock_overprovisioning of this V1ClusterSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._lock_overprovisioning = lock_overprovisioning
+
+    @property
+    def locked_zones(self) -> 'list[str]':
+        """Gets the locked_zones of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The locked_zones of this V1ClusterSpec.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._locked_zones
+
+    @locked_zones.setter
+    def locked_zones(self, locked_zones: 'list[str]'):
+        """Sets the locked_zones of this V1ClusterSpec.
+
+
+        :param locked_zones: The locked_zones of this V1ClusterSpec.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._locked_zones = locked_zones
+
+    @property
+    def machine_v1(self) -> 'V1MachineDirectV1':
+        """Gets the machine_v1 of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The machine_v1 of this V1ClusterSpec.  # noqa: E501
+        :rtype: V1MachineDirectV1
+        """
+        return self._machine_v1
+
+    @machine_v1.setter
+    def machine_v1(self, machine_v1: 'V1MachineDirectV1'):
+        """Sets the machine_v1 of this V1ClusterSpec.
+
+
+        :param machine_v1: The machine_v1 of this V1ClusterSpec.  # noqa: E501
+        :type: V1MachineDirectV1
+        """
+
+        self._machine_v1 = machine_v1
+
+    @property
+    def monitor_deletion_disabled(self) -> 'bool':
+        """Gets the monitor_deletion_disabled of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The monitor_deletion_disabled of this V1ClusterSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._monitor_deletion_disabled
+
+    @monitor_deletion_disabled.setter
+    def monitor_deletion_disabled(self, monitor_deletion_disabled: 'bool'):
+        """Sets the monitor_deletion_disabled of this V1ClusterSpec.
+
+
+        :param monitor_deletion_disabled: The monitor_deletion_disabled of this V1ClusterSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._monitor_deletion_disabled = monitor_deletion_disabled
+
+    @property
+    def nebius_v1(self) -> 'V1NebiusDirectV1':
+        """Gets the nebius_v1 of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The nebius_v1 of this V1ClusterSpec.  # noqa: E501
+        :rtype: V1NebiusDirectV1
+        """
+        return self._nebius_v1
+
+    @nebius_v1.setter
+    def nebius_v1(self, nebius_v1: 'V1NebiusDirectV1'):
+        """Sets the nebius_v1 of this V1ClusterSpec.
+
+
+        :param nebius_v1: The nebius_v1 of this V1ClusterSpec.  # noqa: E501
+        :type: V1NebiusDirectV1
+        """
+
+        self._nebius_v1 = nebius_v1
 
     @property
     def overprovisioning(self) -> 'list[V1InstanceOverprovisioningSpec]':
@@ -343,6 +773,48 @@ class V1ClusterSpec(object):
         self._overprovisioning = overprovisioning
 
     @property
+    def parent_cluster_id(self) -> 'str':
+        """Gets the parent_cluster_id of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The parent_cluster_id of this V1ClusterSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._parent_cluster_id
+
+    @parent_cluster_id.setter
+    def parent_cluster_id(self, parent_cluster_id: 'str'):
+        """Sets the parent_cluster_id of this V1ClusterSpec.
+
+
+        :param parent_cluster_id: The parent_cluster_id of this V1ClusterSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._parent_cluster_id = parent_cluster_id
+
+    @property
+    def parent_cluster_type(self) -> 'str':
+        """Gets the parent_cluster_type of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The parent_cluster_type of this V1ClusterSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._parent_cluster_type
+
+    @parent_cluster_type.setter
+    def parent_cluster_type(self, parent_cluster_type: 'str'):
+        """Sets the parent_cluster_type of this V1ClusterSpec.
+
+
+        :param parent_cluster_type: The parent_cluster_type of this V1ClusterSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._parent_cluster_type = parent_cluster_type
+
+    @property
     def pause_automation(self) -> 'bool':
         """Gets the pause_automation of this V1ClusterSpec.  # noqa: E501
 
@@ -364,25 +836,67 @@ class V1ClusterSpec(object):
         self._pause_automation = pause_automation
 
     @property
-    def performance_profile(self) -> 'V1ClusterPerformanceProfile':
-        """Gets the performance_profile of this V1ClusterSpec.  # noqa: E501
+    def reservation_details(self) -> 'V1ReservationDetails':
+        """Gets the reservation_details of this V1ClusterSpec.  # noqa: E501
 
 
-        :return: The performance_profile of this V1ClusterSpec.  # noqa: E501
-        :rtype: V1ClusterPerformanceProfile
+        :return: The reservation_details of this V1ClusterSpec.  # noqa: E501
+        :rtype: V1ReservationDetails
         """
-        return self._performance_profile
+        return self._reservation_details
 
-    @performance_profile.setter
-    def performance_profile(self, performance_profile: 'V1ClusterPerformanceProfile'):
-        """Sets the performance_profile of this V1ClusterSpec.
+    @reservation_details.setter
+    def reservation_details(self, reservation_details: 'V1ReservationDetails'):
+        """Sets the reservation_details of this V1ClusterSpec.
 
 
-        :param performance_profile: The performance_profile of this V1ClusterSpec.  # noqa: E501
-        :type: V1ClusterPerformanceProfile
+        :param reservation_details: The reservation_details of this V1ClusterSpec.  # noqa: E501
+        :type: V1ReservationDetails
         """
 
-        self._performance_profile = performance_profile
+        self._reservation_details = reservation_details
+
+    @property
+    def reserved_capacity_provider(self) -> 'bool':
+        """Gets the reserved_capacity_provider of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The reserved_capacity_provider of this V1ClusterSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._reserved_capacity_provider
+
+    @reserved_capacity_provider.setter
+    def reserved_capacity_provider(self, reserved_capacity_provider: 'bool'):
+        """Sets the reserved_capacity_provider of this V1ClusterSpec.
+
+
+        :param reserved_capacity_provider: The reserved_capacity_provider of this V1ClusterSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._reserved_capacity_provider = reserved_capacity_provider
+
+    @property
+    def reserved_instances_only(self) -> 'bool':
+        """Gets the reserved_instances_only of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The reserved_instances_only of this V1ClusterSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._reserved_instances_only
+
+    @reserved_instances_only.setter
+    def reserved_instances_only(self, reserved_instances_only: 'bool'):
+        """Sets the reserved_instances_only of this V1ClusterSpec.
+
+
+        :param reserved_instances_only: The reserved_instances_only of this V1ClusterSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._reserved_instances_only = reserved_instances_only
 
     @property
     def security_options(self) -> 'V1ClusterSecurityOptions':
@@ -448,6 +962,27 @@ class V1ClusterSpec(object):
         self._tagging_options = tagging_options
 
     @property
+    def unavailability_spikes_detection_enabled(self) -> 'bool':
+        """Gets the unavailability_spikes_detection_enabled of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The unavailability_spikes_detection_enabled of this V1ClusterSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._unavailability_spikes_detection_enabled
+
+    @unavailability_spikes_detection_enabled.setter
+    def unavailability_spikes_detection_enabled(self, unavailability_spikes_detection_enabled: 'bool'):
+        """Sets the unavailability_spikes_detection_enabled of this V1ClusterSpec.
+
+
+        :param unavailability_spikes_detection_enabled: The unavailability_spikes_detection_enabled of this V1ClusterSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._unavailability_spikes_detection_enabled = unavailability_spikes_detection_enabled
+
+    @property
     def user_id(self) -> 'str':
         """Gets the user_id of this V1ClusterSpec.  # noqa: E501
 
@@ -467,6 +1002,69 @@ class V1ClusterSpec(object):
         """
 
         self._user_id = user_id
+
+    @property
+    def vibe_coding_enabled(self) -> 'bool':
+        """Gets the vibe_coding_enabled of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The vibe_coding_enabled of this V1ClusterSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._vibe_coding_enabled
+
+    @vibe_coding_enabled.setter
+    def vibe_coding_enabled(self, vibe_coding_enabled: 'bool'):
+        """Sets the vibe_coding_enabled of this V1ClusterSpec.
+
+
+        :param vibe_coding_enabled: The vibe_coding_enabled of this V1ClusterSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._vibe_coding_enabled = vibe_coding_enabled
+
+    @property
+    def voltage_park_v1(self) -> 'V1VoltageParkDirectV1':
+        """Gets the voltage_park_v1 of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The voltage_park_v1 of this V1ClusterSpec.  # noqa: E501
+        :rtype: V1VoltageParkDirectV1
+        """
+        return self._voltage_park_v1
+
+    @voltage_park_v1.setter
+    def voltage_park_v1(self, voltage_park_v1: 'V1VoltageParkDirectV1'):
+        """Sets the voltage_park_v1 of this V1ClusterSpec.
+
+
+        :param voltage_park_v1: The voltage_park_v1 of this V1ClusterSpec.  # noqa: E501
+        :type: V1VoltageParkDirectV1
+        """
+
+        self._voltage_park_v1 = voltage_park_v1
+
+    @property
+    def vultr_v1(self) -> 'V1VultrDirectV1':
+        """Gets the vultr_v1 of this V1ClusterSpec.  # noqa: E501
+
+
+        :return: The vultr_v1 of this V1ClusterSpec.  # noqa: E501
+        :rtype: V1VultrDirectV1
+        """
+        return self._vultr_v1
+
+    @vultr_v1.setter
+    def vultr_v1(self, vultr_v1: 'V1VultrDirectV1'):
+        """Sets the vultr_v1 of this V1ClusterSpec.
+
+
+        :param vultr_v1: The vultr_v1 of this V1ClusterSpec.  # noqa: E501
+        :type: V1VultrDirectV1
+        """
+
+        self._vultr_v1 = vultr_v1
 
     def to_dict(self) -> dict:
         """Returns the model properties as a dict"""

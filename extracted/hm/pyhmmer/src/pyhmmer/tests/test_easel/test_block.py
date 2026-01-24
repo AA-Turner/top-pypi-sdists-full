@@ -1,5 +1,8 @@
 import abc
+import io
+import platform
 import pickle
+import textwrap
 import unittest
 
 from pyhmmer.errors import AlphabetMismatch
@@ -27,7 +30,7 @@ class _TestSequenceBlock(abc.ABC):
 
     def test_truth(self):
         self.assertTrue(not self._new_block())
-        seq1 = self._new_sequence(b"seq1", "ATGC")
+        seq1 = self._new_sequence("seq1", "ATGC")
         block = self._new_block([seq1])
         self.assertTrue(self._new_block([seq1]))
 
@@ -35,30 +38,39 @@ class _TestSequenceBlock(abc.ABC):
         self.assertIsNot(self._new_block(), self._new_block())
 
     def test_len(self):
-        seq1 = self._new_sequence(b"seq1", "ATGC")
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
-        seq3 = self._new_sequence(b"seq3", "TTGA")
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
+        seq3 = self._new_sequence("seq3", "TTGA")
 
         self.assertEqual(len(self._new_block([])), 0)
         self.assertEqual(len(self._new_block([seq1])), 1)
         self.assertEqual(len(self._new_block([seq1, seq2, seq3])), 3)
 
+    def test_total_length(self):
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
+        seq3 = self._new_sequence("seq3", "TTGA")
+
+        self.assertEqual(self._new_block([]).total_length(), 0)
+        self.assertEqual(self._new_block([seq1]).total_length(), 4)
+        self.assertEqual(self._new_block([seq1, seq2, seq3]).total_length(), 13)
+
     def test_append(self):
         block = self._new_block()
         self.assertEqual(len(block), 0)
-        seq1 = self._new_sequence(b"seq1", "ATGC")
+        seq1 = self._new_sequence("seq1", "ATGC")
         block.append(seq1)
         self.assertEqual(len(block), 1)
         self.assertEqual(block[0], seq1)
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
+        seq2 = self._new_sequence("seq2", "ATGCA")
         block.append(seq2)
         self.assertEqual(len(block), 2)
         self.assertEqual(block[1], seq2)
 
     def test_iter(self):
-        seq1 = self._new_sequence(b"seq1", "ATGC")
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
-        seq3 = self._new_sequence(b"seq3", "TTGA")
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
+        seq3 = self._new_sequence("seq3", "TTGA")
 
         block = self._new_block([seq1, seq2, seq3])
         self.assertEqual(len(block), 3)
@@ -70,8 +82,8 @@ class _TestSequenceBlock(abc.ABC):
         self.assertRaises(StopIteration, next, iterator)
 
     def test_clear(self):
-        seq1 = self._new_sequence(b"seq1", "ATGC")
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
 
         block = self._new_block([seq1, seq2])
         self.assertEqual(len(block), 2)
@@ -86,8 +98,8 @@ class _TestSequenceBlock(abc.ABC):
         self.assertEqual(len(block), 0)
 
     def test_getitem(self):
-        seq1 = self._new_sequence(b"seq1", "ATGC")
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
 
         block = self._new_block([seq1, seq2])
         self.assertEqual(len(block), 2)
@@ -103,9 +115,9 @@ class _TestSequenceBlock(abc.ABC):
             block[-5]
 
     def test_setitem(self):
-        seq1 = self._new_sequence(b"seq1", "ATGC")
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
-        seq3 = self._new_sequence(b"seq3", "TTGA")
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
+        seq3 = self._new_sequence("seq3", "TTGA")
 
         block = self._new_block([seq1, seq2])
         self.assertEqual(len(block), 2)
@@ -115,8 +127,8 @@ class _TestSequenceBlock(abc.ABC):
         self.assertIs(block[1], seq2)
 
     def test_remove(self):
-        seq1 = self._new_sequence(b"seq1", "ATGC")
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
 
         block = self._new_block([seq1, seq2])
         block.remove(seq1)
@@ -124,9 +136,9 @@ class _TestSequenceBlock(abc.ABC):
         self.assertIs(block[0], seq2)
 
     def test_index(self):
-        seq1 = self._new_sequence(b"seq1", "ATGC")
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
-        seq3 = self._new_sequence(b"seq3", "TTGA")
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
+        seq3 = self._new_sequence("seq3", "TTGA")
 
         block = self._new_block([seq1, seq2])
         self.assertEqual(len(block), 2)
@@ -138,9 +150,9 @@ class _TestSequenceBlock(abc.ABC):
         self.assertRaises(ValueError, block.index, seq1, start=1)
 
     def test_pop(self):
-        seq1 = self._new_sequence(b"seq1", "ATGC")
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
-        seq3 = self._new_sequence(b"seq3", "TTGA")
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
+        seq3 = self._new_sequence("seq3", "TTGA")
 
         block = self._new_block([seq1, seq2, seq3])
         self.assertEqual(len(block), 3)
@@ -159,9 +171,9 @@ class _TestSequenceBlock(abc.ABC):
         self.assertRaises(IndexError, block.pop)
 
     def test_setitem_slice(self):
-        seq1 = self._new_sequence(b"seq1", "ATGC")
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
-        seq3 = self._new_sequence(b"seq3", "TTGA")
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
+        seq3 = self._new_sequence("seq3", "TTGA")
 
         block = self._new_block([seq1, seq2])
         self.assertEqual(len(block), 2)
@@ -180,9 +192,9 @@ class _TestSequenceBlock(abc.ABC):
         self.assertIs(block[4], seq3)
 
     def test_delitem_slice(self):
-        seq1 = self._new_sequence(b"seq1", "ATGC")
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
-        seq3 = self._new_sequence(b"seq3", "TTGA")
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
+        seq3 = self._new_sequence("seq3", "TTGA")
 
         block = self._new_block([seq1, seq2, seq3])
         self.assertEqual(len(block), 3)
@@ -196,9 +208,9 @@ class _TestSequenceBlock(abc.ABC):
         self.assertIs(block[0], seq2)
 
     def test_contains(self):
-        seq1 = self._new_sequence(b"seq1", "ATGC")
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
-        seq3 = self._new_sequence(b"seq3", "TTGA")
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
+        seq3 = self._new_sequence("seq3", "TTGA")
 
         block = self._new_block([seq1, seq2])
         self.assertEqual(len(block), 2)
@@ -210,9 +222,9 @@ class _TestSequenceBlock(abc.ABC):
         self.assertNotIn(object(), block)
 
     def test_largest(self):
-        seq1 = self._new_sequence(b"seq1", "ATGC")
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
-        seq3 = self._new_sequence(b"seq3", "TTGA")
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
+        seq3 = self._new_sequence("seq3", "TTGA")
 
         block = self._new_block([seq1, seq2])
         self.assertIs(block.largest(), seq2)
@@ -225,9 +237,9 @@ class _TestSequenceBlock(abc.ABC):
             block.largest()
 
     def test_copy(self):
-        seq1 = self._new_sequence(b"seq1", "ATGC")
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
-        seq3 = self._new_sequence(b"seq3", "TTGA")
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
+        seq3 = self._new_sequence("seq3", "TTGA")
 
         block = self._new_block([seq1, seq2, seq3])
         block_copy = block.copy()
@@ -244,9 +256,9 @@ class _TestSequenceBlock(abc.ABC):
         self.assertEqual(len(block_copy), 3)
 
     def test_pickle(self):
-        seq1 = self._new_sequence(b"seq1", "ATGC")
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
-        seq3 = self._new_sequence(b"seq3", "TTGA")
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
+        seq3 = self._new_sequence("seq3", "TTGA")
 
         block = self._new_block([seq1, seq2, seq3])
         block_pickled = pickle.loads(pickle.dumps(block))
@@ -257,35 +269,60 @@ class _TestSequenceBlock(abc.ABC):
         self.assertEqual(block[2], block_pickled[2])
 
     def test_indexed(self):
-        seq1 = self._new_sequence(b"seq1", "ATGC")
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
-        seq3 = self._new_sequence(b"seq3", "TTGA")
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
+        seq3 = self._new_sequence("seq3", "TTGA")
 
         block = self._new_block([seq1, seq2, seq3])
 
         self.assertEqual(len(block.indexed), 3)
-        self.assertEqual(block.indexed[b"seq1"], block[0])
-        self.assertEqual(block.indexed[b"seq2"], block[1])
-        self.assertEqual(block.indexed[b"seq3"], block[2])
+        self.assertEqual(block.indexed["seq1"], block[0])
+        self.assertEqual(block.indexed["seq2"], block[1])
+        self.assertEqual(block.indexed["seq3"], block[2])
 
     def test_indexed_duplicates(self):
-        seq1a = self._new_sequence(b"seq1", "ATGC")
-        seq1b = self._new_sequence(b"seq1", "ATGCA")
+        seq1a = self._new_sequence("seq1", "ATGC")
+        seq1b = self._new_sequence("seq1", "ATGCA")
 
         block = self._new_block([seq1a, seq1b])
 
         with self.assertRaises(KeyError):
-            block.indexed[b"seq1"]
+            block.indexed["seq1"]
 
     def test_indexed_key_error(self):
         block = self._new_block([])
         with self.assertRaises(KeyError):
-            block.indexed[b"xxx"]
+            block.indexed["xxx"]
 
     def test_indexed_type_error(self):
         block = self._new_block([])
         with self.assertRaises(TypeError):
             block.indexed[1]    
+
+    @unittest.skipIf(platform.system() == "Windows", "writing to fileobj unsupported on Windows")
+    def test_write(self):
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
+        seq3 = self._new_sequence("seq3", "TTGA")
+
+        block = self._new_block([seq1, seq2, seq3])
+        buffer = io.BytesIO()
+        block.write(buffer)
+
+        lines = buffer.getvalue().decode()
+        self.assertMultiLineEqual(
+            lines.strip(),
+            textwrap.dedent(
+                """
+                >seq1
+                ATGC
+                >seq2
+                ATGCA
+                >seq3
+                TTGA
+                """
+            ).strip()
+        )
 
 
 class TestTextSequenceBlock(_TestSequenceBlock, unittest.TestCase):
@@ -299,8 +336,8 @@ class TestTextSequenceBlock(_TestSequenceBlock, unittest.TestCase):
     def test_digitize(self):
         alphabet = Alphabet.dna()
 
-        seq1 = self._new_sequence(b"seq1", "ATGC")
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
 
         block = self._new_block([seq1, seq2])
         self.assertEqual(len(block), 2)
@@ -335,8 +372,8 @@ class TestDigitalSequenceBlock(_TestSequenceBlock, unittest.TestCase):
         return DigitalSequenceBlock(self.alphabet, sequences)
 
     def test_textize(self):
-        seq1 = self._new_sequence(b"seq1", "ATGC")
-        seq2 = self._new_sequence(b"seq2", "ATGCA")
+        seq1 = self._new_sequence("seq1", "ATGC")
+        seq2 = self._new_sequence("seq2", "ATGCA")
 
         block = self._new_block([seq1, seq2])
         self.assertEqual(len(block), 2)
@@ -348,19 +385,19 @@ class TestDigitalSequenceBlock(_TestSequenceBlock, unittest.TestCase):
 
     def test_translate(self):
         seq1 = self._new_sequence(
-            b"seq1",
+            "seq1",
             "ATGCTG",
-            description=b"one",
-            source=b"some_source"
+            description="one",
+            source="some_source"
         )
         seq2 = self._new_sequence(
-            b"seq2",
+            "seq2",
             "ATGCCC",
-            description=b"two",
-            source=b"other_source"
+            description="two",
+            source="other_source"
         )
         seq3 = self._new_sequence(
-            b"seq3",
+            "seq3",
             "ATTCTGATGATA",
         )
 
@@ -373,16 +410,16 @@ class TestDigitalSequenceBlock(_TestSequenceBlock, unittest.TestCase):
         self.assertEqual(prots[1].sequence, "MP")
         self.assertEqual(prots[2].sequence, "ILMI")
         # test names
-        self.assertEqual(prots[0].name, b"seq1")
-        self.assertEqual(prots[1].name, b"seq2")
-        self.assertEqual(prots[2].name, b"seq3")
+        self.assertEqual(prots[0].name, "seq1")
+        self.assertEqual(prots[1].name, "seq2")
+        self.assertEqual(prots[2].name, "seq3")
         # test other metadata fields
-        self.assertEqual(prots[0].description, b"one")
-        self.assertEqual(prots[1].description, b"two")
-        self.assertEqual(prots[2].description, b"")
-        self.assertEqual(prots[0].source, b"some_source")
-        self.assertEqual(prots[1].source, b"other_source")
-        self.assertEqual(prots[2].source, b"")
+        self.assertEqual(prots[0].description, "one")
+        self.assertEqual(prots[1].description, "two")
+        self.assertEqual(prots[2].description, "")
+        self.assertEqual(prots[0].source, "some_source")
+        self.assertEqual(prots[1].source, "other_source")
+        self.assertEqual(prots[2].source, "")
 
     def test_translate_empty(self):
         gencode = GeneticCode()

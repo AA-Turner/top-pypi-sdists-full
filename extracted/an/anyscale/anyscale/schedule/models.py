@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, Union
+from typing import ClassVar, Dict, Union
 
 import tzlocal
 
@@ -90,7 +90,7 @@ class ScheduleState(ModelEnum):
     ENABLED = "ENABLED"
     DISABLED = "DISABLED"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         ENABLED: "The schedule is enabled. Jobs will be started according to this jobs cron expression.",
         DISABLED: "The schedule is disabled. No jobs will be started until the schedule is reenabled.",
     }

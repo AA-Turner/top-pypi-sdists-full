@@ -14,6 +14,7 @@ r"""
 
 from typing import Any, Dict, Optional, Union
 from twilio.base import values
+from twilio.base.api_response import ApiResponse
 from twilio.base.instance_context import InstanceContext
 from twilio.base.instance_resource import InstanceResource
 from twilio.base.list_resource import ListResource
@@ -82,6 +83,34 @@ class InsightsSessionInstance(InstanceResource):
             authorization=authorization,
         )
 
+    def create_with_http_info(
+        self, authorization: Union[str, object] = values.unset
+    ) -> ApiResponse:
+        """
+        Create the InsightsSessionInstance with HTTP info
+
+        :param authorization: The Authorization HTTP request header
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        return self._proxy.create_with_http_info(
+            authorization=authorization,
+        )
+
+    async def create_with_http_info_async(
+        self, authorization: Union[str, object] = values.unset
+    ) -> ApiResponse:
+        """
+        Asynchronous coroutine to create the InsightsSessionInstance with HTTP info
+
+        :param authorization: The Authorization HTTP request header
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        return await self._proxy.create_with_http_info_async(
+            authorization=authorization,
+        )
+
     def __repr__(self) -> str:
         """
         Provide a friendly representation
@@ -104,6 +133,29 @@ class InsightsSessionContext(InstanceContext):
 
         self._uri = "/Insights/Session"
 
+    def _create(self, authorization: Union[str, object] = values.unset) -> tuple:
+        """
+        Internal helper for create operation
+
+        Returns:
+            tuple: (payload, status_code, headers)
+        """
+
+        data = values.of({})
+        headers = values.of({})
+
+        if not (
+            authorization is values.unset
+            or (isinstance(authorization, str) and not authorization)
+        ):
+            headers["Authorization"] = authorization
+
+        headers["Accept"] = "application/json"
+
+        return self._version.create_with_response_info(
+            method="POST", uri=self._uri, data=data, headers=headers
+        )
+
     def create(
         self, authorization: Union[str, object] = values.unset
     ) -> InsightsSessionInstance:
@@ -114,15 +166,47 @@ class InsightsSessionContext(InstanceContext):
 
         :returns: The created InsightsSessionInstance
         """
-        data = values.of(
-            {
-                "Authorization": authorization,
-            }
-        )
-
-        payload = self._version.create(method="POST", uri=self._uri, data=data)
-
+        payload, _, _ = self._create(authorization=authorization)
         return InsightsSessionInstance(self._version, payload)
+
+    def create_with_http_info(
+        self, authorization: Union[str, object] = values.unset
+    ) -> ApiResponse:
+        """
+        Create the InsightsSessionInstance and return response metadata
+
+        :param authorization: The Authorization HTTP request header
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        payload, status_code, headers = self._create(authorization=authorization)
+        instance = InsightsSessionInstance(self._version, payload)
+        return ApiResponse(data=instance, status_code=status_code, headers=headers)
+
+    async def _create_async(
+        self, authorization: Union[str, object] = values.unset
+    ) -> tuple:
+        """
+        Internal async helper for create operation
+
+        Returns:
+            tuple: (payload, status_code, headers)
+        """
+
+        data = values.of({})
+        headers = values.of({})
+
+        if not (
+            authorization is values.unset
+            or (isinstance(authorization, str) and not authorization)
+        ):
+            headers["Authorization"] = authorization
+
+        headers["Accept"] = "application/json"
+
+        return await self._version.create_with_response_info_async(
+            method="POST", uri=self._uri, data=data, headers=headers
+        )
 
     async def create_async(
         self, authorization: Union[str, object] = values.unset
@@ -134,17 +218,24 @@ class InsightsSessionContext(InstanceContext):
 
         :returns: The created InsightsSessionInstance
         """
-        data = values.of(
-            {
-                "Authorization": authorization,
-            }
-        )
-
-        payload = await self._version.create_async(
-            method="POST", uri=self._uri, data=data
-        )
-
+        payload, _, _ = await self._create_async(authorization=authorization)
         return InsightsSessionInstance(self._version, payload)
+
+    async def create_with_http_info_async(
+        self, authorization: Union[str, object] = values.unset
+    ) -> ApiResponse:
+        """
+        Asynchronous coroutine to create the InsightsSessionInstance and return response metadata
+
+        :param authorization: The Authorization HTTP request header
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        payload, status_code, headers = await self._create_async(
+            authorization=authorization
+        )
+        instance = InsightsSessionInstance(self._version, payload)
+        return ApiResponse(data=instance, status_code=status_code, headers=headers)
 
     def __repr__(self) -> str:
         """

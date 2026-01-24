@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Dict, Iterable
 from typing_extensions import Literal
 
 import httpx
@@ -12,6 +12,7 @@ from ...types import (
     StreamBidirectionalMode,
     StreamBidirectionalCodec,
     StreamBidirectionalTargetLegs,
+    StreamBidirectionalSamplingRate,
 )
 from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from ..._utils import maybe_transform, async_maybe_transform
@@ -61,6 +62,7 @@ from ...types.calls import (
     action_stop_noise_suppression_params,
     action_switch_supervisor_role_params,
     action_start_noise_suppression_params,
+    action_add_ai_assistant_messages_params,
 )
 from ..._base_client import make_request_options
 from ...types.stream_codec import StreamCodec
@@ -90,6 +92,7 @@ from ...types.calls.action_stop_siprec_response import ActionStopSiprecResponse
 from ...types.calls.interruption_settings_param import InterruptionSettingsParam
 from ...types.calls.action_start_siprec_response import ActionStartSiprecResponse
 from ...types.calls.action_stop_forking_response import ActionStopForkingResponse
+from ...types.stream_bidirectional_sampling_rate import StreamBidirectionalSamplingRate
 from ...types.calls.action_send_sip_info_response import ActionSendSipInfoResponse
 from ...types.calls.action_start_forking_response import ActionStartForkingResponse
 from ...types.calls.action_stop_playback_response import ActionStopPlaybackResponse
@@ -113,6 +116,7 @@ from ...types.calls.action_update_client_state_response import ActionUpdateClien
 from ...types.calls.action_stop_noise_suppression_response import ActionStopNoiseSuppressionResponse
 from ...types.calls.action_switch_supervisor_role_response import ActionSwitchSupervisorRoleResponse
 from ...types.calls.action_start_noise_suppression_response import ActionStartNoiseSuppressionResponse
+from ...types.calls.action_add_ai_assistant_messages_response import ActionAddAIAssistantMessagesResponse
 
 __all__ = ["ActionsResource", "AsyncActionsResource"]
 
@@ -136,6 +140,58 @@ class ActionsResource(SyncAPIResource):
         For more information, see https://www.github.com/team-telnyx/telnyx-python#with_streaming_response
         """
         return ActionsResourceWithStreamingResponse(self)
+
+    def add_ai_assistant_messages(
+        self,
+        call_control_id: str,
+        *,
+        client_state: str | Omit = omit,
+        command_id: str | Omit = omit,
+        messages: Iterable[action_add_ai_assistant_messages_params.Message] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ActionAddAIAssistantMessagesResponse:
+        """
+        Add messages to the conversation started by an AI assistant on the call.
+
+        Args:
+          client_state: Use this field to add state to every subsequent webhook. It must be a valid
+              Base-64 encoded string.
+
+          command_id: Use this field to avoid duplicate commands. Telnyx will ignore any command with
+              the same `command_id` for the same `call_control_id`.
+
+          messages: The messages to add to the conversation.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not call_control_id:
+            raise ValueError(f"Expected a non-empty value for `call_control_id` but received {call_control_id!r}")
+        return self._post(
+            f"/calls/{call_control_id}/actions/ai_assistant_add_messages",
+            body=maybe_transform(
+                {
+                    "client_state": client_state,
+                    "command_id": command_id,
+                    "messages": messages,
+                },
+                action_add_ai_assistant_messages_params.ActionAddAIAssistantMessagesParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=ActionAddAIAssistantMessagesResponse,
+        )
 
     def answer(
         self,
@@ -309,9 +365,9 @@ class ActionsResource(SyncAPIResource):
 
     def bridge(
         self,
-        path_call_control_id: str,
+        call_control_id_to_bridge: str,
         *,
-        body_call_control_id: str,
+        call_control_id_to_bridge_with: str,
         client_state: str | Omit = omit,
         command_id: str | Omit = omit,
         mute_dtmf: Literal["none", "both", "self", "opposite"] | Omit = omit,
@@ -387,7 +443,7 @@ class ActionsResource(SyncAPIResource):
         - `call.bridged` for Leg B
 
         Args:
-          body_call_control_id: The Call Control ID of the call you want to bridge with, can't be used together
+          call_control_id_to_bridge_with: The Call Control ID of the call you want to bridge with, can't be used together
               with queue parameter or video_room_id parameter.
 
           client_state: Use this field to add state to every subsequent webhook. It must be a valid
@@ -458,15 +514,15 @@ class ActionsResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        if not path_call_control_id:
+        if not call_control_id_to_bridge:
             raise ValueError(
-                f"Expected a non-empty value for `path_call_control_id` but received {path_call_control_id!r}"
+                f"Expected a non-empty value for `call_control_id_to_bridge` but received {call_control_id_to_bridge!r}"
             )
         return self._post(
-            f"/calls/{path_call_control_id}/actions/bridge",
+            f"/calls/{call_control_id_to_bridge}/actions/bridge",
             body=maybe_transform(
                 {
-                    "body_call_control_id": body_call_control_id,
+                    "call_control_id_to_bridge_with": call_control_id_to_bridge_with,
                     "client_state": client_state,
                     "command_id": command_id,
                     "mute_dtmf": mute_dtmf,
@@ -500,6 +556,7 @@ class ActionsResource(SyncAPIResource):
         queue_name: str,
         client_state: str | Omit = omit,
         command_id: str | Omit = omit,
+        keep_after_hangup: bool | Omit = omit,
         max_size: int | Omit = omit,
         max_wait_time_secs: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -521,6 +578,10 @@ class ActionsResource(SyncAPIResource):
 
           command_id: Use this field to avoid duplicate commands. Telnyx will ignore any command with
               the same `command_id` for the same `call_control_id`.
+
+          keep_after_hangup: If set to true, the call will remain in the queue after hangup. In this case
+              bridging to such call will fail with necessary information needed to
+              re-establish the call.
 
           max_size: The maximum number of calls allowed in the queue at a given time. Can't be
               modified for an existing queue.
@@ -544,6 +605,7 @@ class ActionsResource(SyncAPIResource):
                     "queue_name": queue_name,
                     "client_state": client_state,
                     "command_id": command_id,
+                    "keep_after_hangup": keep_after_hangup,
                     "max_size": max_size,
                     "max_wait_time_secs": max_wait_time_secs,
                 },
@@ -650,7 +712,7 @@ class ActionsResource(SyncAPIResource):
         self,
         call_control_id: str,
         *,
-        parameters: object,
+        parameters: Dict[str, object],
         assistant: AssistantParam | Omit = omit,
         client_state: str | Omit = omit,
         command_id: str | Omit = omit,
@@ -1896,7 +1958,9 @@ class ActionsResource(SyncAPIResource):
         client_state: str | Omit = omit,
         command_id: str | Omit = omit,
         direction: Literal["inbound", "outbound", "both"] | Omit = omit,
-        noise_suppression_engine: Literal["A", "B"] | Omit = omit,
+        noise_suppression_engine: Literal["Denoiser", "DeepFilterNet", "Krisp"] | Omit = omit,
+        noise_suppression_engine_config: action_start_noise_suppression_params.NoiseSuppressionEngineConfig
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -1916,8 +1980,11 @@ class ActionsResource(SyncAPIResource):
 
           direction: The direction of the audio stream to be noise suppressed.
 
-          noise_suppression_engine: The engine to use for noise suppression. A - rnnoise engine B - deepfilter
-              engine.
+          noise_suppression_engine: The engine to use for noise suppression. For backward compatibility, engines A,
+              B, and C are also supported, but are deprecated: A - Denoiser B - DeepFilterNet
+              C - Krisp
+
+          noise_suppression_engine_config: Configuration parameters for noise suppression engines.
 
           extra_headers: Send extra headers
 
@@ -1937,6 +2004,7 @@ class ActionsResource(SyncAPIResource):
                     "command_id": command_id,
                     "direction": direction,
                     "noise_suppression_engine": noise_suppression_engine,
+                    "noise_suppression_engine_config": noise_suppression_engine_config,
                 },
                 action_start_noise_suppression_params.ActionStartNoiseSuppressionParams,
             ),
@@ -2421,7 +2489,7 @@ class ActionsResource(SyncAPIResource):
         enable_dialogflow: bool | Omit = omit,
         stream_bidirectional_codec: StreamBidirectionalCodec | Omit = omit,
         stream_bidirectional_mode: StreamBidirectionalMode | Omit = omit,
-        stream_bidirectional_sampling_rate: Literal[8000, 16000, 22050, 24000, 48000] | Omit = omit,
+        stream_bidirectional_sampling_rate: StreamBidirectionalSamplingRate | Omit = omit,
         stream_bidirectional_target_legs: StreamBidirectionalTargetLegs | Omit = omit,
         stream_codec: StreamCodec | Omit = omit,
         stream_track: Literal["inbound_track", "outbound_track", "both_tracks"] | Omit = omit,
@@ -2506,7 +2574,7 @@ class ActionsResource(SyncAPIResource):
         *,
         client_state: str | Omit = omit,
         command_id: str | Omit = omit,
-        transcription_engine: Literal["A", "B"] | Omit = omit,
+        transcription_engine: Literal["Google", "Telnyx", "Deepgram", "Azure", "A", "B"] | Omit = omit,
         transcription_engine_config: action_start_transcription_params.TranscriptionEngineConfig | Omit = omit,
         transcription_tracks: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -2532,7 +2600,8 @@ class ActionsResource(SyncAPIResource):
           command_id: Use this field to avoid duplicate commands. Telnyx will ignore any command with
               the same `command_id` for the same `call_control_id`.
 
-          transcription_engine: Engine to use for speech recognition. `A` - `Google`, `B` - `Telnyx`.
+          transcription_engine: Engine to use for speech recognition. Legacy values `A` - `Google`, `B` -
+              `Telnyx` are supported for backward compatibility.
 
           transcription_tracks: Indicates which leg of the call will be transcribed. Use `inbound` for the leg
               that requested the transcription, `outbound` for the other leg, and `both` for
@@ -3117,6 +3186,7 @@ class ActionsResource(SyncAPIResource):
         sip_auth_password: str | Omit = omit,
         sip_auth_username: str | Omit = omit,
         sip_headers: Iterable[SipHeaderParam] | Omit = omit,
+        sip_region: Literal["US", "Europe", "Canada", "Australia", "Middle East"] | Omit = omit,
         sip_transport_protocol: Literal["UDP", "TCP", "TLS"] | Omit = omit,
         sound_modifications: SoundModificationsParam | Omit = omit,
         target_leg_client_state: str | Omit = omit,
@@ -3238,6 +3308,8 @@ class ActionsResource(SyncAPIResource):
           sip_headers: SIP headers to be added to the SIP INVITE. Currently only User-to-User header is
               supported.
 
+          sip_region: Defines the SIP region to be used for the call.
+
           sip_transport_protocol: Defines SIP transport protocol to be used on the call.
 
           sound_modifications: Use this field to modify sound effects, for example adjust the pitch.
@@ -3302,6 +3374,7 @@ class ActionsResource(SyncAPIResource):
                     "sip_auth_password": sip_auth_password,
                     "sip_auth_username": sip_auth_username,
                     "sip_headers": sip_headers,
+                    "sip_region": sip_region,
                     "sip_transport_protocol": sip_transport_protocol,
                     "sound_modifications": sound_modifications,
                     "target_leg_client_state": target_leg_client_state,
@@ -3378,6 +3451,58 @@ class AsyncActionsResource(AsyncAPIResource):
         For more information, see https://www.github.com/team-telnyx/telnyx-python#with_streaming_response
         """
         return AsyncActionsResourceWithStreamingResponse(self)
+
+    async def add_ai_assistant_messages(
+        self,
+        call_control_id: str,
+        *,
+        client_state: str | Omit = omit,
+        command_id: str | Omit = omit,
+        messages: Iterable[action_add_ai_assistant_messages_params.Message] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ActionAddAIAssistantMessagesResponse:
+        """
+        Add messages to the conversation started by an AI assistant on the call.
+
+        Args:
+          client_state: Use this field to add state to every subsequent webhook. It must be a valid
+              Base-64 encoded string.
+
+          command_id: Use this field to avoid duplicate commands. Telnyx will ignore any command with
+              the same `command_id` for the same `call_control_id`.
+
+          messages: The messages to add to the conversation.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not call_control_id:
+            raise ValueError(f"Expected a non-empty value for `call_control_id` but received {call_control_id!r}")
+        return await self._post(
+            f"/calls/{call_control_id}/actions/ai_assistant_add_messages",
+            body=await async_maybe_transform(
+                {
+                    "client_state": client_state,
+                    "command_id": command_id,
+                    "messages": messages,
+                },
+                action_add_ai_assistant_messages_params.ActionAddAIAssistantMessagesParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=ActionAddAIAssistantMessagesResponse,
+        )
 
     async def answer(
         self,
@@ -3551,9 +3676,9 @@ class AsyncActionsResource(AsyncAPIResource):
 
     async def bridge(
         self,
-        path_call_control_id: str,
+        call_control_id_to_bridge: str,
         *,
-        body_call_control_id: str,
+        call_control_id_to_bridge_with: str,
         client_state: str | Omit = omit,
         command_id: str | Omit = omit,
         mute_dtmf: Literal["none", "both", "self", "opposite"] | Omit = omit,
@@ -3629,7 +3754,7 @@ class AsyncActionsResource(AsyncAPIResource):
         - `call.bridged` for Leg B
 
         Args:
-          body_call_control_id: The Call Control ID of the call you want to bridge with, can't be used together
+          call_control_id_to_bridge_with: The Call Control ID of the call you want to bridge with, can't be used together
               with queue parameter or video_room_id parameter.
 
           client_state: Use this field to add state to every subsequent webhook. It must be a valid
@@ -3700,15 +3825,15 @@ class AsyncActionsResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        if not path_call_control_id:
+        if not call_control_id_to_bridge:
             raise ValueError(
-                f"Expected a non-empty value for `path_call_control_id` but received {path_call_control_id!r}"
+                f"Expected a non-empty value for `call_control_id_to_bridge` but received {call_control_id_to_bridge!r}"
             )
         return await self._post(
-            f"/calls/{path_call_control_id}/actions/bridge",
+            f"/calls/{call_control_id_to_bridge}/actions/bridge",
             body=await async_maybe_transform(
                 {
-                    "body_call_control_id": body_call_control_id,
+                    "call_control_id_to_bridge_with": call_control_id_to_bridge_with,
                     "client_state": client_state,
                     "command_id": command_id,
                     "mute_dtmf": mute_dtmf,
@@ -3742,6 +3867,7 @@ class AsyncActionsResource(AsyncAPIResource):
         queue_name: str,
         client_state: str | Omit = omit,
         command_id: str | Omit = omit,
+        keep_after_hangup: bool | Omit = omit,
         max_size: int | Omit = omit,
         max_wait_time_secs: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -3763,6 +3889,10 @@ class AsyncActionsResource(AsyncAPIResource):
 
           command_id: Use this field to avoid duplicate commands. Telnyx will ignore any command with
               the same `command_id` for the same `call_control_id`.
+
+          keep_after_hangup: If set to true, the call will remain in the queue after hangup. In this case
+              bridging to such call will fail with necessary information needed to
+              re-establish the call.
 
           max_size: The maximum number of calls allowed in the queue at a given time. Can't be
               modified for an existing queue.
@@ -3786,6 +3916,7 @@ class AsyncActionsResource(AsyncAPIResource):
                     "queue_name": queue_name,
                     "client_state": client_state,
                     "command_id": command_id,
+                    "keep_after_hangup": keep_after_hangup,
                     "max_size": max_size,
                     "max_wait_time_secs": max_wait_time_secs,
                 },
@@ -3892,7 +4023,7 @@ class AsyncActionsResource(AsyncAPIResource):
         self,
         call_control_id: str,
         *,
-        parameters: object,
+        parameters: Dict[str, object],
         assistant: AssistantParam | Omit = omit,
         client_state: str | Omit = omit,
         command_id: str | Omit = omit,
@@ -5138,7 +5269,9 @@ class AsyncActionsResource(AsyncAPIResource):
         client_state: str | Omit = omit,
         command_id: str | Omit = omit,
         direction: Literal["inbound", "outbound", "both"] | Omit = omit,
-        noise_suppression_engine: Literal["A", "B"] | Omit = omit,
+        noise_suppression_engine: Literal["Denoiser", "DeepFilterNet", "Krisp"] | Omit = omit,
+        noise_suppression_engine_config: action_start_noise_suppression_params.NoiseSuppressionEngineConfig
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -5158,8 +5291,11 @@ class AsyncActionsResource(AsyncAPIResource):
 
           direction: The direction of the audio stream to be noise suppressed.
 
-          noise_suppression_engine: The engine to use for noise suppression. A - rnnoise engine B - deepfilter
-              engine.
+          noise_suppression_engine: The engine to use for noise suppression. For backward compatibility, engines A,
+              B, and C are also supported, but are deprecated: A - Denoiser B - DeepFilterNet
+              C - Krisp
+
+          noise_suppression_engine_config: Configuration parameters for noise suppression engines.
 
           extra_headers: Send extra headers
 
@@ -5179,6 +5315,7 @@ class AsyncActionsResource(AsyncAPIResource):
                     "command_id": command_id,
                     "direction": direction,
                     "noise_suppression_engine": noise_suppression_engine,
+                    "noise_suppression_engine_config": noise_suppression_engine_config,
                 },
                 action_start_noise_suppression_params.ActionStartNoiseSuppressionParams,
             ),
@@ -5663,7 +5800,7 @@ class AsyncActionsResource(AsyncAPIResource):
         enable_dialogflow: bool | Omit = omit,
         stream_bidirectional_codec: StreamBidirectionalCodec | Omit = omit,
         stream_bidirectional_mode: StreamBidirectionalMode | Omit = omit,
-        stream_bidirectional_sampling_rate: Literal[8000, 16000, 22050, 24000, 48000] | Omit = omit,
+        stream_bidirectional_sampling_rate: StreamBidirectionalSamplingRate | Omit = omit,
         stream_bidirectional_target_legs: StreamBidirectionalTargetLegs | Omit = omit,
         stream_codec: StreamCodec | Omit = omit,
         stream_track: Literal["inbound_track", "outbound_track", "both_tracks"] | Omit = omit,
@@ -5748,7 +5885,7 @@ class AsyncActionsResource(AsyncAPIResource):
         *,
         client_state: str | Omit = omit,
         command_id: str | Omit = omit,
-        transcription_engine: Literal["A", "B"] | Omit = omit,
+        transcription_engine: Literal["Google", "Telnyx", "Deepgram", "Azure", "A", "B"] | Omit = omit,
         transcription_engine_config: action_start_transcription_params.TranscriptionEngineConfig | Omit = omit,
         transcription_tracks: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -5774,7 +5911,8 @@ class AsyncActionsResource(AsyncAPIResource):
           command_id: Use this field to avoid duplicate commands. Telnyx will ignore any command with
               the same `command_id` for the same `call_control_id`.
 
-          transcription_engine: Engine to use for speech recognition. `A` - `Google`, `B` - `Telnyx`.
+          transcription_engine: Engine to use for speech recognition. Legacy values `A` - `Google`, `B` -
+              `Telnyx` are supported for backward compatibility.
 
           transcription_tracks: Indicates which leg of the call will be transcribed. Use `inbound` for the leg
               that requested the transcription, `outbound` for the other leg, and `both` for
@@ -6361,6 +6499,7 @@ class AsyncActionsResource(AsyncAPIResource):
         sip_auth_password: str | Omit = omit,
         sip_auth_username: str | Omit = omit,
         sip_headers: Iterable[SipHeaderParam] | Omit = omit,
+        sip_region: Literal["US", "Europe", "Canada", "Australia", "Middle East"] | Omit = omit,
         sip_transport_protocol: Literal["UDP", "TCP", "TLS"] | Omit = omit,
         sound_modifications: SoundModificationsParam | Omit = omit,
         target_leg_client_state: str | Omit = omit,
@@ -6482,6 +6621,8 @@ class AsyncActionsResource(AsyncAPIResource):
           sip_headers: SIP headers to be added to the SIP INVITE. Currently only User-to-User header is
               supported.
 
+          sip_region: Defines the SIP region to be used for the call.
+
           sip_transport_protocol: Defines SIP transport protocol to be used on the call.
 
           sound_modifications: Use this field to modify sound effects, for example adjust the pitch.
@@ -6546,6 +6687,7 @@ class AsyncActionsResource(AsyncAPIResource):
                     "sip_auth_password": sip_auth_password,
                     "sip_auth_username": sip_auth_username,
                     "sip_headers": sip_headers,
+                    "sip_region": sip_region,
                     "sip_transport_protocol": sip_transport_protocol,
                     "sound_modifications": sound_modifications,
                     "target_leg_client_state": target_leg_client_state,
@@ -6607,6 +6749,9 @@ class ActionsResourceWithRawResponse:
     def __init__(self, actions: ActionsResource) -> None:
         self._actions = actions
 
+        self.add_ai_assistant_messages = to_raw_response_wrapper(
+            actions.add_ai_assistant_messages,
+        )
         self.answer = to_raw_response_wrapper(
             actions.answer,
         )
@@ -6721,6 +6866,9 @@ class AsyncActionsResourceWithRawResponse:
     def __init__(self, actions: AsyncActionsResource) -> None:
         self._actions = actions
 
+        self.add_ai_assistant_messages = async_to_raw_response_wrapper(
+            actions.add_ai_assistant_messages,
+        )
         self.answer = async_to_raw_response_wrapper(
             actions.answer,
         )
@@ -6835,6 +6983,9 @@ class ActionsResourceWithStreamingResponse:
     def __init__(self, actions: ActionsResource) -> None:
         self._actions = actions
 
+        self.add_ai_assistant_messages = to_streamed_response_wrapper(
+            actions.add_ai_assistant_messages,
+        )
         self.answer = to_streamed_response_wrapper(
             actions.answer,
         )
@@ -6949,6 +7100,9 @@ class AsyncActionsResourceWithStreamingResponse:
     def __init__(self, actions: AsyncActionsResource) -> None:
         self._actions = actions
 
+        self.add_ai_assistant_messages = async_to_streamed_response_wrapper(
+            actions.add_ai_assistant_messages,
+        )
         self.answer = async_to_streamed_response_wrapper(
             actions.answer,
         )

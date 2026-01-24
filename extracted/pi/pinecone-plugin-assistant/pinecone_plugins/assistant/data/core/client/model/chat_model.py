@@ -64,12 +64,6 @@ class ChatModel(ModelNormal):
     """
 
     allowed_values = {
-        ('finish_reason',): {
-            'STOP': "stop",
-            'LENGTH': "length",
-            'CONTENT_FILTER': "content_filter",
-            'FUNCTION_CALL': "function_call",
-        },
     }
 
     validations = {

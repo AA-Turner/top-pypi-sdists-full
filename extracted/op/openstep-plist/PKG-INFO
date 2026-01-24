@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: openstep_plist
-Version: 0.5.0
+Version: 0.5.1
 Summary: ASCII plist parser written in Cython
 Home-page: https://github.com/fonttools/openstep-plist
 Author: Cosimo Lupo
@@ -15,6 +15,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: requires-python
 Dynamic: summary
 

@@ -1,5 +1,5 @@
 # pylint: disable=invalid-name
-# Requires Python 3.6+
+# Requires Python 3.8+
 # Ref: https://www.sphinx-doc.org/en/master/usage/configuration.html
 """Configuration for the Sphinx documentation generator."""
 
@@ -156,6 +156,7 @@ intersphinx_mapping = {
     'pip': ('https://pip.pypa.io/en/latest', None),
     'python': ('https://docs.python.org/3', None),
     'python2': ('https://docs.python.org/2', None),
+    'tox': ('https://tox.wiki/en/latest', None),
 }
 
 # -- Options for todo extension ----------------------------------------------

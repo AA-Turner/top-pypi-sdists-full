@@ -15,12 +15,12 @@ from .property_atscandidate_address import (
 )
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, List, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class Origin(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -42,8 +42,10 @@ class AtsCandidateTypedDict(TypedDict):
     emails: NotRequired[List[AtsEmailTypedDict]]
     experiences: NotRequired[List[AtsCandidateExperienceTypedDict]]
     external_identifier: NotRequired[str]
+    first_name: NotRequired[str]
     id: NotRequired[str]
     image_url: NotRequired[str]
+    last_name: NotRequired[str]
     link_urls: NotRequired[List[str]]
     r"""URLs for web pages containing additional material about the candidate (LinkedIn, other social media, articles, etc.)"""
     metadata: NotRequired[List[AtsMetadataTypedDict]]
@@ -79,9 +81,13 @@ class AtsCandidate(BaseModel):
 
     external_identifier: Optional[str] = None
 
+    first_name: Optional[str] = None
+
     id: Optional[str] = None
 
     image_url: Optional[str] = None
+
+    last_name: Optional[str] = None
 
     link_urls: Optional[List[str]] = None
     r"""URLs for web pages containing additional material about the candidate (LinkedIn, other social media, articles, etc.)"""
@@ -90,9 +96,7 @@ class AtsCandidate(BaseModel):
 
     name: Optional[str] = None
 
-    origin: Annotated[Optional[Origin], PlainValidator(validate_open_enum(False))] = (
-        None
-    )
+    origin: Optional[Origin] = None
 
     raw: Optional[Dict[str, Any]] = None
 
@@ -111,3 +115,57 @@ class AtsCandidate(BaseModel):
     user_id: Optional[str] = None
 
     web_url: Optional[str] = None
+
+    @field_serializer("origin")
+    def serialize_origin(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.Origin(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "address",
+                "company_id",
+                "company_name",
+                "created_at",
+                "date_of_birth",
+                "education",
+                "emails",
+                "experiences",
+                "external_identifier",
+                "first_name",
+                "id",
+                "image_url",
+                "last_name",
+                "link_urls",
+                "metadata",
+                "name",
+                "origin",
+                "raw",
+                "skills",
+                "sources",
+                "tags",
+                "telephones",
+                "title",
+                "updated_at",
+                "user_id",
+                "web_url",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

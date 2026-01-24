@@ -11,5 +11,4 @@ from .models import ModelChoiceFilter, ModelMultipleChoiceFilter
 from .numbers import NumberFilter, YearFilter, RangeSelectFilter
 from .text import CharFilter
 from .booleans import BooleanFilter
-from .content_type import MultipleChoiceContentTypeFilter
 from .multiple_lookups import MultipleLookupFilter

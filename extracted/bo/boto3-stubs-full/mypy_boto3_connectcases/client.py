@@ -3,7 +3,7 @@ Type annotations for connectcases service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,13 +19,19 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListCaseRulesPaginator, SearchCasesPaginator, SearchRelatedItemsPaginator
+from .paginator import (
+    ListCaseRulesPaginator,
+    SearchAllRelatedItemsPaginator,
+    SearchCasesPaginator,
+    SearchRelatedItemsPaginator,
+)
 from .type_defs import (
     BatchGetCaseRuleRequestTypeDef,
     BatchGetCaseRuleResponseTypeDef,
@@ -84,6 +90,8 @@ from .type_defs import (
     ListTemplatesRequestTypeDef,
     ListTemplatesResponseTypeDef,
     PutCaseEventConfigurationRequestTypeDef,
+    SearchAllRelatedItemsRequestTypeDef,
+    SearchAllRelatedItemsResponseTypeDef,
     SearchCasesRequestTypeDef,
     SearchCasesResponseTypeDef,
     SearchRelatedItemsRequestTypeDef,
@@ -97,12 +105,6 @@ from .type_defs import (
     UpdateTemplateRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -113,14 +115,14 @@ __all__ = ("ConnectCasesClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class ConnectCasesClient(BaseClient):
@@ -262,7 +264,7 @@ class ConnectCasesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#create_template)
         """
 
-    def delete_case(self, **kwargs: Unpack[DeleteCaseRequestTypeDef]) -> Dict[str, Any]:
+    def delete_case(self, **kwargs: Unpack[DeleteCaseRequestTypeDef]) -> dict[str, Any]:
         """
         The DeleteCase API permanently deletes a case and all its associated resources
         from the cases data store.
@@ -271,7 +273,7 @@ class ConnectCasesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#delete_case)
         """
 
-    def delete_case_rule(self, **kwargs: Unpack[DeleteCaseRuleRequestTypeDef]) -> Dict[str, Any]:
+    def delete_case_rule(self, **kwargs: Unpack[DeleteCaseRuleRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a case rule.
 
@@ -279,7 +281,7 @@ class ConnectCasesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#delete_case_rule)
         """
 
-    def delete_domain(self, **kwargs: Unpack[DeleteDomainRequestTypeDef]) -> Dict[str, Any]:
+    def delete_domain(self, **kwargs: Unpack[DeleteDomainRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a Cases domain.
 
@@ -287,7 +289,7 @@ class ConnectCasesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#delete_domain)
         """
 
-    def delete_field(self, **kwargs: Unpack[DeleteFieldRequestTypeDef]) -> Dict[str, Any]:
+    def delete_field(self, **kwargs: Unpack[DeleteFieldRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a field from a cases template.
 
@@ -295,7 +297,7 @@ class ConnectCasesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#delete_field)
         """
 
-    def delete_layout(self, **kwargs: Unpack[DeleteLayoutRequestTypeDef]) -> Dict[str, Any]:
+    def delete_layout(self, **kwargs: Unpack[DeleteLayoutRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a layout from a cases template.
 
@@ -305,7 +307,7 @@ class ConnectCasesClient(BaseClient):
 
     def delete_related_item(
         self, **kwargs: Unpack[DeleteRelatedItemRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the related item resource under a case.
 
@@ -313,7 +315,7 @@ class ConnectCasesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#delete_related_item)
         """
 
-    def delete_template(self, **kwargs: Unpack[DeleteTemplateRequestTypeDef]) -> Dict[str, Any]:
+    def delete_template(self, **kwargs: Unpack[DeleteTemplateRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a cases template.
 
@@ -455,12 +457,22 @@ class ConnectCasesClient(BaseClient):
 
     def put_case_event_configuration(
         self, **kwargs: Unpack[PutCaseEventConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds case event publishing configuration.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/put_case_event_configuration.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#put_case_event_configuration)
+        """
+
+    def search_all_related_items(
+        self, **kwargs: Unpack[SearchAllRelatedItemsRequestTypeDef]
+    ) -> SearchAllRelatedItemsResponseTypeDef:
+        """
+        Searches for related items across all cases within a domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/search_all_related_items.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#search_all_related_items)
         """
 
     def search_cases(
@@ -503,7 +515,7 @@ class ConnectCasesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#untag_resource)
         """
 
-    def update_case(self, **kwargs: Unpack[UpdateCaseRequestTypeDef]) -> Dict[str, Any]:
+    def update_case(self, **kwargs: Unpack[UpdateCaseRequestTypeDef]) -> dict[str, Any]:
         """
         <note> <p>If you provide a value for <code>PerformedBy.UserArn</code> you must
         also have <a
@@ -514,7 +526,7 @@ class ConnectCasesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#update_case)
         """
 
-    def update_case_rule(self, **kwargs: Unpack[UpdateCaseRuleRequestTypeDef]) -> Dict[str, Any]:
+    def update_case_rule(self, **kwargs: Unpack[UpdateCaseRuleRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a case rule.
 
@@ -522,7 +534,7 @@ class ConnectCasesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#update_case_rule)
         """
 
-    def update_field(self, **kwargs: Unpack[UpdateFieldRequestTypeDef]) -> Dict[str, Any]:
+    def update_field(self, **kwargs: Unpack[UpdateFieldRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the properties of an existing field.
 
@@ -530,7 +542,7 @@ class ConnectCasesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#update_field)
         """
 
-    def update_layout(self, **kwargs: Unpack[UpdateLayoutRequestTypeDef]) -> Dict[str, Any]:
+    def update_layout(self, **kwargs: Unpack[UpdateLayoutRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the attributes of an existing layout.
 
@@ -538,7 +550,7 @@ class ConnectCasesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#update_layout)
         """
 
-    def update_template(self, **kwargs: Unpack[UpdateTemplateRequestTypeDef]) -> Dict[str, Any]:
+    def update_template(self, **kwargs: Unpack[UpdateTemplateRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the attributes of an existing template.
 
@@ -550,6 +562,17 @@ class ConnectCasesClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_case_rules"]
     ) -> ListCaseRulesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_all_related_items"]
+    ) -> SearchAllRelatedItemsPaginator:
         """
         Create a paginator for an operation.
 

@@ -4,6 +4,7 @@ import json
 import logging
 import re
 
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from snowflake.core.exceptions import InvalidResultError
@@ -66,7 +67,7 @@ def fix_hostname(hostname: str) -> str:
     return new_hostname
 
 
-def _cast_result(result: str, datatype: str | None) -> Any:
+def cast_result(result: str, datatype: str | None) -> Any:
     if datatype in ["INT", "INTEGER", "BIGINT", "SMALLINT", "TINYINT", "BYTEINT"]:
         return int(result)
     if datatype in ["NUMBER", "DECIMAL", "NUMERIC"]:
@@ -76,6 +77,8 @@ def _cast_result(result: str, datatype: str | None) -> Any:
             return float(result)
     if datatype in ["FLOAT", "FLOAT4", "FLOAT8", "DOUBLE", "DOUBLE PRECISION", "REAL"]:
         return float(result)
+    if datatype == "DECFLOAT":
+        return Decimal(result)
     if datatype in ["VARCHAR", "STRING", "TEXT"]:
         return str(result)
     if datatype in ["CHAR", "CHARACTER"]:
@@ -103,7 +106,7 @@ def map_result(procedure: Procedure, raw_result: Any, extract: bool = False) -> 
         processed_rows = []
         columns_mapping = {c.name.lower(): c.datatype for c in rt_type.column_list}
         for row in raw_result:
-            processed_rows.append({k: _cast_result(v, columns_mapping.get(k.lower())) for k, v in row.items()})
+            processed_rows.append({k: cast_result(v, columns_mapping.get(k.lower())) for k, v in row.items()})
         return processed_rows
 
     if isinstance(rt_type, ReturnDataType):
@@ -112,9 +115,9 @@ def map_result(procedure: Procedure, raw_result: Any, extract: bool = False) -> 
             raise TypeError(f"Expected first item to be of type dict but got {type(payload)}")
 
         if not extract:
-            return [{k: _cast_result(v, rt_type.datatype) for k, v in payload.items()}]
+            return [{k: cast_result(v, rt_type.datatype) for k, v in payload.items()}]
 
         # Unpack the result of [{sproc_name: RESULT}]
         result = payload[next(iter(payload.keys()))]
-        return _cast_result(result, rt_type.datatype)
+        return cast_result(result, rt_type.datatype)
     return raw_result

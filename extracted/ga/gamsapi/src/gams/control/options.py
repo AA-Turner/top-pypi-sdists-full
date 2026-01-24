@@ -1,8 +1,8 @@
 #
 # GAMS - General Algebraic Modeling System Python API
 #
-# Copyright (c) 2017-2025 GAMS Development Corp. <support@gams.com>
-# Copyright (c) 2017-2025 GAMS Software GmbH <support@gams.com>
+# Copyright (c) 2017-2026 GAMS Development Corp. <support@gams.com>
+# Copyright (c) 2017-2026 GAMS Software GmbH <support@gams.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -770,13 +770,6 @@ class GamsOptions(object):
         optSetStrStr(self._opt, "Action", value)
     ## @brief GAMS processing request
     action = property(get_action, set_action)
-
-    def _get_allowcequ(self):
-        return optGetIntStr(self._opt, "AllowCEqu")
-
-    def _set_allowcequ(self, value):
-        optSetIntStr(self._opt, "AllowCEqu", value)
-    _allowcequ = property(_get_allowcequ, _set_allowcequ)
 
     def get_appendexpand(self):
         return optGetIntStr(self._opt, "AppendExpand")

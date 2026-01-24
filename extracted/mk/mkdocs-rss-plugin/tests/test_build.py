@@ -50,7 +50,7 @@ class TestBuildRss(BaseTest):
     def setUpClass(cls):
         """Executed when module is loaded before any test."""
         cls.config_files = sorted(Path("tests/fixtures/").glob("**/*.yml"))
-        cls.feed_image = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Feed-icon.svg/128px-Feed-icon.svg.png"
+        cls.feed_image = "https://github.com/Guts/mkdocs-rss-plugin/blob/main/docs/assets/logo_rss_plugin_mkdocs.png?raw=true"
 
     def setUp(self):
         """Executed before each test."""
@@ -404,6 +404,12 @@ class TestBuildRss(BaseTest):
                         len(feed_item.description),
                         150,
                         f"Failed item title: {feed_item.title}",
+                    )
+                # check sentences split across multiple lines retain spacing
+                if feed_item.title in ["My first blog post", "A second post"]:
+                    self.assertIn(
+                        "Pellentesque nec maximus ex.",
+                        feed_item.summary,
                     )
 
     def test_simple_build_item_delimiter(self):
@@ -903,6 +909,30 @@ class TestBuildRss(BaseTest):
 
         # restore name
         git_dir_tmp.replace(git_dir)
+
+    def test_xml_escaping_in_author(self):
+        """Test that XML special characters in author field are properly escaped."""
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            cli_result = self.build_docs_setup(
+                testproject_path="docs",
+                mkdocs_yml_filepath=Path(
+                    "tests/fixtures/mkdocs_site_author_to_be_escaped.yml"
+                ),
+                output_path=tmpdirname,
+                strict=False,
+            )
+            self.assertEqual(cli_result.exit_code, 0)
+            self.assertIsNone(cli_result.exception)
+
+            feed_parsed = feedparser.parse(Path(tmpdirname) / OUTPUT_RSS_FEED_CREATED)
+            self.assertEqual(feed_parsed.bozo, 0, "Feed should parse without errors")
+            feed_xml = (Path(tmpdirname) / OUTPUT_RSS_FEED_CREATED).read_text(
+                encoding="utf-8"
+            )
+
+            # Verify the author field contains the escaped ampersand
+            self.assertIn("OpenSavvy &amp; contributors", feed_xml)
+            self.assertNotIn("OpenSavvy & contributors</managingEditor>", feed_xml)
 
 
 # ##############################################################################

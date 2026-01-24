@@ -13,8 +13,8 @@ from dbt_semantic_interfaces.references import EntityReference
 from dbt_semantic_interfaces.type_enums.date_part import DatePart
 from typing_extensions import override
 
-from metricflow_semantics.model.linkable_element_property import LinkableElementProperty
-from metricflow_semantics.model.semantics.element_filter import LinkableElementFilter
+from metricflow_semantics.model.linkable_element_property import GroupByItemProperty
+from metricflow_semantics.model.semantics.element_filter import GroupByItemSetFilter
 from metricflow_semantics.naming.linkable_spec_name import StructuredLinkableSpecName
 from metricflow_semantics.specs.instance_spec import InstanceSpec, LinkableInstanceSpec
 from metricflow_semantics.specs.patterns.entity_link_pattern import (
@@ -32,15 +32,20 @@ class DimensionPattern(EntityLinkPattern):
     Analogous pattern for Dimension() in the object builder naming scheme.
     """
 
+    include_time_dimensions: bool = True
+
     @override
     def match(self, candidate_specs: Sequence[InstanceSpec]) -> Sequence[LinkableInstanceSpec]:
         spec_set = group_specs_by_type(candidate_specs)
-        filtered_specs: Sequence[LinkableInstanceSpec] = spec_set.dimension_specs + spec_set.time_dimension_specs
+        filtered_specs: Tuple[LinkableInstanceSpec, ...] = spec_set.dimension_specs
+        if self.include_time_dimensions:
+            filtered_specs += spec_set.time_dimension_specs
         return super().match(filtered_specs)
 
     @staticmethod
     def from_call_parameter_set(  # noqa: D102
         dimension_call_parameter_set: DimensionCallParameterSet,
+        include_time_dimensions: bool = True,
     ) -> DimensionPattern:
         return DimensionPattern(
             parameter_set=SpecPatternParameterSet.from_parameters(
@@ -52,14 +57,15 @@ class DimensionPattern(EntityLinkPattern):
                 element_name=dimension_call_parameter_set.dimension_reference.element_name,
                 entity_links=dimension_call_parameter_set.entity_path,
                 descending=dimension_call_parameter_set.descending,
-            )
+            ),
+            include_time_dimensions=include_time_dimensions,
         )
 
     @property
     @override
-    def element_pre_filter(self) -> LinkableElementFilter:
+    def element_pre_filter(self) -> GroupByItemSetFilter:
         return super().element_pre_filter.merge(
-            LinkableElementFilter(without_any_of=frozenset({LinkableElementProperty.METRIC}))
+            GroupByItemSetFilter.create(any_properties_denylist=(GroupByItemProperty.METRIC,))
         )
 
 
@@ -118,9 +124,9 @@ class TimeDimensionPattern(EntityLinkPattern):
 
     @property
     @override
-    def element_pre_filter(self) -> LinkableElementFilter:
+    def element_pre_filter(self) -> GroupByItemSetFilter:
         return super().element_pre_filter.merge(
-            LinkableElementFilter(without_any_of=frozenset({LinkableElementProperty.METRIC}))
+            GroupByItemSetFilter.create(any_properties_denylist=(GroupByItemProperty.METRIC,))
         )
 
 
@@ -152,8 +158,8 @@ class EntityPattern(EntityLinkPattern):
 
     @property
     @override
-    def element_pre_filter(self) -> LinkableElementFilter:
-        return LinkableElementFilter(without_any_of=frozenset({LinkableElementProperty.METRIC}))
+    def element_pre_filter(self) -> GroupByItemSetFilter:
+        return GroupByItemSetFilter.create(any_properties_denylist=(GroupByItemProperty.METRIC,))
 
 
 @dataclass(frozen=True)

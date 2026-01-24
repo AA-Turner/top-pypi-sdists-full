@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: partialjson
-Version: 0.1.0
+Version: 1.0.0
 Summary: Parse incomplete or partial json
 Home-page: https://github.com/iw4p/partialjson
 Author: Nima Akbarzadeh
@@ -14,6 +14,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: summary
 
 # PartialJson
@@ -64,6 +65,18 @@ Also can be found on [pypi](https://pypi.org/project/partialjson/)
 
 - Install the package by pip package manager.
 - After installing, you can use it and call the library.
+
+## Testing
+
+```bash
+pip install -e .
+pip install -r requirements-dev.txt
+pytest -q
+```
+
+## Citation
+
+If you use this software, please cite it using the metadata in `CITATION.cff`.
 
 ## Star History
 

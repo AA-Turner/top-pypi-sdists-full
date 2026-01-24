@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: arize-phoenix-client
-Version: 1.19.1
+Version: 1.28.0
 Summary: LLM Observability
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
 Project-URL: Source, https://github.com/Arize-ai/phoenix
 Author-email: Arize AI <phoenix-devs@arize.com>
-License: Elastic-2.0
+License: Apache-2.0
 License-File: IP_NOTICE
 License-File: LICENSE
 Keywords: Explainability,Monitoring,Observability
@@ -18,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: <3.14,>=3.9
 Requires-Dist: httpx
+Requires-Dist: openinference-instrumentation>=0.1.20
 Requires-Dist: openinference-semantic-conventions
 Requires-Dist: opentelemetry-exporter-otlp
 Requires-Dist: opentelemetry-sdk
@@ -45,6 +46,7 @@ Description-Content-Type: text/markdown
     <a href="https://arize-phoenix.readthedocs.io/projects/client/en/latest/index.html">
         <img src="https://img.shields.io/badge/docs-blue?logo=readthedocs&logoColor=white" alt="Documentation">
     </a>
+    <img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=8e8e8b34-7900-43fa-a38f-1f070bd48c64&page=packages/phoenix-client/README.md" />
 </p>
 Phoenix Client provides a interface for interacting with the Phoenix platform via its REST API, enabling you to manage datasets, run experiments, analyze traces, and collect feedback programmatically.
 
@@ -56,6 +58,7 @@ Phoenix Client provides a interface for interacting with the Phoenix platform vi
 - **Experiments** - Run evaluations and track experiment results
 - **Spans** - Query and analyze traces with powerful filtering
 - **Annotations** - Add human feedback and automated evaluations
+- **Evaluation Helpers** - Extract span data in formats optimized for RAG evaluation workflows
 
 ## Installation
 

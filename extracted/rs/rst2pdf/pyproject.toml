@@ -13,25 +13,23 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Documentation",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Text Processing",
     "Topic :: Utilities",
 ]
 dependencies = [
-    "docutils~=0.21.2",
-    "importlib-metadata~=8.0",
+    "docutils>=0.21.2",
     "jinja2~=3.0",
-    "packaging~=24.0",
+    "packaging~=25.0",
     "pygments~=2.0",
-    "pyyaml~=6.0",
+    "pyyaml>=6.0.1",
     "reportlab~=4.0",
-    "smartypants~=2.0",
 ]
 description = "Convert reStructured Text to PDF via ReportLab."
 dynamic = ["version"]
@@ -46,14 +44,17 @@ keywords= [
 ]
 license = {file = "LICENSE.txt"}
 readme = "README.rst"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 [project.optional-dependencies]
 aafiguresupport = ["aafigure"]
 mathsupport = ["matplotlib"]
 plantumlsupport = ["plantuml"]
 rawhtmlsupport = ["xhtml2pdf"]
-sphinx = ["sphinx>7.3"]
+sphinx = [
+    "sphinx>7.3; python_version=='3.10'",
+    "sphinx>=8.2; python_version>='3.11'",
+]
 svgsupport = ["svglib"]
 
 [project.scripts]
@@ -67,6 +68,7 @@ Source = "https://github.com/rst2pdf/rst2pdf"
 "Bug Reports" = "https://github.com/rst2pdf/rst2pdf/issues"
 
 [tool.uv]
+required-version = ">=0.5.21"
 cache-keys = [{ git = { commit = true, tags = true } }]
 
 [tool.black]

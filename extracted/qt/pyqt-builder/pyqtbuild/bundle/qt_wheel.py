@@ -47,7 +47,9 @@ def qt_wheel(package, qt_dir, build_tag, suffix, msvc_runtime, openssl,
         else:
             wheel_arch = 'x86_64'
 
-            if package.qt_version >= (6, 0, 0):
+            if package.qt_version >= (6, 10, 0):
+                manylinux = '_2_34'
+            elif package.qt_version >= (6, 0, 0):
                 manylinux = '_2_28'
             else:
                 manylinux = '2014'
@@ -134,7 +136,7 @@ def qt_wheel(package, qt_dir, build_tag, suffix, msvc_runtime, openssl,
     lgpl = package.bundle_qt(target_qt_dir, platform_tag, exclude,
             ignore_missing=True, bindings=False, subwheel=subwheel)
 
-    if platform_tag in ('win32', 'win_amd64'):
+    if platform_tag in ('win32', 'win_amd64', 'win_arm64'):
         # Bundle the MSVC runtime if required.
         if msvc_runtime:
             package.bundle_msvc_runtime(target_qt_dir, platform_tag)

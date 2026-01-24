@@ -1,8 +1,7 @@
 # This file is a part of the `nequip` package. Please see LICENSE and README at the root for information on using it.
-from typing import Final, List
+from typing import Final, List, Optional, Union, Tuple
 
 import os
-import warnings
 import numpy as np
 
 import torch
@@ -29,77 +28,62 @@ assert _NEQUIP_NL in [
 ], f"Unknown neighborlist NEQUIP_NL = {_NEQUIP_NL}"
 
 
-def neighbor_list_and_relative_vec(
-    pos,
-    r_max,
-    cell=None,
-    pbc=False,
-    NL=_NEQUIP_NL,
-):
-    """Create neighbor list and neighbor vectors based on radial cutoff.
+def _nl_fn(
+    pos: torch.Tensor,
+    r_max: float,
+    cell: Optional[torch.Tensor] = None,
+    pbc: Union[bool, Tuple[bool, bool, bool], torch.Tensor] = False,
+    NL: str = _NEQUIP_NL,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Internal function to create neighbor list and neighbor vectors based on radial cutoff.
 
-    Create neighbor list (``edge_index``) and relative vectors
-    (``edge_attr``) based on radial cutoff.
+    Note: This is a private function. Users should use ``compute_neighborlist_`` instead.
 
     Edges are given by the following convention:
     - ``edge_index[0]`` is the *source* (convolution center).
     - ``edge_index[1]`` is the *target* (neighbor).
 
-    Thus, ``edge_index`` has the same convention as the relative vectors:
-    :math:`\\vec{r}_{source, target}`
-
-    If the input positions are a tensor with ``requires_grad == True``,
-    the output displacement vectors will be correctly attached to the inputs
-    for autograd.
-
-    All outputs are Tensors on the same device as ``pos``; this allows future
-    optimization of the neighbor list on the GPU.
+    All outputs are Tensors on the same device as ``pos``; this allows future optimization of the neighbor list on the GPU.
 
     Args:
-        pos (shape [N, 3]): Positional coordinate; Tensor or numpy array. If Tensor, must be on CPU.
+        pos (torch.Tensor shape [N, 3]): Positional coordinates.
         r_max (float): Radial cutoff distance for neighbor finding.
-        cell (numpy shape [3, 3]): Cell for periodic boundary conditions. Ignored if ``pbc == False``.
-        pbc (bool or 3-tuple of bool): Whether the system is periodic in each of the three cell dimensions.
+        cell (torch.Tensor shape [3, 3] or None): Cell for periodic boundary conditions. Required if any ``pbc`` is True.
+        pbc (bool or 3-tuple of bool or torch.Tensor): Whether the system is periodic in each of the three cell dimensions.
+        NL (str): Neighborlist backend to use ('ase', 'matscipy', or 'vesin').
 
     Returns:
         edge_index (torch.tensor shape [2, num_edges]): List of edges.
-        edge_cell_shift (torch.tensor shape [num_edges, 3]): Relative cell shift
-            vectors. Returned only if cell is not None.
-        cell (torch.Tensor [3, 3]): the cell as a tensor on the correct device.
-            Returned only if cell is not None.
+        edge_cell_shift (torch.tensor shape [num_edges, 3]): Relative cell shift vectors.
     """
     if isinstance(pbc, bool):
         pbc = (pbc,) * 3
+    elif isinstance(pbc, torch.Tensor):
+        # convert tensor to tuple for backends (handles GPU tensors)
+        pbc = tuple(pbc.detach().cpu().tolist())
 
-    # Either the position or the cell may be on the GPU as tensors
-    if isinstance(pos, torch.Tensor):
-        temp_pos = pos.detach().cpu().numpy()
-        out_device = pos.device
-        out_dtype = pos.dtype
-    else:
-        temp_pos = np.asarray(pos)
-        out_device = torch.device("cpu")
-        out_dtype = torch.get_default_dtype()
+    # get device and dtype from position tensor
+    out_device = pos.device
+    out_dtype = pos.dtype
 
-    # Right now, GPU tensors require a round trip
-    if out_device.type != "cpu":
-        warnings.warn(
-            "Currently, neighborlists require a round trip to the CPU. Please pass CPU tensors if possible."
-        )
+    # NOTE: neighborlist backends (ase, matscipy, vesin) are CPU-only
+    # - For training: data is typically on CPU, so no transfer occurs
+    # - For inference (e.g., torchsim): GPU -> CPU transfer is expected and normal
+    # TODO: potentially implement GPU-native neighborlists in the future
 
-    # Get a cell on the CPU no matter what
-    if isinstance(cell, torch.Tensor):
+    # convert to numpy for neighborlist backends
+    temp_pos = pos.detach().cpu().numpy()
+
+    # get cell and complete with ASE utils
+    if cell is not None:
         temp_cell = cell.detach().cpu().numpy()
-        cell_tensor = cell.to(device=out_device, dtype=out_dtype)
-    elif cell is not None:
-        temp_cell = np.asarray(cell)
-        cell_tensor = torch.as_tensor(temp_cell, device=out_device, dtype=out_dtype)
     else:
-        # ASE will "complete" this correctly.
+        # no cell provided, check that PBC is not requested
+        if pbc[0] or pbc[1] or pbc[2]:
+            raise ValueError(
+                "Periodic boundary conditions requested but no cell was provided."
+            )
         temp_cell = np.zeros((3, 3), dtype=temp_pos.dtype)
-        cell_tensor = torch.as_tensor(temp_cell, device=out_device, dtype=out_dtype)
-
-    # ASE dependent part
     temp_cell = ase.geometry.complete_cell(temp_cell)
 
     if NL == "vesin":
@@ -140,17 +124,16 @@ def neighbor_list_and_relative_vec(
             use_scaled_positions=False,
         )
 
-    # Build output:
+    # construct output to return
     edge_index = torch.vstack(
         (torch.LongTensor(first_idex), torch.LongTensor(second_idex))
     ).to(device=out_device)
-
     shifts = torch.as_tensor(
         shifts,
         dtype=out_dtype,
         device=out_device,
     )
-    return edge_index, shifts, cell_tensor
+    return edge_index, shifts
 
 
 def compute_neighborlist_(
@@ -158,7 +141,7 @@ def compute_neighborlist_(
 ) -> AtomicDataDict.Type:
     """Add a neighborlist to `data` in-place.
 
-    This can be called on alredy-batched data.
+    This can be called on already-batched data.
     """
     _data_is_batched = AtomicDataDict.BATCH_KEY in data
 
@@ -175,7 +158,7 @@ def compute_neighborlist_(
         if pbc is not None:
             pbc = pbc.view(3)  # remove batch dimension
 
-        edge_index, edge_cell_shift, cell = neighbor_list_and_relative_vec(
+        edge_index, edge_cell_shift = _nl_fn(
             pos=data_per_frame[AtomicDataDict.POSITIONS_KEY],
             r_max=r_max,
             cell=cell,

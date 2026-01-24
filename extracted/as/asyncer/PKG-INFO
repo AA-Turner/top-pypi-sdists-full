@@ -1,8 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: asyncer
-Version: 0.0.8
+Version: 0.0.12
 Summary: Asyncer, async and await, focused on developer experience.
 Author-Email: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: AsyncIO
 Classifier: Framework :: Trio
@@ -11,13 +13,13 @@ Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Typing :: Typed
 Project-URL: Homepage, https://github.com/fastapi/asyncer
@@ -25,8 +27,9 @@ Project-URL: Documentation, https://asyncer.tiangolo.com
 Project-URL: Repository, https://github.com/fastapi/asyncer
 Project-URL: Issues, https://github.com/fastapi/asyncer/issues
 Project-URL: Changelog, https://asyncer.tiangolo.com/release-notes/
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: anyio<5.0,>=3.4.0
+Requires-Dist: sniffio>=1.1
 Requires-Dist: typing_extensions>=4.8.0; python_version < "3.10"
 Description-Content-Type: text/markdown
 
@@ -37,11 +40,11 @@ Description-Content-Type: text/markdown
     <em>Asyncer, async and await, focused on developer experience.</em>
 </p>
 <p align="center">
-<a href="https://github.com/fastapi/asyncer/actions?query=workflow%3ATest" target="_blank">
-    <img src="https://github.com/fastapi/asyncer/workflows/Test/badge.svg" alt="Test">
+<a href="https://github.com/fastapi/asyncer/actions?query=workflow%3ATest+event%3Apush+branch%3Amain" target="_blank">
+    <img src="https://github.com/fastapi/asyncer/actions/workflows/test.yml/badge.svg?event=push&branch=main" alt="Test">
 </a>
 <a href="https://github.com/fastapi/asyncer/actions?query=workflow%3APublish" target="_blank">
-    <img src="https://github.com/fastapi/asyncer/workflows/Publish/badge.svg" alt="Publish">
+    <img src="https://github.com/fastapi/asyncer/actions/workflows/publish.yml/badge.svg" alt="Publish">
 </a>
 <a href="https://coverage-badge.samuelcolvin.workers.dev/redirect/fastapi/asyncer" target="_blank">
     <img src="https://coverage-badge.samuelcolvin.workers.dev/fastapi/asyncer.svg" alt="Coverage">
@@ -66,21 +69,11 @@ The main goal of **Asyncer** is to improve **developer experience** by providing
 
 **Asyncer** also tries to improve **convenience** and simplicity when working with **async** code **mixed** with regular <abbr title="synchronous code, code that is not async">**blocking code**</abbr>, allowing to use them together in a simpler way... again, under my very **subjective** point of view.
 
-## 🚨 Warning
-
-This small library only exists to be able to use these **utility functions** until (and if) they are integrated into **AnyIO**.
-
-It will probably take some time for that to happen (or to be decided if it will be included or not).
-
-So I made this to be able to use these ideas right now. 🤓
-
 ## Can I Use It?
 
 Yes 🎉 (but continue reading).
 
-You can use this and evaluate the **library API design** I'm proposing. It will probably be useful to know if it works and is useful for you (I hope so).
-
-But still, consider this lab material, expect it to change a bit. 🧪
+This is a very small library, there are things that can change and improve in the future.
 
 If you use it, **pin the exact Asyncer version** for your project, to make sure it all works.
 

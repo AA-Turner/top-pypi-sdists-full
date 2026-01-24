@@ -1,25 +1,85 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: requestium
-Version: 0.4.0
-Summary: Adds a Selenium webdriver and parsel's parser to a request's Session object, and makes switching between them seamless. Handles cookie, proxy and header transfer.
-Home-page: https://github.com/tryolabs/requestium
-Author: Joaquin Alori
-Author-email: joaquin@tryolabs.com
-License: MIT
-Classifier: Development Status :: 3 - Alpha
+Version: 0.5.1
+Author-email: Joaquin Alori <joaquin@tryolabs.com>
+Maintainer-email: Judson Neer <jkudson.neer@gmail.com>
+License: BSD 3-Clause License
+        
+        Copyright (c) 2017, Tryolabs
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+        
+        * Redistributions of source code must retain the above copyright notice, this
+          list of conditions and the following disclaimer.
+        
+        * Redistributions in binary form must reproduce the above copyright notice,
+          this list of conditions and the following disclaimer in the documentation
+          and/or other materials provided with the distribution.
+        
+        * Neither the name of the copyright holder nor the names of its
+          contributors may be used to endorse or promote products derived from
+          this software without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+Project-URL: source, https://github.com/tryolabs/requestium
+Project-URL: download, https://pypi.org/project/requestium/#files
+Project-URL: issues, https://github.com/tryolabs/requestium/issues
+Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Natural Language :: English
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: OS Independent
+Classifier: Environment :: Web Environment
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Testing
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: parsel>=1.7
+Requires-Dist: requests>=2.27
+Requires-Dist: selenium>=4.32
+Requires-Dist: tldextract>=5.3
+Provides-Extra: dev
+Requires-Dist: bandit[sarif]==1.9.2; extra == "dev"
+Requires-Dist: mypy==1.19.1; extra == "dev"
+Requires-Dist: pre-commit~=4.5.0; extra == "dev"
+Requires-Dist: pytest-cov~=7.0.0; extra == "dev"
+Requires-Dist: pytest-xdist~=3.8.0; extra == "dev"
+Requires-Dist: pytest~=9.0.0; extra == "dev"
+Requires-Dist: ruff==0.14.11; extra == "dev"
+Requires-Dist: ssort==0.16.0; extra == "dev"
+Requires-Dist: types-requests==2.32.4.20260107; extra == "dev"
+Dynamic: license-file
 
 ![Requestium](https://user-images.githubusercontent.com/14966348/32966130-8bb15b00-cbb7-11e7-9faf-85963ec5bd82.png)
 ========
 
-[![Build Status](https://travis-ci.org/tryolabs/requestium.svg?branch=master)](https://travis-ci.org/tryolabs/requestium)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/requestium)](https://pypi.org/project/requestium/)
+[![PyPI](https://img.shields.io/pypi/v/requestium?color=blue)](https://pypi.org/project/requestium/)
+[![Coverage](https://raw.githubusercontent.com/tryolabs/requestium/python-coverage-comment-action-data/badge.svg)](https://htmlpreview.github.io/?https://github.com/tryolabs/requestium/blob/python-coverage-comment-action-data/htmlcov/index.html)
+[![Python checks](https://github.com/tryolabs/requestium/actions/workflows/python.yml/badge.svg)](https://github.com/tryolabs/requestium/actions/workflows/python.yml)
 
 Requestium is a Python library that merges the power of [Requests](https://github.com/requests/requests), [Selenium](https://github.com/SeleniumHQ/selenium), and [Parsel](https://github.com/scrapy/parsel) into a single integrated tool for automatizing web actions.
 
@@ -53,7 +113,7 @@ options = {'arguments': ['headless']}
 s = Session(webdriver_path='./chromedriver', default_timeout=15, webdriver_options=options)
 ```
 
-Since headless mode is common, there's a shortcut for it by pecifying `headless=True`.
+Since headless mode is common, there's a shortcut for it by specifying `headless=True`.
 
 ```python
 from requestium import Session, Keys

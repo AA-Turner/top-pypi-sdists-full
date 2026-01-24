@@ -8,24 +8,24 @@ you couldn't write this yourself, you should not be using it.
 
 __all__ = [
     "NoResultError",
-    "not_reentrant",
     "ReentryError",
     "Spinner",
     "StaleJunkError",
     "TimeoutError",
+    "not_reentrant",
     "trap_unhandled_errors",
 ]
 
-from fixtures import Fixture
 import signal
-from typing import Union
+from typing import ClassVar
 
-from ._deferreddebug import DebugTwisted
-
+from fixtures import Fixture
 from twisted.internet import defer
 from twisted.internet.interfaces import IReactorThreads
 from twisted.python.failure import Failure
 from twisted.python.util import mergeFunctionMetadata
+
+from ._deferreddebug import DebugTwisted
 
 
 class ReentryError(Exception):
@@ -34,8 +34,7 @@ class ReentryError(Exception):
     def __init__(self, function):
         Exception.__init__(
             self,
-            "%r in not re-entrant but was called within a call to itself."
-            % (function,),
+            f"{function!r} in not re-entrant but was called within a call to itself.",
         )
 
 
@@ -130,7 +129,7 @@ class StaleJunkError(Exception):
         Exception.__init__(
             self,
             "There was junk in the spinner from a previous run. "
-            "Use clear_junk() to clear it out: %r" % (junk,),
+            f"Use clear_junk() to clear it out: {junk!r}",
         )
 
 
@@ -146,7 +145,7 @@ class Spinner:
     _UNSET = object()
 
     # Signals that we save and restore for each spin.
-    _PRESERVED_SIGNALS = [
+    _PRESERVED_SIGNALS: ClassVar[list] = [
         "SIGINT",
         "SIGTERM",
         "SIGCHLD",
@@ -160,7 +159,7 @@ class Spinner:
     # the ideal, and it actually works for many cases.
     _OBLIGATORY_REACTOR_ITERATIONS = 0
 
-    _failure: Union[Failure, object]
+    _failure: Failure | object
 
     def __init__(self, reactor, debug=False):
         """Construct a Spinner.
@@ -187,7 +186,7 @@ class Spinner:
             self._failure.raiseException()  # type: ignore
         if self._success is not self._UNSET:
             return self._success
-        raise NoResultError()
+        raise NoResultError
 
     def _got_failure(self, result):
         self._cancel_timeout()
@@ -291,7 +290,7 @@ class Spinner:
             it's an error, then raise that.
         """
         if self._debug:
-            debug_settings = DebugTwisted(True)
+            debug_settings: Fixture = DebugTwisted(True)
         else:
             debug_settings = Fixture()
 

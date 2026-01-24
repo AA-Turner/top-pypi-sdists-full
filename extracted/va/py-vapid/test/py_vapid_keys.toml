@@ -1,0 +1,17 @@
+autopush::settings::shared::apns_creds:
+  firefox:
+    cert: "/etc/autopush.certs/autopush.apns.firefox.crt"
+    key: "/etc/autopush.certs/autopush.apns.firefox.key"
+    topic: "org.mozilla.ios.Firefox"
+  firefoxbeta:
+    cert: "/etc/autopush.certs/autopush.apns.firefoxbeta.crt"
+    key: "/etc/autopush.certs/autopush.apns.firefoxbeta.key"
+    topic: "org.mozilla.ios.FirefoxBeta"
+  firefoxnightlyenterprise:
+    cert: "/etc/autopush.certs/autopush.apns.firefoxnightlyenterprise.crt"
+    key: "/etc/autopush.certs/autopush.apns.firefoxnightlyenterprise.key"
+    topic: "org.mozilla.ios.FennecEnterprise"
+  fennecenterprise:
+    cert: "/etc/autopush.certs/autopush.apns.fennecenterprise.crt"
+    key: "/etc/autopush.certs/autopush.apns.fennecenterprise.key"
+    topic: "org.mozilla.ios.FirefoxNightly.enterprise"

@@ -8,6 +8,7 @@ requests (cookies, auth, proxies).
 
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 import time
@@ -27,7 +28,42 @@ from ._constant import (
     READ_DEFAULT_TIMEOUT,
     WRITE_DEFAULT_TIMEOUT,
 )
-from ._typing import (
+from .adapters import BaseAdapter, HTTPAdapter
+from .auth import _basic_auth_str
+from .cookies import (
+    RequestsCookieJar,
+    cookiejar_from_dict,
+    extract_cookies_to_jar,
+    merge_cookies,
+)
+from .exceptions import (
+    ChunkedEncodingError,
+    ContentDecodingError,
+    HTTPError,
+    InvalidSchema,
+    TooManyRedirects,
+)
+from .extensions.revocation import DEFAULT_STRATEGY, RevocationConfiguration
+from .extensions.sgi import WebServerGatewayInterface
+from .extensions.sgi._async import ThreadAsyncServerGatewayInterface
+from .extensions.unixsocket import UnixAdapter
+from .hooks import HOOKS, default_hooks, dispatch_hook
+
+# formerly defined here, reexposed here for backward compatibility
+from .models import (  # noqa: F401
+    DEFAULT_REDIRECT_LIMIT,
+    REDIRECT_STATI,
+    PreparedRequest,
+    Request,
+    Response,
+    TransferProgress,
+)
+from .packages.urllib3 import ConnectionInfo
+from .packages.urllib3.contrib.webextensions import load_extension
+from .status_codes import codes
+from .structures import CaseInsensitiveDict, QuicSharedCache
+from .typing import (
+    ASGIApp,
     BodyType,
     CacheLayerAltSvcType,
     CookiesType,
@@ -44,37 +80,8 @@ from ._typing import (
     TimeoutType,
     TLSClientCertType,
     TLSVerifyType,
+    WSGIApp,
 )
-from .adapters import BaseAdapter, HTTPAdapter
-from .auth import _basic_auth_str
-from .cookies import (
-    RequestsCookieJar,
-    cookiejar_from_dict,
-    extract_cookies_to_jar,
-    merge_cookies,
-)
-from .exceptions import (
-    ChunkedEncodingError,
-    ContentDecodingError,
-    HTTPError,
-    InvalidSchema,
-    TooManyRedirects,
-)
-from .hooks import HOOKS, default_hooks, dispatch_hook
-
-# formerly defined here, reexposed here for backward compatibility
-from .models import (  # noqa: F401
-    DEFAULT_REDIRECT_LIMIT,
-    REDIRECT_STATI,
-    PreparedRequest,
-    Request,
-    Response,
-    TransferProgress,
-)
-from .packages.urllib3 import ConnectionInfo
-from .packages.urllib3.contrib.webextensions import load_extension
-from .status_codes import codes
-from .structures import CaseInsensitiveDict, QuicSharedCache
 from .utils import (  # noqa: F401
     DEFAULT_PORTS,
     _deepcopy_ci,
@@ -83,13 +90,13 @@ from .utils import (  # noqa: F401
     get_auth_from_url,
     get_environ_proxies,
     get_netrc_auth,
-    is_crl_capable,
-    is_ocsp_capable,
     parse_scheme,
     requote_uri,
     resolve_proxies,
     rewind_body,
     should_bypass_proxies,
+    should_check_crl,
+    should_check_ocsp,
     to_key_val_list,
 )
 
@@ -224,6 +231,7 @@ class Session:
         "base_url",
         "quic_cache_layer",
         "timeout",
+        "_revocation_configuration",
     ]
 
     def __init__(
@@ -246,6 +254,10 @@ class Session:
         keepalive_idle_window: float | int | None = 60.0,
         base_url: str | None = None,
         timeout: TimeoutType | None = None,
+        headers: HeadersType | None = None,
+        hooks: HookType[PreparedRequest | Response] | None = None,
+        revocation_configuration: RevocationConfiguration | None = DEFAULT_STRATEGY,
+        app: WSGIApp | ASGIApp | None = None,
     ):
         """
         :param resolver: Specify a DNS resolver that should be used within this Session.
@@ -270,6 +282,12 @@ class Session:
             being completely idle. This only applies to HTTP/2 onward.
         :param base_url: Automatically set a URL prefix (or base url) on every request emitted if applicable.
         :param timeout: Default timeout configuration to be used if no timeout is provided in exposed methods.
+        :param headers: Default headers to be used on every request emitted.
+        :param hooks: Default hooks to be used on every request emitted. Can be a dictionary mapping hook names to
+            lists of callables, or a LifeCycleHook instance.
+        :param revocation_configuration: How should that session do the certificate revocation check. Set it as None to disable
+            this additional security measure.
+        :param app: A WSGI (e.g. Flask) or ASGI (e.g. FastAPI) app to be mounted automatically.
         """
         if [disable_ipv4, disable_ipv6].count(True) == 2:
             raise RuntimeError("Cannot disable both IPv4 and IPv6")
@@ -288,7 +306,7 @@ class Session:
         #: A case-insensitive dictionary of headers to be sent on each
         #: :class:`Request <Request>` sent from this
         #: :class:`Session <Session>`.
-        self.headers = default_headers()
+        self.headers = CaseInsensitiveDict(headers) if headers is not None else default_headers()
 
         #: Default Authentication tuple or object to attach to
         #: :class:`Request <Request>`.
@@ -300,7 +318,9 @@ class Session:
         self.proxies: ProxyType = {}
 
         #: Event-handling hooks.
-        self.hooks: HookType[PreparedRequest | Response] = default_hooks()
+        self.hooks: HookType[PreparedRequest | Response] = (
+            merge_hooks(default_hooks(), hooks) if hooks is not None else default_hooks()
+        )
 
         #: Dictionary of querystring data to attach to each
         #: :class:`Request <Request>`. The dictionary values may be lists for
@@ -387,6 +407,9 @@ class Session:
         #: unattended errors.
         self._crl_cache: typing.Any | None = None
 
+        #: How we should handle the revocation check for TLS newly acquired connection.
+        self._revocation_configuration: RevocationConfiguration | None = revocation_configuration
+
         # Default connection adapters.
         self.adapters: OrderedDict[str, BaseAdapter] = OrderedDict()
         self.mount(
@@ -406,6 +429,7 @@ class Session:
                 happy_eyeballs=happy_eyeballs,
                 keepalive_delay=keepalive_delay,
                 keepalive_idle_window=keepalive_idle_window,
+                revocation_configuration=revocation_configuration,
             ),
         )
         self.mount(
@@ -424,8 +448,52 @@ class Session:
                 happy_eyeballs=happy_eyeballs,
                 keepalive_delay=keepalive_delay,
                 keepalive_idle_window=keepalive_idle_window,
+                revocation_configuration=revocation_configuration,
             ),
         )
+        self.mount(
+            "http+unix://",
+            UnixAdapter(
+                max_retries=retries,
+                resolver=resolver,
+                source_address=source_address,
+                disable_http1=disable_http1,
+                disable_http2=disable_http2,
+                disable_http3=disable_http3,
+                disable_ipv4=disable_ipv4,
+                disable_ipv6=disable_ipv6,
+                pool_connections=pool_connections,
+                pool_maxsize=pool_maxsize,
+                happy_eyeballs=happy_eyeballs,
+                keepalive_delay=keepalive_delay,
+                keepalive_idle_window=keepalive_idle_window,
+                revocation_configuration=revocation_configuration,
+            ),
+        )
+        if app is not None:
+            if hasattr(app, "__call__") and asyncio.iscoroutinefunction(app.__call__):
+                self.mount(
+                    "asgi://default",
+                    ThreadAsyncServerGatewayInterface(
+                        app=app,  # type: ignore[arg-type]
+                        max_retries=retries,
+                    ),
+                )
+                if self.base_url is None:
+                    self.base_url = "asgi://default"
+            else:
+                self.mount(
+                    "wsgi://default",
+                    WebServerGatewayInterface(
+                        app=app,  # type: ignore[arg-type]
+                        max_retries=retries,
+                    ),
+                )
+                if self.base_url is None:
+                    self.base_url = "wsgi://default"
+
+    def __repr__(self) -> str:
+        return f"<Session {repr(self.adapters).replace('OrderedDict(', '')[:-1]}>"
 
     def __enter__(self) -> Session:
         return self
@@ -1136,7 +1204,10 @@ class Session:
             if ptr_request.url and parse_scheme(ptr_request.url) == "https" and kwargs["verify"]:
                 strict_ocsp_enabled: bool = os.environ.get("NIQUESTS_STRICT_OCSP", "0") != "0"
 
-                if is_ocsp_capable(conn_info):
+                if not strict_ocsp_enabled and self._revocation_configuration is not None:
+                    strict_ocsp_enabled = self._revocation_configuration.strict_mode
+
+                if should_check_ocsp(conn_info, self._revocation_configuration):
                     try:
                         from .extensions.revocation._ocsp import (
                             InMemoryRevocationStatus,
@@ -1162,7 +1233,8 @@ class Session:
                             happy_eyeballs=self._happy_eyeballs,
                             cache=self._ocsp_cache,
                         )
-                elif is_crl_capable(conn_info):
+
+                if should_check_crl(conn_info, self._revocation_configuration):
                     try:
                         from .extensions.revocation._crl import (
                             InMemoryRevocationList,
@@ -1249,6 +1321,7 @@ class Session:
                     happy_eyeballs=self._happy_eyeballs,
                     keepalive_delay=self._keepalive_delay,
                     keepalive_idle_window=self._keepalive_idle_window,
+                    revocation_configuration=self._revocation_configuration,
                 ),
             )
             self.mount(
@@ -1267,6 +1340,26 @@ class Session:
                     happy_eyeballs=self._happy_eyeballs,
                     keepalive_delay=self._keepalive_delay,
                     keepalive_idle_window=self._keepalive_idle_window,
+                    revocation_configuration=self._revocation_configuration,
+                ),
+            )
+            self.mount(
+                "http+unix://",
+                UnixAdapter(
+                    max_retries=self.retries,
+                    disable_http1=self._disable_http1,
+                    disable_http2=self._disable_http2,
+                    disable_http3=self._disable_http3,
+                    resolver=self.resolver,
+                    source_address=self.source_address,
+                    disable_ipv4=self._disable_ipv4,
+                    disable_ipv6=self._disable_ipv6,
+                    pool_connections=self._pool_connections,
+                    pool_maxsize=self._pool_maxsize,
+                    happy_eyeballs=self._happy_eyeballs,
+                    keepalive_delay=self._keepalive_delay,
+                    keepalive_idle_window=self._keepalive_idle_window,
+                    revocation_configuration=self._revocation_configuration,
                 ),
             )
 
@@ -1520,6 +1613,7 @@ class Session:
                 happy_eyeballs=self._happy_eyeballs,
                 keepalive_delay=self._keepalive_delay,
                 keepalive_idle_window=self._keepalive_idle_window,
+                revocation_configuration=self._revocation_configuration,
             ),
         )
         self.mount(
@@ -1538,6 +1632,26 @@ class Session:
                 happy_eyeballs=self._happy_eyeballs,
                 keepalive_delay=self._keepalive_delay,
                 keepalive_idle_window=self._keepalive_idle_window,
+                revocation_configuration=self._revocation_configuration,
+            ),
+        )
+        self.mount(
+            "http+unix://",
+            UnixAdapter(
+                max_retries=self.retries,
+                disable_http1=self._disable_http1,
+                disable_http2=self._disable_http2,
+                disable_http3=self._disable_http3,
+                source_address=self.source_address,
+                disable_ipv4=self._disable_ipv4,
+                disable_ipv6=self._disable_ipv6,
+                resolver=self.resolver,
+                pool_connections=self._pool_connections,
+                pool_maxsize=self._pool_maxsize,
+                happy_eyeballs=self._happy_eyeballs,
+                keepalive_delay=self._keepalive_delay,
+                keepalive_idle_window=self._keepalive_idle_window,
+                revocation_configuration=self._revocation_configuration,
             ),
         )
         for adapter in self.adapters.values():

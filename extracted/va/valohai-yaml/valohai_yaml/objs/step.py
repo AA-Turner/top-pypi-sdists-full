@@ -37,9 +37,11 @@ class Step(Item):
         inputs: Iterable[Input] = (),
         outputs: Iterable[Any] = (),
         mounts: Iterable[Mount] = (),
+        cache_volumes: Iterable[str] = (),
         environment_variables: Iterable[EnvironmentVariable] = (),
         environment_variable_groups: Iterable[str] = (),
         environment: Optional[str] = None,
+        runtime_config_preset: Optional[str] = None,  # preset ID or slug
         description: Optional[str] = None,
         upload_store: Optional[str] = None,
         time_limit: Optional[datetime.timedelta] = None,
@@ -56,12 +58,14 @@ class Step(Item):
         self.source_path = source_path
         self.description = description
         self.environment = str(environment) if environment else None
+        self.runtime_config_preset = str(runtime_config_preset) if runtime_config_preset else None
         self.icon = str(icon) if icon else None
         self.category = str(category) if category else None
         self.upload_store = str(upload_store) if upload_store else None
 
         self.outputs = list(outputs)  # TODO: Improve handling
         self.mounts = check_type_and_listify(mounts, Mount)
+        self.cache_volumes = [str(cv) for cv in cache_volumes if cv]
         self.inputs = check_type_and_dictify(inputs, Input, "name")
         self.parameters = check_type_and_dictify(parameters, Parameter, "name")
         self.environment_variables = check_type_and_dictify(
@@ -79,6 +83,7 @@ class Step(Item):
     @classmethod
     def parse(cls, data: SerializedDict) -> "Step":
         kwargs = parse_common_step_properties(data)
+        kwargs["cache_volumes"] = kwargs.pop("cache-volumes", ())
         kwargs["time_limit"] = parse_duration(kwargs.pop("time-limit", None))
         kwargs["no_output_timeout"] = parse_duration(
             kwargs.pop("no-output-timeout", None),
@@ -87,6 +92,7 @@ class Step(Item):
         kwargs["stop_condition"] = kwargs.pop("stop-condition", None)
         kwargs["upload_store"] = kwargs.pop("upload-store", None)
         kwargs["resources"] = WorkloadResources.parse(kwargs.pop("resources", {}))
+        kwargs["runtime_config_preset"] = kwargs.pop("runtime-config-preset", None)
         kwargs["environment_variable_groups"] = kwargs.pop("environment-variable-groups", ())
         inst = cls(**kwargs)
         inst._original_data = data
@@ -108,8 +114,10 @@ class Step(Item):
             ("parameters", self.parameters),
             ("inputs", self.inputs),
             ("mounts", self.mounts),
+            ("cache-volumes", self.cache_volumes),
             ("outputs", self.outputs),
             ("environment", self.environment),
+            ("runtime-config-preset", self.runtime_config_preset),
             ("environment-variables", self.environment_variables),
             ("environment-variable-groups", self.environment_variable_groups),
             ("description", self.description),
@@ -196,6 +204,12 @@ class Step(Item):
         )
         lint_expression(lint_result, context, "stop-condition", self.stop_condition)
 
+        if self.runtime_config_preset and not self.environment:
+            lint_result.add_error(
+                f'Step "{self.name}", missing "environment". '
+                f"When specifying a runtime config preset, you must also specify an environment.",
+            )
+
     @classmethod
     def default_merge(cls, a: "Step", b: "Step") -> "Step":
         result = merge_simple(a, b)
@@ -219,6 +233,7 @@ class Step(Item):
             copier=copy.deepcopy,
         )
         result.environment_variable_groups = a.environment_variable_groups + b.environment_variable_groups
+        result.cache_volumes = a.cache_volumes + b.cache_volumes
         return result
 
 

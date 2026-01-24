@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: yamlfix
-Version: 1.18.0
+Version: 1.19.1
 Summary: A simple opionated yaml formatter that keeps your comments!
 Author-Email: Lyz <lyz-code-security-advisories@riseup.net>
 License: GPL-3.0-only

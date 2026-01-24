@@ -2,8 +2,8 @@ name: Wheel building
 
 on:
   schedule:
-    # run every Monday at 5am UTC
-    - cron: '0 5 * * 1'
+    # run every day at 4:30am UTC
+    - cron: '30 4 * * *'
   pull_request:
     # We also want this workflow triggered if the 'Build all wheels'
     # label is added or present when PR is updated
@@ -20,6 +20,10 @@ on:
       - '!*post*'
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -32,9 +36,9 @@ jobs:
     permissions:
       contents: none
 
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@924441154cf3053034c6513d5e06c69d262fb9a6  # v1.13.0
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@d9b81a07e789d1b1921ab5fe33de2ddcbbd02c3f  # v2.3.0
 
-    if: (github.repository == 'astropy/regions' && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'Build all wheels')))
+    if: (github.repository == 'astropy/regions' && (github.event_name == 'push' ||  github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'Build all wheels')))
     with:
       # We upload to PyPI for all tag pushes, except tags ending in .dev
       upload_to_pypi: ${{ startsWith(github.ref, 'refs/tags/') && !endsWith(github.ref, '.dev') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
@@ -43,25 +47,21 @@ jobs:
       test_command: pytest -p no:warnings --pyargs regions
       targets: |
         # Linux wheels
-        - cp310-manylinux_x86_64
-        - cp311-manylinux_x86_64
-        - cp312-manylinux_x86_64
+        - cp3*-manylinux_x86_64
 
         # MacOS X wheels
-        # Note that the arm64 wheels are not actually tested so we rely
-        # on local manual testing of these to make sure they are ok.
-        - cp310*macosx_x86_64
-        - cp311*macosx_x86_64
-        - cp312*macosx_x86_64
-
-        - cp310*macosx_arm64
-        - cp311*macosx_arm64
-        - cp312*macosx_arm64
+        - cp3*-macosx_x86_64
+        - cp3*-macosx_arm64
 
         # Windows wheels
-        - cp310*win_amd64
-        - cp311*win_amd64
-        - cp312*win_amd64
+        - cp3*-win_amd64
+
+      # Developer wheels
+      upload_to_anaconda: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+      anaconda_user: astropy
+      anaconda_package: regions
+      anaconda_keep_n_latest: 10
 
     secrets:
       pypi_token: ${{ secrets.pypi_token }}
+      anaconda_token: ${{ secrets.anaconda_token }}

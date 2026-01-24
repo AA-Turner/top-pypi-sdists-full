@@ -1,6 +1,9 @@
 import os
 from unittest import mock
 
+import responses
+
+from launchable.utils.http_client import get_base_url
 from tests.cli_test_case import CliTestCase
 
 
@@ -153,3 +156,62 @@ class SubsetsTest(CliTestCase):
             os.remove("subset-before.txt")
         if os.path.exists("subset-after.txt"):
             os.remove("subset-after.txt")
+
+    @mock.patch.dict(os.environ, {"LAUNCHABLE_TOKEN": CliTestCase.launchable_token})
+    @responses.activate
+    def test_subsets_subset_ids(self):
+        responses.add(
+            responses.GET,
+            f"{get_base_url()}/intake/organizations/{self.organization}/workspaces/{self.workspace}/subset/100",
+            json={
+                "subsetting": {
+                    "id": 100,
+                },
+                "testPaths": [
+                    {"testPath": [{"type": "file", "name": "aaa.py"}], "duration": 10, "density": 0.9, "reason": "Changed file: aaa.py"},  # noqa: E501
+                    {"testPath": [{"type": "file", "name": "bbb.py"}], "duration": 10, "density": 0.8, "reason": "Changed file: bbb.py"}  # noqa: E501
+                ],
+                "rest": [
+                    {"testPath": [{"type": "file", "name": "ccc.py"}], "duration": 10, "density": 0.7, "reason": "Changed file: ccc.py"}  # noqa: E501
+                ]
+            },
+            status=200
+        )
+        responses.add(
+            responses.GET,
+            f"{get_base_url()}/intake/organizations/{self.organization}/workspaces/{self.workspace}/subset/101",
+            json={
+                "subsetting": {
+                    "id": 101,
+                },
+                "testPaths": [
+                    {"testPath": [{"type": "file", "name": "ddd.py"}], "duration": 10, "density": 0.9, "reason": "Changed file: ddd.py"},  # noqa: E501
+                    {"testPath": [{"type": "file", "name": "ccc.py"}], "duration": 10, "density": 0.7, "reason": "Changed file: ccc.py"}  # noqa: E501
+                ],
+                "rest": [
+                    {"testPath": [{"type": "file", "name": "bbb.py"}], "duration": 10, "density": 0.5, "reason": "Changed file: bbb.py"}   # noqa: E501
+                ]
+            },
+            status=200
+        )
+
+        result = self.cli('compare', 'subsets',
+                          '--subset-id-before', '100',
+                          '--subset-id-after', '101',
+                          mix_stderr=False)
+
+        self.assert_success(result)
+        expect = """PTS subset change summary:
+────────────────────────────────
+-> 3 tests analyzed | 1 ↑ promoted | 1 ↓ demoted
+-> Code files affected: bbb.py, ccc.py, ddd.py
+────────────────────────────────
+
+Δ Rank    Subset Rank    Test Name    Reason                Density
+--------  -------------  -----------  --------------------  ---------
+NEW       1              file=ddd.py  Changed file: ddd.py  0.9
+↑1        2              file=ccc.py  Changed file: ccc.py  0.7
+↓1        3              file=bbb.py  Changed file: bbb.py  0.5
+DELETED   -              file=aaa.py
+"""
+        self.assertEqual(result.stdout, expect)

@@ -6,11 +6,8 @@
 PYTHON = python3
 ARGS =
 
-# In not in a virtualenv, add --user options for install commands.
-SETUP_INSTALL_ARGS = `$(PYTHON) -c \
-	"import sys; print('' if hasattr(sys, 'real_prefix') or hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix else '--user')"`
 PIP_INSTALL_ARGS = --trusted-host files.pythonhosted.org --trusted-host pypi.org --upgrade
-PYTHON_ENV_VARS = PYTHONWARNINGS=always PYTHONUNBUFFERED=1 PSUTIL_DEBUG=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
+PYTHON_ENV_VARS = PYTHONWARNINGS=always PYTHONUNBUFFERED=1 PSUTIL_DEBUG=1 PSUTIL_TESTING=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
 SUDO = $(if $(filter $(OS),Windows_NT),,sudo -E)
 DPRINT = ~/.dprint/bin/dprint
 
@@ -44,6 +41,7 @@ clean:  ## Remove all build files.
 		.failed-tests.txt \
 		.pytest_cache \
 		.ruff_cache/ \
+		.tests \
 		build/ \
 		dist/ \
 		docs/_build/ \
@@ -60,8 +58,10 @@ build:  ## Compile (in parallel) without installing.
 	$(PYTHON_ENV_VARS) $(PYTHON) -c "import psutil"  # make sure it actually worked
 
 install:  ## Install this package as current user in "edit" mode.
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) setup.py develop $(SETUP_INSTALL_ARGS)
+	$(MAKE) build
+	# If not in a virtualenv, add --user to the install command.
+	$(PYTHON_ENV_VARS) $(PYTHON) setup.py develop $(SETUP_INSTALL_ARGS) `$(PYTHON) -c \
+		"import sys; print('' if hasattr(sys, 'real_prefix') or hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix else '--user')"`
 
 uninstall:  ## Uninstall this package via pip.
 	cd ..; $(PYTHON_ENV_VARS) $(PYTHON) -m pip uninstall -y -v psutil || true
@@ -74,13 +74,14 @@ install-sysdeps:
 	./scripts/internal/install-sysdeps.sh
 
 install-pydeps-test:  ## Install python deps necessary to run unit tests.
-	${MAKE} install-pip
-	$(PYTHON) -m pip install $(PIP_INSTALL_ARGS) -e .[test]
+	$(MAKE) install-pip
+	PIP_BREAK_SYSTEM_PACKAGES=1 $(PYTHON) -m pip install $(PIP_INSTALL_ARGS) setuptools
+	PIP_BREAK_SYSTEM_PACKAGES=1 $(PYTHON) -m pip install $(PIP_INSTALL_ARGS) `$(PYTHON) -c "import setup; print(' '.join(setup.TEST_DEPS))"`
 
 install-pydeps-dev:  ## Install python deps meant for local development.
-	${MAKE} install-git-hooks
-	${MAKE} install-pip
-	$(PYTHON) -m pip install $(PIP_INSTALL_ARGS) -e .[test,dev]
+	$(MAKE) install-git-hooks
+	$(MAKE) install-pip
+	$(PYTHON) -m pip install $(PIP_INSTALL_ARGS) `$(PYTHON) -c "import setup; print(' '.join(setup.DEV_DEPS))"`
 
 install-git-hooks:  ## Install GIT pre-commit hook.
 	ln -sf ../../scripts/internal/git_pre_commit.py .git/hooks/pre-commit
@@ -90,102 +91,68 @@ install-git-hooks:  ## Install GIT pre-commit hook.
 # Tests
 # ===================================================================
 
-test:  ## Run all tests. To run a specific test do "make test ARGS=psutil.tests.test_system.TestDiskAPIs"
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) -m pytest --ignore=psutil/tests/test_memleaks.py --ignore=psutil/tests/test_sudo.py $(ARGS)
+RUN_TEST = $(PYTHON_ENV_VARS) $(PYTHON) -m pytest
 
-test-parallel:  ## Run all tests in parallel.
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) -m pytest --ignore=psutil/tests/test_memleaks.py -p xdist -n auto --dist loadgroup $(ARGS)
+test:  ## Run all tests (except memleak tests).
+	# To run a specific test do `make test ARGS=tests/test_process.py::TestProcess::test_cmdline`
+	$(RUN_TEST) --ignore=tests/test_memleaks.py $(ARGS)
 
-test-process:  ## Run process-related API tests.
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) -m pytest $(ARGS) psutil/tests/test_process.py
+test-parallel:  ## Run all tests (except memleak tests) in parallel.
+	$(RUN_TEST) --ignore=tests/test_memleaks.py -p xdist -n auto --dist loadgroup $(ARGS)
+
+test-process:  ## Run process-related tests.
+	$(RUN_TEST) --ignore=tests/test_memleaks.py -k "test_process.py or test_proc or test_pid or Process or pids or pid_exists" $(ARGS)
 
 test-process-all:  ## Run tests which iterate over all process PIDs.
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) -m pytest $(ARGS) psutil/tests/test_process_all.py
+	$(RUN_TEST) -k test_process_all.py $(ARGS)
 
 test-system:  ## Run system-related API tests.
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) -m pytest $(ARGS) psutil/tests/test_system.py
+	$(RUN_TEST) --ignore=tests/test_memleaks.py -k "test_system.py or test_sys or System or disk or sensors or net_io_counters or net_if_addrs or net_if_stats or users or pids or win_service_ or boot_time" $(ARGS)
 
 test-misc:  ## Run miscellaneous tests.
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) -m pytest $(ARGS) psutil/tests/test_misc.py
+	$(RUN_TEST) --ignore=tests/test_memleaks.py -k "test_misc.py or Misc" $(ARGS)
 
 test-scripts:  ## Run scripts tests.
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) -m pytest $(ARGS) psutil/tests/test_scripts.py
+	$(RUN_TEST) tests/test_scripts.py $(ARGS)
 
 test-testutils:  ## Run test utils tests.
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) -m pytest $(ARGS) psutil/tests/test_testutils.py
+	$(RUN_TEST) tests/test_testutils.py $(ARGS)
 
 test-unicode:  ## Test APIs dealing with strings.
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) -m pytest $(ARGS) psutil/tests/test_unicode.py
+	$(RUN_TEST) tests/test_unicode.py $(ARGS)
 
 test-contracts:  ## APIs sanity tests.
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) -m pytest $(ARGS) psutil/tests/test_contracts.py
+	$(RUN_TEST) tests/test_contracts.py $(ARGS)
 
 test-connections:  ## Test psutil.net_connections() and Process.net_connections().
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) -m pytest $(ARGS) psutil/tests/test_connections.py
+	$(RUN_TEST) --ignore=tests/test_memleaks.py -k "test_connections.py or net_" $(ARGS)
+
+test-heap:  ## Test psutil.heap_*() APIs.
+	$(RUN_TEST) --ignore=tests/test_memleaks.py -k "test_heap.py or heap_" $(ARGS)
 
 test-posix:  ## POSIX specific tests.
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) -m pytest $(ARGS) psutil/tests/test_posix.py
+	$(RUN_TEST) --ignore=tests/test_memleaks.py -k "test_posix.py or posix_ or Posix" $(ARGS)
 
 test-platform:  ## Run specific platform tests only.
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) -m pytest $(ARGS) psutil/tests/test_`$(PYTHON) -c 'import psutil; print([x.lower() for x in ("LINUX", "BSD", "OSX", "SUNOS", "WINDOWS", "AIX") if getattr(psutil, x)][0])'`.py
+	$(RUN_TEST) tests/test_`$(PYTHON) -c 'import psutil; print([x.lower() for x in ("LINUX", "BSD", "OSX", "SUNOS", "WINDOWS", "AIX") if getattr(psutil, x)][0])'`.py $(ARGS)
 
 test-memleaks:  ## Memory leak tests.
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) -m pytest $(ARGS) psutil/tests/test_memleaks.py
+	PYTHONMALLOC=malloc $(RUN_TEST) -k test_memleaks.py $(ARGS)
+
+test-sudo:  ## Run tests requiring root privileges.
+	# Use unittest runner because pytest may not be installed as root.
+	$(SUDO) $(PYTHON_ENV_VARS) $(PYTHON) -m unittest -v tests.test_sudo
 
 test-last-failed:  ## Re-run tests which failed on last run
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) -m pytest --last-failed $(ARGS)
+	$(RUN_TEST) --last-failed $(ARGS)
 
-test-coverage:  ## Run test coverage.
-	${MAKE} build
-	# Note: coverage options are controlled by .coveragerc file
+coverage:  ## Run test coverage.
 	rm -rf .coverage htmlcov
-	$(PYTHON_ENV_VARS) $(PYTHON) -m coverage run -m pytest --ignore=psutil/tests/test_memleaks.py $(ARGS)
+	$(PYTHON_ENV_VARS) $(PYTHON) -m coverage run -m pytest --ignore=tests/test_memleaks.py $(ARGS)
 	$(PYTHON) -m coverage report
 	@echo "writing results to htmlcov/index.html"
 	$(PYTHON) -m coverage html
 	$(PYTHON) -m webbrowser -t htmlcov/index.html
-
-test-sudo:  ## Run tests requiring root privileges.
-	# Use unittest runner because pytest may not be installed as root.
-	$(SUDO) $(PYTHON_ENV_VARS) $(PYTHON) -m unittest -v psutil.tests.test_sudo
-
-test-ci:  ## Run tests on GitHub CI.
-	${MAKE} install-sysdeps
-	PIP_BREAK_SYSTEM_PACKAGES=1 ${MAKE} install-pydeps-test
-	${MAKE} print-sysinfo
-	$(PYTHON) -m pip list
-	${MAKE} test
-	${MAKE} test-memleaks
-	${MAKE} test-sudo
-
-test-cibuildwheel:    ## Run tests from cibuildwheel.
-	# testing the wheels means we can't use other test targets which are rebuilding the python extensions
-	# we also need to run the tests from another folder for pytest not to use the sources but only what's been installed
-	${MAKE} install-sysdeps
-	mkdir -p .tests
-	cd .tests/ && python -c "from psutil.tests import print_sysinfo; print_sysinfo()"
-	cd .tests/ && $(PYTHON_ENV_VARS) PYTEST_ADDOPTS="-k 'not test_memleaks.py'" $(PYTHON) -m pytest --pyargs psutil.tests
-	cd .tests/ && $(PYTHON_ENV_VARS) PYTEST_ADDOPTS="-k test_memleaks.py" $(PYTHON) -m pytest --pyargs psutil.tests
-
-lint-ci:  ## Run all linters on GitHub CI.
-	python3 -m pip install -U black ruff rstcheck toml-sort sphinx
-	curl -fsSL https://dprint.dev/install.sh | sh
-	${MAKE} lint-all
 
 # ===================================================================
 # Linters
@@ -197,11 +164,11 @@ ruff:  ## Run ruff linter.
 black:  ## Run black formatter.
 	@git ls-files '*.py' | xargs $(PYTHON) -m black --check --safe
 
-dprint:
-	@$(DPRINT) check --list-different
-
 lint-c:  ## Run C linter.
-	@git ls-files '*.c' '*.h' | xargs $(PYTHON) scripts/internal/clinter.py
+	@git ls-files '*.c' '*.h' | xargs -P0 -I{} clang-format --dry-run --Werror {}
+
+dprint:
+	@$(DPRINT) check
 
 lint-rst:  ## Run linter for .rst files.
 	@git ls-files '*.rst' | xargs rstcheck --config=pyproject.toml
@@ -210,12 +177,12 @@ lint-toml:  ## Run linter for pyproject.toml.
 	@git ls-files '*.toml' | xargs toml-sort --check
 
 lint-all:  ## Run all linters
-	${MAKE} black
-	${MAKE} ruff
-	${MAKE} dprint
-	${MAKE} lint-c
-	${MAKE} lint-rst
-	${MAKE} lint-toml
+	$(MAKE) black
+	$(MAKE) ruff
+	$(MAKE) lint-c
+	$(MAKE) dprint
+	$(MAKE) lint-rst
+	$(MAKE) lint-toml
 
 # --- not mandatory linters (just run from time to time)
 
@@ -235,6 +202,9 @@ fix-black:
 fix-ruff:
 	@git ls-files '*.py' | xargs $(PYTHON) -m ruff check --fix --output-format=concise $(ARGS)
 
+fix-c:
+	@git ls-files '*.c' '*.h' | xargs -P0 -I{} clang-format -i {}  # parallel exec
+
 fix-toml:  ## Fix pyproject.toml
 	@git ls-files '*.toml' | xargs toml-sort
 
@@ -242,26 +212,59 @@ fix-dprint:
 	@$(DPRINT) fmt
 
 fix-all:  ## Run all code fixers.
-	${MAKE} fix-ruff
-	${MAKE} fix-black
-	${MAKE} fix-toml
-	${MAKE} fix-dprint
+	$(MAKE) fix-ruff
+	$(MAKE) fix-black
+	$(MAKE) fix-toml
+	$(MAKE) fix-dprint
+
+# ===================================================================
+# CI jobs
+# ===================================================================
+
+ci-lint:  ## Run all linters on GitHub CI.
+	$(PYTHON) -m pip install -U black ruff rstcheck toml-sort sphinx
+	curl -fsSL https://dprint.dev/install.sh | sh
+	$(DPRINT) --version
+	clang-format --version
+	$(MAKE) lint-all
+
+ci-test:  ## Run tests on GitHub CI. Used by BSD runners.
+	$(MAKE) install-sysdeps
+	$(MAKE) install-pydeps-test
+	$(MAKE) build
+	$(MAKE) print-sysinfo
+	$(MAKE) test
+	$(MAKE) test-memleaks
+
+ci-test-cibuildwheel:  ## Run CI tests for the built wheels.
+	$(MAKE) install-sysdeps
+	$(MAKE) install-pydeps-test
+	$(MAKE) print-sysinfo
+	# Tests must be run from a separate directory so pytest does not import
+	# from the source tree and instead exercises only the installed wheel.
+	rm -rf .tests tests/__pycache__
+	mkdir -p .tests
+	cp -r tests .tests/
+	cd .tests/ && PYTHONPATH=$$(pwd) $(PYTHON_ENV_VARS) $(PYTHON) -m pytest -k "not test_memleaks.py"
+	cd .tests/ && PYTHONPATH=$$(pwd) $(PYTHON_ENV_VARS) PYTHONMALLOC=malloc $(PYTHON) -m pytest -k "test_memleaks.py"
+
+ci-check-dist:  ## Run all sanity checks re. to the package distribution.
+	$(PYTHON) -m pip install -U setuptools virtualenv twine check-manifest validate-pyproject[all] abi3audit
+	$(MAKE) sdist
+	mv wheelhouse/* dist/
+	$(MAKE) check-dist
+	$(MAKE) install
+	$(MAKE) print-dist
 
 # ===================================================================
 # Distribution
 # ===================================================================
 
-sdist:  ## Create tar.gz source distribution.
-	${MAKE} generate-manifest
-	$(PYTHON_ENV_VARS) $(PYTHON) setup.py sdist
+check-manifest:  ## Check sanity of MANIFEST.in file.
+	$(PYTHON) -m check_manifest -v
 
-download-wheels:  ## Download latest wheels hosted on github.
-	$(PYTHON_ENV_VARS) $(PYTHON) scripts/internal/download_wheels.py --tokenfile=~/.github.token
-	${MAKE} print-dist
-
-create-wheels:  ## Create .whl files
-	$(PYTHON_ENV_VARS) $(PYTHON) setup.py bdist_wheel
-	${MAKE} check-wheels
+check-pyproject:  ## Check sanity of pyproject.toml file.
+	$(PYTHON) -m validate_pyproject -v pyproject.toml
 
 check-sdist:  ## Check sanity of source distribution.
 	$(PYTHON_ENV_VARS) $(PYTHON) -m virtualenv --clear --no-wheel --quiet build/venv
@@ -273,11 +276,26 @@ check-wheels:  ## Check sanity of wheels.
 	$(PYTHON) -m abi3audit --verbose --strict dist/*-abi3-*.whl
 	$(PYTHON) -m twine check --strict dist/*.whl
 
+check-dist:  ## Run all sanity checks re. to the package distribution.
+	$(MAKE) check-manifest
+	$(MAKE) check-pyproject
+	$(MAKE) check-sdist
+	$(MAKE) check-wheels
+
+generate-manifest:  ## Generates MANIFEST.in file.
+	$(PYTHON) scripts/internal/generate_manifest.py > MANIFEST.in
+
+sdist:  ## Create tar.gz source distribution.
+	$(MAKE) generate-manifest
+	$(PYTHON_ENV_VARS) $(PYTHON) setup.py sdist
+
+create-wheels:  ## Create .whl files
+	$(PYTHON_ENV_VARS) $(PYTHON) setup.py bdist_wheel
+
 pre-release:  ## Check if we're ready to produce a new release.
-	${MAKE} clean
-	${MAKE} sdist
-	${MAKE} check-sdist
-	${MAKE} install
+	$(MAKE) clean
+	$(MAKE) sdist
+	$(MAKE) install
 	@$(PYTHON) -c \
 		"import requests, sys; \
 		from packaging.version import parse; \
@@ -292,23 +310,19 @@ pre-release:  ## Check if we're ready to produce a new release.
 		assert ver in doc, '%r not found in docs/index.rst' % ver; \
 		assert ver in history, '%r not found in HISTORY.rst' % ver; \
 		assert 'XXXX' not in history, 'XXXX found in HISTORY.rst';"
-	${MAKE} download-wheels
-	${MAKE} check-wheels
-	${MAKE} print-hashes
-	${MAKE} print-dist
+	$(MAKE) download-wheels
+	$(MAKE) check-dist
+	$(MAKE) print-hashes
+	$(MAKE) print-dist
 
 release:  ## Upload a new release.
-	${MAKE} check-sdist
-	${MAKE} check-wheels
 	$(PYTHON) -m twine upload dist/*.tar.gz
 	$(PYTHON) -m twine upload dist/*.whl
-	${MAKE} git-tag-release
+	$(MAKE) git-tag-release
 
-generate-manifest:  ## Generates MANIFEST.in file.
-	$(PYTHON) scripts/internal/generate_manifest.py > MANIFEST.in
-
-print-dist:  ## Print downloaded wheels / tar.gs
-	$(PYTHON) scripts/internal/print_dist.py
+download-wheels:  ## Download latest wheels hosted on github.
+	$(PYTHON) scripts/internal/download_wheels.py --tokenfile=~/.github.token
+	$(MAKE) print-dist
 
 git-tag-release:  ## Git-tag a new release.
 	git tag -a release-`python3 -c "import setup; print(setup.get_version())"` -m `git rev-list HEAD --count`:`git rev-parse --short HEAD`
@@ -325,21 +339,22 @@ print-timeline:  ## Print releases' timeline.
 	@$(PYTHON) scripts/internal/print_timeline.py
 
 print-access-denied: ## Print AD exceptions
-	${MAKE} build
-	@$(PYTHON_ENV_VARS) $(PYTHON) scripts/internal/print_access_denied.py
+	$(PYTHON) scripts/internal/print_access_denied.py
 
 print-api-speed:  ## Benchmark all API calls
-	${MAKE} build
-	@$(PYTHON_ENV_VARS) $(PYTHON) scripts/internal/print_api_speed.py $(ARGS)
+	$(PYTHON) scripts/internal/print_api_speed.py $(ARGS)
 
 print-downloads:  ## Print PYPI download statistics
 	$(PYTHON) scripts/internal/print_downloads.py
 
 print-hashes:  ## Prints hashes of files in dist/ directory
-	$(PYTHON) scripts/internal/print_hashes.py dist/
+	$(PYTHON) scripts/internal/print_hashes.py
 
 print-sysinfo:  ## Prints system info
-	$(PYTHON) -c "from psutil.tests import print_sysinfo; print_sysinfo()"
+	$(PYTHON) scripts/internal/print_sysinfo.py
+
+print-dist:  ## Print downloaded wheels / tar.gz
+	$(PYTHON) scripts/internal/print_dist.py
 
 # ===================================================================
 # Misc
@@ -349,18 +364,13 @@ grep-todos:  ## Look for TODOs in the source files.
 	git grep -EIn "TODO|FIXME|XXX"
 
 bench-oneshot:  ## Benchmarks for oneshot() ctx manager (see #799).
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) scripts/internal/bench_oneshot.py
+	$(PYTHON) scripts/internal/bench_oneshot.py
 
 bench-oneshot-2:  ## Same as above but using perf module (supposed to be more precise)
-	${MAKE} build
-	$(PYTHON_ENV_VARS) $(PYTHON) scripts/internal/bench_oneshot_2.py
+	$(PYTHON) scripts/internal/bench_oneshot_2.py
 
-check-broken-links:  ## Look for broken links in source files.
-	git ls-files | xargs $(PYTHON) -Wa scripts/internal/check_broken_links.py
-
-check-manifest:  ## Inspect MANIFEST.in file.
-	$(PYTHON) -m check_manifest -v $(ARGS)
+find-broken-links:  ## Look for broken links in source files.
+	git ls-files | xargs $(PYTHON) -Wa scripts/internal/find_broken_links.py
 
 help: ## Display callable targets.
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@awk -F':.*?## ' '/^[a-zA-Z0-9_.-]+:.*?## / {printf "\033[36m%-24s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort

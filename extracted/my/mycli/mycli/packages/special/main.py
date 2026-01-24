@@ -1,10 +1,20 @@
-from __future__ import annotations
-
 from collections import namedtuple
 from enum import Enum
 import logging
+import os
 from typing import Callable
 
+from mycli.packages.sqlresult import SQLResult
+
+try:
+    if not os.environ.get('MYCLI_LLM_OFF'):
+        import llm  # noqa: F401
+
+        LLM_IMPORTED = True
+    else:
+        LLM_IMPORTED = False
+except ImportError:
+    LLM_IMPORTED = False
 from pymysql.cursors import Cursor
 
 logger = logging.getLogger(__name__)
@@ -59,7 +69,7 @@ def special_command(
     arg_type: ArgType = ArgType.PARSED_QUERY,
     hidden: bool = False,
     case_sensitive: bool = False,
-    aliases: list[str] = [],
+    aliases: list[str] | None = None,
 ) -> Callable:
     def wrapper(wrapped):
         register_special_command(
@@ -85,7 +95,7 @@ def register_special_command(
     arg_type: ArgType = ArgType.PARSED_QUERY,
     hidden: bool = False,
     case_sensitive: bool = False,
-    aliases: list[str] = [],
+    aliases: list[str] | None = None,
 ) -> None:
     cmd = command.lower() if not case_sensitive else command
     COMMANDS[cmd] = SpecialCommand(
@@ -97,6 +107,7 @@ def register_special_command(
         hidden=hidden,
         case_sensitive=case_sensitive,
     )
+    aliases = [] if aliases is None else aliases
     for alias in aliases:
         cmd = alias.lower() if not case_sensitive else alias
         COMMANDS[cmd] = SpecialCommand(
@@ -110,7 +121,7 @@ def register_special_command(
         )
 
 
-def execute(cur: Cursor, sql: str) -> list[tuple]:
+def execute(cur: Cursor, sql: str) -> list[SQLResult]:
     """Execute a special command and return the results. If the special command
     is not supported a CommandNotFound will be raised.
     """
@@ -121,10 +132,10 @@ def execute(cur: Cursor, sql: str) -> list[tuple]:
 
     try:
         special_cmd = COMMANDS[command]
-    except KeyError:
+    except KeyError as exc:
         special_cmd = COMMANDS[command.lower()]
         if special_cmd.case_sensitive:
-            raise CommandNotFound(f'Command not found: {command}')
+            raise CommandNotFound(f'Command not found: {command}') from exc
 
     # "help <SQL KEYWORD> is a special case. We want built-in help, not
     # mycli help here.
@@ -142,17 +153,17 @@ def execute(cur: Cursor, sql: str) -> list[tuple]:
 
 
 @special_command("help", "\\?", "Show this help.", arg_type=ArgType.NO_QUERY, aliases=["\\?", "?"])
-def show_help(*_args) -> list[tuple]:
+def show_help(*_args) -> list[SQLResult]:
     headers = ["Command", "Shortcut", "Description"]
     result = []
 
     for _, value in sorted(COMMANDS.items()):
         if not value.hidden:
             result.append((value.command, value.shortcut, value.description))
-    return [(None, result, headers, None)]
+    return [SQLResult(results=result, headers=headers)]
 
 
-def show_keyword_help(cur: Cursor, arg: str) -> list[tuple]:
+def show_keyword_help(cur: Cursor, arg: str) -> list[SQLResult]:
     """
     Call the built-in "show <command>", to display help for an SQL keyword.
     :param cur: cursor
@@ -165,9 +176,9 @@ def show_keyword_help(cur: Cursor, arg: str) -> list[tuple]:
     cur.execute(query)
     if cur.description and cur.rowcount > 0:
         headers = [x[0] for x in cur.description]
-        return [(None, cur, headers, "")]
+        return [SQLResult(results=cur, headers=headers, status="")]
     else:
-        return [(None, None, None, f'No help found for {keyword}.')]
+        return [SQLResult(status=f'No help found for {keyword}.')]
 
 
 @special_command("exit", "\\q", "Exit.", arg_type=ArgType.NO_QUERY, aliases=["\\q"])
@@ -181,3 +192,10 @@ def quit_(*_args):
 @special_command("\\G", "\\G", "Display current query results vertically.", arg_type=ArgType.NO_QUERY, case_sensitive=True)
 def stub():
     raise NotImplementedError
+
+
+if LLM_IMPORTED:
+
+    @special_command("\\llm", "\\ai", "Interrogate LLM.", arg_type=ArgType.RAW_QUERY, case_sensitive=True)
+    def llm_stub():
+        raise NotImplementedError

@@ -1202,12 +1202,16 @@ class AdaptiveStreamTemplate(AbstractModel):
         :param _TEHDConfig: TESHD transcoding parameters
 Note: This field may return `null`, indicating that no valid value was found.
         :type TEHDConfig: :class:`tencentcloud.vod.v20180717.models.TEHDConfig`
+        :param _EnhanceConfig: Audio/Video enhancement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type EnhanceConfig: :class:`tencentcloud.vod.v20180717.models.EnhanceConfig`
         """
         self._Video = None
         self._Audio = None
         self._RemoveAudio = None
         self._RemoveVideo = None
         self._TEHDConfig = None
+        self._EnhanceConfig = None
 
     @property
     def Video(self):
@@ -1269,6 +1273,18 @@ Note: This field may return `null`, indicating that no valid value was found.
     def TEHDConfig(self, TEHDConfig):
         self._TEHDConfig = TEHDConfig
 
+    @property
+    def EnhanceConfig(self):
+        r"""Audio/Video enhancement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.EnhanceConfig`
+        """
+        return self._EnhanceConfig
+
+    @EnhanceConfig.setter
+    def EnhanceConfig(self, EnhanceConfig):
+        self._EnhanceConfig = EnhanceConfig
+
 
     def _deserialize(self, params):
         if params.get("Video") is not None:
@@ -1282,6 +1298,9 @@ Note: This field may return `null`, indicating that no valid value was found.
         if params.get("TEHDConfig") is not None:
             self._TEHDConfig = TEHDConfig()
             self._TEHDConfig._deserialize(params.get("TEHDConfig"))
+        if params.get("EnhanceConfig") is not None:
+            self._EnhanceConfig = EnhanceConfig()
+            self._EnhanceConfig._deserialize(params.get("EnhanceConfig"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -10505,6 +10524,1719 @@ class AiSampleWordInfo(AbstractModel):
         
 
 
+class AigcImageOutputConfig(AbstractModel):
+    r"""Output media file configuration for the AIGC image generation task.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _StorageMode: Storage mode. valid values: <li>Permanent: Permanent storage. the generated image file will be stored in VOD (video on demand), and the FileId can be obtained in the event notification.</li> <li>Temporary: Temporary storage. the generated image file will not be stored in vod, and the Temporary access URL can be obtained in the event notification.</li>.
+Default value: Temporary.
+        :type StorageMode: str
+        :param _MediaName: Output filename, up to 64 characters. default filename is assigned by the system.
+        :type MediaName: str
+        :param _ClassId: Category ID, used to categorize and manage media. you can create a category and obtain the category ID via the [create classification](https://www.tencentcloud.com/document/product/266/7812?from_cn_redirect=1) api.
+<Li>Default value: 0, indicating other categories.</li>.
+        :type ClassId: int
+        :param _ExpireTime: The expiry date of the output file. files will be deleted longer than this time. default is no expiration. format according to ISO 8601 standard. for details, see [ISO date format description](https://www.tencentcloud.comom/document/product/266/11732?from_cn_redirect=1#I).
+        :type ExpireTime: str
+        :param _Resolution: Image generation resolution. available values are 720P, 1080P, 2K, 4K, 1024x1024, 2048x2048, 2304x1728, 2496x1664, 2560x1440, 3024x1296, 4096x4096, 4694x3520, 4992x3328, 5404x3040, 6198x2656.
+        :type Resolution: str
+        :param _AspectRatio: Specify the aspect ratio of the generated image. <li>when ModelName is GEM, the available values are 1:1, 3:2, 2:3, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, and 21:9.</li> <li>when ModelName is Qwen, it is not currently supported.</li>.
+        :type AspectRatio: str
+        :param _PersonGeneration: Whether to allow figure or human face generation. valid values: <li>AllowAdult: allow adult generation.</li> <li>Disallowed: forbid including figures or human faces in images.</li>.
+        :type PersonGeneration: str
+        :param _InputComplianceCheck: Whether to enable compliance check for input content. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>.
+        :type InputComplianceCheck: str
+        :param _OutputComplianceCheck: Whether to enable compliance check for output content. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>.
+        :type OutputComplianceCheck: str
+        """
+        self._StorageMode = None
+        self._MediaName = None
+        self._ClassId = None
+        self._ExpireTime = None
+        self._Resolution = None
+        self._AspectRatio = None
+        self._PersonGeneration = None
+        self._InputComplianceCheck = None
+        self._OutputComplianceCheck = None
+
+    @property
+    def StorageMode(self):
+        r"""Storage mode. valid values: <li>Permanent: Permanent storage. the generated image file will be stored in VOD (video on demand), and the FileId can be obtained in the event notification.</li> <li>Temporary: Temporary storage. the generated image file will not be stored in vod, and the Temporary access URL can be obtained in the event notification.</li>.
+Default value: Temporary.
+        :rtype: str
+        """
+        return self._StorageMode
+
+    @StorageMode.setter
+    def StorageMode(self, StorageMode):
+        self._StorageMode = StorageMode
+
+    @property
+    def MediaName(self):
+        r"""Output filename, up to 64 characters. default filename is assigned by the system.
+        :rtype: str
+        """
+        return self._MediaName
+
+    @MediaName.setter
+    def MediaName(self, MediaName):
+        self._MediaName = MediaName
+
+    @property
+    def ClassId(self):
+        r"""Category ID, used to categorize and manage media. you can create a category and obtain the category ID via the [create classification](https://www.tencentcloud.com/document/product/266/7812?from_cn_redirect=1) api.
+<Li>Default value: 0, indicating other categories.</li>.
+        :rtype: int
+        """
+        return self._ClassId
+
+    @ClassId.setter
+    def ClassId(self, ClassId):
+        self._ClassId = ClassId
+
+    @property
+    def ExpireTime(self):
+        r"""The expiry date of the output file. files will be deleted longer than this time. default is no expiration. format according to ISO 8601 standard. for details, see [ISO date format description](https://www.tencentcloud.comom/document/product/266/11732?from_cn_redirect=1#I).
+        :rtype: str
+        """
+        return self._ExpireTime
+
+    @ExpireTime.setter
+    def ExpireTime(self, ExpireTime):
+        self._ExpireTime = ExpireTime
+
+    @property
+    def Resolution(self):
+        r"""Image generation resolution. available values are 720P, 1080P, 2K, 4K, 1024x1024, 2048x2048, 2304x1728, 2496x1664, 2560x1440, 3024x1296, 4096x4096, 4694x3520, 4992x3328, 5404x3040, 6198x2656.
+        :rtype: str
+        """
+        return self._Resolution
+
+    @Resolution.setter
+    def Resolution(self, Resolution):
+        self._Resolution = Resolution
+
+    @property
+    def AspectRatio(self):
+        r"""Specify the aspect ratio of the generated image. <li>when ModelName is GEM, the available values are 1:1, 3:2, 2:3, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, and 21:9.</li> <li>when ModelName is Qwen, it is not currently supported.</li>.
+        :rtype: str
+        """
+        return self._AspectRatio
+
+    @AspectRatio.setter
+    def AspectRatio(self, AspectRatio):
+        self._AspectRatio = AspectRatio
+
+    @property
+    def PersonGeneration(self):
+        r"""Whether to allow figure or human face generation. valid values: <li>AllowAdult: allow adult generation.</li> <li>Disallowed: forbid including figures or human faces in images.</li>.
+        :rtype: str
+        """
+        return self._PersonGeneration
+
+    @PersonGeneration.setter
+    def PersonGeneration(self, PersonGeneration):
+        self._PersonGeneration = PersonGeneration
+
+    @property
+    def InputComplianceCheck(self):
+        r"""Whether to enable compliance check for input content. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>.
+        :rtype: str
+        """
+        return self._InputComplianceCheck
+
+    @InputComplianceCheck.setter
+    def InputComplianceCheck(self, InputComplianceCheck):
+        self._InputComplianceCheck = InputComplianceCheck
+
+    @property
+    def OutputComplianceCheck(self):
+        r"""Whether to enable compliance check for output content. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>.
+        :rtype: str
+        """
+        return self._OutputComplianceCheck
+
+    @OutputComplianceCheck.setter
+    def OutputComplianceCheck(self, OutputComplianceCheck):
+        self._OutputComplianceCheck = OutputComplianceCheck
+
+
+    def _deserialize(self, params):
+        self._StorageMode = params.get("StorageMode")
+        self._MediaName = params.get("MediaName")
+        self._ClassId = params.get("ClassId")
+        self._ExpireTime = params.get("ExpireTime")
+        self._Resolution = params.get("Resolution")
+        self._AspectRatio = params.get("AspectRatio")
+        self._PersonGeneration = params.get("PersonGeneration")
+        self._InputComplianceCheck = params.get("InputComplianceCheck")
+        self._OutputComplianceCheck = params.get("OutputComplianceCheck")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AigcImageSceneInfo(AbstractModel):
+    r"""Scenario-Based AIGC image generation configuration.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Type: AI image generation scenario type. valid values:
+-change_clothes: AI clothing change.
+-product_image: AI-generated product image.
+        :type Type: str
+        :param _ChangeClothesConfig: Valid when Type is change_clothes. this item is required and indicates the AI clothes-changing image generation config.
+        :type ChangeClothesConfig: :class:`tencentcloud.vod.v20180717.models.ChangeClothesConfig`
+        :param _ProductImageConfig: Valid when Type is product_image. indicates the AI-generated product image config.
+        :type ProductImageConfig: :class:`tencentcloud.vod.v20180717.models.ProductImageConfig`
+        """
+        self._Type = None
+        self._ChangeClothesConfig = None
+        self._ProductImageConfig = None
+
+    @property
+    def Type(self):
+        r"""AI image generation scenario type. valid values:
+-change_clothes: AI clothing change.
+-product_image: AI-generated product image.
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def ChangeClothesConfig(self):
+        r"""Valid when Type is change_clothes. this item is required and indicates the AI clothes-changing image generation config.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.ChangeClothesConfig`
+        """
+        return self._ChangeClothesConfig
+
+    @ChangeClothesConfig.setter
+    def ChangeClothesConfig(self, ChangeClothesConfig):
+        self._ChangeClothesConfig = ChangeClothesConfig
+
+    @property
+    def ProductImageConfig(self):
+        r"""Valid when Type is product_image. indicates the AI-generated product image config.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.ProductImageConfig`
+        """
+        return self._ProductImageConfig
+
+    @ProductImageConfig.setter
+    def ProductImageConfig(self, ProductImageConfig):
+        self._ProductImageConfig = ProductImageConfig
+
+
+    def _deserialize(self, params):
+        self._Type = params.get("Type")
+        if params.get("ChangeClothesConfig") is not None:
+            self._ChangeClothesConfig = ChangeClothesConfig()
+            self._ChangeClothesConfig._deserialize(params.get("ChangeClothesConfig"))
+        if params.get("ProductImageConfig") is not None:
+            self._ProductImageConfig = ProductImageConfig()
+            self._ProductImageConfig._deserialize(params.get("ProductImageConfig"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AigcImageTask(AbstractModel):
+    r"""AIGC image task information.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: The task ID.
+        :type TaskId: str
+        :param _Status: Task status, value: <li>PROCESSING: processing;</li><li>FINISH: completed.</li>
+        :type Status: str
+        :param _ErrCode: Error code. A non-zero error code is returned when the source is abnormal. If 0 is returned, use the ErrCode of each specific task.
+        :type ErrCode: int
+        :param _Message: Error message. If the source is abnormal, the corresponding exception message is returned. Otherwise, use the message of each specific task.
+        :type Message: str
+        :param _Progress: The execution progress of a single adaptive bitrate stream. Value range: 0-100.
+        :type Progress: int
+        :param _Input: Input of AIGC image task.
+        :type Input: :class:`tencentcloud.vod.v20180717.models.AigcImageTaskInput`
+        :param _Output: Output of AIGC image task.
+        :type Output: :class:`tencentcloud.vod.v20180717.models.AigcImageTaskOutput`
+        :param _SessionId: ID used for deduplication. If there was a request with the same ID in the last seven days, the current request will return an error. The ID can contain up to 50 characters. If this parameter is not carried or is left empty, no deduplication will be performed.
+        :type SessionId: str
+        :param _SessionContext: The source context which is used to pass through the user request information. The task flow status change callback will return the value of this parameter. It can contain up to 1000 characters.
+        :type SessionContext: str
+        """
+        self._TaskId = None
+        self._Status = None
+        self._ErrCode = None
+        self._Message = None
+        self._Progress = None
+        self._Input = None
+        self._Output = None
+        self._SessionId = None
+        self._SessionContext = None
+
+    @property
+    def TaskId(self):
+        r"""The task ID.
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def Status(self):
+        r"""Task status, value: <li>PROCESSING: processing;</li><li>FINISH: completed.</li>
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def ErrCode(self):
+        r"""Error code. A non-zero error code is returned when the source is abnormal. If 0 is returned, use the ErrCode of each specific task.
+        :rtype: int
+        """
+        return self._ErrCode
+
+    @ErrCode.setter
+    def ErrCode(self, ErrCode):
+        self._ErrCode = ErrCode
+
+    @property
+    def Message(self):
+        r"""Error message. If the source is abnormal, the corresponding exception message is returned. Otherwise, use the message of each specific task.
+        :rtype: str
+        """
+        return self._Message
+
+    @Message.setter
+    def Message(self, Message):
+        self._Message = Message
+
+    @property
+    def Progress(self):
+        r"""The execution progress of a single adaptive bitrate stream. Value range: 0-100.
+        :rtype: int
+        """
+        return self._Progress
+
+    @Progress.setter
+    def Progress(self, Progress):
+        self._Progress = Progress
+
+    @property
+    def Input(self):
+        r"""Input of AIGC image task.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AigcImageTaskInput`
+        """
+        return self._Input
+
+    @Input.setter
+    def Input(self, Input):
+        self._Input = Input
+
+    @property
+    def Output(self):
+        r"""Output of AIGC image task.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AigcImageTaskOutput`
+        """
+        return self._Output
+
+    @Output.setter
+    def Output(self, Output):
+        self._Output = Output
+
+    @property
+    def SessionId(self):
+        r"""ID used for deduplication. If there was a request with the same ID in the last seven days, the current request will return an error. The ID can contain up to 50 characters. If this parameter is not carried or is left empty, no deduplication will be performed.
+        :rtype: str
+        """
+        return self._SessionId
+
+    @SessionId.setter
+    def SessionId(self, SessionId):
+        self._SessionId = SessionId
+
+    @property
+    def SessionContext(self):
+        r"""The source context which is used to pass through the user request information. The task flow status change callback will return the value of this parameter. It can contain up to 1000 characters.
+        :rtype: str
+        """
+        return self._SessionContext
+
+    @SessionContext.setter
+    def SessionContext(self, SessionContext):
+        self._SessionContext = SessionContext
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._Status = params.get("Status")
+        self._ErrCode = params.get("ErrCode")
+        self._Message = params.get("Message")
+        self._Progress = params.get("Progress")
+        if params.get("Input") is not None:
+            self._Input = AigcImageTaskInput()
+            self._Input._deserialize(params.get("Input"))
+        if params.get("Output") is not None:
+            self._Output = AigcImageTaskOutput()
+            self._Output._deserialize(params.get("Output"))
+        self._SessionId = params.get("SessionId")
+        self._SessionContext = params.get("SessionContext")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AigcImageTaskInput(AbstractModel):
+    r"""Input of AIGC image task.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ModelName: Model name. 
+        :type ModelName: str
+        :param _ModelVersion: Model version. 
+        :type ModelVersion: str
+        :param _FileInfos: File information of the input image for the AIGC image generation task.
+        :type FileInfos: list of AigcImageTaskInputFileInfo
+        :param _Prompt: The prompt content for image generation.
+        :type Prompt: str
+        :param _NegativePrompt: Prevent the model from generating image generation prompts.
+        :type NegativePrompt: str
+        :param _EnhancePrompt: Whether to optimize Prompt content automatically. when Enabled, it will optimize the passed in Prompt automatically to enhance generation quality. valid values: <li>Enabled: turn on;</li> <li>Disabled: turn off;</li>
+        :type EnhancePrompt: str
+        :param _GenerationMode: 
+        :type GenerationMode: str
+        :param _OutputConfig: Output media file configuration for the task.
+        :type OutputConfig: :class:`tencentcloud.vod.v20180717.models.AigcImageOutputConfig`
+        """
+        self._ModelName = None
+        self._ModelVersion = None
+        self._FileInfos = None
+        self._Prompt = None
+        self._NegativePrompt = None
+        self._EnhancePrompt = None
+        self._GenerationMode = None
+        self._OutputConfig = None
+
+    @property
+    def ModelName(self):
+        r"""Model name. 
+        :rtype: str
+        """
+        return self._ModelName
+
+    @ModelName.setter
+    def ModelName(self, ModelName):
+        self._ModelName = ModelName
+
+    @property
+    def ModelVersion(self):
+        r"""Model version. 
+        :rtype: str
+        """
+        return self._ModelVersion
+
+    @ModelVersion.setter
+    def ModelVersion(self, ModelVersion):
+        self._ModelVersion = ModelVersion
+
+    @property
+    def FileInfos(self):
+        r"""File information of the input image for the AIGC image generation task.
+        :rtype: list of AigcImageTaskInputFileInfo
+        """
+        return self._FileInfos
+
+    @FileInfos.setter
+    def FileInfos(self, FileInfos):
+        self._FileInfos = FileInfos
+
+    @property
+    def Prompt(self):
+        r"""The prompt content for image generation.
+        :rtype: str
+        """
+        return self._Prompt
+
+    @Prompt.setter
+    def Prompt(self, Prompt):
+        self._Prompt = Prompt
+
+    @property
+    def NegativePrompt(self):
+        r"""Prevent the model from generating image generation prompts.
+        :rtype: str
+        """
+        return self._NegativePrompt
+
+    @NegativePrompt.setter
+    def NegativePrompt(self, NegativePrompt):
+        self._NegativePrompt = NegativePrompt
+
+    @property
+    def EnhancePrompt(self):
+        r"""Whether to optimize Prompt content automatically. when Enabled, it will optimize the passed in Prompt automatically to enhance generation quality. valid values: <li>Enabled: turn on;</li> <li>Disabled: turn off;</li>
+        :rtype: str
+        """
+        return self._EnhancePrompt
+
+    @EnhancePrompt.setter
+    def EnhancePrompt(self, EnhancePrompt):
+        self._EnhancePrompt = EnhancePrompt
+
+    @property
+    def GenerationMode(self):
+        r"""
+        :rtype: str
+        """
+        return self._GenerationMode
+
+    @GenerationMode.setter
+    def GenerationMode(self, GenerationMode):
+        self._GenerationMode = GenerationMode
+
+    @property
+    def OutputConfig(self):
+        r"""Output media file configuration for the task.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AigcImageOutputConfig`
+        """
+        return self._OutputConfig
+
+    @OutputConfig.setter
+    def OutputConfig(self, OutputConfig):
+        self._OutputConfig = OutputConfig
+
+
+    def _deserialize(self, params):
+        self._ModelName = params.get("ModelName")
+        self._ModelVersion = params.get("ModelVersion")
+        if params.get("FileInfos") is not None:
+            self._FileInfos = []
+            for item in params.get("FileInfos"):
+                obj = AigcImageTaskInputFileInfo()
+                obj._deserialize(item)
+                self._FileInfos.append(obj)
+        self._Prompt = params.get("Prompt")
+        self._NegativePrompt = params.get("NegativePrompt")
+        self._EnhancePrompt = params.get("EnhancePrompt")
+        self._GenerationMode = params.get("GenerationMode")
+        if params.get("OutputConfig") is not None:
+            self._OutputConfig = AigcImageOutputConfig()
+            self._OutputConfig._deserialize(params.get("OutputConfig"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AigcImageTaskInputFileInfo(AbstractModel):
+    r"""AIGC image generation task input file information.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Type: Input video File type. valid values: <li>File: on-demand media File;</li> <li>Url: accessible Url;</li>.
+        :type Type: str
+        :param _FileId: The media File ID of the image File, which is the globally unique identifier of the File in vod, is assigned by the vod backend after successful upload. you can get this field in the [video upload completion event notification](https://www.tencentcloud.com/document/product/266/7830?from_cn_redirect=1) or [vod console](https://console.cloud.tencent.com/vod/media). this parameter is valid when the Type value is File.
+Description:.
+1. recommended for use: image less than 7 mb.
+2. Valid values of image format: jpeg, jpg, png, and webp.
+        :type FileId: str
+        :param _Url: Accessible file URL. this parameter is valid when the Type value is URL.
+Description:.
+1. recommended for use: image less than 7 mb.
+2. Valid values of image format: jpeg, jpg, png, and webp.
+        :type Url: str
+        :param _Text: Description of the input image, used to help the model understand the image. valid for GEM 2.5 and GEM 3.0 only.
+        :type Text: str
+        """
+        self._Type = None
+        self._FileId = None
+        self._Url = None
+        self._Text = None
+
+    @property
+    def Type(self):
+        r"""Input video File type. valid values: <li>File: on-demand media File;</li> <li>Url: accessible Url;</li>.
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def FileId(self):
+        r"""The media File ID of the image File, which is the globally unique identifier of the File in vod, is assigned by the vod backend after successful upload. you can get this field in the [video upload completion event notification](https://www.tencentcloud.com/document/product/266/7830?from_cn_redirect=1) or [vod console](https://console.cloud.tencent.com/vod/media). this parameter is valid when the Type value is File.
+Description:.
+1. recommended for use: image less than 7 mb.
+2. Valid values of image format: jpeg, jpg, png, and webp.
+        :rtype: str
+        """
+        return self._FileId
+
+    @FileId.setter
+    def FileId(self, FileId):
+        self._FileId = FileId
+
+    @property
+    def Url(self):
+        r"""Accessible file URL. this parameter is valid when the Type value is URL.
+Description:.
+1. recommended for use: image less than 7 mb.
+2. Valid values of image format: jpeg, jpg, png, and webp.
+        :rtype: str
+        """
+        return self._Url
+
+    @Url.setter
+    def Url(self, Url):
+        self._Url = Url
+
+    @property
+    def Text(self):
+        r"""Description of the input image, used to help the model understand the image. valid for GEM 2.5 and GEM 3.0 only.
+        :rtype: str
+        """
+        return self._Text
+
+    @Text.setter
+    def Text(self, Text):
+        self._Text = Text
+
+
+    def _deserialize(self, params):
+        self._Type = params.get("Type")
+        self._FileId = params.get("FileId")
+        self._Url = params.get("Url")
+        self._Text = params.get("Text")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AigcImageTaskOutput(AbstractModel):
+    r"""
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _FileInfos: File information of the out image for the AIGC image generation task.
+        :type FileInfos: list of AigcImageTaskOutputFileInfo
+        """
+        self._FileInfos = None
+
+    @property
+    def FileInfos(self):
+        r"""File information of the out image for the AIGC image generation task.
+        :rtype: list of AigcImageTaskOutputFileInfo
+        """
+        return self._FileInfos
+
+    @FileInfos.setter
+    def FileInfos(self, FileInfos):
+        self._FileInfos = FileInfos
+
+
+    def _deserialize(self, params):
+        if params.get("FileInfos") is not None:
+            self._FileInfos = []
+            for item in params.get("FileInfos"):
+                obj = AigcImageTaskOutputFileInfo()
+                obj._deserialize(item)
+                self._FileInfos.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AigcImageTaskOutputFileInfo(AbstractModel):
+    r"""AIGC image task output file information.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _StorageMode: Storage mode. valid values: <li>Permanent: Permanent storage. the generated image file will be stored in VOD (video on demand).</li> <li>Temporary: Temporary storage. the generated image file will not be stored in vod.</li>.
+Default value: Temporary.
+        :type StorageMode: str
+        :param _MediaName: Output filename, up to 64 characters. default filename is assigned by the system.
+        :type MediaName: str
+        :param _ClassId: Category ID, used to categorize and manage media. you can create a category and obtain the category ID via the [create classification](https://www.tencentcloud.com/document/product/266/7812?from_cn_redirect=1) api.
+<Li>Default value: 0, indicating other categories.</li>.
+        :type ClassId: int
+        :param _ExpireTime: The expiry date of the output file. files will be deleted longer than this time. default is no expiration. format according to ISO 8601 standard. for details, see [ISO date format description](https://www.tencentcloud.comom/document/product/266/11732?from_cn_redirect=1#I).
+        :type ExpireTime: str
+        :param _FileType: File Type.
+        :type FileType: str
+        :param _FileUrl: File Url.
+        :type FileUrl: str
+        :param _FileId: File ID.
+        :type FileId: str
+        :param _MetaData: Meta Data.
+        :type MetaData: :class:`tencentcloud.vod.v20180717.models.MediaMetaData`
+        """
+        self._StorageMode = None
+        self._MediaName = None
+        self._ClassId = None
+        self._ExpireTime = None
+        self._FileType = None
+        self._FileUrl = None
+        self._FileId = None
+        self._MetaData = None
+
+    @property
+    def StorageMode(self):
+        r"""Storage mode. valid values: <li>Permanent: Permanent storage. the generated image file will be stored in VOD (video on demand).</li> <li>Temporary: Temporary storage. the generated image file will not be stored in vod.</li>.
+Default value: Temporary.
+        :rtype: str
+        """
+        return self._StorageMode
+
+    @StorageMode.setter
+    def StorageMode(self, StorageMode):
+        self._StorageMode = StorageMode
+
+    @property
+    def MediaName(self):
+        r"""Output filename, up to 64 characters. default filename is assigned by the system.
+        :rtype: str
+        """
+        return self._MediaName
+
+    @MediaName.setter
+    def MediaName(self, MediaName):
+        self._MediaName = MediaName
+
+    @property
+    def ClassId(self):
+        r"""Category ID, used to categorize and manage media. you can create a category and obtain the category ID via the [create classification](https://www.tencentcloud.com/document/product/266/7812?from_cn_redirect=1) api.
+<Li>Default value: 0, indicating other categories.</li>.
+        :rtype: int
+        """
+        return self._ClassId
+
+    @ClassId.setter
+    def ClassId(self, ClassId):
+        self._ClassId = ClassId
+
+    @property
+    def ExpireTime(self):
+        r"""The expiry date of the output file. files will be deleted longer than this time. default is no expiration. format according to ISO 8601 standard. for details, see [ISO date format description](https://www.tencentcloud.comom/document/product/266/11732?from_cn_redirect=1#I).
+        :rtype: str
+        """
+        return self._ExpireTime
+
+    @ExpireTime.setter
+    def ExpireTime(self, ExpireTime):
+        self._ExpireTime = ExpireTime
+
+    @property
+    def FileType(self):
+        r"""File Type.
+        :rtype: str
+        """
+        return self._FileType
+
+    @FileType.setter
+    def FileType(self, FileType):
+        self._FileType = FileType
+
+    @property
+    def FileUrl(self):
+        r"""File Url.
+        :rtype: str
+        """
+        return self._FileUrl
+
+    @FileUrl.setter
+    def FileUrl(self, FileUrl):
+        self._FileUrl = FileUrl
+
+    @property
+    def FileId(self):
+        r"""File ID.
+        :rtype: str
+        """
+        return self._FileId
+
+    @FileId.setter
+    def FileId(self, FileId):
+        self._FileId = FileId
+
+    @property
+    def MetaData(self):
+        r"""Meta Data.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.MediaMetaData`
+        """
+        return self._MetaData
+
+    @MetaData.setter
+    def MetaData(self, MetaData):
+        self._MetaData = MetaData
+
+
+    def _deserialize(self, params):
+        self._StorageMode = params.get("StorageMode")
+        self._MediaName = params.get("MediaName")
+        self._ClassId = params.get("ClassId")
+        self._ExpireTime = params.get("ExpireTime")
+        self._FileType = params.get("FileType")
+        self._FileUrl = params.get("FileUrl")
+        self._FileId = params.get("FileId")
+        if params.get("MetaData") is not None:
+            self._MetaData = MediaMetaData()
+            self._MetaData._deserialize(params.get("MetaData"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AigcVideoOutputConfig(AbstractModel):
+    r"""Output media file configuration for AIGC video task.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _StorageMode: Storage mode. valid values: <li>Permanent: Permanent storage. the generated video file will be stored in vod, and the FileId can be obtained from the event notification.</li> <li>Temporary: Temporary storage. the generated video file will not be stored in vod, and a Temporary access URL can be obtained from the event notification.</li>
+Default value: Temporary.
+        :type StorageMode: str
+        :param _MediaName: Output media filename, longest 64 characters. default filename is specified by the system.
+        :type MediaName: str
+        :param _ClassId: Category ID, used to categorize and manage media. you can create a category and obtain the category ID via the [create category](https://www.tencentcloud.com/document/product/266/7812?from_cn_redirect=1) api.
+<Li>Default value: 0, indicate other categories.</li>.
+        :type ClassId: int
+        :param _ExpireTime: The expiry date of the output file. files will be deleted longer than this time. default is never expire. format according to ISO 8601 standard. see [ISO date format description](https://www.tencentcloud.comom/document/product/266/11732?from_cn_redirect=1#I).
+        :type ExpireTime: str
+        :param _Duration: Video duration, unit: seconds. <li>when ModelName is Kling, optional values: 5, 10, defaults to 5;</li> <li>when ModelName is Hailuo, optional values: 6, 10, defaults to 6;</li> <li>when ModelName is Vidu, specify 1-10;</li> <li>when ModelName is GV, optional values: 8, defaults to 8;</li> <li>when ModelName is OS, optional values: 4, 8, 12, defaults to 8;</li>
+        :type Duration: float
+        :param _Resolution: Generated video resolution.
+<li>When ModelName is Kling, available values are 720P and 1080P, with a default value of 720P.</li>
+<li>When ModelName is Hailuo, optional values are 768P and 1080P, with a default value of 768P.</li>
+<li>When ModelName is Vidu, optional values are 720P, 1080P, defaults to 720P.</li>
+<li>When ModelName is GV, optional values are 720P, 1080P, with a default value of 720P.</li>
+<li>When ModelName is OS, the optional values are 720P.</li>
+        :type Resolution: str
+        :param _AspectRatio: Specify the aspect ratio of the generated video.
+<li>When ModelName is Kling, for text-to-video, the optional values are 16:9, 9:16, 1:1, default is 16:9.</li>
+<li>When ModelName is Vidu, the optional values for video generation and image generation usage reference are 16:9, 9:16, 4:3, 3:4, and 1:1. among them, only version q2 supports 4:3 and 3:4.</li>
+<li>When ModelName is GV, optional values are 16:9 and 9:16, with a default value of 16:9.</li>
+<li>When ModelName is OS, for text-to-video, optional values are 16:9, 9:16, default is 16:9;</li>
+<li>When ModelName is Hailuo, it is not currently supported.</li>
+        :type AspectRatio: str
+        :param _AudioGeneration: Whether to generate audio. supported models include GV, OS, Vidu. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>
+Default value: Disabled.
+        :type AudioGeneration: str
+        :param _PersonGeneration: Whether to allow figure or human face generation. valid values: <li>AllowAdult: allow adult generation.</li> <li>Disallowed: forbid including figures or human faces in images.</li>
+        :type PersonGeneration: str
+        :param _InputComplianceCheck: Whether to enable compliance check for input content. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>
+        :type InputComplianceCheck: str
+        :param _OutputComplianceCheck: Whether to enable compliance check for output content. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>
+        :type OutputComplianceCheck: str
+        :param _EnhanceSwitch: Whether to enable video enhancement. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>
+Note:
+1. when the selected resolution exceeds the resolution the model can generate, enhancement is enabled by default.
+2. for resolutions that the model can directly output, you can also proactively select the model to directly output low-resolution images and use enhancement to obtain the specified resolution.
+        :type EnhanceSwitch: str
+        :param _FrameInterpolate: Whether to enable vidu intelligent frame interpolation. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>
+        :type FrameInterpolate: str
+        """
+        self._StorageMode = None
+        self._MediaName = None
+        self._ClassId = None
+        self._ExpireTime = None
+        self._Duration = None
+        self._Resolution = None
+        self._AspectRatio = None
+        self._AudioGeneration = None
+        self._PersonGeneration = None
+        self._InputComplianceCheck = None
+        self._OutputComplianceCheck = None
+        self._EnhanceSwitch = None
+        self._FrameInterpolate = None
+
+    @property
+    def StorageMode(self):
+        r"""Storage mode. valid values: <li>Permanent: Permanent storage. the generated video file will be stored in vod, and the FileId can be obtained from the event notification.</li> <li>Temporary: Temporary storage. the generated video file will not be stored in vod, and a Temporary access URL can be obtained from the event notification.</li>
+Default value: Temporary.
+        :rtype: str
+        """
+        return self._StorageMode
+
+    @StorageMode.setter
+    def StorageMode(self, StorageMode):
+        self._StorageMode = StorageMode
+
+    @property
+    def MediaName(self):
+        r"""Output media filename, longest 64 characters. default filename is specified by the system.
+        :rtype: str
+        """
+        return self._MediaName
+
+    @MediaName.setter
+    def MediaName(self, MediaName):
+        self._MediaName = MediaName
+
+    @property
+    def ClassId(self):
+        r"""Category ID, used to categorize and manage media. you can create a category and obtain the category ID via the [create category](https://www.tencentcloud.com/document/product/266/7812?from_cn_redirect=1) api.
+<Li>Default value: 0, indicate other categories.</li>.
+        :rtype: int
+        """
+        return self._ClassId
+
+    @ClassId.setter
+    def ClassId(self, ClassId):
+        self._ClassId = ClassId
+
+    @property
+    def ExpireTime(self):
+        r"""The expiry date of the output file. files will be deleted longer than this time. default is never expire. format according to ISO 8601 standard. see [ISO date format description](https://www.tencentcloud.comom/document/product/266/11732?from_cn_redirect=1#I).
+        :rtype: str
+        """
+        return self._ExpireTime
+
+    @ExpireTime.setter
+    def ExpireTime(self, ExpireTime):
+        self._ExpireTime = ExpireTime
+
+    @property
+    def Duration(self):
+        r"""Video duration, unit: seconds. <li>when ModelName is Kling, optional values: 5, 10, defaults to 5;</li> <li>when ModelName is Hailuo, optional values: 6, 10, defaults to 6;</li> <li>when ModelName is Vidu, specify 1-10;</li> <li>when ModelName is GV, optional values: 8, defaults to 8;</li> <li>when ModelName is OS, optional values: 4, 8, 12, defaults to 8;</li>
+        :rtype: float
+        """
+        return self._Duration
+
+    @Duration.setter
+    def Duration(self, Duration):
+        self._Duration = Duration
+
+    @property
+    def Resolution(self):
+        r"""Generated video resolution.
+<li>When ModelName is Kling, available values are 720P and 1080P, with a default value of 720P.</li>
+<li>When ModelName is Hailuo, optional values are 768P and 1080P, with a default value of 768P.</li>
+<li>When ModelName is Vidu, optional values are 720P, 1080P, defaults to 720P.</li>
+<li>When ModelName is GV, optional values are 720P, 1080P, with a default value of 720P.</li>
+<li>When ModelName is OS, the optional values are 720P.</li>
+        :rtype: str
+        """
+        return self._Resolution
+
+    @Resolution.setter
+    def Resolution(self, Resolution):
+        self._Resolution = Resolution
+
+    @property
+    def AspectRatio(self):
+        r"""Specify the aspect ratio of the generated video.
+<li>When ModelName is Kling, for text-to-video, the optional values are 16:9, 9:16, 1:1, default is 16:9.</li>
+<li>When ModelName is Vidu, the optional values for video generation and image generation usage reference are 16:9, 9:16, 4:3, 3:4, and 1:1. among them, only version q2 supports 4:3 and 3:4.</li>
+<li>When ModelName is GV, optional values are 16:9 and 9:16, with a default value of 16:9.</li>
+<li>When ModelName is OS, for text-to-video, optional values are 16:9, 9:16, default is 16:9;</li>
+<li>When ModelName is Hailuo, it is not currently supported.</li>
+        :rtype: str
+        """
+        return self._AspectRatio
+
+    @AspectRatio.setter
+    def AspectRatio(self, AspectRatio):
+        self._AspectRatio = AspectRatio
+
+    @property
+    def AudioGeneration(self):
+        r"""Whether to generate audio. supported models include GV, OS, Vidu. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>
+Default value: Disabled.
+        :rtype: str
+        """
+        return self._AudioGeneration
+
+    @AudioGeneration.setter
+    def AudioGeneration(self, AudioGeneration):
+        self._AudioGeneration = AudioGeneration
+
+    @property
+    def PersonGeneration(self):
+        r"""Whether to allow figure or human face generation. valid values: <li>AllowAdult: allow adult generation.</li> <li>Disallowed: forbid including figures or human faces in images.</li>
+        :rtype: str
+        """
+        return self._PersonGeneration
+
+    @PersonGeneration.setter
+    def PersonGeneration(self, PersonGeneration):
+        self._PersonGeneration = PersonGeneration
+
+    @property
+    def InputComplianceCheck(self):
+        r"""Whether to enable compliance check for input content. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>
+        :rtype: str
+        """
+        return self._InputComplianceCheck
+
+    @InputComplianceCheck.setter
+    def InputComplianceCheck(self, InputComplianceCheck):
+        self._InputComplianceCheck = InputComplianceCheck
+
+    @property
+    def OutputComplianceCheck(self):
+        r"""Whether to enable compliance check for output content. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>
+        :rtype: str
+        """
+        return self._OutputComplianceCheck
+
+    @OutputComplianceCheck.setter
+    def OutputComplianceCheck(self, OutputComplianceCheck):
+        self._OutputComplianceCheck = OutputComplianceCheck
+
+    @property
+    def EnhanceSwitch(self):
+        r"""Whether to enable video enhancement. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>
+Note:
+1. when the selected resolution exceeds the resolution the model can generate, enhancement is enabled by default.
+2. for resolutions that the model can directly output, you can also proactively select the model to directly output low-resolution images and use enhancement to obtain the specified resolution.
+        :rtype: str
+        """
+        return self._EnhanceSwitch
+
+    @EnhanceSwitch.setter
+    def EnhanceSwitch(self, EnhanceSwitch):
+        self._EnhanceSwitch = EnhanceSwitch
+
+    @property
+    def FrameInterpolate(self):
+        r"""Whether to enable vidu intelligent frame interpolation. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>
+        :rtype: str
+        """
+        return self._FrameInterpolate
+
+    @FrameInterpolate.setter
+    def FrameInterpolate(self, FrameInterpolate):
+        self._FrameInterpolate = FrameInterpolate
+
+
+    def _deserialize(self, params):
+        self._StorageMode = params.get("StorageMode")
+        self._MediaName = params.get("MediaName")
+        self._ClassId = params.get("ClassId")
+        self._ExpireTime = params.get("ExpireTime")
+        self._Duration = params.get("Duration")
+        self._Resolution = params.get("Resolution")
+        self._AspectRatio = params.get("AspectRatio")
+        self._AudioGeneration = params.get("AudioGeneration")
+        self._PersonGeneration = params.get("PersonGeneration")
+        self._InputComplianceCheck = params.get("InputComplianceCheck")
+        self._OutputComplianceCheck = params.get("OutputComplianceCheck")
+        self._EnhanceSwitch = params.get("EnhanceSwitch")
+        self._FrameInterpolate = params.get("FrameInterpolate")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AigcVideoTask(AbstractModel):
+    r"""AIGC video generation task.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: The task ID.
+        :type TaskId: str
+        :param _Status: Task status, value: <li>PROCESSING: processing;</li><li>FINISH: completed.</li>
+        :type Status: str
+        :param _ErrCode: Error code. A non-zero error code is returned when the source is abnormal. If 0 is returned, use the ErrCode of each specific task.
+        :type ErrCode: int
+        :param _Message: Error message. If the source is abnormal, the corresponding exception message is returned. Otherwise, use the message of each specific task.
+        :type Message: str
+        :param _Progress: The execution progress of a single adaptive bitrate stream. Value range: 0-100.
+        :type Progress: int
+        :param _Input: Input of AIGC video task.
+        :type Input: :class:`tencentcloud.vod.v20180717.models.AigcVideoTaskInput`
+        :param _Output: Output of AIGC video task.
+        :type Output: :class:`tencentcloud.vod.v20180717.models.AigcVideoTaskOutput`
+        :param _SessionId: ID used for deduplication. If there was a request with the same ID in the last seven days, the current request will return an error. The ID can contain up to 50 characters. If this parameter is not carried or is left empty, no deduplication will be performed.
+        :type SessionId: str
+        :param _SessionContext: The source context which is used to pass through the user request information. The task flow status change callback will return the value of this parameter. It can contain up to 1000 characters.
+        :type SessionContext: str
+        """
+        self._TaskId = None
+        self._Status = None
+        self._ErrCode = None
+        self._Message = None
+        self._Progress = None
+        self._Input = None
+        self._Output = None
+        self._SessionId = None
+        self._SessionContext = None
+
+    @property
+    def TaskId(self):
+        r"""The task ID.
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def Status(self):
+        r"""Task status, value: <li>PROCESSING: processing;</li><li>FINISH: completed.</li>
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def ErrCode(self):
+        r"""Error code. A non-zero error code is returned when the source is abnormal. If 0 is returned, use the ErrCode of each specific task.
+        :rtype: int
+        """
+        return self._ErrCode
+
+    @ErrCode.setter
+    def ErrCode(self, ErrCode):
+        self._ErrCode = ErrCode
+
+    @property
+    def Message(self):
+        r"""Error message. If the source is abnormal, the corresponding exception message is returned. Otherwise, use the message of each specific task.
+        :rtype: str
+        """
+        return self._Message
+
+    @Message.setter
+    def Message(self, Message):
+        self._Message = Message
+
+    @property
+    def Progress(self):
+        r"""The execution progress of a single adaptive bitrate stream. Value range: 0-100.
+        :rtype: int
+        """
+        return self._Progress
+
+    @Progress.setter
+    def Progress(self, Progress):
+        self._Progress = Progress
+
+    @property
+    def Input(self):
+        r"""Input of AIGC video task.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AigcVideoTaskInput`
+        """
+        return self._Input
+
+    @Input.setter
+    def Input(self, Input):
+        self._Input = Input
+
+    @property
+    def Output(self):
+        r"""Output of AIGC video task.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AigcVideoTaskOutput`
+        """
+        return self._Output
+
+    @Output.setter
+    def Output(self, Output):
+        self._Output = Output
+
+    @property
+    def SessionId(self):
+        r"""ID used for deduplication. If there was a request with the same ID in the last seven days, the current request will return an error. The ID can contain up to 50 characters. If this parameter is not carried or is left empty, no deduplication will be performed.
+        :rtype: str
+        """
+        return self._SessionId
+
+    @SessionId.setter
+    def SessionId(self, SessionId):
+        self._SessionId = SessionId
+
+    @property
+    def SessionContext(self):
+        r"""The source context which is used to pass through the user request information. The task flow status change callback will return the value of this parameter. It can contain up to 1000 characters.
+        :rtype: str
+        """
+        return self._SessionContext
+
+    @SessionContext.setter
+    def SessionContext(self, SessionContext):
+        self._SessionContext = SessionContext
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._Status = params.get("Status")
+        self._ErrCode = params.get("ErrCode")
+        self._Message = params.get("Message")
+        self._Progress = params.get("Progress")
+        if params.get("Input") is not None:
+            self._Input = AigcVideoTaskInput()
+            self._Input._deserialize(params.get("Input"))
+        if params.get("Output") is not None:
+            self._Output = AigcVideoTaskOutput()
+            self._Output._deserialize(params.get("Output"))
+        self._SessionId = params.get("SessionId")
+        self._SessionContext = params.get("SessionContext")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AigcVideoTaskInput(AbstractModel):
+    r"""Aigc video task input.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ModelName: Model name.
+        :type ModelName: str
+        :param _ModelVersion: Model version. 
+        :type ModelVersion: str
+        :param _FileInfos: File information of the input video for the AIGC video generation task. 
+        :type FileInfos: list of AigcVideoTaskInputFileInfo
+        :param _LastFrameFileId: The media file ID used as the end frame to generate video. 
+        :type LastFrameFileId: str
+        :param _Prompt: Prompt content for video generation. 
+        :type Prompt: str
+        :param _NegativePrompt: Prevent the model from generating video prompts.
+        :type NegativePrompt: str
+        :param _EnhancePrompt: Whether to optimize Prompt content automatically. when Enabled, the passed-in Prompt will be optimized automatically to enhance generation quality. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>.
+        :type EnhancePrompt: str
+        :param _GenerationMode: 
+        :type GenerationMode: str
+        :param _OutputConfig: Specifies the output media file configuration for the video task.
+        :type OutputConfig: :class:`tencentcloud.vod.v20180717.models.AigcVideoOutputConfig`
+        """
+        self._ModelName = None
+        self._ModelVersion = None
+        self._FileInfos = None
+        self._LastFrameFileId = None
+        self._Prompt = None
+        self._NegativePrompt = None
+        self._EnhancePrompt = None
+        self._GenerationMode = None
+        self._OutputConfig = None
+
+    @property
+    def ModelName(self):
+        r"""Model name.
+        :rtype: str
+        """
+        return self._ModelName
+
+    @ModelName.setter
+    def ModelName(self, ModelName):
+        self._ModelName = ModelName
+
+    @property
+    def ModelVersion(self):
+        r"""Model version. 
+        :rtype: str
+        """
+        return self._ModelVersion
+
+    @ModelVersion.setter
+    def ModelVersion(self, ModelVersion):
+        self._ModelVersion = ModelVersion
+
+    @property
+    def FileInfos(self):
+        r"""File information of the input video for the AIGC video generation task. 
+        :rtype: list of AigcVideoTaskInputFileInfo
+        """
+        return self._FileInfos
+
+    @FileInfos.setter
+    def FileInfos(self, FileInfos):
+        self._FileInfos = FileInfos
+
+    @property
+    def LastFrameFileId(self):
+        r"""The media file ID used as the end frame to generate video. 
+        :rtype: str
+        """
+        return self._LastFrameFileId
+
+    @LastFrameFileId.setter
+    def LastFrameFileId(self, LastFrameFileId):
+        self._LastFrameFileId = LastFrameFileId
+
+    @property
+    def Prompt(self):
+        r"""Prompt content for video generation. 
+        :rtype: str
+        """
+        return self._Prompt
+
+    @Prompt.setter
+    def Prompt(self, Prompt):
+        self._Prompt = Prompt
+
+    @property
+    def NegativePrompt(self):
+        r"""Prevent the model from generating video prompts.
+        :rtype: str
+        """
+        return self._NegativePrompt
+
+    @NegativePrompt.setter
+    def NegativePrompt(self, NegativePrompt):
+        self._NegativePrompt = NegativePrompt
+
+    @property
+    def EnhancePrompt(self):
+        r"""Whether to optimize Prompt content automatically. when Enabled, the passed-in Prompt will be optimized automatically to enhance generation quality. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>.
+        :rtype: str
+        """
+        return self._EnhancePrompt
+
+    @EnhancePrompt.setter
+    def EnhancePrompt(self, EnhancePrompt):
+        self._EnhancePrompt = EnhancePrompt
+
+    @property
+    def GenerationMode(self):
+        r"""
+        :rtype: str
+        """
+        return self._GenerationMode
+
+    @GenerationMode.setter
+    def GenerationMode(self, GenerationMode):
+        self._GenerationMode = GenerationMode
+
+    @property
+    def OutputConfig(self):
+        r"""Specifies the output media file configuration for the video task.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AigcVideoOutputConfig`
+        """
+        return self._OutputConfig
+
+    @OutputConfig.setter
+    def OutputConfig(self, OutputConfig):
+        self._OutputConfig = OutputConfig
+
+
+    def _deserialize(self, params):
+        self._ModelName = params.get("ModelName")
+        self._ModelVersion = params.get("ModelVersion")
+        if params.get("FileInfos") is not None:
+            self._FileInfos = []
+            for item in params.get("FileInfos"):
+                obj = AigcVideoTaskInputFileInfo()
+                obj._deserialize(item)
+                self._FileInfos.append(obj)
+        self._LastFrameFileId = params.get("LastFrameFileId")
+        self._Prompt = params.get("Prompt")
+        self._NegativePrompt = params.get("NegativePrompt")
+        self._EnhancePrompt = params.get("EnhancePrompt")
+        self._GenerationMode = params.get("GenerationMode")
+        if params.get("OutputConfig") is not None:
+            self._OutputConfig = AigcVideoOutputConfig()
+            self._OutputConfig._deserialize(params.get("OutputConfig"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AigcVideoTaskInputFileInfo(AbstractModel):
+    r"""Image file info for AIGC video task input.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Type: Input video File type. valid values: <li>File: on-demand media File;</li> <li>Url: accessible Url;</li>
+        :type Type: str
+        :param _FileId: The media File ID, which is the globally unique identifier (guid) of the File in vod, is assigned by the vod backend after successful upload. you can retrieve this field in the [video upload completion event notification](https://www.tencentcloud.com/document/product/266/7830?from_cn_redirect=1) or [vod console](https://console.cloud.tencent.com/vod/media). this parameter is valid when the Type value is File. description:.
+1. recommended image size: less than 10 mb.
+2. image format value is jpeg, jpg, png.
+        :type FileId: str
+        :param _Url: Accessible file URL. this parameter is valid when Type value is URL.
+Note:.
+1. recommended image size: less than 10 mb.
+2. image format value is jpeg, jpg, png.
+        :type Url: str
+        :param _ReferenceType: Reference type. Used for the GV model.
+Note:
+When using the GV model, can be used as a reference method, selectable asset (material), style.
+        :type ReferenceType: str
+        :param _ObjectId: Object id.
+Applicable model: Vidu-q2.
+When an image identifier is required, each image must have a subject id. the subject id can be used via @subject id in subsequent generation.
+        :type ObjectId: str
+        :param _VoiceId: Suitable for the Vidu-q2 model.
+When all images carry object ids, you can set the timbre id for the object. timbre list: https://shengshu.feishu.cn/sheets/EgFvs6DShhiEBStmjzccr5gonOg.
+        :type VoiceId: str
+        """
+        self._Type = None
+        self._FileId = None
+        self._Url = None
+        self._ReferenceType = None
+        self._ObjectId = None
+        self._VoiceId = None
+
+    @property
+    def Type(self):
+        r"""Input video File type. valid values: <li>File: on-demand media File;</li> <li>Url: accessible Url;</li>
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def FileId(self):
+        r"""The media File ID, which is the globally unique identifier (guid) of the File in vod, is assigned by the vod backend after successful upload. you can retrieve this field in the [video upload completion event notification](https://www.tencentcloud.com/document/product/266/7830?from_cn_redirect=1) or [vod console](https://console.cloud.tencent.com/vod/media). this parameter is valid when the Type value is File. description:.
+1. recommended image size: less than 10 mb.
+2. image format value is jpeg, jpg, png.
+        :rtype: str
+        """
+        return self._FileId
+
+    @FileId.setter
+    def FileId(self, FileId):
+        self._FileId = FileId
+
+    @property
+    def Url(self):
+        r"""Accessible file URL. this parameter is valid when Type value is URL.
+Note:.
+1. recommended image size: less than 10 mb.
+2. image format value is jpeg, jpg, png.
+        :rtype: str
+        """
+        return self._Url
+
+    @Url.setter
+    def Url(self, Url):
+        self._Url = Url
+
+    @property
+    def ReferenceType(self):
+        r"""Reference type. Used for the GV model.
+Note:
+When using the GV model, can be used as a reference method, selectable asset (material), style.
+        :rtype: str
+        """
+        return self._ReferenceType
+
+    @ReferenceType.setter
+    def ReferenceType(self, ReferenceType):
+        self._ReferenceType = ReferenceType
+
+    @property
+    def ObjectId(self):
+        r"""Object id.
+Applicable model: Vidu-q2.
+When an image identifier is required, each image must have a subject id. the subject id can be used via @subject id in subsequent generation.
+        :rtype: str
+        """
+        return self._ObjectId
+
+    @ObjectId.setter
+    def ObjectId(self, ObjectId):
+        self._ObjectId = ObjectId
+
+    @property
+    def VoiceId(self):
+        r"""Suitable for the Vidu-q2 model.
+When all images carry object ids, you can set the timbre id for the object. timbre list: https://shengshu.feishu.cn/sheets/EgFvs6DShhiEBStmjzccr5gonOg.
+        :rtype: str
+        """
+        return self._VoiceId
+
+    @VoiceId.setter
+    def VoiceId(self, VoiceId):
+        self._VoiceId = VoiceId
+
+
+    def _deserialize(self, params):
+        self._Type = params.get("Type")
+        self._FileId = params.get("FileId")
+        self._Url = params.get("Url")
+        self._ReferenceType = params.get("ReferenceType")
+        self._ObjectId = params.get("ObjectId")
+        self._VoiceId = params.get("VoiceId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AigcVideoTaskOutput(AbstractModel):
+    r"""AIGC video task output.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _FileInfos: File information of the output video for the AIGC video generation task.
+        :type FileInfos: list of AigcVideoTaskOutputFileInfo
+        """
+        self._FileInfos = None
+
+    @property
+    def FileInfos(self):
+        r"""File information of the output video for the AIGC video generation task.
+        :rtype: list of AigcVideoTaskOutputFileInfo
+        """
+        return self._FileInfos
+
+    @FileInfos.setter
+    def FileInfos(self, FileInfos):
+        self._FileInfos = FileInfos
+
+
+    def _deserialize(self, params):
+        if params.get("FileInfos") is not None:
+            self._FileInfos = []
+            for item in params.get("FileInfos"):
+                obj = AigcVideoTaskOutputFileInfo()
+                obj._deserialize(item)
+                self._FileInfos.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AigcVideoTaskOutputFileInfo(AbstractModel):
+    r"""AIGC video task output file information.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _StorageMode: Storage mode. valid values: <li>Permanent: Permanent storage. the generated video file will be stored in vod.</li> <li>Temporary: Temporary storage. the generated video file will not be stored in vod.</li>
+Default value: Temporary.
+        :type StorageMode: str
+        :param _MediaName: Output media filename, longest 64 characters. default filename is specified by the system.
+        :type MediaName: str
+        :param _ClassId: Category ID, used to categorize and manage media. you can create a category and obtain the category ID via the [create category](https://www.tencentcloud.com/document/product/266/7812?from_cn_redirect=1) api.
+<Li>Default value: 0, indicate other categories.</li>.
+        :type ClassId: int
+        :param _ExpireTime: The expiry date of the output file. files will be deleted longer than this time. default is never expire. format according to ISO 8601 standard. see [ISO date format description](https://www.tencentcloud.comom/document/product/266/11732?from_cn_redirect=1#I).
+        :type ExpireTime: str
+        :param _FileType: File Type.
+        :type FileType: str
+        :param _FileUrl: File Url.
+        :type FileUrl: str
+        :param _FileId: File ID.
+        :type FileId: str
+        :param _MetaData: Meta Data.
+        :type MetaData: :class:`tencentcloud.vod.v20180717.models.MediaMetaData`
+        """
+        self._StorageMode = None
+        self._MediaName = None
+        self._ClassId = None
+        self._ExpireTime = None
+        self._FileType = None
+        self._FileUrl = None
+        self._FileId = None
+        self._MetaData = None
+
+    @property
+    def StorageMode(self):
+        r"""Storage mode. valid values: <li>Permanent: Permanent storage. the generated video file will be stored in vod.</li> <li>Temporary: Temporary storage. the generated video file will not be stored in vod.</li>
+Default value: Temporary.
+        :rtype: str
+        """
+        return self._StorageMode
+
+    @StorageMode.setter
+    def StorageMode(self, StorageMode):
+        self._StorageMode = StorageMode
+
+    @property
+    def MediaName(self):
+        r"""Output media filename, longest 64 characters. default filename is specified by the system.
+        :rtype: str
+        """
+        return self._MediaName
+
+    @MediaName.setter
+    def MediaName(self, MediaName):
+        self._MediaName = MediaName
+
+    @property
+    def ClassId(self):
+        r"""Category ID, used to categorize and manage media. you can create a category and obtain the category ID via the [create category](https://www.tencentcloud.com/document/product/266/7812?from_cn_redirect=1) api.
+<Li>Default value: 0, indicate other categories.</li>.
+        :rtype: int
+        """
+        return self._ClassId
+
+    @ClassId.setter
+    def ClassId(self, ClassId):
+        self._ClassId = ClassId
+
+    @property
+    def ExpireTime(self):
+        r"""The expiry date of the output file. files will be deleted longer than this time. default is never expire. format according to ISO 8601 standard. see [ISO date format description](https://www.tencentcloud.comom/document/product/266/11732?from_cn_redirect=1#I).
+        :rtype: str
+        """
+        return self._ExpireTime
+
+    @ExpireTime.setter
+    def ExpireTime(self, ExpireTime):
+        self._ExpireTime = ExpireTime
+
+    @property
+    def FileType(self):
+        r"""File Type.
+        :rtype: str
+        """
+        return self._FileType
+
+    @FileType.setter
+    def FileType(self, FileType):
+        self._FileType = FileType
+
+    @property
+    def FileUrl(self):
+        r"""File Url.
+        :rtype: str
+        """
+        return self._FileUrl
+
+    @FileUrl.setter
+    def FileUrl(self, FileUrl):
+        self._FileUrl = FileUrl
+
+    @property
+    def FileId(self):
+        r"""File ID.
+        :rtype: str
+        """
+        return self._FileId
+
+    @FileId.setter
+    def FileId(self, FileId):
+        self._FileId = FileId
+
+    @property
+    def MetaData(self):
+        r"""Meta Data.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.MediaMetaData`
+        """
+        return self._MetaData
+
+    @MetaData.setter
+    def MetaData(self, MetaData):
+        self._MetaData = MetaData
+
+
+    def _deserialize(self, params):
+        self._StorageMode = params.get("StorageMode")
+        self._MediaName = params.get("MediaName")
+        self._ClassId = params.get("ClassId")
+        self._ExpireTime = params.get("ExpireTime")
+        self._FileType = params.get("FileType")
+        self._FileUrl = params.get("FileUrl")
+        self._FileId = params.get("FileId")
+        if params.get("MetaData") is not None:
+            self._MetaData = MediaMetaData()
+            self._MetaData._deserialize(params.get("MetaData"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class AnimatedGraphicTaskInput(AbstractModel):
     r"""Animated image generating task type
 
@@ -12271,6 +14003,69 @@ class AttachMediaSubtitlesResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class AudioBeautifyInfo(AbstractModel):
+    r"""The audio improvement configuration.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Switch: Whether to enable audio improvement. Valid values:
+<li>`ON`</li>
+<li>`OFF` </li>
+Default value: `OFF`.
+        :type Switch: str
+        :param _Types: The audio improvement options. You can specify multiple options. Valid values:
+<li>`declick`: Noise removal.</li>
+<li>`deesser`: De-essing.</li>
+Default: `declick`.
+        :type Types: list of str
+        """
+        self._Switch = None
+        self._Types = None
+
+    @property
+    def Switch(self):
+        r"""Whether to enable audio improvement. Valid values:
+<li>`ON`</li>
+<li>`OFF` </li>
+Default value: `OFF`.
+        :rtype: str
+        """
+        return self._Switch
+
+    @Switch.setter
+    def Switch(self, Switch):
+        self._Switch = Switch
+
+    @property
+    def Types(self):
+        r"""The audio improvement options. You can specify multiple options. Valid values:
+<li>`declick`: Noise removal.</li>
+<li>`deesser`: De-essing.</li>
+Default: `declick`.
+        :rtype: list of str
+        """
+        return self._Types
+
+    @Types.setter
+    def Types(self, Types):
+        self._Types = Types
+
+
+    def _deserialize(self, params):
+        self._Switch = params.get("Switch")
+        self._Types = params.get("Types")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class AudioDenoiseInfo(AbstractModel):
     r"""Noise removal configuration.
 
@@ -12281,12 +14076,11 @@ class AudioDenoiseInfo(AbstractModel):
         :param _Switch: Whether to enable noise removal. Valid values:
 <li>`ON`</li>
 <li>`OFF`</li>
+Default value: `OFF`.
         :type Switch: str
         :param _Type: The noise removal type. This parameter is valid only if `Switch` is `ON`. Valid values:
-<li>`weak`</li>
 <li>`normal`</li>
-<li>`strong`</li>
-Default value: `weak`.
+Default value: `normal`.
         :type Type: str
         """
         self._Switch = None
@@ -12297,6 +14091,7 @@ Default value: `weak`.
         r"""Whether to enable noise removal. Valid values:
 <li>`ON`</li>
 <li>`OFF`</li>
+Default value: `OFF`.
         :rtype: str
         """
         return self._Switch
@@ -12308,10 +14103,8 @@ Default value: `weak`.
     @property
     def Type(self):
         r"""The noise removal type. This parameter is valid only if `Switch` is `ON`. Valid values:
-<li>`weak`</li>
 <li>`normal`</li>
-<li>`strong`</li>
-Default value: `weak`.
+Default value: `normal`.
         :rtype: str
         """
         return self._Type
@@ -12324,6 +14117,187 @@ Default value: `weak`.
     def _deserialize(self, params):
         self._Switch = params.get("Switch")
         self._Type = params.get("Type")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AudioEnhanceConfig(AbstractModel):
+    r"""The audio enhancement configuration.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Denoise: The audio noise reduction configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type Denoise: :class:`tencentcloud.vod.v20180717.models.AudioDenoiseInfo`
+        :param _Separate: The audio separation configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type Separate: :class:`tencentcloud.vod.v20180717.models.AudioSeparateInfo`
+        :param _VolumeBalance: The volume equalization configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type VolumeBalance: :class:`tencentcloud.vod.v20180717.models.AudioVolumeBalanceInfo`
+        :param _Beautify: The audio improvement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type Beautify: :class:`tencentcloud.vod.v20180717.models.AudioBeautifyInfo`
+        """
+        self._Denoise = None
+        self._Separate = None
+        self._VolumeBalance = None
+        self._Beautify = None
+
+    @property
+    def Denoise(self):
+        r"""The audio noise reduction configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AudioDenoiseInfo`
+        """
+        return self._Denoise
+
+    @Denoise.setter
+    def Denoise(self, Denoise):
+        self._Denoise = Denoise
+
+    @property
+    def Separate(self):
+        r"""The audio separation configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AudioSeparateInfo`
+        """
+        return self._Separate
+
+    @Separate.setter
+    def Separate(self, Separate):
+        self._Separate = Separate
+
+    @property
+    def VolumeBalance(self):
+        r"""The volume equalization configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AudioVolumeBalanceInfo`
+        """
+        return self._VolumeBalance
+
+    @VolumeBalance.setter
+    def VolumeBalance(self, VolumeBalance):
+        self._VolumeBalance = VolumeBalance
+
+    @property
+    def Beautify(self):
+        r"""The audio improvement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AudioBeautifyInfo`
+        """
+        return self._Beautify
+
+    @Beautify.setter
+    def Beautify(self, Beautify):
+        self._Beautify = Beautify
+
+
+    def _deserialize(self, params):
+        if params.get("Denoise") is not None:
+            self._Denoise = AudioDenoiseInfo()
+            self._Denoise._deserialize(params.get("Denoise"))
+        if params.get("Separate") is not None:
+            self._Separate = AudioSeparateInfo()
+            self._Separate._deserialize(params.get("Separate"))
+        if params.get("VolumeBalance") is not None:
+            self._VolumeBalance = AudioVolumeBalanceInfo()
+            self._VolumeBalance._deserialize(params.get("VolumeBalance"))
+        if params.get("Beautify") is not None:
+            self._Beautify = AudioBeautifyInfo()
+            self._Beautify._deserialize(params.get("Beautify"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AudioSeparateInfo(AbstractModel):
+    r"""The audio separation configuration.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Switch: Whether to enable audio separation. Valid values:
+<li>`ON`</li>
+<li>`OFF` </li>
+Default value: `OFF`.
+        :type Switch: str
+        :param _Type: The scenario. Valid values:
+<li>`normal`: Separate voice and background audio.</li>
+<li>`music`: Separate vocals and instrumentals.</li>
+Default value: `normal`.
+        :type Type: str
+        :param _Track: The output audio track. Valid values:
+<li>`vocal`: Voice.</li>
+<li>`background`: Output background audio if the scenario is `normal`, and output instrumentals if the scenario is `music`.</li>
+Default value: `vocal`.
+        :type Track: str
+        """
+        self._Switch = None
+        self._Type = None
+        self._Track = None
+
+    @property
+    def Switch(self):
+        r"""Whether to enable audio separation. Valid values:
+<li>`ON`</li>
+<li>`OFF` </li>
+Default value: `OFF`.
+        :rtype: str
+        """
+        return self._Switch
+
+    @Switch.setter
+    def Switch(self, Switch):
+        self._Switch = Switch
+
+    @property
+    def Type(self):
+        r"""The scenario. Valid values:
+<li>`normal`: Separate voice and background audio.</li>
+<li>`music`: Separate vocals and instrumentals.</li>
+Default value: `normal`.
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def Track(self):
+        r"""The output audio track. Valid values:
+<li>`vocal`: Voice.</li>
+<li>`background`: Output background audio if the scenario is `normal`, and output instrumentals if the scenario is `music`.</li>
+Default value: `vocal`.
+        :rtype: str
+        """
+        return self._Track
+
+    @Track.setter
+    def Track(self, Track):
+        self._Track = Track
+
+
+    def _deserialize(self, params):
+        self._Switch = params.get("Switch")
+        self._Type = params.get("Type")
+        self._Track = params.get("Track")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -12768,6 +14742,69 @@ Note: this field may return null, indicating that no valid values can be obtaine
         if params.get("VolumeParam") is not None:
             self._VolumeParam = AudioVolumeParam()
             self._VolumeParam._deserialize(params.get("VolumeParam"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AudioVolumeBalanceInfo(AbstractModel):
+    r"""The volume equalization configuration.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Switch: Whether to enable volume equalization. Valid values:
+<li>`ON`</li>
+<li>`OFF` </li>
+Default value: `OFF`.
+        :type Switch: str
+        :param _Type: The type. Valid values:
+<li>`loudNorm`: Loudness normalization.</li>
+<li>`gainControl`: Volume leveling.</li>
+Default value: `loudNorm`.
+        :type Type: str
+        """
+        self._Switch = None
+        self._Type = None
+
+    @property
+    def Switch(self):
+        r"""Whether to enable volume equalization. Valid values:
+<li>`ON`</li>
+<li>`OFF` </li>
+Default value: `OFF`.
+        :rtype: str
+        """
+        return self._Switch
+
+    @Switch.setter
+    def Switch(self, Switch):
+        self._Switch = Switch
+
+    @property
+    def Type(self):
+        r"""The type. Valid values:
+<li>`loudNorm`: Loudness normalization.</li>
+<li>`gainControl`: Volume leveling.</li>
+Default value: `loudNorm`.
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+
+    def _deserialize(self, params):
+        self._Switch = params.get("Switch")
+        self._Type = params.get("Type")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -14932,6 +16969,47 @@ such as 2018120101-test.vod2.mqcloud.com.
         self._Url = params.get("Url")
         self._StartTime = params.get("StartTime")
         self._EndTime = params.get("EndTime")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ChangeClothesConfig(AbstractModel):
+    r"""AI outfit change parameter configuration.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClothesFileInfos: Manually input the image list of **clothing** that needs to be replaced. currently support a maximum of 4 images.
+        :type ClothesFileInfos: list of SceneAigcImageTaskInputFileInfo
+        """
+        self._ClothesFileInfos = None
+
+    @property
+    def ClothesFileInfos(self):
+        r"""Manually input the image list of **clothing** that needs to be replaced. currently support a maximum of 4 images.
+        :rtype: list of SceneAigcImageTaskInputFileInfo
+        """
+        return self._ClothesFileInfos
+
+    @ClothesFileInfos.setter
+    def ClothesFileInfos(self, ClothesFileInfos):
+        self._ClothesFileInfos = ClothesFileInfos
+
+
+    def _deserialize(self, params):
+        if params.get("ClothesFileInfos") is not None:
+            self._ClothesFileInfos = []
+            for item in params.get("ClothesFileInfos"):
+                obj = SceneAigcImageTaskInputFileInfo()
+                obj._deserialize(item)
+                self._ClothesFileInfos.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -18502,6 +20580,599 @@ class CreateAdaptiveDynamicStreamingTemplateResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class CreateAigcImageTaskRequest(AbstractModel):
+    r"""CreateAigcImageTask request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SubAppId: <b>The VOD [application](https://intl.cloud.tencent.com/document/product/266/14574) ID. For customers who activate VOD service from December 25, 2023, if they want to access resources in a VOD application (whether it's the default application or a newly created one), they must fill in this field with the application ID.</b>
+        :type SubAppId: int
+        :param _ModelName: Model name. valid values:.
+<li>GEM:Gemini;</li>
+<Li>Qwen: qianwen.</li>
+<Li>Hunyuan: hunyuan.</li>
+        :type ModelName: str
+        :param _ModelVersion: Model version. valid values:.
+<li>When ModelName is GEM, optional values are 2.5, 3.0;</li>
+<li>When ModelName is Qwen, optional values are 0925.</li>
+<li>When ModelName is Hunyuan, the optional values are 3.0.</li>
+        :type ModelVersion: str
+        :param _FileInfos: File information of the input image for the AIGC image generation task. By default only one image can be specified; when using the GEM model, version 2.5 supports up to 3 images and version 3.0 supports up to 14 images.
+        :type FileInfos: list of AigcImageTaskInputFileInfo
+        :param _Prompt: The prompt content for image generation. this parameter is required when FileInfos is empty.
+        :type Prompt: str
+        :param _NegativePrompt: Prevent the model from generating image generation prompts.
+        :type NegativePrompt: str
+        :param _EnhancePrompt: Whether to optimize Prompt content automatically. when Enabled, it will optimize the passed in Prompt automatically to enhance generation quality. valid values: <li>Enabled: turn on;</li> <li>Disabled: turn off;</li>
+        :type EnhancePrompt: str
+        :param _OutputConfig: Output media file configuration for the task.
+        :type OutputConfig: :class:`tencentcloud.vod.v20180717.models.AigcImageOutputConfig`
+        :param _SessionId: An identifier for deduplication. if there has been a request with the same identifier within the past 3 days, an error will be returned for the current request. the maximum length is 50 characters. leaving it blank or using an empty string indicates no deduplication.
+        :type SessionId: str
+        :param _SessionContext: Source context, used to pass through user request information. the audio and video quality revival complete callback will return the value of this field. longest 1000 characters.
+        :type SessionContext: str
+        :param _TasksPriority: Task priority. the higher the value, the higher the priority. value range is from -10 to 10. if left blank, the default value is 0.
+        :type TasksPriority: int
+        :param _ExtInfo: Reserved field, used when special purpose.
+        :type ExtInfo: str
+        """
+        self._SubAppId = None
+        self._ModelName = None
+        self._ModelVersion = None
+        self._FileInfos = None
+        self._Prompt = None
+        self._NegativePrompt = None
+        self._EnhancePrompt = None
+        self._OutputConfig = None
+        self._SessionId = None
+        self._SessionContext = None
+        self._TasksPriority = None
+        self._ExtInfo = None
+
+    @property
+    def SubAppId(self):
+        r"""<b>The VOD [application](https://intl.cloud.tencent.com/document/product/266/14574) ID. For customers who activate VOD service from December 25, 2023, if they want to access resources in a VOD application (whether it's the default application or a newly created one), they must fill in this field with the application ID.</b>
+        :rtype: int
+        """
+        return self._SubAppId
+
+    @SubAppId.setter
+    def SubAppId(self, SubAppId):
+        self._SubAppId = SubAppId
+
+    @property
+    def ModelName(self):
+        r"""Model name. valid values:.
+<li>GEM:Gemini;</li>
+<Li>Qwen: qianwen.</li>
+<Li>Hunyuan: hunyuan.</li>
+        :rtype: str
+        """
+        return self._ModelName
+
+    @ModelName.setter
+    def ModelName(self, ModelName):
+        self._ModelName = ModelName
+
+    @property
+    def ModelVersion(self):
+        r"""Model version. valid values:.
+<li>When ModelName is GEM, optional values are 2.5, 3.0;</li>
+<li>When ModelName is Qwen, optional values are 0925.</li>
+<li>When ModelName is Hunyuan, the optional values are 3.0.</li>
+        :rtype: str
+        """
+        return self._ModelVersion
+
+    @ModelVersion.setter
+    def ModelVersion(self, ModelVersion):
+        self._ModelVersion = ModelVersion
+
+    @property
+    def FileInfos(self):
+        r"""File information of the input image for the AIGC image generation task. By default only one image can be specified; when using the GEM model, version 2.5 supports up to 3 images and version 3.0 supports up to 14 images.
+        :rtype: list of AigcImageTaskInputFileInfo
+        """
+        return self._FileInfos
+
+    @FileInfos.setter
+    def FileInfos(self, FileInfos):
+        self._FileInfos = FileInfos
+
+    @property
+    def Prompt(self):
+        r"""The prompt content for image generation. this parameter is required when FileInfos is empty.
+        :rtype: str
+        """
+        return self._Prompt
+
+    @Prompt.setter
+    def Prompt(self, Prompt):
+        self._Prompt = Prompt
+
+    @property
+    def NegativePrompt(self):
+        r"""Prevent the model from generating image generation prompts.
+        :rtype: str
+        """
+        return self._NegativePrompt
+
+    @NegativePrompt.setter
+    def NegativePrompt(self, NegativePrompt):
+        self._NegativePrompt = NegativePrompt
+
+    @property
+    def EnhancePrompt(self):
+        r"""Whether to optimize Prompt content automatically. when Enabled, it will optimize the passed in Prompt automatically to enhance generation quality. valid values: <li>Enabled: turn on;</li> <li>Disabled: turn off;</li>
+        :rtype: str
+        """
+        return self._EnhancePrompt
+
+    @EnhancePrompt.setter
+    def EnhancePrompt(self, EnhancePrompt):
+        self._EnhancePrompt = EnhancePrompt
+
+    @property
+    def OutputConfig(self):
+        r"""Output media file configuration for the task.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AigcImageOutputConfig`
+        """
+        return self._OutputConfig
+
+    @OutputConfig.setter
+    def OutputConfig(self, OutputConfig):
+        self._OutputConfig = OutputConfig
+
+    @property
+    def SessionId(self):
+        r"""An identifier for deduplication. if there has been a request with the same identifier within the past 3 days, an error will be returned for the current request. the maximum length is 50 characters. leaving it blank or using an empty string indicates no deduplication.
+        :rtype: str
+        """
+        return self._SessionId
+
+    @SessionId.setter
+    def SessionId(self, SessionId):
+        self._SessionId = SessionId
+
+    @property
+    def SessionContext(self):
+        r"""Source context, used to pass through user request information. the audio and video quality revival complete callback will return the value of this field. longest 1000 characters.
+        :rtype: str
+        """
+        return self._SessionContext
+
+    @SessionContext.setter
+    def SessionContext(self, SessionContext):
+        self._SessionContext = SessionContext
+
+    @property
+    def TasksPriority(self):
+        r"""Task priority. the higher the value, the higher the priority. value range is from -10 to 10. if left blank, the default value is 0.
+        :rtype: int
+        """
+        return self._TasksPriority
+
+    @TasksPriority.setter
+    def TasksPriority(self, TasksPriority):
+        self._TasksPriority = TasksPriority
+
+    @property
+    def ExtInfo(self):
+        r"""Reserved field, used when special purpose.
+        :rtype: str
+        """
+        return self._ExtInfo
+
+    @ExtInfo.setter
+    def ExtInfo(self, ExtInfo):
+        self._ExtInfo = ExtInfo
+
+
+    def _deserialize(self, params):
+        self._SubAppId = params.get("SubAppId")
+        self._ModelName = params.get("ModelName")
+        self._ModelVersion = params.get("ModelVersion")
+        if params.get("FileInfos") is not None:
+            self._FileInfos = []
+            for item in params.get("FileInfos"):
+                obj = AigcImageTaskInputFileInfo()
+                obj._deserialize(item)
+                self._FileInfos.append(obj)
+        self._Prompt = params.get("Prompt")
+        self._NegativePrompt = params.get("NegativePrompt")
+        self._EnhancePrompt = params.get("EnhancePrompt")
+        if params.get("OutputConfig") is not None:
+            self._OutputConfig = AigcImageOutputConfig()
+            self._OutputConfig._deserialize(params.get("OutputConfig"))
+        self._SessionId = params.get("SessionId")
+        self._SessionContext = params.get("SessionContext")
+        self._TasksPriority = params.get("TasksPriority")
+        self._ExtInfo = params.get("ExtInfo")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateAigcImageTaskResponse(AbstractModel):
+    r"""CreateAigcImageTask response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: Task ID.
+        :type TaskId: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._TaskId = None
+        self._RequestId = None
+
+    @property
+    def TaskId(self):
+        r"""Task ID.
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateAigcVideoTaskRequest(AbstractModel):
+    r"""CreateAigcVideoTask request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SubAppId: <b>The VOD [application](https://intl.cloud.tencent.com/document/product/266/14574) ID. For customers who activate VOD service from December 25, 2023, if they want to access resources in a VOD application (whether it's the default application or a newly created one), they must fill in this field with the application ID.</b>
+        :type SubAppId: int
+        :param _ModelName: Model name. valid values: <li>Hailuo: conch;</li><li>Kling: Kling;</li><li>Jimeng: Jimeng;</li><li>Vidu;</li><li>Hunyuan: Hunyuan;</li><li>Mingmou: bright eyes;</li>
+        :type ModelName: str
+        :param _ModelVersion: Model version. parameter value: <li>when ModelName is Hailuo, optional values are 02, 2.3, 2.3-fast;</li><li>when ModelName is Kling, optional values are 1.6, 2.0, 2.1, 2.5, O1;</li><li>when ModelName is Jimeng, optional values are 3.0pro;</li><li>when ModelName is Vidu, optional values are q2, q2-pro, q2-turbo;</li><li>when ModelName is GV, optional values are 3.1, 3.1-fast;</li><li>when ModelName is OS, optional values are 2.0;</li><li>when ModelName is Hunyuan, optional values are 1.5;</li><li>when ModelName is Mingmou, optional values are 1.0;</li>
+        :type ModelVersion: str
+        :param _FileInfos: List of up to three material resources for description of resource images to be used by the model in video generation.
+
+Video generation with first and last frame: use the first table in FileInfos to represent the first frame (FileInfos contains at most one image at this point). LastFrameFileId or LastFrameUrl represents the last frame.
+
+Model supporting multi-image input.
+1. GV, when entering multiple images, LastFrameFileId and LastFrameUrl are unavailable.
+2. Vidu supports multi-image reference for video generation. the q2 model accepts 1-7 images. use the ObjectId in FileInfos as the subject id for input.
+
+Note:.
+1. Image size: the size should not exceed 10 mb.
+2. supported image formats: jpeg, png.
+        :type FileInfos: list of AigcVideoTaskInputFileInfo
+        :param _LastFrameFileId: The media file ID used as the end frame to generate video. this file has a globally unique ID on vod, assigned by the vod backend after successful upload. you can get this field in the [video upload completion event notification](https://www.tencentcloud.com/document/product/266/7830?from_cn_redirect=1) or [vod console](https://console.cloud.tencent.com/vod/media). description:.
+1. only models GV, Kling, and Vidu are supported. other models are not currently supported. when ModelName is GV, if you specify this parameter, you must simultaneously specify FileInfos as the first frame of the video to be generated. when ModelName is Kling and ModelVersion is 2.1 and specify output Resolution Resolution as 1080P, you can specify this parameter. when ModelName is Vidu and ModelVersion is q2-pro or q2-turbo, you can specify this parameter.
+2. Image size: the size should be less than 5 mb.
+3. image format value is jpeg, jpg, png, webp.
+        :type LastFrameFileId: str
+        :param _LastFrameUrl: Media file URL used as frames to generate video. description:.
+1. only models GV, Kling, and Vidu are supported. other models are not currently supported. when ModelName is GV, if you specify this parameter, you must simultaneously specify FileInfos as the first frame of the video to be generated. when ModelName is Kling and ModelVersion is 2.1 and specify output Resolution Resolution as 1080P, you can specify this parameter. when ModelName is Vidu and ModelVersion is q2-pro or q2-turbo, you can specify this parameter.
+2. Image size: the size should be less than 5 mb.
+3. image format value is jpeg, jpg, png, webp.
+        :type LastFrameUrl: str
+        :param _Prompt: Prompt content for video generation. this parameter is required when FileInfos is empty.
+Example value: move the picture.
+        :type Prompt: str
+        :param _NegativePrompt: Prevent the model from generating video prompts.
+        :type NegativePrompt: str
+        :param _EnhancePrompt: Whether to optimize Prompt content automatically. when Enabled, the passed-in Prompt will be optimized automatically to enhance generation quality. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>.
+        :type EnhancePrompt: str
+        :param _OutputConfig: Specifies the output media file configuration for the video task.
+        :type OutputConfig: :class:`tencentcloud.vod.v20180717.models.AigcVideoOutputConfig`
+        :param _SessionId: An identifier for deduplication. if there has been a request with the same identifier within the past 3 days, an error will be returned for the current request. the maximum length is 50 characters. leaving it blank or using an empty string indicates no deduplication.
+        :type SessionId: str
+        :param _SessionContext: Source context, used to pass through user request information. the audio and video quality revival complete callback will return the value of this field, up to 1000 characters.
+        :type SessionContext: str
+        :param _TasksPriority: Task priority. the higher the value, the higher the priority. the value range is from -10 to 10. if left blank, the default value is 0.
+        :type TasksPriority: int
+        :param _ExtInfo: Reserved field, used for special purpose.
+        :type ExtInfo: str
+        :param _InputRegion: Specifies the region information of the input image. when the image url is a foreign address, selectable Oversea. default Mainland.
+        :type InputRegion: str
+        """
+        self._SubAppId = None
+        self._ModelName = None
+        self._ModelVersion = None
+        self._FileInfos = None
+        self._LastFrameFileId = None
+        self._LastFrameUrl = None
+        self._Prompt = None
+        self._NegativePrompt = None
+        self._EnhancePrompt = None
+        self._OutputConfig = None
+        self._SessionId = None
+        self._SessionContext = None
+        self._TasksPriority = None
+        self._ExtInfo = None
+        self._InputRegion = None
+
+    @property
+    def SubAppId(self):
+        r"""<b>The VOD [application](https://intl.cloud.tencent.com/document/product/266/14574) ID. For customers who activate VOD service from December 25, 2023, if they want to access resources in a VOD application (whether it's the default application or a newly created one), they must fill in this field with the application ID.</b>
+        :rtype: int
+        """
+        return self._SubAppId
+
+    @SubAppId.setter
+    def SubAppId(self, SubAppId):
+        self._SubAppId = SubAppId
+
+    @property
+    def ModelName(self):
+        r"""Model name. valid values: <li>Hailuo: conch;</li><li>Kling: Kling;</li><li>Jimeng: Jimeng;</li><li>Vidu;</li><li>Hunyuan: Hunyuan;</li><li>Mingmou: bright eyes;</li>
+        :rtype: str
+        """
+        return self._ModelName
+
+    @ModelName.setter
+    def ModelName(self, ModelName):
+        self._ModelName = ModelName
+
+    @property
+    def ModelVersion(self):
+        r"""Model version. parameter value: <li>when ModelName is Hailuo, optional values are 02, 2.3, 2.3-fast;</li><li>when ModelName is Kling, optional values are 1.6, 2.0, 2.1, 2.5, O1;</li><li>when ModelName is Jimeng, optional values are 3.0pro;</li><li>when ModelName is Vidu, optional values are q2, q2-pro, q2-turbo;</li><li>when ModelName is GV, optional values are 3.1, 3.1-fast;</li><li>when ModelName is OS, optional values are 2.0;</li><li>when ModelName is Hunyuan, optional values are 1.5;</li><li>when ModelName is Mingmou, optional values are 1.0;</li>
+        :rtype: str
+        """
+        return self._ModelVersion
+
+    @ModelVersion.setter
+    def ModelVersion(self, ModelVersion):
+        self._ModelVersion = ModelVersion
+
+    @property
+    def FileInfos(self):
+        r"""List of up to three material resources for description of resource images to be used by the model in video generation.
+
+Video generation with first and last frame: use the first table in FileInfos to represent the first frame (FileInfos contains at most one image at this point). LastFrameFileId or LastFrameUrl represents the last frame.
+
+Model supporting multi-image input.
+1. GV, when entering multiple images, LastFrameFileId and LastFrameUrl are unavailable.
+2. Vidu supports multi-image reference for video generation. the q2 model accepts 1-7 images. use the ObjectId in FileInfos as the subject id for input.
+
+Note:.
+1. Image size: the size should not exceed 10 mb.
+2. supported image formats: jpeg, png.
+        :rtype: list of AigcVideoTaskInputFileInfo
+        """
+        return self._FileInfos
+
+    @FileInfos.setter
+    def FileInfos(self, FileInfos):
+        self._FileInfos = FileInfos
+
+    @property
+    def LastFrameFileId(self):
+        r"""The media file ID used as the end frame to generate video. this file has a globally unique ID on vod, assigned by the vod backend after successful upload. you can get this field in the [video upload completion event notification](https://www.tencentcloud.com/document/product/266/7830?from_cn_redirect=1) or [vod console](https://console.cloud.tencent.com/vod/media). description:.
+1. only models GV, Kling, and Vidu are supported. other models are not currently supported. when ModelName is GV, if you specify this parameter, you must simultaneously specify FileInfos as the first frame of the video to be generated. when ModelName is Kling and ModelVersion is 2.1 and specify output Resolution Resolution as 1080P, you can specify this parameter. when ModelName is Vidu and ModelVersion is q2-pro or q2-turbo, you can specify this parameter.
+2. Image size: the size should be less than 5 mb.
+3. image format value is jpeg, jpg, png, webp.
+        :rtype: str
+        """
+        return self._LastFrameFileId
+
+    @LastFrameFileId.setter
+    def LastFrameFileId(self, LastFrameFileId):
+        self._LastFrameFileId = LastFrameFileId
+
+    @property
+    def LastFrameUrl(self):
+        r"""Media file URL used as frames to generate video. description:.
+1. only models GV, Kling, and Vidu are supported. other models are not currently supported. when ModelName is GV, if you specify this parameter, you must simultaneously specify FileInfos as the first frame of the video to be generated. when ModelName is Kling and ModelVersion is 2.1 and specify output Resolution Resolution as 1080P, you can specify this parameter. when ModelName is Vidu and ModelVersion is q2-pro or q2-turbo, you can specify this parameter.
+2. Image size: the size should be less than 5 mb.
+3. image format value is jpeg, jpg, png, webp.
+        :rtype: str
+        """
+        return self._LastFrameUrl
+
+    @LastFrameUrl.setter
+    def LastFrameUrl(self, LastFrameUrl):
+        self._LastFrameUrl = LastFrameUrl
+
+    @property
+    def Prompt(self):
+        r"""Prompt content for video generation. this parameter is required when FileInfos is empty.
+Example value: move the picture.
+        :rtype: str
+        """
+        return self._Prompt
+
+    @Prompt.setter
+    def Prompt(self, Prompt):
+        self._Prompt = Prompt
+
+    @property
+    def NegativePrompt(self):
+        r"""Prevent the model from generating video prompts.
+        :rtype: str
+        """
+        return self._NegativePrompt
+
+    @NegativePrompt.setter
+    def NegativePrompt(self, NegativePrompt):
+        self._NegativePrompt = NegativePrompt
+
+    @property
+    def EnhancePrompt(self):
+        r"""Whether to optimize Prompt content automatically. when Enabled, the passed-in Prompt will be optimized automatically to enhance generation quality. valid values: <li>Enabled: enable;</li> <li>Disabled: disable;</li>.
+        :rtype: str
+        """
+        return self._EnhancePrompt
+
+    @EnhancePrompt.setter
+    def EnhancePrompt(self, EnhancePrompt):
+        self._EnhancePrompt = EnhancePrompt
+
+    @property
+    def OutputConfig(self):
+        r"""Specifies the output media file configuration for the video task.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AigcVideoOutputConfig`
+        """
+        return self._OutputConfig
+
+    @OutputConfig.setter
+    def OutputConfig(self, OutputConfig):
+        self._OutputConfig = OutputConfig
+
+    @property
+    def SessionId(self):
+        r"""An identifier for deduplication. if there has been a request with the same identifier within the past 3 days, an error will be returned for the current request. the maximum length is 50 characters. leaving it blank or using an empty string indicates no deduplication.
+        :rtype: str
+        """
+        return self._SessionId
+
+    @SessionId.setter
+    def SessionId(self, SessionId):
+        self._SessionId = SessionId
+
+    @property
+    def SessionContext(self):
+        r"""Source context, used to pass through user request information. the audio and video quality revival complete callback will return the value of this field, up to 1000 characters.
+        :rtype: str
+        """
+        return self._SessionContext
+
+    @SessionContext.setter
+    def SessionContext(self, SessionContext):
+        self._SessionContext = SessionContext
+
+    @property
+    def TasksPriority(self):
+        r"""Task priority. the higher the value, the higher the priority. the value range is from -10 to 10. if left blank, the default value is 0.
+        :rtype: int
+        """
+        return self._TasksPriority
+
+    @TasksPriority.setter
+    def TasksPriority(self, TasksPriority):
+        self._TasksPriority = TasksPriority
+
+    @property
+    def ExtInfo(self):
+        r"""Reserved field, used for special purpose.
+        :rtype: str
+        """
+        return self._ExtInfo
+
+    @ExtInfo.setter
+    def ExtInfo(self, ExtInfo):
+        self._ExtInfo = ExtInfo
+
+    @property
+    def InputRegion(self):
+        r"""Specifies the region information of the input image. when the image url is a foreign address, selectable Oversea. default Mainland.
+        :rtype: str
+        """
+        return self._InputRegion
+
+    @InputRegion.setter
+    def InputRegion(self, InputRegion):
+        self._InputRegion = InputRegion
+
+
+    def _deserialize(self, params):
+        self._SubAppId = params.get("SubAppId")
+        self._ModelName = params.get("ModelName")
+        self._ModelVersion = params.get("ModelVersion")
+        if params.get("FileInfos") is not None:
+            self._FileInfos = []
+            for item in params.get("FileInfos"):
+                obj = AigcVideoTaskInputFileInfo()
+                obj._deserialize(item)
+                self._FileInfos.append(obj)
+        self._LastFrameFileId = params.get("LastFrameFileId")
+        self._LastFrameUrl = params.get("LastFrameUrl")
+        self._Prompt = params.get("Prompt")
+        self._NegativePrompt = params.get("NegativePrompt")
+        self._EnhancePrompt = params.get("EnhancePrompt")
+        if params.get("OutputConfig") is not None:
+            self._OutputConfig = AigcVideoOutputConfig()
+            self._OutputConfig._deserialize(params.get("OutputConfig"))
+        self._SessionId = params.get("SessionId")
+        self._SessionContext = params.get("SessionContext")
+        self._TasksPriority = params.get("TasksPriority")
+        self._ExtInfo = params.get("ExtInfo")
+        self._InputRegion = params.get("InputRegion")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateAigcVideoTaskResponse(AbstractModel):
+    r"""CreateAigcVideoTask response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: Task ID.
+        :type TaskId: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._TaskId = None
+        self._RequestId = None
+
+    @property
+    def TaskId(self):
+        r"""Task ID.
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._RequestId = params.get("RequestId")
+
+
 class CreateAnimatedGraphicsTemplateRequest(AbstractModel):
     r"""CreateAnimatedGraphicsTemplate request structure.
 
@@ -22058,6 +24729,205 @@ class CreateSampleSnapshotTemplateResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class CreateSceneAigcImageTaskRequest(AbstractModel):
+    r"""CreateSceneAigcImageTask request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SubAppId: <b>The VOD [application](https://intl.cloud.tencent.com/document/product/266/14574) ID. For customers who activate VOD service from December 25, 2023, if they want to access resources in a VOD application (whether it's the default application or a newly created one), they must fill in this field with the application ID.</b>
+        :type SubAppId: int
+        :param _SceneInfo: Scenario-Based image generation parameter configuration.
+        :type SceneInfo: :class:`tencentcloud.vod.v20180717.models.AigcImageSceneInfo`
+        :param _FileInfos: Input image list. supported image formats: jpg, jpeg, png, webp. different scenarios require different input data.
+
+- AI clothing change scenario: input only 1 model image.
+- AI product image scenario: manually input 1-10 images of different angles per product.
+        :type FileInfos: list of SceneAigcImageTaskInputFileInfo
+        :param _OutputConfig: Specifies the output media file configuration for the scenario-based image task.
+        :type OutputConfig: :class:`tencentcloud.vod.v20180717.models.SceneAigcImageOutputConfig`
+        :param _SessionId: An identifier for deduplication. if there has been a request with the same identifier within the past 3 days, an error will be returned for the current request. the maximum length is 50 characters. leaving it blank or using an empty string indicates no deduplication.
+        :type SessionId: str
+        :param _SessionContext: Source context, used to pass through user request information. the audio and video quality revival complete callback will return the value of this field, up to 1000 characters.
+        :type SessionContext: str
+        :param _TasksPriority: Task priority. the higher the value, the higher the priority. the value range is from -10 to 10. if left blank, the default value is 0.
+        :type TasksPriority: int
+        :param _ExtInfo: Reserved field, used for special purpose.
+        :type ExtInfo: str
+        """
+        self._SubAppId = None
+        self._SceneInfo = None
+        self._FileInfos = None
+        self._OutputConfig = None
+        self._SessionId = None
+        self._SessionContext = None
+        self._TasksPriority = None
+        self._ExtInfo = None
+
+    @property
+    def SubAppId(self):
+        r"""<b>The VOD [application](https://intl.cloud.tencent.com/document/product/266/14574) ID. For customers who activate VOD service from December 25, 2023, if they want to access resources in a VOD application (whether it's the default application or a newly created one), they must fill in this field with the application ID.</b>
+        :rtype: int
+        """
+        return self._SubAppId
+
+    @SubAppId.setter
+    def SubAppId(self, SubAppId):
+        self._SubAppId = SubAppId
+
+    @property
+    def SceneInfo(self):
+        r"""Scenario-Based image generation parameter configuration.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AigcImageSceneInfo`
+        """
+        return self._SceneInfo
+
+    @SceneInfo.setter
+    def SceneInfo(self, SceneInfo):
+        self._SceneInfo = SceneInfo
+
+    @property
+    def FileInfos(self):
+        r"""Input image list. supported image formats: jpg, jpeg, png, webp. different scenarios require different input data.
+
+- AI clothing change scenario: input only 1 model image.
+- AI product image scenario: manually input 1-10 images of different angles per product.
+        :rtype: list of SceneAigcImageTaskInputFileInfo
+        """
+        return self._FileInfos
+
+    @FileInfos.setter
+    def FileInfos(self, FileInfos):
+        self._FileInfos = FileInfos
+
+    @property
+    def OutputConfig(self):
+        r"""Specifies the output media file configuration for the scenario-based image task.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.SceneAigcImageOutputConfig`
+        """
+        return self._OutputConfig
+
+    @OutputConfig.setter
+    def OutputConfig(self, OutputConfig):
+        self._OutputConfig = OutputConfig
+
+    @property
+    def SessionId(self):
+        r"""An identifier for deduplication. if there has been a request with the same identifier within the past 3 days, an error will be returned for the current request. the maximum length is 50 characters. leaving it blank or using an empty string indicates no deduplication.
+        :rtype: str
+        """
+        return self._SessionId
+
+    @SessionId.setter
+    def SessionId(self, SessionId):
+        self._SessionId = SessionId
+
+    @property
+    def SessionContext(self):
+        r"""Source context, used to pass through user request information. the audio and video quality revival complete callback will return the value of this field, up to 1000 characters.
+        :rtype: str
+        """
+        return self._SessionContext
+
+    @SessionContext.setter
+    def SessionContext(self, SessionContext):
+        self._SessionContext = SessionContext
+
+    @property
+    def TasksPriority(self):
+        r"""Task priority. the higher the value, the higher the priority. the value range is from -10 to 10. if left blank, the default value is 0.
+        :rtype: int
+        """
+        return self._TasksPriority
+
+    @TasksPriority.setter
+    def TasksPriority(self, TasksPriority):
+        self._TasksPriority = TasksPriority
+
+    @property
+    def ExtInfo(self):
+        r"""Reserved field, used for special purpose.
+        :rtype: str
+        """
+        return self._ExtInfo
+
+    @ExtInfo.setter
+    def ExtInfo(self, ExtInfo):
+        self._ExtInfo = ExtInfo
+
+
+    def _deserialize(self, params):
+        self._SubAppId = params.get("SubAppId")
+        if params.get("SceneInfo") is not None:
+            self._SceneInfo = AigcImageSceneInfo()
+            self._SceneInfo._deserialize(params.get("SceneInfo"))
+        if params.get("FileInfos") is not None:
+            self._FileInfos = []
+            for item in params.get("FileInfos"):
+                obj = SceneAigcImageTaskInputFileInfo()
+                obj._deserialize(item)
+                self._FileInfos.append(obj)
+        if params.get("OutputConfig") is not None:
+            self._OutputConfig = SceneAigcImageOutputConfig()
+            self._OutputConfig._deserialize(params.get("OutputConfig"))
+        self._SessionId = params.get("SessionId")
+        self._SessionContext = params.get("SessionContext")
+        self._TasksPriority = params.get("TasksPriority")
+        self._ExtInfo = params.get("ExtInfo")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateSceneAigcImageTaskResponse(AbstractModel):
+    r"""CreateSceneAigcImageTask response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: Task ID.
+        :type TaskId: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._TaskId = None
+        self._RequestId = None
+
+    @property
+    def TaskId(self):
+        r"""Task ID.
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._RequestId = params.get("RequestId")
+
+
 class CreateSnapshotByTimeOffsetTemplateRequest(AbstractModel):
     r"""CreateSnapshotByTimeOffsetTemplate request structure.
 
@@ -22779,6 +25649,8 @@ Default value: 0.
         :type AudioTemplate: :class:`tencentcloud.vod.v20180717.models.AudioTemplateInfo`
         :param _TEHDConfig: TESHD transcoding parameter.
         :type TEHDConfig: :class:`tencentcloud.vod.v20180717.models.TEHDConfig`
+        :param _EnhanceConfig: Audio/Video enhancement parameter.
+        :type EnhanceConfig: :class:`tencentcloud.vod.v20180717.models.EnhanceConfig`
         :param _SegmentType: The segment type. This parameter is valid only if `Container` is `hls`. Valid values:
 <li>ts: TS segment</li>
 <li>fmp4: fMP4 segment</li>
@@ -22794,6 +25666,7 @@ Default: ts
         self._VideoTemplate = None
         self._AudioTemplate = None
         self._TEHDConfig = None
+        self._EnhanceConfig = None
         self._SegmentType = None
 
     @property
@@ -22902,6 +25775,17 @@ Default value: 0.
         self._TEHDConfig = TEHDConfig
 
     @property
+    def EnhanceConfig(self):
+        r"""Audio/Video enhancement parameter.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.EnhanceConfig`
+        """
+        return self._EnhanceConfig
+
+    @EnhanceConfig.setter
+    def EnhanceConfig(self, EnhanceConfig):
+        self._EnhanceConfig = EnhanceConfig
+
+    @property
     def SegmentType(self):
         r"""The segment type. This parameter is valid only if `Container` is `hls`. Valid values:
 <li>ts: TS segment</li>
@@ -22932,6 +25816,9 @@ Default: ts
         if params.get("TEHDConfig") is not None:
             self._TEHDConfig = TEHDConfig()
             self._TEHDConfig._deserialize(params.get("TEHDConfig"))
+        if params.get("EnhanceConfig") is not None:
+            self._EnhanceConfig = EnhanceConfig()
+            self._EnhanceConfig._deserialize(params.get("EnhanceConfig"))
         self._SegmentType = params.get("SegmentType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
@@ -32303,6 +35190,14 @@ Note: This field may return null, indicating that no valid value can be obtained
         :type ComplexAdaptiveDynamicStreamingTask: :class:`tencentcloud.vod.v20180717.models.ComplexAdaptiveDynamicStreamingTask`
         :param _ProcessMediaByMPSTask: Media processing by MPS task information. This field contains a value only when TaskType is ProcessMediaByMPS.
         :type ProcessMediaByMPSTask: :class:`tencentcloud.vod.v20180717.models.ProcessMediaByMPS`
+        :param _AigcImageTask: AIGC image task information. This field contains a value only when TaskType is AigcImageTask.
+        :type AigcImageTask: :class:`tencentcloud.vod.v20180717.models.AigcImageTask`
+        :param _AigcVideoTask: AIGC video task information. This field contains a value only when TaskType is AigcVideoTask.
+        :type AigcVideoTask: :class:`tencentcloud.vod.v20180717.models.AigcVideoTask`
+        :param _ImportMediaKnowledge: 
+        :type ImportMediaKnowledge: :class:`tencentcloud.vod.v20180717.models.ImportMediaKnowledgeTask`
+        :param _SceneAigcImageTask: Scenario-based AIGC image task information. This field contains a value only when TaskType is SceneAigcImageTask.
+        :type SceneAigcImageTask: :class:`tencentcloud.vod.v20180717.models.SceneAigcImageTask`
         :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
         :type RequestId: str
         """
@@ -32334,6 +35229,10 @@ Note: This field may return null, indicating that no valid value can be obtained
         self._QualityEnhanceTask = None
         self._ComplexAdaptiveDynamicStreamingTask = None
         self._ProcessMediaByMPSTask = None
+        self._AigcImageTask = None
+        self._AigcVideoTask = None
+        self._ImportMediaKnowledge = None
+        self._SceneAigcImageTask = None
         self._RequestId = None
 
     @property
@@ -32684,6 +35583,50 @@ Note: This field may return null, indicating that no valid value can be obtained
         self._ProcessMediaByMPSTask = ProcessMediaByMPSTask
 
     @property
+    def AigcImageTask(self):
+        r"""AIGC image task information. This field contains a value only when TaskType is AigcImageTask.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AigcImageTask`
+        """
+        return self._AigcImageTask
+
+    @AigcImageTask.setter
+    def AigcImageTask(self, AigcImageTask):
+        self._AigcImageTask = AigcImageTask
+
+    @property
+    def AigcVideoTask(self):
+        r"""AIGC video task information. This field contains a value only when TaskType is AigcVideoTask.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AigcVideoTask`
+        """
+        return self._AigcVideoTask
+
+    @AigcVideoTask.setter
+    def AigcVideoTask(self, AigcVideoTask):
+        self._AigcVideoTask = AigcVideoTask
+
+    @property
+    def ImportMediaKnowledge(self):
+        r"""
+        :rtype: :class:`tencentcloud.vod.v20180717.models.ImportMediaKnowledgeTask`
+        """
+        return self._ImportMediaKnowledge
+
+    @ImportMediaKnowledge.setter
+    def ImportMediaKnowledge(self, ImportMediaKnowledge):
+        self._ImportMediaKnowledge = ImportMediaKnowledge
+
+    @property
+    def SceneAigcImageTask(self):
+        r"""Scenario-based AIGC image task information. This field contains a value only when TaskType is SceneAigcImageTask.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.SceneAigcImageTask`
+        """
+        return self._SceneAigcImageTask
+
+    @SceneAigcImageTask.setter
+    def SceneAigcImageTask(self, SceneAigcImageTask):
+        self._SceneAigcImageTask = SceneAigcImageTask
+
+    @property
     def RequestId(self):
         r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
         :rtype: str
@@ -32770,6 +35713,18 @@ Note: This field may return null, indicating that no valid value can be obtained
         if params.get("ProcessMediaByMPSTask") is not None:
             self._ProcessMediaByMPSTask = ProcessMediaByMPS()
             self._ProcessMediaByMPSTask._deserialize(params.get("ProcessMediaByMPSTask"))
+        if params.get("AigcImageTask") is not None:
+            self._AigcImageTask = AigcImageTask()
+            self._AigcImageTask._deserialize(params.get("AigcImageTask"))
+        if params.get("AigcVideoTask") is not None:
+            self._AigcVideoTask = AigcVideoTask()
+            self._AigcVideoTask._deserialize(params.get("AigcVideoTask"))
+        if params.get("ImportMediaKnowledge") is not None:
+            self._ImportMediaKnowledge = ImportMediaKnowledgeTask()
+            self._ImportMediaKnowledge._deserialize(params.get("ImportMediaKnowledge"))
+        if params.get("SceneAigcImageTask") is not None:
+            self._SceneAigcImageTask = SceneAigcImageTask()
+            self._SceneAigcImageTask._deserialize(params.get("SceneAigcImageTask"))
         self._RequestId = params.get("RequestId")
 
 
@@ -33014,6 +35969,23 @@ class DescribeTranscodeTemplatesRequest(AbstractModel):
         :type Offset: int
         :param _Limit: Number of returned entries. Default value: 10. Maximum value: 100.
         :type Limit: int
+        :param _EnhanceType: Enhancement type. Valid values:
+<li>VideoEnhance: video enhancement only.</li>
+<li>AudioEnhance: audio enhancement only.</li>
+<li>AudioVideoEnhance: video and audio enhancement included.</li>
+<li> AnyEnhance: `VideoEnhance`, `AudioEnhance ` and `AudioVideoEnhance` included.</li>
+<li> None: Not any enhancement type</li>
+        :type EnhanceType: str
+        :param _EnhanceScenarioType: Enhancement scenario configuration. Valid values:
+<li>common: common enhancement parameters, which are basic optimization parameters suitable for various video types, enhancing overall image quality.</li>
+<li>AIGC: overall resolution enhancement. It uses AI technology to improve the overall video resolution and image clarity.</li>
+<li>short_play: enhance facial and subtitle details, emphasizing characters' facial expressions and subtitle clarity to improve the viewing experience.</li>
+<li>short_video: optimize complex and diverse image quality issues, tailoring quality enhancements for the complex scenarios such as short videos to address various visual issues.</li>
+<li>game: fix motion blur and enhance details, with a focus on enhancing the clarity of game details and restoring blurry areas during motions to make the image content during gaming clearer and richer.</li>
+<li>HD_movie_series: provide a smooth playback effect for UHD videos. Standard 4K HDR videos with an FPS of 60 are generated to meet the needs of broadcasting/OTT for UHD videos. Formats for broadcasting scenarios are supported.</li>
+<li>LQ_material: low-definition material/old video restoration. It enhances overall resolution, and solves issues of old videos, such as low resolution, blur, distortion, scratches, and color temperature due to their age.</li>
+<li>lecture: live shows, e-commerce, conferences, and lectures. It improves the face display effect and performs specific optimizations, including face region enhancement, noise reduction, and artifacts removal, for scenarios involving human explanation, such as live shows, e-commerce, conferences, and lectures.</li>
+        :type EnhanceScenarioType: str
         """
         self._SubAppId = None
         self._Definitions = None
@@ -33022,6 +35994,8 @@ class DescribeTranscodeTemplatesRequest(AbstractModel):
         self._TEHDType = None
         self._Offset = None
         self._Limit = None
+        self._EnhanceType = None
+        self._EnhanceScenarioType = None
 
     @property
     def SubAppId(self):
@@ -33106,6 +36080,41 @@ class DescribeTranscodeTemplatesRequest(AbstractModel):
     def Limit(self, Limit):
         self._Limit = Limit
 
+    @property
+    def EnhanceType(self):
+        r"""Enhancement type. Valid values:
+<li>VideoEnhance: video enhancement only.</li>
+<li>AudioEnhance: audio enhancement only.</li>
+<li>AudioVideoEnhance: video and audio enhancement included.</li>
+<li> AnyEnhance: `VideoEnhance`, `AudioEnhance ` and `AudioVideoEnhance` included.</li>
+<li> None: Not any enhancement type</li>
+        :rtype: str
+        """
+        return self._EnhanceType
+
+    @EnhanceType.setter
+    def EnhanceType(self, EnhanceType):
+        self._EnhanceType = EnhanceType
+
+    @property
+    def EnhanceScenarioType(self):
+        r"""Enhancement scenario configuration. Valid values:
+<li>common: common enhancement parameters, which are basic optimization parameters suitable for various video types, enhancing overall image quality.</li>
+<li>AIGC: overall resolution enhancement. It uses AI technology to improve the overall video resolution and image clarity.</li>
+<li>short_play: enhance facial and subtitle details, emphasizing characters' facial expressions and subtitle clarity to improve the viewing experience.</li>
+<li>short_video: optimize complex and diverse image quality issues, tailoring quality enhancements for the complex scenarios such as short videos to address various visual issues.</li>
+<li>game: fix motion blur and enhance details, with a focus on enhancing the clarity of game details and restoring blurry areas during motions to make the image content during gaming clearer and richer.</li>
+<li>HD_movie_series: provide a smooth playback effect for UHD videos. Standard 4K HDR videos with an FPS of 60 are generated to meet the needs of broadcasting/OTT for UHD videos. Formats for broadcasting scenarios are supported.</li>
+<li>LQ_material: low-definition material/old video restoration. It enhances overall resolution, and solves issues of old videos, such as low resolution, blur, distortion, scratches, and color temperature due to their age.</li>
+<li>lecture: live shows, e-commerce, conferences, and lectures. It improves the face display effect and performs specific optimizations, including face region enhancement, noise reduction, and artifacts removal, for scenarios involving human explanation, such as live shows, e-commerce, conferences, and lectures.</li>
+        :rtype: str
+        """
+        return self._EnhanceScenarioType
+
+    @EnhanceScenarioType.setter
+    def EnhanceScenarioType(self, EnhanceScenarioType):
+        self._EnhanceScenarioType = EnhanceScenarioType
+
 
     def _deserialize(self, params):
         self._SubAppId = params.get("SubAppId")
@@ -33115,6 +36124,8 @@ class DescribeTranscodeTemplatesRequest(AbstractModel):
         self._TEHDType = params.get("TEHDType")
         self._Offset = params.get("Offset")
         self._Limit = params.get("Limit")
+        self._EnhanceType = params.get("EnhanceType")
+        self._EnhanceScenarioType = params.get("EnhanceScenarioType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -33693,6 +36704,71 @@ class DescribeWordSamplesResponse(AbstractModel):
                 obj._deserialize(item)
                 self._WordSet.append(obj)
         self._RequestId = params.get("RequestId")
+
+
+class DiffusionEnhanceInfo(AbstractModel):
+    r"""LLM enhancement configuration.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Switch: Whether to enable LLM enhancement. Valid values:
+<li>ON</li>
+<li>OFF</li>
+Default value: OFF.
+        :type Switch: str
+        :param _Type: The strength. Valid values:
+<li>weak</li>
+<li>normal</li>
+<li>strong</li>
+Default value: normal.
+        :type Type: str
+        """
+        self._Switch = None
+        self._Type = None
+
+    @property
+    def Switch(self):
+        r"""Whether to enable LLM enhancement. Valid values:
+<li>ON</li>
+<li>OFF</li>
+Default value: OFF.
+        :rtype: str
+        """
+        return self._Switch
+
+    @Switch.setter
+    def Switch(self, Switch):
+        self._Switch = Switch
+
+    @property
+    def Type(self):
+        r"""The strength. Valid values:
+<li>weak</li>
+<li>normal</li>
+<li>strong</li>
+Default value: normal.
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+
+    def _deserialize(self, params):
+        self._Switch = params.get("Switch")
+        self._Type = params.get("Type")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
 
 
 class DomainDetailInfo(AbstractModel):
@@ -35353,6 +38429,124 @@ class EmptyTrackItem(AbstractModel):
         
 
 
+class EnhanceConfig(AbstractModel):
+    r"""Audio/Video enhancement configuration.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _VideoEnhance: Video enhancement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type VideoEnhance: :class:`tencentcloud.vod.v20180717.models.VideoEnhanceConfig`
+        :param _AudioEnhance: The audio enhancement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type AudioEnhance: :class:`tencentcloud.vod.v20180717.models.AudioEnhanceConfig`
+        """
+        self._VideoEnhance = None
+        self._AudioEnhance = None
+
+    @property
+    def VideoEnhance(self):
+        r"""Video enhancement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.VideoEnhanceConfig`
+        """
+        return self._VideoEnhance
+
+    @VideoEnhance.setter
+    def VideoEnhance(self, VideoEnhance):
+        self._VideoEnhance = VideoEnhance
+
+    @property
+    def AudioEnhance(self):
+        r"""The audio enhancement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AudioEnhanceConfig`
+        """
+        return self._AudioEnhance
+
+    @AudioEnhance.setter
+    def AudioEnhance(self, AudioEnhance):
+        self._AudioEnhance = AudioEnhance
+
+
+    def _deserialize(self, params):
+        if params.get("VideoEnhance") is not None:
+            self._VideoEnhance = VideoEnhanceConfig()
+            self._VideoEnhance._deserialize(params.get("VideoEnhance"))
+        if params.get("AudioEnhance") is not None:
+            self._AudioEnhance = AudioEnhanceConfig()
+            self._AudioEnhance._deserialize(params.get("AudioEnhance"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class EnhanceConfigForUpdate(AbstractModel):
+    r"""Audio/Video enhancement configuration.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _VideoEnhance: Video enhancement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type VideoEnhance: :class:`tencentcloud.vod.v20180717.models.VideoEnhanceConfig`
+        :param _AudioEnhance: The audio enhancement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type AudioEnhance: :class:`tencentcloud.vod.v20180717.models.AudioEnhanceConfig`
+        """
+        self._VideoEnhance = None
+        self._AudioEnhance = None
+
+    @property
+    def VideoEnhance(self):
+        r"""Video enhancement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.VideoEnhanceConfig`
+        """
+        return self._VideoEnhance
+
+    @VideoEnhance.setter
+    def VideoEnhance(self, VideoEnhance):
+        self._VideoEnhance = VideoEnhance
+
+    @property
+    def AudioEnhance(self):
+        r"""The audio enhancement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AudioEnhanceConfig`
+        """
+        return self._AudioEnhance
+
+    @AudioEnhance.setter
+    def AudioEnhance(self, AudioEnhance):
+        self._AudioEnhance = AudioEnhance
+
+
+    def _deserialize(self, params):
+        if params.get("VideoEnhance") is not None:
+            self._VideoEnhance = VideoEnhanceConfig()
+            self._VideoEnhance._deserialize(params.get("VideoEnhance"))
+        if params.get("AudioEnhance") is not None:
+            self._AudioEnhance = AudioEnhanceConfig()
+            self._AudioEnhance._deserialize(params.get("AudioEnhance"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class EnhanceMediaByTemplateRequest(AbstractModel):
     r"""EnhanceMediaByTemplate request structure.
 
@@ -35891,6 +39085,14 @@ Note: This field may return null, indicating that no valid value can be obtained
         :param _ComplexAdaptiveDynamicStreamingCompleteEvent: Complex adaptive bitrate streaming processing completion event, valid when the event type is ComplexAdaptiveDynamicStreamingComplete.
 Note: This field may return null, indicating that no valid value can be obtained.
         :type ComplexAdaptiveDynamicStreamingCompleteEvent: :class:`tencentcloud.vod.v20180717.models.ComplexAdaptiveDynamicStreamingTask`
+        :param _ProcessMediaByMPSCompleteEvent: 
+        :type ProcessMediaByMPSCompleteEvent: :class:`tencentcloud.vod.v20180717.models.ProcessMediaByMPS`
+        :param _AigcImageCompleteEvent: AIGC image task completion event, valid when the event type is AigcImageTaskComplete.
+Note: This field may return null, indicating that no valid value can be obtained.
+        :type AigcImageCompleteEvent: :class:`tencentcloud.vod.v20180717.models.AigcImageTask`
+        :param _AigcVideoCompleteEvent: AIGC video task completion event, valid when the event type is AigcVideoTaskComplete.
+Note: This field may return null, indicating that no valid value can be obtained.
+        :type AigcVideoCompleteEvent: :class:`tencentcloud.vod.v20180717.models.AigcVideoTask`
         """
         self._EventHandle = None
         self._EventType = None
@@ -35921,6 +39123,9 @@ Note: This field may return null, indicating that no valid value can be obtained
         self._MediaCastStatusChangedEvent = None
         self._PersistenceCompleteEvent = None
         self._ComplexAdaptiveDynamicStreamingCompleteEvent = None
+        self._ProcessMediaByMPSCompleteEvent = None
+        self._AigcImageCompleteEvent = None
+        self._AigcVideoCompleteEvent = None
 
     @property
     def EventHandle(self):
@@ -36259,6 +39464,41 @@ Note: This field may return null, indicating that no valid value can be obtained
     def ComplexAdaptiveDynamicStreamingCompleteEvent(self, ComplexAdaptiveDynamicStreamingCompleteEvent):
         self._ComplexAdaptiveDynamicStreamingCompleteEvent = ComplexAdaptiveDynamicStreamingCompleteEvent
 
+    @property
+    def ProcessMediaByMPSCompleteEvent(self):
+        r"""
+        :rtype: :class:`tencentcloud.vod.v20180717.models.ProcessMediaByMPS`
+        """
+        return self._ProcessMediaByMPSCompleteEvent
+
+    @ProcessMediaByMPSCompleteEvent.setter
+    def ProcessMediaByMPSCompleteEvent(self, ProcessMediaByMPSCompleteEvent):
+        self._ProcessMediaByMPSCompleteEvent = ProcessMediaByMPSCompleteEvent
+
+    @property
+    def AigcImageCompleteEvent(self):
+        r"""AIGC image task completion event, valid when the event type is AigcImageTaskComplete.
+Note: This field may return null, indicating that no valid value can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AigcImageTask`
+        """
+        return self._AigcImageCompleteEvent
+
+    @AigcImageCompleteEvent.setter
+    def AigcImageCompleteEvent(self, AigcImageCompleteEvent):
+        self._AigcImageCompleteEvent = AigcImageCompleteEvent
+
+    @property
+    def AigcVideoCompleteEvent(self):
+        r"""AIGC video task completion event, valid when the event type is AigcVideoTaskComplete.
+Note: This field may return null, indicating that no valid value can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AigcVideoTask`
+        """
+        return self._AigcVideoCompleteEvent
+
+    @AigcVideoCompleteEvent.setter
+    def AigcVideoCompleteEvent(self, AigcVideoCompleteEvent):
+        self._AigcVideoCompleteEvent = AigcVideoCompleteEvent
+
 
     def _deserialize(self, params):
         self._EventHandle = params.get("EventHandle")
@@ -36344,6 +39584,15 @@ Note: This field may return null, indicating that no valid value can be obtained
         if params.get("ComplexAdaptiveDynamicStreamingCompleteEvent") is not None:
             self._ComplexAdaptiveDynamicStreamingCompleteEvent = ComplexAdaptiveDynamicStreamingTask()
             self._ComplexAdaptiveDynamicStreamingCompleteEvent._deserialize(params.get("ComplexAdaptiveDynamicStreamingCompleteEvent"))
+        if params.get("ProcessMediaByMPSCompleteEvent") is not None:
+            self._ProcessMediaByMPSCompleteEvent = ProcessMediaByMPS()
+            self._ProcessMediaByMPSCompleteEvent._deserialize(params.get("ProcessMediaByMPSCompleteEvent"))
+        if params.get("AigcImageCompleteEvent") is not None:
+            self._AigcImageCompleteEvent = AigcImageTask()
+            self._AigcImageCompleteEvent._deserialize(params.get("AigcImageCompleteEvent"))
+        if params.get("AigcVideoCompleteEvent") is not None:
+            self._AigcVideoCompleteEvent = AigcVideoTask()
+            self._AigcVideoCompleteEvent._deserialize(params.get("AigcVideoCompleteEvent"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -38446,6 +41695,78 @@ class ForceRedirect(AbstractModel):
         
 
 
+class FrameRateWithDenInfo(AbstractModel):
+    r"""Frame interpolation configuration, which supports fractional frame rates.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Switch: Capability configuration switch. Valid values:
+<li>ON: enabled.</li>
+<li>OFF: disabled.</li>
+Default value: OFF.
+        :type Switch: str
+        :param _FpsNum: Frame rate numerator. Value range: non-negative number, which should be less than 100 when divided by the denominator, and in the unit of Hz. The default value is 0. Note: For transcoding, this parameter will overwrite the Fps in the VideoTemplate.
+        :type FpsNum: int
+        :param _FpsDen: Frame rate denominator.Value range: numbers equal to or greater than 1. The default value is 1. Note: For transcoding, this parameter will overwrite the FpsDenominator in the VideoTemplate.
+        :type FpsDen: int
+        """
+        self._Switch = None
+        self._FpsNum = None
+        self._FpsDen = None
+
+    @property
+    def Switch(self):
+        r"""Capability configuration switch. Valid values:
+<li>ON: enabled.</li>
+<li>OFF: disabled.</li>
+Default value: OFF.
+        :rtype: str
+        """
+        return self._Switch
+
+    @Switch.setter
+    def Switch(self, Switch):
+        self._Switch = Switch
+
+    @property
+    def FpsNum(self):
+        r"""Frame rate numerator. Value range: non-negative number, which should be less than 100 when divided by the denominator, and in the unit of Hz. The default value is 0. Note: For transcoding, this parameter will overwrite the Fps in the VideoTemplate.
+        :rtype: int
+        """
+        return self._FpsNum
+
+    @FpsNum.setter
+    def FpsNum(self, FpsNum):
+        self._FpsNum = FpsNum
+
+    @property
+    def FpsDen(self):
+        r"""Frame rate denominator.Value range: numbers equal to or greater than 1. The default value is 1. Note: For transcoding, this parameter will overwrite the FpsDenominator in the VideoTemplate.
+        :rtype: int
+        """
+        return self._FpsDen
+
+    @FpsDen.setter
+    def FpsDen(self, FpsDen):
+        self._FpsDen = FpsDen
+
+
+    def _deserialize(self, params):
+        self._Switch = params.get("Switch")
+        self._FpsNum = params.get("FpsNum")
+        self._FpsDen = params.get("FpsDen")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class FrameTagConfigureInfo(AbstractModel):
     r"""Control parameter of intelligent frame-specific tagging task
 
@@ -38566,6 +41887,7 @@ class HDRInfo(AbstractModel):
         :param _Switch: Whether to enable HDR. Valid values:
 <li>`ON`</li>
 <li>`OFF`</li>
+Default value: `OFF`.
         :type Switch: str
         :param _Type: The HDR type. Valid values:
 <li>`hdr10`</li>
@@ -38573,7 +41895,7 @@ class HDRInfo(AbstractModel):
 
 Note:
 <li>This parameter is valid only if `Switch` is `ON`.</li>
-<li>For audio/video remastering, this parameter is valid only if the output video codec is `libx265`.</li>
+<li>For audio/video remastering, this parameter is valid only if the output video codec is `libx264` or`libx265`.</li>
         :type Type: str
         """
         self._Switch = None
@@ -38584,6 +41906,7 @@ Note:
         r"""Whether to enable HDR. Valid values:
 <li>`ON`</li>
 <li>`OFF`</li>
+Default value: `OFF`.
         :rtype: str
         """
         return self._Switch
@@ -38600,7 +41923,7 @@ Note:
 
 Note:
 <li>This parameter is valid only if `Switch` is `ON`.</li>
-<li>For audio/video remastering, this parameter is valid only if the output video codec is `libx265`.</li>
+<li>For audio/video remastering, this parameter is valid only if the output video codec is `libx264` or`libx265`.</li>
         :rtype: str
         """
         return self._Type
@@ -39974,6 +43297,71 @@ class ImageProcessingTemplate(AbstractModel):
         
 
 
+class ImageQualityEnhanceInfo(AbstractModel):
+    r"""Overall enhancement configuration.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Switch: Whether to enable overall enhancement. Valid values:
+<li>ON</li>
+<li>OFF</li>
+Default value: OFF.
+        :type Switch: str
+        :param _Type: The strength. Valid values:
+<li>weak</li>
+<li>normal</li>
+<li>strong</li>
+Default value: weak.
+        :type Type: str
+        """
+        self._Switch = None
+        self._Type = None
+
+    @property
+    def Switch(self):
+        r"""Whether to enable overall enhancement. Valid values:
+<li>ON</li>
+<li>OFF</li>
+Default value: OFF.
+        :rtype: str
+        """
+        return self._Switch
+
+    @Switch.setter
+    def Switch(self, Switch):
+        self._Switch = Switch
+
+    @property
+    def Type(self):
+        r"""The strength. Valid values:
+<li>weak</li>
+<li>normal</li>
+<li>strong</li>
+Default value: weak.
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+
+    def _deserialize(self, params):
+        self._Switch = params.get("Switch")
+        self._Type = params.get("Type")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ImageReviewUsageDataItem(AbstractModel):
     r"""The usage statistics for the image recognition feature.
 
@@ -40851,6 +44239,200 @@ class ImageWatermarkTemplate(AbstractModel):
         self._Height = params.get("Height")
         self._RepeatType = params.get("RepeatType")
         self._Transparency = params.get("Transparency")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ImportMediaKnowledgeRequest(AbstractModel):
+    r"""ImportMediaKnowledge request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SubAppId: <b>Specifies the VOD application ID.</b>
+        :type SubAppId: int
+        :param _FileId: media file ID, the globally unique identifier of the file in vod, is assigned by the vod backend after successful upload. can be obtained from the [video upload completion event notification](https://www.tencentcloud.com/document/product/266/7830?from_cn_redirect=1) or [vod console](https://console.tencentcloud.com//vod/media).
+        :type FileId: str
+        :param _ImportTasks: Specifies the task type for importing the knowledge base. valid values:.
+- AiAnalysis.DescriptionTask
+- SmartSubtitle.AsrFullTextTask
+        :type ImportTasks: list of str
+        """
+        self._SubAppId = None
+        self._FileId = None
+        self._ImportTasks = None
+
+    @property
+    def SubAppId(self):
+        r"""<b>Specifies the VOD application ID.</b>
+        :rtype: int
+        """
+        return self._SubAppId
+
+    @SubAppId.setter
+    def SubAppId(self, SubAppId):
+        self._SubAppId = SubAppId
+
+    @property
+    def FileId(self):
+        r"""media file ID, the globally unique identifier of the file in vod, is assigned by the vod backend after successful upload. can be obtained from the [video upload completion event notification](https://www.tencentcloud.com/document/product/266/7830?from_cn_redirect=1) or [vod console](https://console.tencentcloud.com//vod/media).
+        :rtype: str
+        """
+        return self._FileId
+
+    @FileId.setter
+    def FileId(self, FileId):
+        self._FileId = FileId
+
+    @property
+    def ImportTasks(self):
+        r"""Specifies the task type for importing the knowledge base. valid values:.
+- AiAnalysis.DescriptionTask
+- SmartSubtitle.AsrFullTextTask
+        :rtype: list of str
+        """
+        return self._ImportTasks
+
+    @ImportTasks.setter
+    def ImportTasks(self, ImportTasks):
+        self._ImportTasks = ImportTasks
+
+
+    def _deserialize(self, params):
+        self._SubAppId = params.get("SubAppId")
+        self._FileId = params.get("FileId")
+        self._ImportTasks = params.get("ImportTasks")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ImportMediaKnowledgeResponse(AbstractModel):
+    r"""ImportMediaKnowledge response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: Task ID.
+        :type TaskId: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._TaskId = None
+        self._RequestId = None
+
+    @property
+    def TaskId(self):
+        r"""Task ID.
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._RequestId = params.get("RequestId")
+
+
+class ImportMediaKnowledgeTask(AbstractModel):
+    r"""
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: 
+        :type TaskId: str
+        :param _Status: 
+        :type Status: str
+        :param _ErrCode: 
+        :type ErrCode: int
+        :param _Message: 
+        :type Message: str
+        """
+        self._TaskId = None
+        self._Status = None
+        self._ErrCode = None
+        self._Message = None
+
+    @property
+    def TaskId(self):
+        r"""
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def Status(self):
+        r"""
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def ErrCode(self):
+        r"""
+        :rtype: int
+        """
+        return self._ErrCode
+
+    @ErrCode.setter
+    def ErrCode(self, ErrCode):
+        self._ErrCode = ErrCode
+
+    @property
+    def Message(self):
+        r"""
+        :rtype: str
+        """
+        return self._Message
+
+    @Message.setter
+    def Message(self, Message):
+        self._Message = Message
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._Status = params.get("Status")
+        self._ErrCode = params.get("ErrCode")
+        self._Message = params.get("Message")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -42059,21 +45641,21 @@ Default value: `normal`.
 
 
 class MPSOutputFile(AbstractModel):
-    r"""
+    r"""Used to describe the returned file results in ProcessMediaByMPS tasks.
 
     """
 
     def __init__(self):
         r"""
-        :param _FileType: 
+        :param _FileType: File type. Used to identify the specific file returned in the ProcessMediaByMPS task execution results. Values: <li>AiAnalysis.DeLogo.Video: The erased video file generated by the smart erase task;</li><li>AiAnalysis.DeLogo.OriginSubtitle: The subtitle file extracted based on the screen in the smart erase task;</li><li>AiAnalysis.DeLogo.TranslateSubtitle: The subtitle translation file extracted based on the screen in the smart erase task.</li>
         :type FileType: str
-        :param _StorageMode: 
+        :param _StorageMode: Storage mode. It is used to indicate the storage mode of the result file. The possible values are: <li> Permanent: permanent storage; </li><li> Temporary: temporary storage. </li>
         :type StorageMode: str
-        :param _FileId: 
+        :param _FileId: Media file ID. Valid when Type is Permanent, indicating that the result file is stored in the VOD platform as a video media asset. The field value is the FileId of the video media asset.
         :type FileId: str
-        :param _Url: 
+        :param _Url: Downloadable URL for the result file.
         :type Url: str
-        :param _ExpiredTime: 
+        :param _ExpiredTime: Expiration time. Valid when StorageMode is Temporary. It indicates the expiration time of the URL in seconds.
         :type ExpiredTime: int
         """
         self._FileType = None
@@ -42084,7 +45666,7 @@ class MPSOutputFile(AbstractModel):
 
     @property
     def FileType(self):
-        r"""
+        r"""File type. Used to identify the specific file returned in the ProcessMediaByMPS task execution results. Values: <li>AiAnalysis.DeLogo.Video: The erased video file generated by the smart erase task;</li><li>AiAnalysis.DeLogo.OriginSubtitle: The subtitle file extracted based on the screen in the smart erase task;</li><li>AiAnalysis.DeLogo.TranslateSubtitle: The subtitle translation file extracted based on the screen in the smart erase task.</li>
         :rtype: str
         """
         return self._FileType
@@ -42095,7 +45677,7 @@ class MPSOutputFile(AbstractModel):
 
     @property
     def StorageMode(self):
-        r"""
+        r"""Storage mode. It is used to indicate the storage mode of the result file. The possible values are: <li> Permanent: permanent storage; </li><li> Temporary: temporary storage. </li>
         :rtype: str
         """
         return self._StorageMode
@@ -42106,7 +45688,7 @@ class MPSOutputFile(AbstractModel):
 
     @property
     def FileId(self):
-        r"""
+        r"""Media file ID. Valid when Type is Permanent, indicating that the result file is stored in the VOD platform as a video media asset. The field value is the FileId of the video media asset.
         :rtype: str
         """
         return self._FileId
@@ -42117,7 +45699,7 @@ class MPSOutputFile(AbstractModel):
 
     @property
     def Url(self):
-        r"""
+        r"""Downloadable URL for the result file.
         :rtype: str
         """
         return self._Url
@@ -42128,7 +45710,7 @@ class MPSOutputFile(AbstractModel):
 
     @property
     def ExpiredTime(self):
-        r"""
+        r"""Expiration time. Valid when StorageMode is Temporary. It indicates the expiration time of the URL in seconds.
         :rtype: int
         """
         return self._ExpiredTime
@@ -42155,23 +45737,23 @@ class MPSOutputFile(AbstractModel):
 
 
 class MPSSubTaskResult(AbstractModel):
-    r"""
+    r"""MPS specific subtask query result type.
 
     """
 
     def __init__(self):
         r"""
-        :param _TaskType: 
+        :param _TaskType: Task type. Specific subtask type in the MPS WorkflowTask structure. Value: <li>AiAnalysis.DeLogo: Intelligent erasure task.</li>
         :type TaskType: str
-        :param _Status: 
+        :param _Status: Task status. There are three types: PROCESSING, SUCCESS, and FAIL.
         :type Status: str
-        :param _ErrCode: 
+        :param _ErrCode: Error code. Returns 0 for success, other values for failure.
         :type ErrCode: str
-        :param _Message: 
+        :param _Message: Error message.
         :type Message: str
-        :param _Input: 
+        :param _Input: MPS media processing task input. This field corresponds to the Input result in the MPS task response and is returned in JSON format.
         :type Input: str
-        :param _Output: 
+        :param _Output: MPS media processing task output.
         :type Output: :class:`tencentcloud.vod.v20180717.models.MPSTaskOutput`
         """
         self._TaskType = None
@@ -42183,7 +45765,7 @@ class MPSSubTaskResult(AbstractModel):
 
     @property
     def TaskType(self):
-        r"""
+        r"""Task type. Specific subtask type in the MPS WorkflowTask structure. Value: <li>AiAnalysis.DeLogo: Intelligent erasure task.</li>
         :rtype: str
         """
         return self._TaskType
@@ -42194,7 +45776,7 @@ class MPSSubTaskResult(AbstractModel):
 
     @property
     def Status(self):
-        r"""
+        r"""Task status. There are three types: PROCESSING, SUCCESS, and FAIL.
         :rtype: str
         """
         return self._Status
@@ -42205,7 +45787,7 @@ class MPSSubTaskResult(AbstractModel):
 
     @property
     def ErrCode(self):
-        r"""
+        r"""Error code. Returns 0 for success, other values for failure.
         :rtype: str
         """
         return self._ErrCode
@@ -42216,7 +45798,7 @@ class MPSSubTaskResult(AbstractModel):
 
     @property
     def Message(self):
-        r"""
+        r"""Error message.
         :rtype: str
         """
         return self._Message
@@ -42227,7 +45809,7 @@ class MPSSubTaskResult(AbstractModel):
 
     @property
     def Input(self):
-        r"""
+        r"""MPS media processing task input. This field corresponds to the Input result in the MPS task response and is returned in JSON format.
         :rtype: str
         """
         return self._Input
@@ -42238,7 +45820,7 @@ class MPSSubTaskResult(AbstractModel):
 
     @property
     def Output(self):
-        r"""
+        r"""MPS media processing task output.
         :rtype: :class:`tencentcloud.vod.v20180717.models.MPSTaskOutput`
         """
         return self._Output
@@ -42268,20 +45850,20 @@ class MPSSubTaskResult(AbstractModel):
 
 
 class MPSTaskOutput(AbstractModel):
-    r"""
+    r"""The MPS subtask output returns the result.
 
     """
 
     def __init__(self):
         r"""
-        :param _OutputFiles: 
+        :param _OutputFiles: The file type in the task's return result. For example, in a smart erase, the erased video file will be stored in the media asset and its FileId will be given in this field. The URL of the subtitle file extracted based on the image will also be given in this field.
         :type OutputFiles: list of MPSOutputFile
         """
         self._OutputFiles = None
 
     @property
     def OutputFiles(self):
-        r"""
+        r"""The file type in the task's return result. For example, in a smart erase, the erased video file will be stored in the media asset and its FileId will be given in this field. The URL of the subtitle file extracted based on the image will also be given in this field.
         :rtype: list of MPSOutputFile
         """
         return self._OutputFiles
@@ -53469,6 +57051,8 @@ class ModifyTranscodeTemplateRequest(AbstractModel):
         :type AudioTemplate: :class:`tencentcloud.vod.v20180717.models.AudioTemplateInfoForUpdate`
         :param _TEHDConfig: TESHD transcoding parameter.
         :type TEHDConfig: :class:`tencentcloud.vod.v20180717.models.TEHDConfigForUpdate`
+        :param _EnhanceConfig: Audio/Video enhancement parameter.
+        :type EnhanceConfig: :class:`tencentcloud.vod.v20180717.models.EnhanceConfigForUpdate`
         :param _SegmentType: The segment type. This parameter is valid only if `Container` is `hls`. Valid values:
 <li>ts: TS segment</li>
 <li>fmp4: fMP4 segment</li>
@@ -53484,6 +57068,7 @@ class ModifyTranscodeTemplateRequest(AbstractModel):
         self._VideoTemplate = None
         self._AudioTemplate = None
         self._TEHDConfig = None
+        self._EnhanceConfig = None
         self._SegmentType = None
 
     @property
@@ -53601,6 +57186,17 @@ class ModifyTranscodeTemplateRequest(AbstractModel):
         self._TEHDConfig = TEHDConfig
 
     @property
+    def EnhanceConfig(self):
+        r"""Audio/Video enhancement parameter.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.EnhanceConfigForUpdate`
+        """
+        return self._EnhanceConfig
+
+    @EnhanceConfig.setter
+    def EnhanceConfig(self, EnhanceConfig):
+        self._EnhanceConfig = EnhanceConfig
+
+    @property
     def SegmentType(self):
         r"""The segment type. This parameter is valid only if `Container` is `hls`. Valid values:
 <li>ts: TS segment</li>
@@ -53631,6 +57227,9 @@ class ModifyTranscodeTemplateRequest(AbstractModel):
         if params.get("TEHDConfig") is not None:
             self._TEHDConfig = TEHDConfigForUpdate()
             self._TEHDConfig._deserialize(params.get("TEHDConfig"))
+        if params.get("EnhanceConfig") is not None:
+            self._EnhanceConfig = EnhanceConfigForUpdate()
+            self._EnhanceConfig._deserialize(params.get("EnhanceConfig"))
         self._SegmentType = params.get("SegmentType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
@@ -58050,21 +61649,21 @@ Note: This field may return null, indicating that no valid values can be obtaine
 
 
 class ProcessMediaByMPS(AbstractModel):
-    r"""
+    r"""MPS media processing task information.
 
     """
 
     def __init__(self):
         r"""
-        :param _TaskId: 
+        :param _TaskId: The task ID.
         :type TaskId: str
-        :param _Status: 
+        :param _Status: Task status, value: <li>PROCESSING: processing;</li><li>FINISH: completed.</li>
         :type Status: str
-        :param _ErrCode: 
+        :param _ErrCode: Error code. A non-zero error code is returned when the source is abnormal. If 0 is returned, use the ErrCode of each specific task.
         :type ErrCode: int
-        :param _Message: 
+        :param _Message: Error message. If the source is abnormal, the corresponding exception message is returned. Otherwise, use the message of each specific task.
         :type Message: str
-        :param _SubTaskSet: 
+        :param _SubTaskSet: MPS media processing tasks.
         :type SubTaskSet: list of MPSSubTaskResult
         """
         self._TaskId = None
@@ -58075,7 +61674,7 @@ class ProcessMediaByMPS(AbstractModel):
 
     @property
     def TaskId(self):
-        r"""
+        r"""The task ID.
         :rtype: str
         """
         return self._TaskId
@@ -58086,7 +61685,7 @@ class ProcessMediaByMPS(AbstractModel):
 
     @property
     def Status(self):
-        r"""
+        r"""Task status, value: <li>PROCESSING: processing;</li><li>FINISH: completed.</li>
         :rtype: str
         """
         return self._Status
@@ -58097,7 +61696,7 @@ class ProcessMediaByMPS(AbstractModel):
 
     @property
     def ErrCode(self):
-        r"""
+        r"""Error code. A non-zero error code is returned when the source is abnormal. If 0 is returned, use the ErrCode of each specific task.
         :rtype: int
         """
         return self._ErrCode
@@ -58108,7 +61707,7 @@ class ProcessMediaByMPS(AbstractModel):
 
     @property
     def Message(self):
-        r"""
+        r"""Error message. If the source is abnormal, the corresponding exception message is returned. Otherwise, use the message of each specific task.
         :rtype: str
         """
         return self._Message
@@ -58119,7 +61718,7 @@ class ProcessMediaByMPS(AbstractModel):
 
     @property
     def SubTaskSet(self):
-        r"""
+        r"""MPS media processing tasks.
         :rtype: list of MPSSubTaskResult
         """
         return self._SubTaskSet
@@ -58929,6 +62528,102 @@ class ProcessMediaResponse(AbstractModel):
     def _deserialize(self, params):
         self._TaskId = params.get("TaskId")
         self._RequestId = params.get("RequestId")
+
+
+class ProductImageConfig(AbstractModel):
+    r"""AI product image parameter configuration.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Prompt: Prompt content for image generation background. if this field is default, inspiration is automatically generated internally.
+        :type Prompt: str
+        :param _NegativePrompt: Prevent the model from generating image prompts.
+        :type NegativePrompt: str
+        :param _ProductDesc: Product description describes in detail, helping generate images that meet requirements.
+        :type ProductDesc: str
+        :param _MoreRequirement: Special requirements. if any, import them through this field.
+        :type MoreRequirement: str
+        :param _OutputImageCount: Specifies the number of images to generate. defaults to 1 if left empty. valid value: 10.
+        :type OutputImageCount: int
+        """
+        self._Prompt = None
+        self._NegativePrompt = None
+        self._ProductDesc = None
+        self._MoreRequirement = None
+        self._OutputImageCount = None
+
+    @property
+    def Prompt(self):
+        r"""Prompt content for image generation background. if this field is default, inspiration is automatically generated internally.
+        :rtype: str
+        """
+        return self._Prompt
+
+    @Prompt.setter
+    def Prompt(self, Prompt):
+        self._Prompt = Prompt
+
+    @property
+    def NegativePrompt(self):
+        r"""Prevent the model from generating image prompts.
+        :rtype: str
+        """
+        return self._NegativePrompt
+
+    @NegativePrompt.setter
+    def NegativePrompt(self, NegativePrompt):
+        self._NegativePrompt = NegativePrompt
+
+    @property
+    def ProductDesc(self):
+        r"""Product description describes in detail, helping generate images that meet requirements.
+        :rtype: str
+        """
+        return self._ProductDesc
+
+    @ProductDesc.setter
+    def ProductDesc(self, ProductDesc):
+        self._ProductDesc = ProductDesc
+
+    @property
+    def MoreRequirement(self):
+        r"""Special requirements. if any, import them through this field.
+        :rtype: str
+        """
+        return self._MoreRequirement
+
+    @MoreRequirement.setter
+    def MoreRequirement(self, MoreRequirement):
+        self._MoreRequirement = MoreRequirement
+
+    @property
+    def OutputImageCount(self):
+        r"""Specifies the number of images to generate. defaults to 1 if left empty. valid value: 10.
+        :rtype: int
+        """
+        return self._OutputImageCount
+
+    @OutputImageCount.setter
+    def OutputImageCount(self, OutputImageCount):
+        self._OutputImageCount = OutputImageCount
+
+
+    def _deserialize(self, params):
+        self._Prompt = params.get("Prompt")
+        self._NegativePrompt = params.get("NegativePrompt")
+        self._ProductDesc = params.get("ProductDesc")
+        self._MoreRequirement = params.get("MoreRequirement")
+        self._OutputImageCount = params.get("OutputImageCount")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
 
 
 class ProhibitedAsrReviewTemplateInfo(AbstractModel):
@@ -65688,6 +69383,8 @@ class RestoreMediaTask(AbstractModel):
 
     @property
     def Status(self):
+        warnings.warn("parameter `Status` is deprecated", DeprecationWarning) 
+
         r"""This field has been disused.
         :rtype: int
         """
@@ -65695,10 +69392,14 @@ class RestoreMediaTask(AbstractModel):
 
     @Status.setter
     def Status(self, Status):
+        warnings.warn("parameter `Status` is deprecated", DeprecationWarning) 
+
         self._Status = Status
 
     @property
     def Message(self):
+        warnings.warn("parameter `Message` is deprecated", DeprecationWarning) 
+
         r"""This field has been disused.
         :rtype: str
         """
@@ -65706,6 +69407,8 @@ class RestoreMediaTask(AbstractModel):
 
     @Message.setter
     def Message(self, Message):
+        warnings.warn("parameter `Message` is deprecated", DeprecationWarning) 
+
         self._Message = Message
 
 
@@ -68126,6 +71829,611 @@ Default value: black.
         
 
 
+class SceneAigcImageOutputConfig(AbstractModel):
+    r"""Output media file configuration for the scenario-based AIGC image generation task.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _StorageMode: Storage mode. valid values: <li>Permanent: Permanent storage. the generated image file will be stored in vod, and the FileId can be obtained from the event notification.</li> <li>Temporary: Temporary storage. the generated image file will not be stored in vod, and the Temporary access URL can be obtained from the event notification.</li>
+Default value: Temporary.
+        :type StorageMode: str
+        :param _MediaName: Output filename, longest 64 characters. default filename is specified by the system.
+        :type MediaName: str
+        :param _ClassId: Category ID, used to categorize and manage media. you can create a category and obtain the category ID via the [create category](https://www.tencentcloud.com/document/product/266/7812?from_cn_redirect=1) api.
+<Li>Default value: 0, indicate other categories.</li>
+        :type ClassId: int
+        :param _ExpireTime: The expiry date of the output file. files will be deleted longer than this time. default is never expire. format according to ISO 8601 standard. see [ISO date format description](https://www.tencentcloud.comom/document/product/266/11732?from_cn_redirect=1#I).
+        :type ExpireTime: str
+        :param _AspectRatio: Specify the aspect ratio of the generated image. input format is W:H.
+
+Only valid for product_image scenarios. available values are: 1:1, 3:2, 2:3, 3:4, 4:3, 4:5, 5:4, 16:9, 9:16, 21:9.
+        :type AspectRatio: str
+        """
+        self._StorageMode = None
+        self._MediaName = None
+        self._ClassId = None
+        self._ExpireTime = None
+        self._AspectRatio = None
+
+    @property
+    def StorageMode(self):
+        r"""Storage mode. valid values: <li>Permanent: Permanent storage. the generated image file will be stored in vod, and the FileId can be obtained from the event notification.</li> <li>Temporary: Temporary storage. the generated image file will not be stored in vod, and the Temporary access URL can be obtained from the event notification.</li>
+Default value: Temporary.
+        :rtype: str
+        """
+        return self._StorageMode
+
+    @StorageMode.setter
+    def StorageMode(self, StorageMode):
+        self._StorageMode = StorageMode
+
+    @property
+    def MediaName(self):
+        r"""Output filename, longest 64 characters. default filename is specified by the system.
+        :rtype: str
+        """
+        return self._MediaName
+
+    @MediaName.setter
+    def MediaName(self, MediaName):
+        self._MediaName = MediaName
+
+    @property
+    def ClassId(self):
+        r"""Category ID, used to categorize and manage media. you can create a category and obtain the category ID via the [create category](https://www.tencentcloud.com/document/product/266/7812?from_cn_redirect=1) api.
+<Li>Default value: 0, indicate other categories.</li>
+        :rtype: int
+        """
+        return self._ClassId
+
+    @ClassId.setter
+    def ClassId(self, ClassId):
+        self._ClassId = ClassId
+
+    @property
+    def ExpireTime(self):
+        r"""The expiry date of the output file. files will be deleted longer than this time. default is never expire. format according to ISO 8601 standard. see [ISO date format description](https://www.tencentcloud.comom/document/product/266/11732?from_cn_redirect=1#I).
+        :rtype: str
+        """
+        return self._ExpireTime
+
+    @ExpireTime.setter
+    def ExpireTime(self, ExpireTime):
+        self._ExpireTime = ExpireTime
+
+    @property
+    def AspectRatio(self):
+        r"""Specify the aspect ratio of the generated image. input format is W:H.
+
+Only valid for product_image scenarios. available values are: 1:1, 3:2, 2:3, 3:4, 4:3, 4:5, 5:4, 16:9, 9:16, 21:9.
+        :rtype: str
+        """
+        return self._AspectRatio
+
+    @AspectRatio.setter
+    def AspectRatio(self, AspectRatio):
+        self._AspectRatio = AspectRatio
+
+
+    def _deserialize(self, params):
+        self._StorageMode = params.get("StorageMode")
+        self._MediaName = params.get("MediaName")
+        self._ClassId = params.get("ClassId")
+        self._ExpireTime = params.get("ExpireTime")
+        self._AspectRatio = params.get("AspectRatio")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SceneAigcImageTask(AbstractModel):
+    r"""Scenario-based AIGC Image Generation Task Information
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: The task ID.
+        :type TaskId: str
+        :param _Status: Task status, value: <li>PROCESSING: processing;</li><li>FINISH: completed.</li>
+        :type Status: str
+        :param _ErrCode: Error code. A non-zero error code is returned when the source is abnormal. If 0 is returned, use the ErrCode of each specific task.
+        :type ErrCode: int
+        :param _Message: Error message. If the source is abnormal, the corresponding exception message is returned. Otherwise, use the message of each specific task.
+        :type Message: str
+        :param _Progress: The execution progress of a single adaptive bitrate stream. Value range: 0-100.
+        :type Progress: int
+        :param _Input: Input of AIGC image task.
+        :type Input: :class:`tencentcloud.vod.v20180717.models.SceneAigcImageTaskInput`
+        :param _Output: Output of AIGC image task.
+        :type Output: :class:`tencentcloud.vod.v20180717.models.SceneAigcImageTaskOutput`
+        :param _SessionId: ID used for deduplication. If there was a request with the same ID in the last seven days, the current request will return an error. The ID can contain up to 50 characters. If this parameter is not carried or is left empty, no deduplication will be performed.
+        :type SessionId: str
+        :param _SessionContext: The source context which is used to pass through the user request information. The task flow status change callback will return the value of this parameter. It can contain up to 1000 characters.
+        :type SessionContext: str
+        """
+        self._TaskId = None
+        self._Status = None
+        self._ErrCode = None
+        self._Message = None
+        self._Progress = None
+        self._Input = None
+        self._Output = None
+        self._SessionId = None
+        self._SessionContext = None
+
+    @property
+    def TaskId(self):
+        r"""The task ID.
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def Status(self):
+        r"""Task status, value: <li>PROCESSING: processing;</li><li>FINISH: completed.</li>
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def ErrCode(self):
+        r"""Error code. A non-zero error code is returned when the source is abnormal. If 0 is returned, use the ErrCode of each specific task.
+        :rtype: int
+        """
+        return self._ErrCode
+
+    @ErrCode.setter
+    def ErrCode(self, ErrCode):
+        self._ErrCode = ErrCode
+
+    @property
+    def Message(self):
+        r"""Error message. If the source is abnormal, the corresponding exception message is returned. Otherwise, use the message of each specific task.
+        :rtype: str
+        """
+        return self._Message
+
+    @Message.setter
+    def Message(self, Message):
+        self._Message = Message
+
+    @property
+    def Progress(self):
+        r"""The execution progress of a single adaptive bitrate stream. Value range: 0-100.
+        :rtype: int
+        """
+        return self._Progress
+
+    @Progress.setter
+    def Progress(self, Progress):
+        self._Progress = Progress
+
+    @property
+    def Input(self):
+        r"""Input of AIGC image task.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.SceneAigcImageTaskInput`
+        """
+        return self._Input
+
+    @Input.setter
+    def Input(self, Input):
+        self._Input = Input
+
+    @property
+    def Output(self):
+        r"""Output of AIGC image task.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.SceneAigcImageTaskOutput`
+        """
+        return self._Output
+
+    @Output.setter
+    def Output(self, Output):
+        self._Output = Output
+
+    @property
+    def SessionId(self):
+        r"""ID used for deduplication. If there was a request with the same ID in the last seven days, the current request will return an error. The ID can contain up to 50 characters. If this parameter is not carried or is left empty, no deduplication will be performed.
+        :rtype: str
+        """
+        return self._SessionId
+
+    @SessionId.setter
+    def SessionId(self, SessionId):
+        self._SessionId = SessionId
+
+    @property
+    def SessionContext(self):
+        r"""The source context which is used to pass through the user request information. The task flow status change callback will return the value of this parameter. It can contain up to 1000 characters.
+        :rtype: str
+        """
+        return self._SessionContext
+
+    @SessionContext.setter
+    def SessionContext(self, SessionContext):
+        self._SessionContext = SessionContext
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._Status = params.get("Status")
+        self._ErrCode = params.get("ErrCode")
+        self._Message = params.get("Message")
+        self._Progress = params.get("Progress")
+        if params.get("Input") is not None:
+            self._Input = SceneAigcImageTaskInput()
+            self._Input._deserialize(params.get("Input"))
+        if params.get("Output") is not None:
+            self._Output = SceneAigcImageTaskOutput()
+            self._Output._deserialize(params.get("Output"))
+        self._SessionId = params.get("SessionId")
+        self._SessionContext = params.get("SessionContext")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SceneAigcImageTaskInput(AbstractModel):
+    r"""Scene AIGC image task input.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SceneInfo: Scenario-based Image Generation Parameter Configuration.
+        :type SceneInfo: :class:`tencentcloud.vod.v20180717.models.AigcImageSceneInfo`
+        :param _FileInfos: File information of the input image.
+        :type FileInfos: list of SceneAigcImageTaskInputFileInfo
+        :param _OutputConfig: Output media file configuration for the task.
+        :type OutputConfig: :class:`tencentcloud.vod.v20180717.models.SceneAigcImageOutputConfig`
+        """
+        self._SceneInfo = None
+        self._FileInfos = None
+        self._OutputConfig = None
+
+    @property
+    def SceneInfo(self):
+        r"""Scenario-based Image Generation Parameter Configuration.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.AigcImageSceneInfo`
+        """
+        return self._SceneInfo
+
+    @SceneInfo.setter
+    def SceneInfo(self, SceneInfo):
+        self._SceneInfo = SceneInfo
+
+    @property
+    def FileInfos(self):
+        r"""File information of the input image.
+        :rtype: list of SceneAigcImageTaskInputFileInfo
+        """
+        return self._FileInfos
+
+    @FileInfos.setter
+    def FileInfos(self, FileInfos):
+        self._FileInfos = FileInfos
+
+    @property
+    def OutputConfig(self):
+        r"""Output media file configuration for the task.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.SceneAigcImageOutputConfig`
+        """
+        return self._OutputConfig
+
+    @OutputConfig.setter
+    def OutputConfig(self, OutputConfig):
+        self._OutputConfig = OutputConfig
+
+
+    def _deserialize(self, params):
+        if params.get("SceneInfo") is not None:
+            self._SceneInfo = AigcImageSceneInfo()
+            self._SceneInfo._deserialize(params.get("SceneInfo"))
+        if params.get("FileInfos") is not None:
+            self._FileInfos = []
+            for item in params.get("FileInfos"):
+                obj = SceneAigcImageTaskInputFileInfo()
+                obj._deserialize(item)
+                self._FileInfos.append(obj)
+        if params.get("OutputConfig") is not None:
+            self._OutputConfig = SceneAigcImageOutputConfig()
+            self._OutputConfig._deserialize(params.get("OutputConfig"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SceneAigcImageTaskInputFileInfo(AbstractModel):
+    r"""Input file information for the scenario-based AIGC image generation task.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Type: Input video File type. valid values: <li>File: on-demand media File;</li> <li>Url: accessible Url;</li>
+        :type Type: str
+        :param _FileId: The media File ID of the image File, which is the globally unique identifier of the File in vod, is assigned by the vod backend after successful upload. you can obtain this field in the [video upload completion event notification](https://www.tencentcloud.com/document/product/266/7830?from_cn_redirect=1) or [vod console](https://console.cloud.tencent.com/vod/media). this parameter is valid when the Type value is File.
+Note:
+1. recommended for use with images less than 7 mb.
+2. image format value is jpeg, jpg, png, webp.
+        :type FileId: str
+        :param _Url: Accessible file URL. this parameter is valid when Type value is Url.
+Note:
+1. recommended for use with images less than 7 MB.
+2. image format value is jpeg, jpg, png, webp.
+        :type Url: str
+        """
+        self._Type = None
+        self._FileId = None
+        self._Url = None
+
+    @property
+    def Type(self):
+        r"""Input video File type. valid values: <li>File: on-demand media File;</li> <li>Url: accessible Url;</li>
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def FileId(self):
+        r"""The media File ID of the image File, which is the globally unique identifier of the File in vod, is assigned by the vod backend after successful upload. you can obtain this field in the [video upload completion event notification](https://www.tencentcloud.com/document/product/266/7830?from_cn_redirect=1) or [vod console](https://console.cloud.tencent.com/vod/media). this parameter is valid when the Type value is File.
+Note:
+1. recommended for use with images less than 7 mb.
+2. image format value is jpeg, jpg, png, webp.
+        :rtype: str
+        """
+        return self._FileId
+
+    @FileId.setter
+    def FileId(self, FileId):
+        self._FileId = FileId
+
+    @property
+    def Url(self):
+        r"""Accessible file URL. this parameter is valid when Type value is Url.
+Note:
+1. recommended for use with images less than 7 MB.
+2. image format value is jpeg, jpg, png, webp.
+        :rtype: str
+        """
+        return self._Url
+
+    @Url.setter
+    def Url(self, Url):
+        self._Url = Url
+
+
+    def _deserialize(self, params):
+        self._Type = params.get("Type")
+        self._FileId = params.get("FileId")
+        self._Url = params.get("Url")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SceneAigcImageTaskOutput(AbstractModel):
+    r"""Scene AIGC image task output.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _FileInfos: File information of the out image for the AIGC image generation task.
+        :type FileInfos: list of SceneAigcImageTaskOutputFileInfo
+        """
+        self._FileInfos = None
+
+    @property
+    def FileInfos(self):
+        r"""File information of the out image for the AIGC image generation task.
+        :rtype: list of SceneAigcImageTaskOutputFileInfo
+        """
+        return self._FileInfos
+
+    @FileInfos.setter
+    def FileInfos(self, FileInfos):
+        self._FileInfos = FileInfos
+
+
+    def _deserialize(self, params):
+        if params.get("FileInfos") is not None:
+            self._FileInfos = []
+            for item in params.get("FileInfos"):
+                obj = SceneAigcImageTaskOutputFileInfo()
+                obj._deserialize(item)
+                self._FileInfos.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SceneAigcImageTaskOutputFileInfo(AbstractModel):
+    r"""Scene AIGC image task output file information.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _StorageMode: Storage mode. valid values: <li>Permanent: Permanent storage. the generated image file will be stored in VOD (video on demand).</li> <li>Temporary: Temporary storage. the generated image file will not be stored in vod.</li>.
+Default value: Temporary.
+        :type StorageMode: str
+        :param _MediaName: Output filename, up to 64 characters. default filename is assigned by the system.
+        :type MediaName: str
+        :param _ClassId: Category ID, used to categorize and manage media. you can create a category and obtain the category ID via the [create classification](https://www.tencentcloud.com/document/product/266/7812?from_cn_redirect=1) api.
+<Li>Default value: 0, indicating other categories.</li>.
+        :type ClassId: int
+        :param _ExpireTime: The expiry date of the output file. files will be deleted longer than this time. default is no expiration. format according to ISO 8601 standard. for details, see [ISO date format description](https://www.tencentcloud.comom/document/product/266/11732?from_cn_redirect=1#I).
+        :type ExpireTime: str
+        :param _FileType: File Type.
+        :type FileType: str
+        :param _FileUrl: File Url.
+        :type FileUrl: str
+        :param _FileId: File ID.
+        :type FileId: str
+        :param _MetaData: Meta Data.
+        :type MetaData: :class:`tencentcloud.vod.v20180717.models.MediaMetaData`
+        """
+        self._StorageMode = None
+        self._MediaName = None
+        self._ClassId = None
+        self._ExpireTime = None
+        self._FileType = None
+        self._FileUrl = None
+        self._FileId = None
+        self._MetaData = None
+
+    @property
+    def StorageMode(self):
+        r"""Storage mode. valid values: <li>Permanent: Permanent storage. the generated image file will be stored in VOD (video on demand).</li> <li>Temporary: Temporary storage. the generated image file will not be stored in vod.</li>.
+Default value: Temporary.
+        :rtype: str
+        """
+        return self._StorageMode
+
+    @StorageMode.setter
+    def StorageMode(self, StorageMode):
+        self._StorageMode = StorageMode
+
+    @property
+    def MediaName(self):
+        r"""Output filename, up to 64 characters. default filename is assigned by the system.
+        :rtype: str
+        """
+        return self._MediaName
+
+    @MediaName.setter
+    def MediaName(self, MediaName):
+        self._MediaName = MediaName
+
+    @property
+    def ClassId(self):
+        r"""Category ID, used to categorize and manage media. you can create a category and obtain the category ID via the [create classification](https://www.tencentcloud.com/document/product/266/7812?from_cn_redirect=1) api.
+<Li>Default value: 0, indicating other categories.</li>.
+        :rtype: int
+        """
+        return self._ClassId
+
+    @ClassId.setter
+    def ClassId(self, ClassId):
+        self._ClassId = ClassId
+
+    @property
+    def ExpireTime(self):
+        r"""The expiry date of the output file. files will be deleted longer than this time. default is no expiration. format according to ISO 8601 standard. for details, see [ISO date format description](https://www.tencentcloud.comom/document/product/266/11732?from_cn_redirect=1#I).
+        :rtype: str
+        """
+        return self._ExpireTime
+
+    @ExpireTime.setter
+    def ExpireTime(self, ExpireTime):
+        self._ExpireTime = ExpireTime
+
+    @property
+    def FileType(self):
+        r"""File Type.
+        :rtype: str
+        """
+        return self._FileType
+
+    @FileType.setter
+    def FileType(self, FileType):
+        self._FileType = FileType
+
+    @property
+    def FileUrl(self):
+        r"""File Url.
+        :rtype: str
+        """
+        return self._FileUrl
+
+    @FileUrl.setter
+    def FileUrl(self, FileUrl):
+        self._FileUrl = FileUrl
+
+    @property
+    def FileId(self):
+        r"""File ID.
+        :rtype: str
+        """
+        return self._FileId
+
+    @FileId.setter
+    def FileId(self, FileId):
+        self._FileId = FileId
+
+    @property
+    def MetaData(self):
+        r"""Meta Data.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.MediaMetaData`
+        """
+        return self._MetaData
+
+    @MetaData.setter
+    def MetaData(self, MetaData):
+        self._MetaData = MetaData
+
+
+    def _deserialize(self, params):
+        self._StorageMode = params.get("StorageMode")
+        self._MediaName = params.get("MediaName")
+        self._ClassId = params.get("ClassId")
+        self._ExpireTime = params.get("ExpireTime")
+        self._FileType = params.get("FileType")
+        self._FileUrl = params.get("FileUrl")
+        self._FileId = params.get("FileId")
+        if params.get("MetaData") is not None:
+            self._MetaData = MediaMetaData()
+            self._MetaData._deserialize(params.get("MetaData"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ScratchRepairInfo(AbstractModel):
     r"""Banding removal configuration.
 
@@ -68136,8 +72444,9 @@ class ScratchRepairInfo(AbstractModel):
         :param _Switch: Whether to enable banding removal. Valid values:
 <li>`ON`</li>
 <li>`OFF`</li>
+Default value: `OFF`.
         :type Switch: str
-        :param _Intensity: The banding removal strength. Value range: 0.0 – 1.0. This parameter is valid only if `Switch` is `ON`.
+        :param _Intensity: The banding removal strength. Value range: 0.0 - 1.0. This parameter is valid only if `Switch` is `ON`.
 Default value: `0.0`.
         :type Intensity: float
         :param _Type: The banding removal type. This parameter is valid only if `Switch` is `ON`. Valid values:
@@ -68154,6 +72463,7 @@ Default value: `normal`.
         r"""Whether to enable banding removal. Valid values:
 <li>`ON`</li>
 <li>`OFF`</li>
+Default value: `OFF`.
         :rtype: str
         """
         return self._Switch
@@ -68164,7 +72474,7 @@ Default value: `normal`.
 
     @property
     def Intensity(self):
-        r"""The banding removal strength. Value range: 0.0 – 1.0. This parameter is valid only if `Switch` is `ON`.
+        r"""The banding removal strength. Value range: 0.0 - 1.0. This parameter is valid only if `Switch` is `ON`.
 Default value: `0.0`.
         :rtype: float
         """
@@ -68200,6 +72510,169 @@ Default value: `normal`.
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
+
+
+class SearchMediaBySemanticsRequest(AbstractModel):
+    r"""SearchMediaBySemantics request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SubAppId: <b>VOD [application](https://www.tencentcloud.com/document/product/266/14574?from_cn_redirect=1) ID. for customers who activate on-demand services after december 25, 2023, this field must be filled with the application ID when accessing resources in on-demand applications (whether it's the default application or a newly created application).</b>
+        :type SubAppId: int
+        :param _Text: Specifies the search content.
+        :type Text: str
+        :param _Limit: Specifies the number of returned records. the default value is 20.
+        :type Limit: int
+        :param _Categories: File type. matches any element in the collection: <li>Video: Video file</li> <li>Audio: Audio file</li> <li>Image: Image file</li>.
+        :type Categories: list of str
+        :param _Tags: Tag set, match any element in the collection. <li>single Tag length limit: 32 characters.</li> <li>array length limit: 16.</li>
+        :type Tags: list of str
+        :param _TaskTypes: Specifies the task type for the search. valid values:. 
+- AiAnalysis.DescriptionTask 
+- SmartSubtitle.AsrFullTextTask
+        :type TaskTypes: list of str
+        """
+        self._SubAppId = None
+        self._Text = None
+        self._Limit = None
+        self._Categories = None
+        self._Tags = None
+        self._TaskTypes = None
+
+    @property
+    def SubAppId(self):
+        r"""<b>VOD [application](https://www.tencentcloud.com/document/product/266/14574?from_cn_redirect=1) ID. for customers who activate on-demand services after december 25, 2023, this field must be filled with the application ID when accessing resources in on-demand applications (whether it's the default application or a newly created application).</b>
+        :rtype: int
+        """
+        return self._SubAppId
+
+    @SubAppId.setter
+    def SubAppId(self, SubAppId):
+        self._SubAppId = SubAppId
+
+    @property
+    def Text(self):
+        r"""Specifies the search content.
+        :rtype: str
+        """
+        return self._Text
+
+    @Text.setter
+    def Text(self, Text):
+        self._Text = Text
+
+    @property
+    def Limit(self):
+        r"""Specifies the number of returned records. the default value is 20.
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Categories(self):
+        r"""File type. matches any element in the collection: <li>Video: Video file</li> <li>Audio: Audio file</li> <li>Image: Image file</li>.
+        :rtype: list of str
+        """
+        return self._Categories
+
+    @Categories.setter
+    def Categories(self, Categories):
+        self._Categories = Categories
+
+    @property
+    def Tags(self):
+        r"""Tag set, match any element in the collection. <li>single Tag length limit: 32 characters.</li> <li>array length limit: 16.</li>
+        :rtype: list of str
+        """
+        return self._Tags
+
+    @Tags.setter
+    def Tags(self, Tags):
+        self._Tags = Tags
+
+    @property
+    def TaskTypes(self):
+        r"""Specifies the task type for the search. valid values:. 
+- AiAnalysis.DescriptionTask 
+- SmartSubtitle.AsrFullTextTask
+        :rtype: list of str
+        """
+        return self._TaskTypes
+
+    @TaskTypes.setter
+    def TaskTypes(self, TaskTypes):
+        self._TaskTypes = TaskTypes
+
+
+    def _deserialize(self, params):
+        self._SubAppId = params.get("SubAppId")
+        self._Text = params.get("Text")
+        self._Limit = params.get("Limit")
+        self._Categories = params.get("Categories")
+        self._Tags = params.get("Tags")
+        self._TaskTypes = params.get("TaskTypes")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SearchMediaBySemanticsResponse(AbstractModel):
+    r"""SearchMediaBySemantics response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SearchResults: Media list.
+        :type SearchResults: list of SemanticsSearchResult
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._SearchResults = None
+        self._RequestId = None
+
+    @property
+    def SearchResults(self):
+        r"""Media list.
+        :rtype: list of SemanticsSearchResult
+        """
+        return self._SearchResults
+
+    @SearchResults.setter
+    def SearchResults(self, SearchResults):
+        self._SearchResults = SearchResults
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("SearchResults") is not None:
+            self._SearchResults = []
+            for item in params.get("SearchResults"):
+                obj = SemanticsSearchResult()
+                obj._deserialize(item)
+                self._SearchResults.append(obj)
+        self._RequestId = params.get("RequestId")
 
 
 class SearchMediaRequest(AbstractModel):
@@ -68934,6 +73407,87 @@ class SegmentConfigureInfoForUpdate(AbstractModel):
 
     def _deserialize(self, params):
         self._Switch = params.get("Switch")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SemanticsSearchResult(AbstractModel):
+    r"""Semantic search result.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _FileId: Specifies the unique identifier of the media file.
+        :type FileId: str
+        :param _Score: Score of the video in this retrieval. higher score indicates greater similarity to the retrieval value. value ranges from 0 to 1.
+        :type Score: float
+        :param _StartTimeOffset: Specifies the start time of the video clip, in seconds.
+        :type StartTimeOffset: float
+        :param _EndTimeOffset: Specifies the end time of the video clip, in seconds.
+        :type EndTimeOffset: float
+        """
+        self._FileId = None
+        self._Score = None
+        self._StartTimeOffset = None
+        self._EndTimeOffset = None
+
+    @property
+    def FileId(self):
+        r"""Specifies the unique identifier of the media file.
+        :rtype: str
+        """
+        return self._FileId
+
+    @FileId.setter
+    def FileId(self, FileId):
+        self._FileId = FileId
+
+    @property
+    def Score(self):
+        r"""Score of the video in this retrieval. higher score indicates greater similarity to the retrieval value. value ranges from 0 to 1.
+        :rtype: float
+        """
+        return self._Score
+
+    @Score.setter
+    def Score(self, Score):
+        self._Score = Score
+
+    @property
+    def StartTimeOffset(self):
+        r"""Specifies the start time of the video clip, in seconds.
+        :rtype: float
+        """
+        return self._StartTimeOffset
+
+    @StartTimeOffset.setter
+    def StartTimeOffset(self, StartTimeOffset):
+        self._StartTimeOffset = StartTimeOffset
+
+    @property
+    def EndTimeOffset(self):
+        r"""Specifies the end time of the video clip, in seconds.
+        :rtype: float
+        """
+        return self._EndTimeOffset
+
+    @EndTimeOffset.setter
+    def EndTimeOffset(self, EndTimeOffset):
+        self._EndTimeOffset = EndTimeOffset
+
+
+    def _deserialize(self, params):
+        self._FileId = params.get("FileId")
+        self._Score = params.get("Score")
+        self._StartTimeOffset = params.get("StartTimeOffset")
+        self._EndTimeOffset = params.get("EndTimeOffset")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -71569,6 +76123,7 @@ class SuperResolutionInfo(AbstractModel):
 <li>ON</li>
 <li>`OFF`</li>
 If super resolution is enabled, the output resolution will double.
+Default value: `OFF`.
         :type Switch: str
         :param _Type: The super resolution type. This parameter is valid only if `Switch` is `ON`. Valid values:
 <li>`lq`: For low-resolution videos with obvious noise</li>
@@ -71589,6 +76144,7 @@ Default value: `2`.
 <li>ON</li>
 <li>`OFF`</li>
 If super resolution is enabled, the output resolution will double.
+Default value: `OFF`.
         :rtype: str
         """
         return self._Switch
@@ -73919,6 +78475,9 @@ Note: this field may return null, indicating that no valid values can be obtaine
         :param _TEHDConfig: TESHD transcoding parameter.
 Note: this field may return null, indicating that no valid values can be obtained.
         :type TEHDConfig: :class:`tencentcloud.vod.v20180717.models.TEHDConfig`
+        :param _EnhanceConfig: Audio/Video enhancement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type EnhanceConfig: :class:`tencentcloud.vod.v20180717.models.EnhanceConfig`
         :param _ContainerType: Container filter. Valid values:
 <li>Video: video container that can contain both video stream and audio stream;</li>
 <li>PureAudio: audio container that can contain only audio stream.</li>
@@ -73940,6 +78499,7 @@ Note: this field may return null, indicating that no valid values can be obtaine
         self._VideoTemplate = None
         self._AudioTemplate = None
         self._TEHDConfig = None
+        self._EnhanceConfig = None
         self._ContainerType = None
         self._CreateTime = None
         self._UpdateTime = None
@@ -74067,6 +78627,18 @@ Note: this field may return null, indicating that no valid values can be obtaine
         self._TEHDConfig = TEHDConfig
 
     @property
+    def EnhanceConfig(self):
+        r"""Audio/Video enhancement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.EnhanceConfig`
+        """
+        return self._EnhanceConfig
+
+    @EnhanceConfig.setter
+    def EnhanceConfig(self, EnhanceConfig):
+        self._EnhanceConfig = EnhanceConfig
+
+    @property
     def ContainerType(self):
         r"""Container filter. Valid values:
 <li>Video: video container that can contain both video stream and audio stream;</li>
@@ -74130,6 +78702,9 @@ Note: this field may return null, indicating that no valid values can be obtaine
         if params.get("TEHDConfig") is not None:
             self._TEHDConfig = TEHDConfig()
             self._TEHDConfig._deserialize(params.get("TEHDConfig"))
+        if params.get("EnhanceConfig") is not None:
+            self._EnhanceConfig = EnhanceConfig()
+            self._EnhanceConfig._deserialize(params.get("EnhanceConfig"))
         self._ContainerType = params.get("ContainerType")
         self._CreateTime = params.get("CreateTime")
         self._UpdateTime = params.get("UpdateTime")
@@ -75745,6 +80320,252 @@ Default value: `weak`.
     def _deserialize(self, params):
         self._Switch = params.get("Switch")
         self._Type = params.get("Type")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class VideoEnhanceConfig(AbstractModel):
+    r"""Video enhancement configuration.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _EnhanceScenarioType: Enhancement scenario configuration. Valid values:
+<li>common: common enhancement parameters, which are basic optimization parameters suitable for various video types, enhancing overall image quality.</li>
+<li>AIGC: overall resolution enhancement. It uses AI technology to improve the overall video resolution and image clarity.</li>
+<li>short_play: enhance facial and subtitle details, emphasizing characters' facial expressions and subtitle clarity to improve the viewing experience.</li>
+<li>short_video: optimize complex and diverse image quality issues, tailoring quality enhancements for the complex scenarios such as short videos to address various visual issues.</li>
+<li>game: fix motion blur and enhance details, with a focus on enhancing the clarity of game details and restoring blurry areas during motions to make the image content during gaming clearer and richer.</li>
+<li>HD_movie_series: provide a smooth playback effect for UHD videos. Standard 4K HDR videos with an FPS of 60 are generated to meet the needs of broadcasting/OTT for UHD videos. Formats for broadcasting scenarios are supported.</li>
+<li>LQ_material: low-definition material/old video restoration. It enhances overall resolution, and solves issues of old videos, such as low resolution, blur, distortion, scratches, and color temperature due to their age.</li>
+<li>lecture: live shows, e-commerce, conferences, and lectures. It improves the face display effect and performs specific optimizations, including face region enhancement, noise reduction, and artifacts removal, for scenarios involving human explanation, such as live shows, e-commerce, conferences, and lectures.</li>
+<li>Input of a null string indicates that the enhancement scenario is not used.</li>
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type EnhanceScenarioType: str
+        :param _SuperResolution: Super-resolution configuration. The video is not processed when the source resolution is higher than the target resolution. Note that it cannot be enabled simultaneously with Large Model enhancement.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type SuperResolution: :class:`tencentcloud.vod.v20180717.models.SuperResolutionInfo`
+        :param _Hdr: HDR configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type Hdr: :class:`tencentcloud.vod.v20180717.models.HDRInfo`
+        :param _Denoise: Video noise reduction configuration. Note that it cannot be enabled simultaneously with LLM enhancement.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type Denoise: :class:`tencentcloud.vod.v20180717.models.VideoDenoiseInfo`
+        :param _ImageQualityEnhance: Comprehensive enhancement configuration. Note that only one of the three items, LLM enhancement, comprehensive enhancement, and artifacts removal, can be configured.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type ImageQualityEnhance: :class:`tencentcloud.vod.v20180717.models.ImageQualityEnhanceInfo`
+        :param _ColorEnhance: Color enhancement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type ColorEnhance: :class:`tencentcloud.vod.v20180717.models.ColorEnhanceInfo`
+        :param _LowLightEnhance: Low-light enhancement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type LowLightEnhance: :class:`tencentcloud.vod.v20180717.models.LowLightEnhanceInfo`
+        :param _ScratchRepair: Banding removal configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type ScratchRepair: :class:`tencentcloud.vod.v20180717.models.ScratchRepairInfo`
+        :param _ArtifactRepair: Artifacts removal configuration. Note that only one of the three items, LLM enhancement, comprehensive enhancement, and artifacts removal, can be configured.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type ArtifactRepair: :class:`tencentcloud.vod.v20180717.models.ArtifactRepairInfo`
+        :param _DiffusionEnhance: Large Model enhancement configuration. Note that only one of the three items, LLM enhancement, comprehensive enhancement, and artifacts removal, can be configured. It cannot be enabled simultaneously with super-resolution and noise reduction.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type DiffusionEnhance: :class:`tencentcloud.vod.v20180717.models.DiffusionEnhanceInfo`
+        :param _FrameRateWithDen: Frame rate configuration for the frame interpolation, which supports fractions. Note that it is mutually exclusive with FrameRate. The configuration does not take effect if the source frame rate is greater than or equal to the target frame rate.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :type FrameRateWithDen: :class:`tencentcloud.vod.v20180717.models.FrameRateWithDenInfo`
+        """
+        self._EnhanceScenarioType = None
+        self._SuperResolution = None
+        self._Hdr = None
+        self._Denoise = None
+        self._ImageQualityEnhance = None
+        self._ColorEnhance = None
+        self._LowLightEnhance = None
+        self._ScratchRepair = None
+        self._ArtifactRepair = None
+        self._DiffusionEnhance = None
+        self._FrameRateWithDen = None
+
+    @property
+    def EnhanceScenarioType(self):
+        r"""Enhancement scenario configuration. Valid values:
+<li>common: common enhancement parameters, which are basic optimization parameters suitable for various video types, enhancing overall image quality.</li>
+<li>AIGC: overall resolution enhancement. It uses AI technology to improve the overall video resolution and image clarity.</li>
+<li>short_play: enhance facial and subtitle details, emphasizing characters' facial expressions and subtitle clarity to improve the viewing experience.</li>
+<li>short_video: optimize complex and diverse image quality issues, tailoring quality enhancements for the complex scenarios such as short videos to address various visual issues.</li>
+<li>game: fix motion blur and enhance details, with a focus on enhancing the clarity of game details and restoring blurry areas during motions to make the image content during gaming clearer and richer.</li>
+<li>HD_movie_series: provide a smooth playback effect for UHD videos. Standard 4K HDR videos with an FPS of 60 are generated to meet the needs of broadcasting/OTT for UHD videos. Formats for broadcasting scenarios are supported.</li>
+<li>LQ_material: low-definition material/old video restoration. It enhances overall resolution, and solves issues of old videos, such as low resolution, blur, distortion, scratches, and color temperature due to their age.</li>
+<li>lecture: live shows, e-commerce, conferences, and lectures. It improves the face display effect and performs specific optimizations, including face region enhancement, noise reduction, and artifacts removal, for scenarios involving human explanation, such as live shows, e-commerce, conferences, and lectures.</li>
+<li>Input of a null string indicates that the enhancement scenario is not used.</li>
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: str
+        """
+        return self._EnhanceScenarioType
+
+    @EnhanceScenarioType.setter
+    def EnhanceScenarioType(self, EnhanceScenarioType):
+        self._EnhanceScenarioType = EnhanceScenarioType
+
+    @property
+    def SuperResolution(self):
+        r"""Super-resolution configuration. The video is not processed when the source resolution is higher than the target resolution. Note that it cannot be enabled simultaneously with Large Model enhancement.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.SuperResolutionInfo`
+        """
+        return self._SuperResolution
+
+    @SuperResolution.setter
+    def SuperResolution(self, SuperResolution):
+        self._SuperResolution = SuperResolution
+
+    @property
+    def Hdr(self):
+        r"""HDR configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.HDRInfo`
+        """
+        return self._Hdr
+
+    @Hdr.setter
+    def Hdr(self, Hdr):
+        self._Hdr = Hdr
+
+    @property
+    def Denoise(self):
+        r"""Video noise reduction configuration. Note that it cannot be enabled simultaneously with LLM enhancement.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.VideoDenoiseInfo`
+        """
+        return self._Denoise
+
+    @Denoise.setter
+    def Denoise(self, Denoise):
+        self._Denoise = Denoise
+
+    @property
+    def ImageQualityEnhance(self):
+        r"""Comprehensive enhancement configuration. Note that only one of the three items, LLM enhancement, comprehensive enhancement, and artifacts removal, can be configured.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.ImageQualityEnhanceInfo`
+        """
+        return self._ImageQualityEnhance
+
+    @ImageQualityEnhance.setter
+    def ImageQualityEnhance(self, ImageQualityEnhance):
+        self._ImageQualityEnhance = ImageQualityEnhance
+
+    @property
+    def ColorEnhance(self):
+        r"""Color enhancement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.ColorEnhanceInfo`
+        """
+        return self._ColorEnhance
+
+    @ColorEnhance.setter
+    def ColorEnhance(self, ColorEnhance):
+        self._ColorEnhance = ColorEnhance
+
+    @property
+    def LowLightEnhance(self):
+        r"""Low-light enhancement configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.LowLightEnhanceInfo`
+        """
+        return self._LowLightEnhance
+
+    @LowLightEnhance.setter
+    def LowLightEnhance(self, LowLightEnhance):
+        self._LowLightEnhance = LowLightEnhance
+
+    @property
+    def ScratchRepair(self):
+        r"""Banding removal configuration.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.ScratchRepairInfo`
+        """
+        return self._ScratchRepair
+
+    @ScratchRepair.setter
+    def ScratchRepair(self, ScratchRepair):
+        self._ScratchRepair = ScratchRepair
+
+    @property
+    def ArtifactRepair(self):
+        r"""Artifacts removal configuration. Note that only one of the three items, LLM enhancement, comprehensive enhancement, and artifacts removal, can be configured.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.ArtifactRepairInfo`
+        """
+        return self._ArtifactRepair
+
+    @ArtifactRepair.setter
+    def ArtifactRepair(self, ArtifactRepair):
+        self._ArtifactRepair = ArtifactRepair
+
+    @property
+    def DiffusionEnhance(self):
+        r"""Large Model enhancement configuration. Note that only one of the three items, LLM enhancement, comprehensive enhancement, and artifacts removal, can be configured. It cannot be enabled simultaneously with super-resolution and noise reduction.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.DiffusionEnhanceInfo`
+        """
+        return self._DiffusionEnhance
+
+    @DiffusionEnhance.setter
+    def DiffusionEnhance(self, DiffusionEnhance):
+        self._DiffusionEnhance = DiffusionEnhance
+
+    @property
+    def FrameRateWithDen(self):
+        r"""Frame rate configuration for the frame interpolation, which supports fractions. Note that it is mutually exclusive with FrameRate. The configuration does not take effect if the source frame rate is greater than or equal to the target frame rate.
+Note: This field may return null, indicating that no valid values can be obtained.
+        :rtype: :class:`tencentcloud.vod.v20180717.models.FrameRateWithDenInfo`
+        """
+        return self._FrameRateWithDen
+
+    @FrameRateWithDen.setter
+    def FrameRateWithDen(self, FrameRateWithDen):
+        self._FrameRateWithDen = FrameRateWithDen
+
+
+    def _deserialize(self, params):
+        self._EnhanceScenarioType = params.get("EnhanceScenarioType")
+        if params.get("SuperResolution") is not None:
+            self._SuperResolution = SuperResolutionInfo()
+            self._SuperResolution._deserialize(params.get("SuperResolution"))
+        if params.get("Hdr") is not None:
+            self._Hdr = HDRInfo()
+            self._Hdr._deserialize(params.get("Hdr"))
+        if params.get("Denoise") is not None:
+            self._Denoise = VideoDenoiseInfo()
+            self._Denoise._deserialize(params.get("Denoise"))
+        if params.get("ImageQualityEnhance") is not None:
+            self._ImageQualityEnhance = ImageQualityEnhanceInfo()
+            self._ImageQualityEnhance._deserialize(params.get("ImageQualityEnhance"))
+        if params.get("ColorEnhance") is not None:
+            self._ColorEnhance = ColorEnhanceInfo()
+            self._ColorEnhance._deserialize(params.get("ColorEnhance"))
+        if params.get("LowLightEnhance") is not None:
+            self._LowLightEnhance = LowLightEnhanceInfo()
+            self._LowLightEnhance._deserialize(params.get("LowLightEnhance"))
+        if params.get("ScratchRepair") is not None:
+            self._ScratchRepair = ScratchRepairInfo()
+            self._ScratchRepair._deserialize(params.get("ScratchRepair"))
+        if params.get("ArtifactRepair") is not None:
+            self._ArtifactRepair = ArtifactRepairInfo()
+            self._ArtifactRepair._deserialize(params.get("ArtifactRepair"))
+        if params.get("DiffusionEnhance") is not None:
+            self._DiffusionEnhance = DiffusionEnhanceInfo()
+            self._DiffusionEnhance._deserialize(params.get("DiffusionEnhance"))
+        if params.get("FrameRateWithDen") is not None:
+            self._FrameRateWithDen = FrameRateWithDenInfo()
+            self._FrameRateWithDen._deserialize(params.get("FrameRateWithDen"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

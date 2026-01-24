@@ -5,7 +5,8 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, Mapping
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 import somacore
@@ -14,25 +15,26 @@ from anndata import AnnData
 try:
     import spatialdata as sd
 except ImportError as err:
-    warnings.warn("Experimental spatial outgestor requires the spatialdata package.")
+    warnings.warn("Experimental spatial outgestor requires the spatialdata package.", stacklevel=1)
     raise err
 
 try:
     import dask.dataframe as dd
 except ImportError as err:
-    warnings.warn("Experimental spatial outgestor requires the dask package.")
+    warnings.warn("Experimental spatial outgestor requires the dask package.", stacklevel=1)
     raise err
 
 try:
     import geopandas as gpd
 except ImportError as err:
-    warnings.warn("Experimental spatial outgestor requires the geopandas package.")
+    warnings.warn("Experimental spatial outgestor requires the geopandas package.", stacklevel=1)
     raise err
 
 
-from ... import Collection, MultiscaleImage, PointCloudDataFrame, Scene
-from ..._constants import SOMA_JOINID
-from ..._spatial_util import transform_from_json
+from tiledbsoma import Collection, MultiscaleImage, PointCloudDataFrame, Scene
+from tiledbsoma._constants import SOMA_JOINID
+from tiledbsoma._spatial_util import transform_from_json
+
 from ._xarray_backend import dense_nd_array_to_data_array, images_to_datatree
 
 if TYPE_CHECKING:
@@ -68,13 +70,10 @@ def _convert_axis_names(
     if data_axis_names is None:
         data_axis_names = coord_axis_names
     spatial_data_axes = tuple(dim_map[axis_name] for axis_name in data_axis_names)
-    soma_dim_map = {key: val for key, val in dim_map.items()}
-    return spatial_data_axes, soma_dim_map
+    return spatial_data_axes, dim_map
 
 
-def _get_transform_from_collection(
-    key: str, metadata: Mapping[str, Any]
-) -> somacore.CoordinateTransform | None:
+def _get_transform_from_collection(key: str, metadata: Mapping[str, Any]) -> somacore.CoordinateTransform | None:
     transform_key = f"soma_scene_registry_{key}"
     if transform_key in metadata:
         transform_json = metadata[transform_key]
@@ -105,13 +104,10 @@ def _transform_to_spatialdata(
     if isinstance(transform, somacore.AffineTransform):
         input_axes = tuple(input_dim_map[name] for name in transform.input_axes)
         output_axes = tuple(output_dim_map[name] for name in transform.output_axes)
-        return sd.transformations.Affine(
-            transform.augmented_matrix, input_axes, output_axes
-        )
+        return sd.transformations.Affine(transform.augmented_matrix, input_axes, output_axes)
 
     raise NotImplementedError(
-        f"Support for converting transform of type {type(transform).__name__} is not "
-        f"yet implemented."
+        f"Support for converting transform of type {type(transform).__name__} is not yet implemented.",
     )
 
 
@@ -139,18 +135,14 @@ def to_spatialdata_points(
     """
     # Get the axis names for the spatial data shapes.
     orig_axis_names = points.coordinate_space.axis_names
-    new_axis_names, points_dim_map = _convert_axis_names(orig_axis_names)
+    _, points_dim_map = _convert_axis_names(orig_axis_names)
 
     # Create the SpatialData transform from the points to the Scene (inverse of the
     # transform SOMA stores).
     if transform is None:
         transforms = {key: sd.transformations.Identity()}
     else:
-        transforms = {
-            scene_id: _transform_to_spatialdata(
-                transform.inverse_transform(), points_dim_map, scene_dim_map
-            )
-        }
+        transforms = {scene_id: _transform_to_spatialdata(transform.inverse_transform(), points_dim_map, scene_dim_map)}
 
     # Read the pandas dataframe, rename SOMA_JOINID, add metadata, and return.
     df: pd.DataFrame = points.read().concat().to_pandas()
@@ -186,33 +178,27 @@ def to_spatialdata_shapes(
         radius = points.metadata["soma_geometry"]
     except KeyError as ke:
         raise KeyError(
-            "Missing metadata 'soma_geometry' needed for reading the point cloud "
-            "dataframe as a shape."
+            "Missing metadata 'soma_geometry' needed for reading the point cloud dataframe as a shape.",
         ) from ke
     try:
         soma_geometry_type = points.metadata["soma_geometry_type"]
         if soma_geometry_type != "radius":
             raise NotImplementedError(
-                f"Support for a point cloud with shape '{soma_geometry_type}' is "
-                f"not yet implemented."
+                f"Support for a point cloud with shape '{soma_geometry_type}' is not yet implemented.",
             )
     except KeyError as ke:
         raise KeyError("Missing metadata 'soma_geometry_type'.") from ke
 
     # Get the axis names for the spatial data shapes.
     orig_axis_names = points.coordinate_space.axis_names
-    new_axis_names, points_dim_map = _convert_axis_names(orig_axis_names)
+    _, points_dim_map = _convert_axis_names(orig_axis_names)
 
     # Create the SpatialData transform from the points to the Scene (inverse of the
     # transform SOMA stores).
     if transform is None:
         transforms = {key: sd.transformations.Identity()}
     else:
-        transforms = {
-            scene_id: _transform_to_spatialdata(
-                transform.inverse_transform(), points_dim_map, scene_dim_map
-            )
-        }
+        transforms = {scene_id: _transform_to_spatialdata(transform.inverse_transform(), points_dim_map, scene_dim_map)}
 
     data = points.read().concat().to_pandas()
     if soma_joinid_name != SOMA_JOINID:
@@ -220,13 +206,10 @@ def to_spatialdata_shapes(
     data.insert(len(data.columns), "radius", radius)
     ndim = len(orig_axis_names)
     if ndim == 2:
-        geometry = gpd.points_from_xy(
-            data.pop(orig_axis_names[0]), data.pop(orig_axis_names[1])
-        )
+        geometry = gpd.points_from_xy(data.pop(orig_axis_names[0]), data.pop(orig_axis_names[1]))
     else:
         raise NotImplementedError(
-            f"Support for export {ndim}D point cloud dataframes to SpatialData shapes "
-            f"is not yet implemented."
+            f"Support for export {ndim}D point cloud dataframes to SpatialData shapes is not yet implemented.",
         )
     df = gpd.GeoDataFrame(data, geometry=geometry)
     df.attrs["transform"] = transforms
@@ -241,7 +224,7 @@ def to_spatialdata_image(
     scene_id: str,
     scene_dim_map: dict[str, str],
     transform: somacore.CoordinateTransform | None,
-) -> "DataArray":
+) -> DataArray:
     """Export a level of a :class:`MultiscaleImage` to a
     :class:`spatialdata.Image2DModel` or :class:`spatialdata.Image3DModel`.
 
@@ -258,36 +241,26 @@ def to_spatialdata_image(
     """
     if not image.has_channel_axis:
         raise NotImplementedError(
-            "Support for exporting a MultiscaleImage to without a channel axis to "
-            "SpatialData is not yet implemented."
+            "Support for exporting a MultiscaleImage to without a channel axis to SpatialData is not yet implemented.",
         )
 
     # Convert from SOMA axis names to SpatialData axis names.
     orig_axis_names = image.coordinate_space.axis_names
     if len(orig_axis_names) not in {2, 3}:
-        raise NotImplementedError(
-            f"Support for converting a '{len(orig_axis_names)}'D is not yet implemented."
-        )
-    new_axis_names, image_dim_map = _convert_axis_names(
-        orig_axis_names, image.data_axis_order
-    )
+        raise NotImplementedError(f"Support for converting a '{len(orig_axis_names)}'D is not yet implemented.")
+    new_axis_names, image_dim_map = _convert_axis_names(orig_axis_names, image.data_axis_order)
 
     # Get the URI of the requested level.
     if level is None:
         if image.level_count != 1:
-            raise ValueError(
-                "The level must be specified for a multiscale image with more than one "
-                "resolution level."
-            )
+            raise ValueError("The level must be specified for a multiscale image with more than one resolution level.")
         level = 0
     level_uri = image.level_uri(level)
 
     if transform is None:
         # Get the transformation from the image level to the highest resolution of the multiscale image.
         scale_transform = image.get_transform_from_level(level)
-        sd_transform = _transform_to_spatialdata(
-            scale_transform, image_dim_map, image_dim_map
-        )
+        sd_transform = _transform_to_spatialdata(scale_transform, image_dim_map, image_dim_map)
         transformations = {key: sd_transform}
     else:
         # Get the transformation from the image level to the scene:
@@ -296,20 +269,12 @@ def to_spatialdata_image(
         # transformations.
         inv_transform = transform.inverse_transform()
         scale_transform = image.get_transform_from_level(level)
-        if isinstance(transform, somacore.ScaleTransform) or isinstance(
-            scale_transform, somacore.IdentityTransform
-        ):
+        if isinstance(transform, somacore.ScaleTransform) or isinstance(scale_transform, somacore.IdentityTransform):
             # inv_transform @ scale_transform -> applies scale_transform first
-            sd_transform = _transform_to_spatialdata(
-                inv_transform @ scale_transform, image_dim_map, scene_dim_map
-            )
+            sd_transform = _transform_to_spatialdata(inv_transform @ scale_transform, image_dim_map, scene_dim_map)
         else:
-            sd_transform1 = _transform_to_spatialdata(
-                scale_transform, image_dim_map, image_dim_map
-            )
-            sd_transform2 = _transform_to_spatialdata(
-                inv_transform, image_dim_map, scene_dim_map
-            )
+            sd_transform1 = _transform_to_spatialdata(scale_transform, image_dim_map, image_dim_map)
+            sd_transform2 = _transform_to_spatialdata(inv_transform, image_dim_map, scene_dim_map)
             # Sequence([sd_transform1, sd_transform2]) -> applies sd_transform1 first
             sd_transform = sd.transformations.Sequence([sd_transform1, sd_transform2])
         transformations = {scene_id: sd_transform}
@@ -330,7 +295,7 @@ def to_spatialdata_multiscale_image(
     scene_id: str,
     scene_dim_map: dict[str, str],
     transform: somacore.CoordinateTransform | None,
-) -> "DataTree":
+) -> DataTree:
     """Export a MultiscaleImage to a DataTree.
 
     Args:
@@ -346,19 +311,14 @@ def to_spatialdata_multiscale_image(
     # Check for channel axis.
     if not image.has_channel_axis:
         raise NotImplementedError(
-            "Support for exporting a MultiscaleImage to without a channel axis to "
-            "SpatialData is not yet implemented."
+            "Support for exporting a MultiscaleImage to without a channel axis to SpatialData is not yet implemented.",
         )
 
     # Convert from SOMA axis names to SpatialData axis names.
     orig_axis_names = image.coordinate_space.axis_names
     if len(orig_axis_names) not in {2, 3}:
-        raise NotImplementedError(
-            f"Support for converting a '{len(orig_axis_names)}'D is not yet implemented."
-        )
-    new_axis_names, image_dim_map = _convert_axis_names(
-        orig_axis_names, image.data_axis_order
-    )
+        raise NotImplementedError(f"Support for converting a '{len(orig_axis_names)}'D is not yet implemented.")
+    new_axis_names, image_dim_map = _convert_axis_names(orig_axis_names, image.data_axis_order)
 
     if transform is None:
         spatial_data_transformations = tuple(
@@ -387,21 +347,20 @@ def to_spatialdata_multiscale_image(
             )
         else:
             sd_scale_transforms = tuple(
-                _transform_to_spatialdata(
-                    image.get_transform_from_level(level), image_dim_map, image_dim_map
-                )
+                _transform_to_spatialdata(image.get_transform_from_level(level), image_dim_map, image_dim_map)
                 for level in range(1, image.level_count)
             )
-            sd_inv_transform = _transform_to_spatialdata(
-                inv_transform, image_dim_map, scene_dim_map
-            )
+            sd_inv_transform = _transform_to_spatialdata(inv_transform, image_dim_map, scene_dim_map)
 
             # First level transform is always the identity, so just directly use
             # inv_transform. For remaining transformations,
             # Sequence([sd_transform1, sd_transform2]) -> applies sd_transform1 first
-            spatial_data_transformations = (sd_inv_transform,) + tuple(
-                sd.transformations.Sequence([scale_transform, sd_inv_transform])
-                for scale_transform in sd_scale_transforms
+            spatial_data_transformations = (
+                sd_inv_transform,
+                *tuple(
+                    sd.transformations.Sequence([scale_transform, sd_inv_transform])
+                    for scale_transform in sd_scale_transforms
+                ),
             )
 
     # Create a sequence of resolution level.
@@ -462,9 +421,7 @@ def _spatial_to_spatialdata(
                             transform=transform,
                             soma_joinid_name=obs_id_name,
                         )
-                        region_joinids[output_key] = sdata.shapes[output_key][
-                            obs_id_name
-                        ]
+                        region_joinids[output_key] = sdata.shapes[output_key][obs_id_name]
 
                     else:
                         sdata.points[output_key] = to_spatialdata_points(
@@ -475,22 +432,17 @@ def _spatial_to_spatialdata(
                             transform=transform,
                             soma_joinid_name=obs_id_name,
                         )
-                        region_joinids[output_key] = sdata.points[output_key][
-                            obs_id_name
-                        ]
+                        region_joinids[output_key] = sdata.points[output_key][obs_id_name]
 
                 else:
                     warnings.warn(
-                        f"Skipping obsl[{key}] in Scene {scene_name}; unexpected "
-                        f"datatype {type(df).__name__}."
+                        f"Skipping obsl[{key}] in Scene {scene_name}; unexpected datatype {type(df).__name__}.",
+                        stacklevel=3,
                     )
 
         # Export varl data to SpatialData.
         if "varl" in scene:
-            if measurement_names is None:
-                measurements = tuple(scene.varl.keys())
-            else:
-                measurements = measurement_names
+            measurements = tuple(scene.varl.keys()) if measurement_names is None else measurement_names
             for measurement_name in measurements:
                 if measurement_name not in scene.varl:
                     continue
@@ -521,7 +473,8 @@ def _spatial_to_spatialdata(
                     else:
                         warnings.warn(
                             f"Skipping varl[{measurement_name}][{key}] in Scene "
-                            f"{scene_name}; unexpected datatype {type(df).__name__}."
+                            f"{scene_name}; unexpected datatype {type(df).__name__}.",
+                            stacklevel=3,
                         )
 
         # Export img data to SpatialData.
@@ -531,8 +484,8 @@ def _spatial_to_spatialdata(
                 transform = _get_transform_from_collection(key, scene.img.metadata)
                 if not isinstance(image, MultiscaleImage):
                     warnings.warn(  # type: ignore[unreachable]
-                        f"Skipping img[{image}] in Scene {scene_name}; unexpected "
-                        f"datatype {type(image).__name__}."
+                        f"Skipping img[{image}] in Scene {scene_name}; unexpected datatype {type(image).__name__}.",
+                        stacklevel=3,
                     )
                 if image.level_count == 1:
                     sdata.images[output_key] = to_spatialdata_image(
@@ -574,15 +527,14 @@ def _spatial_to_spatialdata(
                             obs_id_name: joinid_series,
                             "region_key": key,
                             "instance_key": joinid_series.index,
-                        }
+                        },
                     )
                     for key, joinid_series in region_joinids.items()
-                ]
+                ],
             )
             if not region_df.empty:
                 try:
-                    adata.obs = pd.merge(
-                        adata.obs,
+                    adata.obs = adata.obs.merge(
                         region_df,
                         how="left",
                         on=obs_id_name,
@@ -590,8 +542,7 @@ def _spatial_to_spatialdata(
                     )
                 except pd.errors.MergeError as err:
                     raise NotImplementedError(
-                        "Unable to export to SpatialData; exported assets have "
-                        "overlapping observations."
+                        "Unable to export to SpatialData; exported assets have overlapping observations.",
                     ) from err
                 adata.obs["region_key"] = pd.Categorical(adata.obs["region_key"])
                 regions = list(region_joinids.keys())
@@ -599,8 +550,6 @@ def _spatial_to_spatialdata(
                 instance_key = "instance_key"
 
         # Add the table to SpatialData.
-        sdata.tables[measurement_name] = sd.models.TableModel.parse(
-            adata, regions, region_key, instance_key
-        )
+        sdata.tables[measurement_name] = sd.models.TableModel.parse(adata, regions, region_key, instance_key)
 
     return sdata

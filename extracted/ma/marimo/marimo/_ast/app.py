@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import base64
@@ -6,7 +6,12 @@ import inspect
 import os
 import sys
 import threading
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import (
+    Iterable,
+    Iterator,
+    Mapping,
+    Sequence,  # noqa: TC003
+)
 from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent
@@ -16,33 +21,18 @@ from typing import (
     Callable,
     Literal,
     Optional,
+    ParamSpec,
+    TypeAlias,
     TypeVar,
     Union,
     cast,
     overload,
 )
 
-from marimo._ast.app_config import _AppConfig
-from marimo._ast.cell_id import external_prefix
-from marimo._ast.parse import ast_parse
-from marimo._ast.variables import BUILTINS
-from marimo._convert.converters import MarimoConvert
-from marimo._schemas.serialization import (
-    AppInstantiation,
-    CellDef,
-    NotebookSerializationV1,
-)
-from marimo._types.ids import CellId_t
-
-if sys.version_info < (3, 10):
-    from typing_extensions import ParamSpec, TypeAlias
-else:
-    from typing import ParamSpec, TypeAlias
-
-from collections.abc import Sequence  # noqa: TC003
-
 from marimo import _loggers
-from marimo._ast.cell import Cell, CellConfig, CellImpl
+from marimo._ast.app_config import _AppConfig
+from marimo._ast.cell import Cell, CellConfig, CellImpl, ImportWorkspace
+from marimo._ast.cell_id import external_prefix
 from marimo._ast.cell_manager import CellManager
 from marimo._ast.errors import (
     CycleError,
@@ -50,27 +40,37 @@ from marimo._ast.errors import (
     SetupRootError,
     UnparsableError,
 )
+from marimo._ast.parse import ast_parse
+from marimo._ast.variables import BUILTINS
+from marimo._convert.converters import MarimoConvert
 from marimo._messaging.mimetypes import KnownMimeType
 from marimo._output.hypertext import Html
 from marimo._output.rich_help import mddoc
 from marimo._runtime import dataflow
 from marimo._runtime.app.kernel_runner import AppKernelRunner
 from marimo._runtime.app.script_runner import AppScriptRunner
+from marimo._runtime.commands import (
+    InvokeFunctionCommand,
+    UpdateUIElementCommand,
+)
 from marimo._runtime.context.types import (
     ContextNotInitializedError,
     get_context,
     runtime_context_installed,
 )
-from marimo._runtime.requests import (
-    FunctionCallRequest,
-    SetUIElementValueRequest,
+from marimo._schemas.serialization import (
+    AppInstantiation,
+    CellDef,
+    Header,
+    NotebookSerializationV1,
 )
+from marimo._types.ids import CellId_t
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from types import FrameType, TracebackType
 
-    from marimo._messaging.ops import HumanReadableStatus
+    from marimo._messaging.notification import HumanReadableStatus
     from marimo._plugins.core.web_component import JSONType
     from marimo._runtime.context.types import ExecutionContext
 
@@ -244,6 +244,7 @@ class App:
         self._graph = dataflow.DirectedGraph()
         self._execution_context: ExecutionContext | None = None
         self._runner = dataflow.Runner(self._graph)
+        self._header: str | None = None
 
         self._unparsable_code: list[str] = []
         self._unparsable = False
@@ -291,16 +292,37 @@ class App:
             self._cell_manager.configs(),
         ):
             cell = None
-            # If the cell exists, the cell data should be set.
             cell_data = self._cell_manager._cell_data.get(cell_id)
             new_cell_id = app._cell_manager.create_cell_id()
+            # If the cell exists, the cell data should be set (ie not None).
             if cell_data is not None:
                 cell = cell_data.cell
                 if cell is not None:
+                    cell_impl = cell._cell
                     new_cell = Cell(
                         _name=cell.name,
+                        # CellImpl has mutable fields and cannot safely be shallow copied.
                         _cell=CellImpl(
-                            **{**cell._cell.__dict__, "cell_id": new_cell_id}
+                            cell_id=new_cell_id,
+                            key=cell_impl.key,
+                            code=cell_impl.code,
+                            mod=cell_impl.mod,
+                            defs=cell_impl.defs,
+                            refs=cell_impl.refs,
+                            sql_refs=cell_impl.sql_refs,
+                            temporaries=cell_impl.temporaries,
+                            variable_data=cell_impl.variable_data,
+                            deleted_refs=cell_impl.deleted_refs,
+                            body=cell_impl.body,
+                            last_expr=cell_impl.last_expr,
+                            language=cell_impl.language,
+                            markdown=cell_impl.markdown,
+                            config=CellConfig.from_dict(
+                                cell_impl.config.asdict()
+                            ),
+                            import_workspace=ImportWorkspace(
+                                is_import_block=cell_impl.import_workspace.is_import_block
+                            ),
                         ),
                         _app=InternalApp(app),
                     )
@@ -337,15 +359,15 @@ class App:
 
         ```
         @app.cell
-        def __(mo):
+        def _(mo):
             # ...
 
         @app.cell()
-        def __(mo):
+        def _(mo):
             # ...
 
         @app.cell(disabled=True)
-        def __(mo):
+        def _(mo):
             # ...
         ```
 
@@ -745,19 +767,22 @@ class App:
         return output, _Namespace(defs, owner=self)
 
     async def _set_ui_element_value(
-        self, request: SetUIElementValueRequest
+        self, request: UpdateUIElementCommand
     ) -> bool:
         app_kernel_runner = self._get_kernel_runner()
         return await app_kernel_runner.set_ui_element_value(request)
 
     async def _function_call(
-        self, request: FunctionCallRequest
+        self, request: InvokeFunctionCommand
     ) -> tuple[HumanReadableStatus, JSONType, bool]:
         app_kernel_runner = self._get_kernel_runner()
         return await app_kernel_runner.function_call(request)
 
     @mddoc
-    async def embed(self) -> AppEmbedResult:
+    async def embed(
+        self,
+        defs: dict[str, Any] | None = None,
+    ) -> AppEmbedResult:
         """Embed a notebook into another notebook.
 
         The `embed` method lets you embed the output of a notebook
@@ -807,12 +832,26 @@ class App:
 
             ```python
             one = app.clone()
+            ```
+
+            ```python
             r1 = await one.embed()
             ```
 
             ```python
             two = app.clone()
+            ```
+
+            ```python
             r2 = await two.embed()
+            ```
+
+        Args:
+            defs (dict[str, Any]):
+                You may pass values for any variable definitions as keyword
+                arguments. marimo will use these values instead of executing
+                the cells that would normally define them. Cells that depend
+                on these variables will use your provided values.
 
         Returns:
             An object `result` with two attributes: `result.output` (visual
@@ -821,21 +860,49 @@ class App:
 
         """
         from marimo._plugins.stateless.flex import vstack
+        from marimo._plugins.ui._core.ui_element import UIElement
         from marimo._runtime.context.utils import running_in_notebook
 
         self._maybe_initialize()
 
+        if defs is not None and any(
+            isinstance(v, UIElement) for k, v in list(defs.items())
+        ):
+            raise ValueError(
+                "Substituting UI Elements for variables is not allowed."
+            )
+
         if running_in_notebook():
-            # TODO(akshayka): raise a RuntimeError if called in the cell
-            # that defined the name bound to this App, if any
+            ctx = get_context()
+            for var, v in ctx.globals.items():
+                if (
+                    (v is self or getattr(v, "app", None) is self)
+                    and ctx.execution_context is not None
+                    and ctx.execution_context.cell_id
+                    in ctx.graph.get_defining_cells(var)
+                ):
+                    raise RuntimeError(
+                        "App.embed() cannot be called in the cell that "
+                        "imports the app. Call embed() in another cell."
+                    )
+
             app_kernel_runner = self._get_kernel_runner()
 
             outputs: dict[CellId_t, Any]
             glbls: dict[str, Any]
-            if not app_kernel_runner.outputs:
-                outputs, glbls = await app_kernel_runner.run(
-                    set(self._execution_order)
+
+            if not app_kernel_runner.are_outputs_cached(defs):
+                app_kernel_runner.register_defs(defs)
+                # Inject provided defs into the kernel's globals
+                if defs:
+                    app_kernel_runner.globals.update(defs)
+
+                cells_to_run = set(
+                    dataflow.prune_cells_for_overrides(
+                        self._graph, self._execution_order, defs or {}
+                    )
                 )
+                outputs, glbls = await app_kernel_runner.run(cells_to_run)
             else:
                 outputs, glbls = (
                     app_kernel_runner.outputs,
@@ -852,10 +919,10 @@ class App:
                 defs=self._globals_to_defs(glbls),
             )
         else:
-            flat_outputs, defs = self.run()
+            flat_outputs, computed_defs = self.run(defs=defs or {})
             return AppEmbedResult(
                 output=vstack([o for o in flat_outputs if o is not None]),
-                defs=defs,
+                defs=computed_defs,
             )
 
 
@@ -960,17 +1027,24 @@ class InternalApp:
         return self._app._run_cell_sync(cell, kwargs)
 
     async def set_ui_element_value(
-        self, request: SetUIElementValueRequest
+        self, request: UpdateUIElementCommand
     ) -> bool:
         return await self._app._set_ui_element_value(request)
 
     async def function_call(
-        self, request: FunctionCallRequest
+        self, request: InvokeFunctionCommand
     ) -> tuple[HumanReadableStatus, JSONType, bool]:
         return await self._app._function_call(request)
 
+    def overrides(self) -> dict[str, Any] | None:
+        """Overridden definitions; only matters for embedded apps."""
+        return self._app._get_kernel_runner()._previously_seen_defs
+
     def to_ir(self) -> NotebookSerializationV1:
         return NotebookSerializationV1(
+            header=Header(value=self._app._header)
+            if self._app._header
+            else None,
             cells=[
                 CellDef(
                     code=cell_data.code,
@@ -982,6 +1056,7 @@ class InternalApp:
             app=AppInstantiation(
                 options=self._app._config.asdict(),
             ),
+            filename=self._app._filename,
         )
 
     def to_py(self) -> str:

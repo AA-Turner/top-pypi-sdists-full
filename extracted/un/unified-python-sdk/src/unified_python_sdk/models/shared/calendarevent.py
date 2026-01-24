@@ -13,12 +13,12 @@ from .property_calendarevent_organizer import (
     PropertyCalendarEventOrganizerTypedDict,
 )
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, List, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class CalendarEventStatus(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -45,6 +45,7 @@ class CalendarEventTypedDict(TypedDict):
     raw: NotRequired[Dict[str, Any]]
     recurrence: NotRequired[List[CalendarEventRecurrenceTypedDict]]
     recurring_event_id: NotRequired[str]
+    send_notifications: NotRequired[bool]
     start_at: NotRequired[str]
     status: NotRequired[CalendarEventStatus]
     subject: NotRequired[str]
@@ -88,11 +89,11 @@ class CalendarEvent(BaseModel):
 
     recurring_event_id: Optional[str] = None
 
+    send_notifications: Optional[bool] = None
+
     start_at: Optional[str] = None
 
-    status: Annotated[
-        Optional[CalendarEventStatus], PlainValidator(validate_open_enum(False))
-    ] = None
+    status: Optional[CalendarEventStatus] = None
 
     subject: Optional[str] = None
 
@@ -101,3 +102,55 @@ class CalendarEvent(BaseModel):
     updated_at: Optional[str] = None
 
     web_url: Optional[str] = None
+
+    @field_serializer("status")
+    def serialize_status(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.CalendarEventStatus(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "attachments",
+                "attendees",
+                "calendar_id",
+                "conference",
+                "created_at",
+                "end_at",
+                "has_conference",
+                "id",
+                "is_all_day",
+                "is_free",
+                "is_private",
+                "location",
+                "notes",
+                "organizer",
+                "raw",
+                "recurrence",
+                "recurring_event_id",
+                "send_notifications",
+                "start_at",
+                "status",
+                "subject",
+                "timezone",
+                "updated_at",
+                "web_url",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

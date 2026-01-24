@@ -15,13 +15,10 @@ from .relationships import PositionRepresentationSerializer
 
 
 class PersonModelSerializer(ModelTranslateSerializerMixin, EntryModelSerializer):
-    activites_count = wb_serializers.IntegerField(default=0, read_only=True)
-
     primary_employer_repr = wb_serializers.CharField(read_only=True, required=False, label=_("Primary Employer"))
     has_user_account = wb_serializers.CharField(read_only=True, label=_("User Account"))
     name = wb_serializers.CharField(read_only=True)
     last_connection = wb_serializers.DateTimeField(read_only=True, default=None, label=_("Last Connection"))
-    secondary_email = wb_serializers.CharField(default="", label=_("Secondary Email"), allow_null=True, read_only=True)
     personality_profile_red = wb_serializers.RangeSelectField(
         color=WBColor.RED_LIGHT.value, required=False, label=_("Personality Profile Red")
     )
@@ -32,7 +29,7 @@ class PersonModelSerializer(ModelTranslateSerializerMixin, EntryModelSerializer)
         color=WBColor.BLUE_LIGHT.value, required=False, label=_("Personality Profile Blue")
     )
     _specializations = SpecializationRepresentationSerializer(source="specializations", many=True)
-    tier = wb_serializers.CharField(read_only=True, help_text=_("Tier of the primary employer"), label=_("Tier"))
+    tier = wb_serializers.CharField(help_text=_("Tier of the primary employer"), label=_("Tier"), required=False)
 
     def get_user_account_email(self, obj):
         if hasattr(obj, "user_account"):
@@ -82,7 +79,6 @@ class PersonModelSerializer(ModelTranslateSerializerMixin, EntryModelSerializer)
             "name",
             "computed_str",
             "active_employee",
-            "activites_count",
             "activity_heat",
             "addresses",
             "cities",
@@ -104,9 +100,10 @@ class PersonModelSerializer(ModelTranslateSerializerMixin, EntryModelSerializer)
             "primary_manager_repr",
             "primary_employer_repr",
             "primary_telephone",
+            "primary_website",
+            "primary_social",
             "profile_image",
             "salutation",
-            "secondary_email",
             "specializations",
             "_specializations",
             "tier",
@@ -204,12 +201,14 @@ class PersonModelListSerializer(PersonModelSerializer):
             "_cities",
             "customer_status",
             "primary_employer_repr",
+            "primary_address",
+            "primary_email",
             "primary_manager_repr",
+            "primary_website",
+            "primary_social",
+            "primary_telephone",
             "last_event",
             "position_in_company",
-            "primary_email",
-            "primary_telephone",
-            "primary_telephone",
             "tier",
             "_additional_resources",
         )

@@ -1,13 +1,15 @@
-import substrait.gen.proto.type_pb2 as stt
-import substrait.gen.proto.plan_pb2 as stp
 import substrait.gen.proto.algebra_pb2 as stalg
+import substrait.gen.proto.plan_pb2 as stp
+import substrait.gen.proto.type_pb2 as stt
+from substrait.builders.plan import default_version, read_named_table, set
 from substrait.builders.type import boolean, i64
-from substrait.builders.plan import read_named_table, set
 from substrait.extension_registry import ExtensionRegistry
 
 registry = ExtensionRegistry(load_default_extensions=False)
 
-struct = stt.Type.Struct(types=[i64(nullable=False), boolean()])
+struct = stt.Type.Struct(
+    types=[i64(nullable=False), boolean()], nullability=stt.Type.NULLABILITY_REQUIRED
+)
 
 named_struct = stt.NamedStruct(names=["id", "is_applicable"], struct=struct)
 
@@ -19,6 +21,7 @@ def test_set():
     actual = set([table, table2], stalg.SetRel.SET_OP_UNION_ALL)(None)
 
     expected = stp.Plan(
+        version=default_version,
         relations=[
             stp.PlanRel(
                 root=stalg.RelRoot(
@@ -34,7 +37,7 @@ def test_set():
                     names=["id", "is_applicable"],
                 )
             )
-        ]
+        ],
     )
 
     assert actual == expected

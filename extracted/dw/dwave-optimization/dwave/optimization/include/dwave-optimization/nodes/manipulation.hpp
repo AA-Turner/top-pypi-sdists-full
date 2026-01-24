@@ -17,6 +17,7 @@
 #pragma once
 
 #include <span>
+#include <variant>
 #include <vector>
 
 #include "dwave-optimization/array.hpp"
@@ -37,7 +38,7 @@ class BroadcastToNode : public ArrayNode {
     void commit(State& state) const override;
 
     /// Broadcast nodes are always treated as non-contiguous.
-    bool contiguous() const override { return false; }
+    bool contiguous() const override;
 
     /// @copydoc Array::diff()
     std::span<const Update> diff(const State& state) const override;
@@ -80,13 +81,15 @@ class BroadcastToNode : public ArrayNode {
  private:
     /// Translate a linear index of the predecessor into a linear index of the
     /// BroadcastToNode.
-    ssize_t reindex(ssize_t index) const;
+    ssize_t convert_predecessor_index_(ssize_t index) const;
 
     ArrayNode* array_ptr_;
 
     ssize_t ndim_;
     std::unique_ptr<ssize_t[]> shape_;
     std::unique_ptr<ssize_t[]> strides_;
+
+    bool contiguous_;
 
     const ValuesInfo values_info_;
 };
@@ -301,6 +304,7 @@ class ReshapeNode : public ArrayOutputMixin<ArrayNode> {
     const Array* array_ptr_;
 
     const ValuesInfo values_info_;
+    const SizeInfo sizeinfo_;
 };
 
 /// Reshape a node to a specific non-dynamic shape. Use fill_value for any missing
@@ -361,6 +365,95 @@ class ResizeNode : public ArrayOutputMixin<ArrayNode> {
     const ValuesInfo values_info_;
 };
 
+class RollNode : public ArrayOutputMixin<ArrayNode> {
+ public:
+    /// Construct a RollNode.
+    ///
+    /// `shift` is a single integer, a vector of shifts per-axis, or an array encoding
+    /// the same.
+    ///
+    /// If `axis` is empty then the array is treated as flat while rolling. Otherwise
+    /// the given axes are shifted.
+    RollNode(ArrayNode* array_ptr, ssize_t shift, std::vector<ssize_t> axis = {});
+    RollNode(ArrayNode* array_ptr, std::vector<ssize_t> shift, std::vector<ssize_t> axis = {});
+    RollNode(ArrayNode* array_ptr, ArrayNode* shift, std::vector<ssize_t> axis = {});
+
+    /// The axes upon which the roll is performed. If empty the array is treated as flat
+    /// when rolling.
+    std::span<const ssize_t> axes() const;
+
+    /// @copydoc Array::buff()
+    double const* buff(const State& state) const override;
+
+    /// @copydoc Node::commit()
+    void commit(State& state) const override;
+
+    /// @copydoc Array::diff()
+    std::span<const Update> diff(const State& state) const override;
+
+    /// @copydoc Node::initialize_state()
+    void initialize_state(State& state) const override;
+
+    /// @copydoc Array::integral()
+    bool integral() const override;
+
+    /// @copydoc Array::min()
+    double min() const override;
+
+    /// @copydoc Array::max()
+    double max() const override;
+
+    /// @copydoc Node::initialize_state()
+    void propagate(State& state) const override;
+
+    /// @copydoc Node::revert()
+    void revert(State& state) const override;
+
+    using ArrayOutputMixin::shape;
+
+    /// @copydoc Array::shape()
+    std::span<const ssize_t> shape(const State& state) const override;
+
+    /// The shift value used by the node.
+    const std::variant<const Array*, std::vector<ssize_t>>& shift() const;
+
+    using ArrayOutputMixin::size;
+
+    /// @copydoc Array::size()
+    ssize_t size(const State& state) const override;
+
+    /// @copydoc Array::sizeinfo()
+    SizeInfo sizeinfo() const override;
+
+    /// @copydoc Array::size_diff()
+    ssize_t size_diff(const State& state) const override;
+
+ private:
+    // Rotate the given array by shift in-place.
+    static void rotate_(std::span<double> array, ssize_t shift);
+
+    // Rotate the given array with the given shift by the shift given for each
+    // axis. Acts in-place.
+    static void rotate_(std::span<double> array, std::span<const ssize_t> shape,
+                        std::span<const ssize_t> shifts);
+
+    // Return the current shift, and whether is changed since the last propagation.
+    std::tuple<ssize_t, bool> shift_diff_(const State& state) const;
+
+    // Return the current shifts for each axis and whether any have changed since
+    // the last propagation
+    std::tuple<std::vector<ssize_t>, bool> shifts_diff_(const State& state) const;
+
+    const Array* array_ptr_;
+
+    std::variant<const Array*, std::vector<ssize_t>> shift_;
+
+    std::vector<ssize_t> axis_;
+
+    const ValuesInfo values_info_;
+    const SizeInfo sizeinfo_;
+};
+
 class SizeNode : public ScalarOutputMixin<ArrayNode, true> {
  public:
     explicit SizeNode(ArrayNode* node_ptr);
@@ -384,6 +477,71 @@ class SizeNode : public ScalarOutputMixin<ArrayNode, true> {
     const Array* array_ptr_;
 
     const std::pair<double, double> minmax_;
+};
+
+// Compute the transpose of predecessor
+class TransposeNode : public ArrayNode {
+ public:
+    TransposeNode(ArrayNode* array_ptr);
+
+    // Overloads needed by the Array ABC **************************************
+
+    /// @copydoc Array::buff()
+    double const* buff(const State& state) const override;
+
+    /// @copydoc Array::ndim()
+    ssize_t ndim() const override;
+
+    /// @copydoc Array::shape()
+    std::span<const ssize_t> shape(const State& state) const override;
+    std::span<const ssize_t> shape() const override;
+
+    /// @copydoc Array::strides()
+    std::span<const ssize_t> strides() const override;
+
+    /// @copydoc Array::size()
+    ssize_t size() const override;
+    ssize_t size(const State& state) const override;
+
+    /// @copydoc Array::min()
+    double min() const override;
+
+    /// @copydoc Array::max()
+    double max() const override;
+
+    /// @copydoc Array::integral()
+    bool integral() const override;
+
+    /// @copydoc Array::contiguous()
+    bool contiguous() const override;
+
+    /// @copydoc Array::diff()
+    std::span<const Update> diff(const State& state) const override;
+
+    /// @copydoc Array::size_diff()
+    ssize_t size_diff(const State& state) const override;
+
+    // Overloads required by the Node ABC *************************************
+
+    void initialize_state(State& state) const override;
+
+    void propagate(State& state) const override;
+
+    void commit(State&) const override;
+
+    void revert(State&) const override;
+
+ private:
+    const Array* array_ptr_;
+
+    const ssize_t ndim_;
+    const std::unique_ptr<ssize_t[]> shape_;
+    const std::unique_ptr<ssize_t[]> strides_;
+    const bool contiguous_;
+    const ValuesInfo values_info_;
+
+    ArrayNode* predeccesor_check_(ArrayNode* array_ptr) const;
+    Update convert_predecessor_update_(Update update) const;
 };
 
 }  // namespace dwave::optimization

@@ -1,33 +1,40 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import inspect
+import uuid
 from dataclasses import dataclass
 from typing import Any, Callable, Final, Optional, Union, cast
 
+from marimo import _loggers
 from marimo._ai._types import (
     ChatMessage,
     ChatModelConfig,
     ChatModelConfigDict,
+    TextPart,
 )
+from marimo._dependencies.dependencies import DependencyManager
 from marimo._output.formatting import as_html
-from marimo._output.md import md
 from marimo._output.rich_help import mddoc
 from marimo._plugins.core.web_component import JSONType
 from marimo._plugins.ui._core.ui_element import UIElement
-from marimo._plugins.ui._impl.chat.utils import from_chat_message_dict
+from marimo._runtime.commands import UpdateUIElementCommand
+from marimo._runtime.context import get_context
 from marimo._runtime.context.types import ContextNotInitializedError
 from marimo._runtime.functions import EmptyArgs, Function
-from marimo._runtime.requests import SetUIElementValueRequest
+
+LOGGER = _loggers.marimo_logger()
 
 DEFAULT_CONFIG = ChatModelConfigDict(
-    max_tokens=100,
+    max_tokens=4096,
     temperature=0.5,
     top_p=1,
     top_k=40,
     frequency_penalty=0,
     presence_penalty=0,
 )
+
+DONE_CHUNK: Final[str] = "[DONE]"
 
 
 @dataclass
@@ -78,23 +85,34 @@ class chat(UIElement[dict[str, Any], list[ChatMessage]]):
             return await my_async_function(messages)
         ```
 
+        Regular (sync) generators for streaming:
         ```python
-        async def my_rag_model(messages):
-            for response in my_async_iterator(messages):
-                yield response
+        def my_streaming_model(messages, config):
+            for chunk in process_stream():
+                yield chunk  # Each yield updates the UI
         ```
 
-        The last value yielded by the async generator is treated as the model
-        response. ui.chat does not yet support streaming responses to the frontend.
-        Please file a GitHub issue if this is important to you:
-        https://github.com/marimo-team/marimo/issues
+        Async generators for streaming with async operations:
+        ```python
+        async def my_async_streaming_model(messages, config):
+            async for chunk in async_process_stream():
+                yield chunk  # Each yield updates the UI
+        ```
+
+        The last value yielded by the generator is treated as the model
+        response. Streaming responses are automatically streamed to the frontend
+        as they are generated.
 
         Using a built-in model:
         ```python
+        from pydantic_ai import Agent
+
         chat = mo.ui.chat(
-            mo.ai.llm.openai(
-                "gpt-4o",
-                system_message="You are a helpful assistant.",
+            mo.ai.llm.pydantic_ai(
+                Agent(
+                    "openai:gpt-5",
+                    system_prompt="You are a helpful assistant.",
+                )
             ),
         )
         ```
@@ -102,12 +120,42 @@ class chat(UIElement[dict[str, Any], list[ChatMessage]]):
         Using attachments:
         ```python
         chat = mo.ui.chat(
-            mo.ai.llm.openai(
-                "gpt-4o",
+            mo.ai.llm.pydantic_ai(
+                Agent(
+                    "openai:gpt-5",
+                    system_prompt="You are a helpful assistant.",
+                )
             ),
             allow_attachments=["image/png", "image/jpeg"],
         )
         ```
+
+        Custom model with Vercel AI SDK streaming (reasoning, tool calls):
+        ```python
+        import pydantic_ai.ui.vercel_ai.response_types as vercel
+
+
+        async def custom_model(messages, config):
+            # Stream reasoning/thinking
+            yield vercel.ReasoningStartChunk(id="reasoning-1")
+            yield vercel.ReasoningDeltaChunk(
+                id="reasoning-1", delta="Let me think..."
+            )
+            yield vercel.ReasoningEndChunk(id="reasoning-1")
+
+            # Stream text response (can also use plain dicts)
+            yield {"type": "text-start", "id": "text-1"}
+            yield vercel.TextDeltaChunk(
+                id="text-1", delta="Here is my answer."
+            )
+            yield vercel.TextEndChunk(id="text-1")
+
+            yield vercel.FinishChunk(finish_reason="stop")
+
+
+        chat = mo.ui.chat(custom_model)
+        ```
+        Refer to examples/ai/chat/pydantic-ai-chat.py for a complete example.
 
     Attributes:
         value (List[ChatMessage]): The current chat history, a list of ChatMessage objects.
@@ -207,43 +255,75 @@ class chat(UIElement[dict[str, Any], list[ChatMessage]]):
         del self._chat_history[index]
         self._value = self._chat_history
 
-    async def _send_prompt(self, args: SendMessageRequest) -> str:
-        messages = args.messages
+    def _send_chat_message(
+        self,
+        *,
+        message_id: str,
+        content: str | dict[str, Any] | None,
+        is_final: bool,
+    ) -> None:
+        """Helper method to send a chat message to the frontend."""
+        self._send_message(
+            {
+                "type": "stream_chunk",
+                "message_id": message_id,
+                "content": content,
+                "is_final": is_final,
+            },
+            buffers=None,
+        )
 
-        # If the model is a callable that takes a single argument,
-        # call it with just the messages.
-        response: object
-        if (
-            callable(self._model)
-            and not isinstance(self._model, type)
-            and len(inspect.signature(self._model).parameters) == 1
-        ):
-            response = self._model(messages)  # type: ignore
+    async def _handle_streaming_response(self, response: Any) -> None:
+        """Handle streaming from both sync and async generators, and lists.
+
+        Generators should yield delta chunks (new content only), which this
+        method accumulates and sends to the frontend as complete text.
+        This follows the standard streaming pattern used by OpenAI, Anthropic,
+        and other AI providers. For frontend-managed streaming, the response is set on the frontend,
+        so we don't need to return anything. If generators just yield strings, we update the chat history with the accumulated text.
+        """
+        message_id = str(uuid.uuid4())
+
+        def send_chunk(chunk: dict[str, Any]) -> None:
+            self._send_chat_message(
+                message_id=message_id, content=chunk, is_final=False
+            )
+
+        serializer = ChunkSerializer(on_send_chunk=send_chunk)
+        accumulated_text = ""
+
+        is_generator = inspect.isasyncgen(response) or inspect.isgenerator(
+            response
+        )
+
+        if inspect.isasyncgen(response):
+            async for delta in response:
+                if isinstance(delta, str):
+                    accumulated_text += delta
+                serializer.handle_chunk(delta)
         else:
-            response = self._model(messages, args.config)
+            for delta in response:
+                if isinstance(delta, str):
+                    accumulated_text += delta
+                serializer.handle_chunk(delta)
 
-        if inspect.isawaitable(response):
-            response = await response
-        elif inspect.isasyncgen(response):
-            # We support functions that stream the response with an async
-            # generator; each yielded value is the latest representation of the
-            # response, and the last value is the full value
-            latest_response = None
-            async for latest_response in response:  # noqa: B007
-                # TODO(akshayka, mscolnick): Stream response to frontend
-                # once bidirectional communication is implemented.
-                #
-                # RPCs don't yet support bidirectional communication, so we
-                # just ignore all the initial responses; ideally we'd stream
-                # the response back to the frontend.
-                pass
-            response = latest_response
+        # Generators that yield strings should update the 'content' field of the assistant message
+        if accumulated_text and is_generator:
+            self._add_assistant_message_to_chat_history(
+                accumulated_text, accumulated_text
+            )
 
-        response_message = ChatMessage(role="assistant", content=response)
-        self._chat_history = messages + [response_message]
+        serializer.on_end()
 
-        from marimo._runtime.context import get_context
+        # Send final message to indicate streaming is complete
+        self._send_chat_message(
+            message_id=message_id,
+            content=None,
+            is_final=True,
+        )
 
+    def _update_chat_history(self, chat_history: list[ChatMessage]) -> None:
+        self._chat_history = chat_history
         # The frontend doesn't manage state, so we have to manually enqueue
         # a control request.
         try:
@@ -260,22 +340,152 @@ class chat(UIElement[dict[str, Any], list[ChatMessage]]):
 
             if isinstance(ctx, KernelRuntimeContext):
                 ctx._kernel.enqueue_control_request(
-                    SetUIElementValueRequest(
+                    UpdateUIElementCommand(
                         object_ids=[self._id],
                         values=[{"messages": self._chat_history}],
                         request=None,
                     )
                 )
 
-        # Return the response as HTML
-        # If the response is a string, convert it to markdown
-        if isinstance(response, str):
-            return md(response).text
-        return as_html(response).text
+    async def _send_prompt(self, args: SendMessageRequest) -> None:
+        messages = args.messages
+
+        self._chat_history = messages
+
+        # If the model is a callable that takes a single argument,
+        # call it with just the messages.
+        response: object
+        if (
+            callable(self._model)
+            and not isinstance(self._model, type)
+            and len(inspect.signature(self._model).parameters) == 1
+        ):
+            response = self._model(messages)  # type: ignore
+        else:
+            response = self._model(messages, args.config)
+
+        if inspect.isasyncgen(response) or inspect.isgenerator(response):
+            # We support functions that stream the response with generators
+            # (both sync and async)
+            await self._handle_streaming_response(response)
+            # For streaming, we don't have a final response string to add to history
+            # The frontend will add the accumulated message
+            return None
+
+        if inspect.isawaitable(response):
+            response = await response
+
+        # Return the response as a string
+        # If the response is a rich object, convert it to markdown
+        response_str = (
+            response if isinstance(response, str) else as_html(response).text
+        )
+
+        await self._handle_streaming_response([response_str])
+        # Update the chat history to trigger UI updates and on_message callback
+        self._add_assistant_message_to_chat_history(response, response_str)
+
+    def _add_assistant_message_to_chat_history(
+        self, content: str | object, text: str
+    ) -> None:
+        assistant_message = ChatMessage(
+            role="assistant",
+            content=content,
+            id=f"message_{uuid.uuid4().hex}",
+            parts=[TextPart(type="text", text=text)],
+        )
+        self._chat_history.append(assistant_message)
+        self._update_chat_history(self._chat_history)
 
     def _convert_value(self, value: dict[str, Any]) -> list[ChatMessage]:
+        """Convert the frontend's chat history format to a list of ChatMessage objects."""
         if not isinstance(value, dict) or "messages" not in value:
             raise ValueError("Invalid chat history format")
 
         messages = value["messages"]
-        return [from_chat_message_dict(msg) for msg in messages]
+
+        part_validator_class = None
+        if DependencyManager.pydantic_ai.imported():
+            from pydantic_ai.ui.vercel_ai.request_types import (
+                UIMessagePart,
+            )
+
+            # The frontend sends messages as ChatMessage parts so we use pydantic-ai to cast them
+            # as Vercel UIMessagePart
+            part_validator_class = UIMessagePart
+
+        def get_prev_content(idx: int) -> Any:
+            # Only get the prev content if messages are the same size
+            if len(messages) == len(self._chat_history):
+                return self._chat_history[idx].content
+            return None
+
+        result: list[ChatMessage] = []
+        for i, msg in enumerate(messages):
+            prev_content = get_prev_content(i)
+            if isinstance(msg, ChatMessage):
+                if prev_content is not None:
+                    msg.content = prev_content
+                continue
+
+            msg_id = msg.get("id")
+            role = msg.get("role", "user")
+            # Prefer the content in Python object format over the serialized content from the frontend,
+            # since this is the most accurate representation of the message and more valuable to the user in Python-land.
+            content = (
+                prev_content
+                if prev_content is not None
+                else msg.get("content")
+            )
+            result.append(
+                ChatMessage.create(
+                    role=role,
+                    message_id=msg_id,
+                    content=content,
+                    parts=msg.get("parts", []),
+                    part_validator_class=part_validator_class,
+                )
+            )
+        return result
+
+
+@dataclass
+class ChunkSerializer:
+    on_send_chunk: Callable[[dict[str, Any]], None]
+    _text_id: str | None = None
+
+    def handle_chunk(self, chunk: Any) -> None:
+        """Handle a Vercel AI SDK chunk"""
+
+        # Handle Pydantic AI's Vercel AI SDK chunks
+        if DependencyManager.pydantic_ai.imported():
+            from pydantic_ai.ui.vercel_ai.response_types import (
+                BaseChunk,
+            )
+
+            if isinstance(chunk, BaseChunk):
+                # by_alias=True: Use camelCase keys expected by Vercel AI SDK.
+                # exclude_none=True: Remove null values which cause validation errors.
+                self.on_send_chunk(
+                    chunk.model_dump(
+                        mode="json", by_alias=True, exclude_none=True
+                    )
+                )
+                return
+
+        # Handle plain text chunks
+        if isinstance(chunk, str):
+            if self._text_id is None:
+                self._text_id = f"text_{uuid.uuid4().hex}"
+                self.on_send_chunk({"type": "text-start", "id": self._text_id})
+            self.on_send_chunk(
+                {"type": "text-delta", "id": self._text_id, "delta": chunk}
+            )
+            return
+
+        # Otherwise, we return the chunk as is
+        self.on_send_chunk(chunk)
+
+    def on_end(self) -> None:
+        if self._text_id is not None:
+            self.on_send_chunk({"type": "text-end", "id": self._text_id})

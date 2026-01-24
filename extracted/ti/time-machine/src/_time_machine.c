@@ -14,8 +14,6 @@ typedef struct {
     PyCFunctionObject *time_clock_gettime_ns;
     PyCFunctionObject *time_gmtime;
     PyCFunctionObject *time_localtime;
-    PyCFunctionObject *time_monotonic;
-    PyCFunctionObject *time_monotonic_ns;
     PyCFunctionObject *time_strftime;
     PyCFunctionObject *time_time;
     PyCFunctionObject *time_time_ns;
@@ -30,8 +28,6 @@ typedef struct {
     PyCFunction original_clock_gettime_ns;
     PyCFunction original_gmtime;
     PyCFunction original_localtime;
-    PyCFunction original_monotonic;
-    PyCFunction original_monotonic_ns;
     PyCFunction original_strftime;
     PyCFunction original_time;
     PyCFunction original_time_ns;
@@ -78,6 +74,11 @@ _time_machine_original_now(
 {
     _time_machine_state *state = get_time_machine_state(module);
 
+    if (state->original_now == NULL) {
+        PyErr_SetString(PyExc_ValueError, "Not currently time-travelling.");
+        return NULL;
+    }
+
     PyObject *result = state->original_now(state->datetime_class, args, nargs, kwnames);
 
     return result;
@@ -114,6 +115,11 @@ static PyObject *
 _time_machine_original_utcnow(PyObject *module, PyObject *args)
 {
     _time_machine_state *state = get_time_machine_state(module);
+
+    if (state->original_utcnow == NULL) {
+        PyErr_SetString(PyExc_ValueError, "Not currently time-travelling.");
+        return NULL;
+    }
 
     PyObject *result = state->original_utcnow(state->datetime_class, args);
 
@@ -157,6 +163,11 @@ _time_machine_original_clock_gettime(PyObject *module, PyObject *args)
 {
     _time_machine_state *state = get_time_machine_state(module);
 
+    if (state->original_clock_gettime == NULL) {
+        PyErr_SetString(PyExc_ValueError, "Not currently time-travelling.");
+        return NULL;
+    }
+
     PyObject *result = state->original_clock_gettime(state->time_module, args);
 
     return result;
@@ -199,6 +210,11 @@ _time_machine_original_clock_gettime_ns(PyObject *module, PyObject *args)
 {
     _time_machine_state *state = get_time_machine_state(module);
 
+    if (state->original_clock_gettime_ns == NULL) {
+        PyErr_SetString(PyExc_ValueError, "Not currently time-travelling.");
+        return NULL;
+    }
+
     PyObject *result = state->original_clock_gettime_ns(state->time_module, args);
 
     return result;
@@ -235,6 +251,11 @@ static PyObject *
 _time_machine_original_gmtime(PyObject *module, PyObject *args)
 {
     _time_machine_state *state = get_time_machine_state(module);
+
+    if (state->original_gmtime == NULL) {
+        PyErr_SetString(PyExc_ValueError, "Not currently time-travelling.");
+        return NULL;
+    }
 
     PyObject *result = state->original_gmtime(state->time_module, args);
 
@@ -274,6 +295,11 @@ _time_machine_original_localtime(PyObject *module, PyObject *args)
 {
     _time_machine_state *state = get_time_machine_state(module);
 
+    if (state->original_localtime == NULL) {
+        PyErr_SetString(PyExc_ValueError, "Not currently time-travelling.");
+        return NULL;
+    }
+
     PyObject *result = state->original_localtime(state->time_module, args);
 
     return result;
@@ -282,38 +308,6 @@ PyDoc_STRVAR(original_localtime_doc,
     "original_localtime() -> floating point number\n\
 \n\
 Call time.localtime() after patching.");
-
-/* time.monotonic() */
-
-static PyObject *
-_time_machine_original_monotonic(PyObject *module, PyObject *args)
-{
-    _time_machine_state *state = get_time_machine_state(module);
-
-    PyObject *result = state->original_monotonic(state->time_module, args);
-
-    return result;
-}
-PyDoc_STRVAR(original_monotonic_doc,
-    "original_monotonic() -> floating point number\n\
-\n\
-Call time.monotonic() after patching.");
-
-/* time.monotonic_ns() */
-
-static PyObject *
-_time_machine_original_monotonic_ns(PyObject *module, PyObject *args)
-{
-    _time_machine_state *state = get_time_machine_state(module);
-
-    PyObject *result = state->original_monotonic_ns(state->time_module, args);
-
-    return result;
-}
-PyDoc_STRVAR(original_monotonic_ns_doc,
-    "original_monotonic_ns() -> int\n\
-\n\
-Call time.monotonic_ns() after patching.");
 
 /* time.strftime() */
 
@@ -342,6 +336,11 @@ static PyObject *
 _time_machine_original_strftime(PyObject *module, PyObject *args)
 {
     _time_machine_state *state = get_time_machine_state(module);
+
+    if (state->original_strftime == NULL) {
+        PyErr_SetString(PyExc_ValueError, "Not currently time-travelling.");
+        return NULL;
+    }
 
     PyObject *result = state->original_strftime(state->time_module, args);
 
@@ -380,6 +379,11 @@ _time_machine_original_time(PyObject *module, PyObject *args)
 {
     _time_machine_state *state = get_time_machine_state(module);
 
+    if (state->original_time == NULL) {
+        PyErr_SetString(PyExc_ValueError, "Not currently time-travelling.");
+        return NULL;
+    }
+
     PyObject *result = state->original_time(state->time_module, args);
 
     return result;
@@ -416,6 +420,11 @@ static PyObject *
 _time_machine_original_time_ns(PyObject *module, PyObject *args)
 {
     _time_machine_state *state = get_time_machine_state(module);
+
+    if (state->original_time_ns == NULL) {
+        PyErr_SetString(PyExc_ValueError, "Not currently time-travelling.");
+        return NULL;
+    }
 
     PyObject *result = state->original_time_ns(state->time_module, args);
 
@@ -470,12 +479,6 @@ _time_machine_patch(PyObject *module, PyObject *unused)
 
     state->original_localtime = state->time_localtime->m_ml->ml_meth;
     state->time_localtime->m_ml->ml_meth = _time_machine_localtime;
-
-    state->original_monotonic = state->time_monotonic->m_ml->ml_meth;
-    state->time_monotonic->m_ml->ml_meth = _time_machine_time;
-
-    state->original_monotonic_ns = state->time_monotonic_ns->m_ml->ml_meth;
-    state->time_monotonic_ns->m_ml->ml_meth = _time_machine_time_ns;
 
     state->original_strftime = state->time_strftime->m_ml->ml_meth;
     state->time_strftime->m_ml->ml_meth = _time_machine_strftime;
@@ -536,12 +539,6 @@ _time_machine_unpatch(PyObject *module, PyObject *unused)
     state->time_localtime->m_ml->ml_meth = state->original_localtime;
     state->original_localtime = NULL;
 
-    state->time_monotonic->m_ml->ml_meth = state->original_monotonic;
-    state->original_monotonic = NULL;
-
-    state->time_monotonic_ns->m_ml->ml_meth = state->original_monotonic_ns;
-    state->original_monotonic_ns = NULL;
-
     state->time_strftime->m_ml->ml_meth = state->original_strftime;
     state->original_strftime = NULL;
 
@@ -596,14 +593,6 @@ static PyMethodDef module_functions[] = {
         (PyCFunction)_time_machine_original_localtime,
         METH_VARARGS,
         original_localtime_doc},
-    {"original_monotonic",
-        (PyCFunction)_time_machine_original_monotonic,
-        METH_NOARGS,
-        original_monotonic_doc},
-    {"original_monotonic_ns",
-        (PyCFunction)_time_machine_original_monotonic_ns,
-        METH_NOARGS,
-        original_monotonic_ns_doc},
     {"original_strftime",
         (PyCFunction)_time_machine_original_strftime,
         METH_VARARGS,
@@ -689,18 +678,6 @@ _time_machine_exec(PyObject *module)
         goto error;
     }
 
-    state->time_monotonic =
-        (PyCFunctionObject *)PyObject_GetAttrString(state->time_module, "monotonic");
-    if (state->time_monotonic == NULL) {
-        goto error;
-    }
-
-    state->time_monotonic_ns =
-        (PyCFunctionObject *)PyObject_GetAttrString(state->time_module, "monotonic_ns");
-    if (state->time_monotonic_ns == NULL) {
-        goto error;
-    }
-
     state->time_strftime =
         (PyCFunctionObject *)PyObject_GetAttrString(state->time_module, "strftime");
     if (state->time_strftime == NULL) {
@@ -730,8 +707,6 @@ error:
     Py_CLEAR(state->time_clock_gettime_ns);
     Py_CLEAR(state->time_gmtime);
     Py_CLEAR(state->time_localtime);
-    Py_CLEAR(state->time_monotonic);
-    Py_CLEAR(state->time_monotonic_ns);
     Py_CLEAR(state->time_strftime);
     Py_CLEAR(state->time_time);
     Py_CLEAR(state->time_time_ns);
@@ -751,8 +726,6 @@ _time_machine_traverse(PyObject *module, visitproc visit, void *arg)
     Py_VISIT(state->time_clock_gettime_ns);
     Py_VISIT(state->time_gmtime);
     Py_VISIT(state->time_localtime);
-    Py_VISIT(state->time_monotonic);
-    Py_VISIT(state->time_monotonic_ns);
     Py_VISIT(state->time_strftime);
     Py_VISIT(state->time_time);
     Py_VISIT(state->time_time_ns);
@@ -772,8 +745,6 @@ _time_machine_clear(PyObject *module)
     Py_CLEAR(state->time_clock_gettime_ns);
     Py_CLEAR(state->time_gmtime);
     Py_CLEAR(state->time_localtime);
-    Py_CLEAR(state->time_monotonic);
-    Py_CLEAR(state->time_monotonic_ns);
     Py_CLEAR(state->time_strftime);
     Py_CLEAR(state->time_time);
     Py_CLEAR(state->time_time_ns);

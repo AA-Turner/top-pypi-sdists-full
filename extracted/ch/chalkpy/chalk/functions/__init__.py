@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import datetime as dt
+import inspect
 from enum import Enum
-from typing import Any, Literal, Mapping, TypeVar, Union
+from typing import Any, Callable, Literal, Mapping, Optional, TypeVar, Union
 
 import pyarrow as pa
 
 from chalk.features._encoding.pyarrow import rich_to_pyarrow
+from chalk.features.feature_field import Feature
+from chalk.features.inference import generate_inference_resolver
+from chalk.features.resolver import ResourceHint
 from chalk.features.underscore import Underscore, UnderscoreCast, UnderscoreFunction
 from chalk.functions.holidays import DayOfWeek
 from chalk.functions.http import http_delete, http_get, http_post, http_put, http_request
@@ -16,7 +20,7 @@ from chalk.functions.proto import (
     proto_serialize,
     proto_timestamp_to_datetime,
 )
-from chalk.ml.model_reference import ModelReference
+from chalk.ml.model_version import ModelVersion
 from chalk.utils.duration import parse_chalk_duration
 
 ########################################################################################################################
@@ -218,6 +222,31 @@ def regexp_extract_all(expr: Underscore | Any, pattern: str, group: int):
     ...    processed_time: list[str] = F.regexp_extract_all(_.time, "([0-9]+)([ydhms])", 2)
     """
     return UnderscoreFunction("regexp_extract_all", expr, pattern, group)
+
+
+def regexp_split(expr: Underscore | Any, pattern: str):
+    """
+    Splits the provided input on a given regular expression pattern.
+    Returns a list of strings.
+
+    Parameters
+    ----------
+    expr
+        The string to split against the pattern.
+    pattern
+        The regular expression pattern to split the string on.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Text:
+    ...    id: str
+    ...    spacey_string: str = "a      b  c d",
+    ...    text_list: list[str] = F.regexp_split(_.spacey_string, "\\s+")
+    """
+    return UnderscoreFunction("regexp_split", expr, pattern)
 
 
 def trim(expr: Underscore | Any):
@@ -558,6 +587,31 @@ def token_sort_ratio(a: Underscore | Any, b: Underscore | Any):
     ...    name_email_sim: int = F.token_sort_ratio(_.name, _.email)
     """
     return UnderscoreFunction("token_sort_ratio", a, b)
+
+
+def longest_common_subsequence(a: Underscore | Any, b: Underscore | Any):
+    """
+    Calculates the longest common subsequence between two strings.
+
+    Parameters
+    ----------
+    a
+        The first string.
+    b
+        The second string.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    name: str
+    ...    email: str
+    ...    lcs_length: int = F.longest_common_subsequence(_.name, _.email)
+    """
+    return UnderscoreFunction("longest_common_subsequence", a, b)
 
 
 def unidecode_normalize(a: Underscore | Any):
@@ -1232,6 +1286,28 @@ def recover(*vals: Any):
     return UnderscoreFunction("recover", *vals)
 
 
+def is_not_null(expr: Any):
+    """
+    Check if a value is not null.
+
+    Parameters
+    ----------
+    expr
+        The value to check for nullity.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    nickname: str | None
+    ...    nickname_not_missing: bool = F.is_not_null(_.nickname)
+    """
+    return ~is_null(expr)
+
+
 def is_null(expr: Any):
     """
     Check if a value is null.
@@ -1239,7 +1315,7 @@ def is_null(expr: Any):
     Parameters
     ----------
     expr
-        The value to check if it is null.
+        The value to check for nullity.
 
     Examples
     --------
@@ -1556,6 +1632,69 @@ def sagemaker_predict(
         aws_region_override=aws_region_override,
         aws_profile_name_override=aws_profile_name_override,
         inference_component=inference_component,
+    )
+
+
+def openai_complete(
+    api_key: Underscore | str,
+    prompt: Underscore | str,
+    model: Underscore | str,
+    max_tokens: Underscore | int,
+    temperature: Underscore | float,
+):
+    """
+    Makes a completion request to OpenAI's chat API and returns the response.
+
+    This is a blocking expression that calls OpenAI's API during feature computation.
+    The response includes the completion text along with token usage statistics.
+
+    Parameters
+    ----------
+    api_key
+        The OpenAI API key to use for authentication.
+    prompt
+        The prompt text to send to the model.
+    model
+        The OpenAI model to use (e.g., "gpt-4", "gpt-3.5-turbo").
+    max_tokens
+        The maximum number of tokens to generate in the completion.
+    temperature
+        The sampling temperature to use, between 0 and 2. Higher values make
+        output more random, lower values make it more deterministic.
+
+    Returns
+    -------
+    A struct containing:
+        - completion: The generated text response
+        - prompt_tokens: Number of tokens in the prompt
+        - completion_tokens: Number of tokens in the completion
+        - total_tokens: Total tokens used (prompt + completion)
+        - model: The model used for the completion
+        - finish_reason: Why the completion stopped (e.g., "stop", "length")
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Document:
+    ...    id: str
+    ...    content: str
+    ...    summary: str = F.openai_complete(
+    ...        api_key="sk-...",
+    ...        prompt=_.content,
+    ...        model="gpt-4",
+    ...        max_tokens=100,
+    ...        temperature=0.7,
+    ...    ).completion
+    """
+    return UnderscoreFunction(
+        "openai_complete",
+        api_key,
+        prompt,
+        model,
+        max_tokens,
+        temperature,
     )
 
 
@@ -3404,6 +3543,29 @@ def concat(first: Underscore | Any, second: Underscore | Any):
     return UnderscoreFunction("concat", first, second)
 
 
+def array(*args: Underscore | Any):
+    """
+    Creates an array from the given values.
+
+    Parameters
+    ----------
+    args
+        The values to create the array from.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Name:
+    ...     id: str
+    ...     first_name: str
+    ...     last_name: str
+    ...     name: list[str] = F.array(_.first_name, _.last_name)
+    """
+    return UnderscoreFunction("array_constructor", *args)
+
+
 def array_sort(expr: Underscore | Any, descending: bool = False):
     """
     Returns an array which has the sorted order of the input
@@ -3416,6 +3578,17 @@ def array_sort(expr: Underscore | Any, descending: bool = False):
         The array to sort
     descending
         Whether to sort the array in descending order. Defaults to False.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class LeaderBoard:
+    ...     id: str
+    ...     scores: list[int]
+    ...     sorted_scores_asc: list[int] = F.array_sort(_.scores)
+    ...     sorted_scores_desc: list[int] = F.array_sort(_.scores, descending=True)
     """
     if descending:
         return UnderscoreFunction("array_sort_desc", expr)
@@ -3430,6 +3603,16 @@ def array_stddev(expr: Underscore | Any):
     ----------
     expr
         The array to calculate the standard deviation
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class SensorData:
+    ...     id: str
+    ...     temperature_readings: list[float]
+    ...     temp_stddev: float = F.array_stddev(_.temperature_readings)
     """
     return UnderscoreFunction("array_stddev", expr, False)
 
@@ -3443,6 +3626,16 @@ def array_sample_stddev(expr: Underscore | Any):
     ----------
     expr
         The array to calculate the sample standard deviation
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class ExperimentResults:
+    ...     id: str
+    ...     sample_measurements: list[float]
+    ...     sample_stddev: float = F.array_sample_stddev(_.sample_measurements)
     """
     return UnderscoreFunction("array_stddev", expr, True)
 
@@ -3455,6 +3648,16 @@ def array_sum(expr: Underscore | Any):
     ----------
     expr
         The array to sum
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Transaction:
+    ...     id: str
+    ...     line_items: list[float]
+    ...     total_amount: float = F.array_sum(_.line_items)
     """
     return UnderscoreFunction("array_sum", expr)
 
@@ -3467,6 +3670,16 @@ def array_average(expr: Underscore | Any):
     ----------
     expr
         The array to average
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class StudentGrades:
+    ...     id: str
+    ...     test_scores: list[float]
+    ...     average_score: float = F.array_average(_.test_scores)
     """
     return UnderscoreFunction("array_average", expr)
 
@@ -3479,6 +3692,16 @@ def array_median(expr: Underscore | Any):
     ----------
     expr
         The array to take the median of
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class HousingMarket:
+    ...     id: str
+    ...     property_prices: list[float]
+    ...     median_price: float = F.array_median(_.property_prices)
     """
     return UnderscoreFunction.with_f_dot_repr("array_median", expr)
 
@@ -3501,6 +3724,17 @@ def array_mode(expr: Underscore | Any, tiebreak: Literal["FIRST", "MAX", "MIN"] 
             ``"MIN"`` will return 1, the min of the multimodes;
 
         Defaults to ``"FIRST"`` (the behavior of python's ``statistics.mode()``)
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class SurveyAnalysis:
+    ...     id: str
+    ...     responses: list[int]
+    ...     most_common_response: int = F.array_mode(_.responses)
+    ...     highest_mode: int = F.array_mode(_.responses, tiebreak="MAX")
     """
     int_mode = 0 if tiebreak == "FIRST" else 1 if tiebreak == "MAX" else 2 if tiebreak == "MIN" else -1
     if int_mode == -1:
@@ -3624,6 +3858,269 @@ def array_count_value(expr: Underscore, value: Union[str, Underscore]):
     )
 
 
+def _underscore_lambda(
+    f: Callable[..., Underscore],
+    *,
+    parameter_type: Optional[pa.DataType] = None,
+    parameter_types: Optional[list[pa.DataType]] = None,
+) -> Underscore:
+    """
+    This is a utility function for constructing lambda expressions in underscore expressions.
+    Accepts functions with any number of positional arguments.
+
+    The caller must specify the parameter type(s) for the callback.
+
+    Parameters
+    ----------
+    f
+        A callable that takes one or more Underscore arguments and returns an Underscore
+    parameter_type
+        For backward compatibility: the type of the single parameter (if function has one parameter)
+    parameter_types
+        List of parameter types for each argument (if function has multiple parameters)
+    """
+
+    if parameter_type is not None and parameter_types is not None:
+        raise ValueError("Cannot specify both parameter_type and parameter_types")
+
+    if parameter_type is not None:
+        param_types_list = [parameter_type]
+    elif parameter_types is not None:
+        param_types_list = parameter_types
+    else:
+        raise ValueError("Must specify either parameter_type or parameter_types")
+
+    f_sig = inspect.signature(f)
+    f_parameters = list(f_sig.parameters.keys())
+
+    if len(f_parameters) != len(param_types_list):
+        raise ValueError(f"Function has {len(f_parameters)} parameter(s) but {len(param_types_list)} type(s) provided")
+
+    if len(f_parameters) == 0:
+        raise ValueError("Function must have at least one parameter")
+
+    lambda_param_underscores = []
+
+    for i, (param_name, param_type) in enumerate(zip(f_parameters, param_types_list)):
+        if not param_name:
+            param_name = f"param{i + 1}"
+        lambda_param_underscore = UnderscoreFunction("lambda_parameter", param_name, param_type)
+        lambda_param_underscores.append(lambda_param_underscore)
+
+    result_expr = f(*lambda_param_underscores)
+
+    lambda_args = []
+    for param_name, param_type in zip(f_parameters, param_types_list):
+        lambda_args.append(param_name)
+        lambda_args.append(param_type)
+
+    lambda_args.append(result_expr)
+
+    return UnderscoreFunction("lambda", *lambda_args)
+
+
+def array_filter(
+    arr: Underscore,
+    filter: Callable[[Underscore], Underscore],
+    item_type: Union[pa.DataType, type],
+) -> Underscore:
+    """
+    Applies a custom filtering function to each element in an array, returning a new
+    array containing only the items where `filter(item)` evaluates to `True`.
+
+    Parameters
+    ----------
+    arr
+        An array of values
+    filter
+        A Python function producing an underscore expression to be applied to each item
+        in the array.
+    item_type
+        The type of each item in the array. This must be set explicitly.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Bookstore:
+    ...    id: str
+    ...    recent_activities: list[float]
+    ...    average_activity: float
+    ...    recent_high_value_activities: list[float] = F.array_filter(
+    ...        _.recent_activities,
+    ...        lambda amount: amount > _.average_activity,
+    ...        item_type=float,
+    ...    )
+    """
+
+    if not isinstance(item_type, pa.DataType):
+        item_type = rich_to_pyarrow(
+            item_type,
+            name="array_filter.item_type",
+            respect_nullability=False,
+        )
+
+    return UnderscoreFunction(
+        "array_filter",
+        arr,
+        _underscore_lambda(filter, parameter_type=item_type),
+    )
+
+
+def array_transform(
+    arr: Underscore,
+    transform: Callable[[Underscore], Underscore],
+    item_type: Union[pa.DataType, type],
+) -> Underscore:
+    """
+    Applies a custom transform function to each element in an array, returning a new
+    array containing transformed items.
+
+    Parameters
+    ----------
+    arr
+        An array of values
+    transform
+        A Python function producing an underscore expression to be applied to each item
+        in the array.
+    item_type
+        The type of each item in the array. This must be set explicitly.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Bookstore:
+    ...    id: str
+    ...    prices: list[float]
+    ...    store_discount: float
+    ...    final_price: list[float] = F.array_transform(
+    ...        _.prices,
+    ...        lambda amount: amount * _.store_discount,
+    ...        item_type=float,
+    ...    )
+    """
+
+    if not isinstance(item_type, pa.DataType):
+        item_type = rich_to_pyarrow(
+            item_type,
+            name="array_transform.item_type",
+            respect_nullability=False,
+        )
+
+    return UnderscoreFunction(
+        "array_transform",
+        arr,
+        _underscore_lambda(transform, parameter_type=item_type),
+    )
+
+
+def array_reduce(
+    arr: Underscore,
+    initial_value: Underscore | Any,
+    arr_item_type: Union[pa.DataType, type],
+    reduce: Callable[[Underscore, Underscore], Underscore],
+    accumulator_type: Optional[Union[pa.DataType, type]] = None,
+    output_func: Callable[[Underscore], Underscore] = lambda x: x,
+) -> Underscore:
+    """
+    Reduces an array to a single value by applying a function to each element
+    along with an accumulator.
+
+    Parameters
+    ----------
+    arr
+        An array of values
+    initial_value
+        The initial value for the accumulator
+    reduce
+        A function that takes (accumulator, item) and returns the new accumulator value
+    arr_item_type
+        Type of each item in the array
+    accumulator_type
+        The Optional type of the accumulator result. Typically inferred from initial_value.
+    output_func
+        Optional function to transform the final accumulator value
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    scores: list[int]
+    ...    total_score: int = F.array_reduce(
+    ...        arr=_.scores,
+    ...        initial_value=0,
+    ...        arr_item_type=int,
+    ...        reduce=lambda acc, score: acc + score,
+    ...    )
+    """
+    accumulator_type_arrow: Optional[pa.DataType] = None
+    initial_value_type_arrow: Optional[pa.DataType] = None
+    arr_item_type_arrow: Optional[pa.DataType] = None
+
+    if accumulator_type is not None:
+        if not isinstance(accumulator_type, pa.DataType):
+            accumulator_type_arrow = rich_to_pyarrow(
+                accumulator_type,
+                name="array_reduce.accumulator_type",
+                respect_nullability=False,
+            )
+        else:
+            accumulator_type_arrow = accumulator_type
+
+    if initial_value is not None:
+        # Try to infer accumulator type from initial_value if not provided
+        if not isinstance(initial_value, Underscore):
+            # If initial_value is a pyarrow scalar, extract its type
+            try:
+                if isinstance(initial_value, pa.DataType):
+                    initial_value_type_arrow = initial_value
+                elif isinstance(initial_value, pa.Scalar):
+                    accumulator_type = initial_value.type
+                else:
+                    # Try to infer type from Python literal value
+                    inferred_scalar = pa.scalar(initial_value)
+                    accumulator_type = inferred_scalar.type
+            except (TypeError, pa.ArrowInvalid):
+                raise ValueError("Could not infer type of initial_value; please provide accumulator_type explicitly.")
+
+    if accumulator_type_arrow is None and initial_value_type_arrow is None:
+        raise ValueError("initial_value type could not be determined; please provide it explicitly.")
+
+    if initial_value_type_arrow is not None:
+        accumulator_type_arrow = initial_value_type_arrow
+
+    if arr_item_type is None:
+        raise ValueError("arr_item_type must be provided to array_reduce")
+
+    if not isinstance(arr_item_type, pa.DataType):
+        arr_item_type_arrow = rich_to_pyarrow(
+            arr_item_type,
+            name="array_reduce.arr_item_type",
+            respect_nullability=False,
+        )
+    else:
+        arr_item_type_arrow = arr_item_type
+
+    reduce_lambda_param_types = [accumulator_type_arrow, arr_item_type_arrow]
+
+    reduce_lambda = _underscore_lambda(reduce, parameter_types=reduce_lambda_param_types)
+    output_lambda = _underscore_lambda(output_func, parameter_type=accumulator_type_arrow)
+
+    return UnderscoreFunction(
+        "array_reduce",
+        arr,
+        initial_value,
+        reduce_lambda,
+        output_lambda,
+    )
+
+
 def array_max(arr: Underscore):
     """
     Returns the maximum value in an array.
@@ -3712,6 +4209,53 @@ def contains(arr: Underscore | list[Any] | set[Any], value: Any):
     ...    has_user_agent: bool = F.contains(_.headers, "User-Agent")
     """
     return UnderscoreFunction("contains", arr, value)
+
+
+def is_in(value: Underscore | Any, arr: Underscore | list[Any] | set[Any]):
+    """
+    Returns whether the value is in the array.
+
+    Parameters
+    ----------
+    value
+        The value to check for in the array.
+    arr
+        The array to search for the value.
+
+    Returns
+    -------
+    Boolean indicating whether the value is present in the array.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    role: str
+    ...    is_admin: bool = F.is_in(_.role, ["admin", "superuser"])
+
+    >>> # With dynamic array
+    >>> @features
+    ... class APIRequest:
+    ...    id: str
+    ...    user_id: str
+    ...    allowed_users: list[str]
+    ...    is_allowed: bool = F.is_in(_.user_id, _.allowed_users)
+    """
+    if isinstance(arr, Underscore):
+        return UnderscoreFunction("contains", arr, value)
+    if len(arr) < 1:
+        raise ValueError("Expected input array to have at least one element")
+    try:
+        map_const = pa.scalar(
+            {elem: None for elem in arr},
+            type=pa.map_(rich_to_pyarrow(type(next(iter(arr))), name="arr_type"), pa.null()),
+        )
+    except pa.ArrowInvalid as ai:
+        raise ValueError("Expected constant input array to have entries all of the same type") from ai
+    return UnderscoreFunction("map_key_exists", map_const, value)
 
 
 def cardinality(arr: Underscore):
@@ -4005,6 +4549,11 @@ def max(*values: Any):
     )
 
 
+max._chalk__method_chaining_predicate = (  # pyright: ignore[reportFunctionMemberAccess]
+    lambda underscore_call: len(underscore_call._chalk__args) > 0
+)
+
+
 def min(*values: Any):
     """
     Returns the minimum value in a list of values.
@@ -4034,6 +4583,11 @@ def min(*values: Any):
         min(*values[1:]),
         _chalk__repr_override=f"F.min({', '.join(str(value) for value in values)})",
     )
+
+
+min._chalk__method_chaining_predicate = (  # pyright: ignore[reportFunctionMemberAccess]
+    lambda underscore_call: len(underscore_call._chalk__args) > 0
+)
 
 
 def jinja(template: str):
@@ -4224,7 +4778,9 @@ def nth_bucket_end(value: Underscore, bucket_duration: str, n: int, initial_buck
 ########################################################################################################################
 
 
-def inference(model: ModelReference, inputs: list[Underscore | Any]) -> Underscore:
+def inference(
+    model: ModelVersion, inputs: list[Underscore | Any] | Underscore, resource_hint: ResourceHint | None = None
+) -> Underscore | Feature:
     """
     Run inference on a deployed ML model.
 
@@ -4255,14 +4811,10 @@ def inference(model: ModelReference, inputs: list[Underscore | Any]) -> Undersco
     ...       inputs=[_.a, _.b, _.c, _.d, _.e]
     ...    )
     """
-    if not isinstance(model, ModelReference):  #  type: ignore[unreachable]
-        raise ValueError(f"First input to F.inference must be a `ModelReference`, but got {type(model)}.")
+    if not isinstance(model, ModelVersion):  #  type: ignore[unreachable]
+        raise ValueError(f"First input to F.inference must be a `ModelVersion`, but got {type(model)}.")
 
-    return UnderscoreFunction(
-        "inference",
-        model=model,
-        inputs=inputs,
-    )
+    return generate_inference_resolver(model_version=model, inputs=inputs, resource_hint=resource_hint)
 
 
 def ordinal_encode(feature: Underscore, options: list[Any], default: int | None = None) -> Underscore:
@@ -5096,6 +5648,64 @@ def array_normalize(array: Underscore, p: Underscore | float | None = None):
     return UnderscoreFunction("array_normalize", array, 2.0 if p is None else p)
 
 
+def scale_vector(array: Underscore, p: Underscore | float):
+    """
+    Scales the input vector by the amount p.
+
+    Parameters
+    ----------
+    array
+        The input vector
+    p
+        The factor by which to scale
+
+    Returns
+    -------
+    Array where each element is multiplied by p.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class ProbabilityModel:
+    ...     id: str
+    ...     embedding: Vector[3]
+    ...     scale: float
+    ...     probabilities: Vector[3] = F.scale_vector(_.embedding, _.scale)
+    """
+    return UnderscoreFunction("scale_vector", array, p)
+
+
+def array_add(array1: Underscore, array2: Underscore):
+    """
+    Element-wise addition of two vectors.
+
+    Parameters
+    ----------
+    array1
+        The first input vector
+    array2
+        The second input vector
+
+    Returns
+    -------
+    Array where each element is the sum of corresponding elements from array1 and array2.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class VectorModel:
+    ...     id: str
+    ...     vec1: Vector[3]
+    ...     vec2: Vector[3]
+    ...     sum_vec: Vector[3] = F.array_add(_.vec1, _.vec2)
+    """
+    return UnderscoreFunction("array_add", array1, array2)
+
+
 def array_position(array: Underscore, element: Underscore):
     """
     Find the position of an element in the array (1-based indexing).
@@ -5299,12 +5909,14 @@ __all__ = (
     "abs",
     "acos",
     "array_agg",
+    "array_add",
     "array_average",
     "array_count_value",
     "array_cum_sum",
     "array_distinct",
     "array_duplicates",
     "array_except",
+    "array_filter",
     "array_has_duplicates",
     "array_intersect",
     "array_join",
@@ -5378,6 +5990,7 @@ __all__ = (
     "inference",
     "is_leap_year",
     "is_month_end",
+    "is_not_null",
     "is_null",
     "is_us_federal_holiday",
     "jaccard_similarity",
@@ -5394,6 +6007,7 @@ __all__ = (
     "ln",
     "log2",
     "log10",
+    "longest_common_subsequence",
     "lower",
     "lpad",
     "ltrim",
@@ -5411,6 +6025,7 @@ __all__ = (
     "normal_cdf",
     "nth_bucket_end",
     "nth_bucket_start",
+    "openai_complete",
     "parse_datetime",
     "partial_ratio",
     "pi",
@@ -5429,6 +6044,7 @@ __all__ = (
     "regexp_extract_all",
     "regexp_like",
     "regexp_replace",
+    "regexp_split",
     "replace",
     "reverse",
     "round",
@@ -5483,4 +6099,5 @@ __all__ = (
     "word_stem",
     "xgboost_regressor",
     "year",
+    "scale_vector",
 )

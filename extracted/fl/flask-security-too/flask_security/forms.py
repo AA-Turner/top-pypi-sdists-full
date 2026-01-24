@@ -99,6 +99,7 @@ _setup_methods_xlate = {
     "mail": _("email"),
     "sms": _("SMS"),
     "password": _("password"),
+    "webauthn": _("passkey"),
     None: _("none"),
 }
 
@@ -675,6 +676,9 @@ class ConfirmRegisterForm(Form, RegisterFormMixin, UniqueEmailFormMixin):
     to still return important bad-password messages.
     In the case of an existing email or username - we set form.existing_xx so that
     the view can decide how to match responses (e.g. json responses always return 200).
+
+    .. deprecated:: 5.6.0
+        Replaced with RegisterFormV2
     """
 
     # Password optional when Unified Signin enabled.
@@ -723,6 +727,12 @@ class ConfirmRegisterForm(Form, RegisterFormMixin, UniqueEmailFormMixin):
 
 
 class RegisterForm(ConfirmRegisterForm, NextFormMixin):
+    """Register Form
+
+    .. deprecated:: 5.6.0
+        Replaced with RegisterFormV2
+    """
+
     # Password optional when Unified Signin enabled.
     password_confirm = PasswordField(
         get_form_field_label("retype_password"),

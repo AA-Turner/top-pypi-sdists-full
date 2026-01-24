@@ -96,6 +96,12 @@ class LogPoint(_message.Message):
     value: LogValue
     def __init__(self, value: _Optional[_Union[LogValue, _Mapping]] = ...) -> None: ...
 
+class StructPoints(_message.Message):
+    __slots__ = ("points",)
+    POINTS_FIELD_NUMBER: _ClassVar[int]
+    points: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, points: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class LogValue(_message.Message):
     __slots__ = ("message", "args")
     class ArgsEntry(_message.Message):
@@ -129,21 +135,31 @@ class IntPoints(_message.Message):
     points: _containers.RepeatedScalarFieldContainer[int]
     def __init__(self, points: _Optional[_Iterable[int]] = ...) -> None: ...
 
+class Uint64Points(_message.Message):
+    __slots__ = ("points",)
+    POINTS_FIELD_NUMBER: _ClassVar[int]
+    points: _containers.RepeatedScalarFieldContainer[int]
+    def __init__(self, points: _Optional[_Iterable[int]] = ...) -> None: ...
+
 class Points(_message.Message):
-    __slots__ = ("timestamps", "double_points", "string_points", "log_points", "int_points", "array_points")
+    __slots__ = ("timestamps", "double_points", "string_points", "log_points", "int_points", "array_points", "struct_points", "uint64_points")
     TIMESTAMPS_FIELD_NUMBER: _ClassVar[int]
     DOUBLE_POINTS_FIELD_NUMBER: _ClassVar[int]
     STRING_POINTS_FIELD_NUMBER: _ClassVar[int]
     LOG_POINTS_FIELD_NUMBER: _ClassVar[int]
     INT_POINTS_FIELD_NUMBER: _ClassVar[int]
     ARRAY_POINTS_FIELD_NUMBER: _ClassVar[int]
+    STRUCT_POINTS_FIELD_NUMBER: _ClassVar[int]
+    UINT64_POINTS_FIELD_NUMBER: _ClassVar[int]
     timestamps: _containers.RepeatedCompositeFieldContainer[_time_pb2.Timestamp]
     double_points: DoublePoints
     string_points: StringPoints
     log_points: LogPoints
     int_points: IntPoints
     array_points: ArrayPoints
-    def __init__(self, timestamps: _Optional[_Iterable[_Union[_time_pb2.Timestamp, _Mapping]]] = ..., double_points: _Optional[_Union[DoublePoints, _Mapping]] = ..., string_points: _Optional[_Union[StringPoints, _Mapping]] = ..., log_points: _Optional[_Union[LogPoints, _Mapping]] = ..., int_points: _Optional[_Union[IntPoints, _Mapping]] = ..., array_points: _Optional[_Union[ArrayPoints, _Mapping]] = ...) -> None: ...
+    struct_points: StructPoints
+    uint64_points: Uint64Points
+    def __init__(self, timestamps: _Optional[_Iterable[_Union[_time_pb2.Timestamp, _Mapping]]] = ..., double_points: _Optional[_Union[DoublePoints, _Mapping]] = ..., string_points: _Optional[_Union[StringPoints, _Mapping]] = ..., log_points: _Optional[_Union[LogPoints, _Mapping]] = ..., int_points: _Optional[_Union[IntPoints, _Mapping]] = ..., array_points: _Optional[_Union[ArrayPoints, _Mapping]] = ..., struct_points: _Optional[_Union[StructPoints, _Mapping]] = ..., uint64_points: _Optional[_Union[Uint64Points, _Mapping]] = ...) -> None: ...
 
 class RecordsBatch(_message.Message):
     __slots__ = ("channel", "tags", "points")
@@ -161,6 +177,27 @@ class RecordsBatch(_message.Message):
     tags: _containers.ScalarMap[str, str]
     points: Points
     def __init__(self, channel: _Optional[str] = ..., tags: _Optional[_Mapping[str, str]] = ..., points: _Optional[_Union[Points, _Mapping]] = ...) -> None: ...
+
+class ChannelSeriesMetadata(_message.Message):
+    __slots__ = ("series_id", "tags")
+    class TagsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    SERIES_ID_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    series_id: str
+    tags: _containers.ScalarMap[str, str]
+    def __init__(self, series_id: _Optional[str] = ..., tags: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
+class ChannelSeriesMetadataBatch(_message.Message):
+    __slots__ = ("series_metadata",)
+    SERIES_METADATA_FIELD_NUMBER: _ClassVar[int]
+    series_metadata: _containers.RepeatedCompositeFieldContainer[ChannelSeriesMetadata]
+    def __init__(self, series_metadata: _Optional[_Iterable[_Union[ChannelSeriesMetadata, _Mapping]]] = ...) -> None: ...
 
 class WriteBatchesResponse(_message.Message):
     __slots__ = ()

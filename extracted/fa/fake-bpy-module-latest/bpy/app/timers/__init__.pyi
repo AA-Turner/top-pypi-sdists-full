@@ -30,9 +30,7 @@ def is_registered(function: collections.abc.Callable[[], float | None]) -> bool:
     """Check if this function is registered as a timer.
 
     :param function: Function to check.
-    :type function: collections.abc.Callable[[], float | None]
     :return: True when this function is registered, otherwise False.
-    :rtype: bool
     """
 
 def register(
@@ -48,16 +46,12 @@ def register(
     functools.partial can be used to assign some parameters.
 
         :param function: The function that should called.
-        :type function: collections.abc.Callable[[], float | None]
         :param first_interval: Seconds until the callback should be called the first time.
-        :type first_interval: float | None
         :param persistent: Dont remove timer when a new file is loaded.
-        :type persistent: bool | None
     """
 
 def unregister(function: collections.abc.Callable[[], float | None]) -> None:
     """Unregister timer.
 
     :param function: Function to unregister.
-    :type function: collections.abc.Callable[[], float | None]
     """

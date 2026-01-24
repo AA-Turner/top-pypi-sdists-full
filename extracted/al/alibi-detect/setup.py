@@ -16,10 +16,10 @@ extras_require = {
     "torch": [
         "torch>=1.7.0, <3.0.0"
     ],
-    # https://github.com/SeldonIO/alibi-detect/issues/375 and 387
     "tensorflow": [
-        "tensorflow_probability>=0.8.0, <0.23.0",
-        "tensorflow>=2.2.0, !=2.6.0, !=2.6.1, <2.15.0",  # https://github.com/SeldonIO/alibi-detect/issues/375 and 387
+        "tensorflow_probability>=0.8.0, <0.26.0",
+        "tensorflow>=2.16.0, <2.19.0",
+        "tf-keras>=2.16.0, <2.19.0",
     ],
     "keops": [
         "pykeops>=2.0.0, <2.3.0",
@@ -27,8 +27,9 @@ extras_require = {
     ],
     "all": [
         "prophet>=1.1.0, <2.0.0",
-        "tensorflow_probability>=0.8.0, <0.23.0",
-        "tensorflow>=2.2.0, !=2.6.0, !=2.6.1, <2.15.0",  # https://github.com/SeldonIO/alibi-detect/issues/375 and 387
+        "tensorflow_probability>=0.8.0, <0.26.0",
+        "tensorflow>=2.16.0, <2.19.0",
+        "tf-keras>=2.16.0, <2.19.0",
         "pykeops>=2.0.0, <2.3.0",
         "torch>=1.7.0, <3.0.0"
     ],
@@ -46,7 +47,7 @@ setup(
     license="Business Source License 1.1",
     packages=find_packages(),
     include_package_data=True,
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     setup_requires=['wheel'],
     # lower bounds based on Debian Stable versions where available
     install_requires=[
@@ -55,8 +56,8 @@ setup(
         "pandas>=1.0.0, <3.0.0",
         "Pillow>=5.4.1, <11.0.0",
         "opencv-python>=3.2.0, <5.0.0",
-        "scipy>=1.3.0, <2.0.0",
-        'scikit-image>=0.19, <0.23',
+        "scipy>=1.5.0, <2.0.0",
+        'scikit-image>=0.19, <0.25',
         "scikit-learn>=0.20.2, <2.0.0",
         "transformers>=4.0.0, <5.0.0",
         "dill>=0.3.0, <0.4.0",
@@ -75,10 +76,10 @@ setup(
         "Intended Audience :: Science/Research",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "License :: Other/Proprietary License",
         "Topic :: Scientific/Engineering",
     ],

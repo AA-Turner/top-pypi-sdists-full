@@ -235,6 +235,13 @@ def _community_edge_betweenness(graph, clusters=None, directed=True, weights=Non
     separate components. The result of the clustering will be represented
     by a dendrogram.
 
+    When edge weights are given, the ratio of betweenness and weight values
+    is used to choose which edges to remove first, as described in
+    M. E. J. Newman: Analysis of Weighted Networks (2004), Section C.
+    Thus, edges with large weights are treated as strong connections,
+    and will be removed later than weak connections having similar betweenness.
+    Weights are also used for calculating modularity.
+
     @param clusters: the number of clusters we would like to see. This
       practically defines the "level" where we "cut" the dendrogram to
       get the membership vector of the vertices. If C{None}, the dendrogram
@@ -245,7 +252,7 @@ def _community_edge_betweenness(graph, clusters=None, directed=True, weights=Non
     @param directed: whether the directionality of the edges should be
       taken into account or not.
     @param weights: name of an edge attribute or a list containing
-      edge weights.
+      edge weights. Higher weights indicate stronger connections.
     @return: a L{VertexDendrogram} object, initally cut at the maximum
       modularity or at the desired number of clusters.
     """
@@ -320,6 +327,68 @@ def _community_spinglass(graph, *args, **kwds):
     return VertexClustering(graph, membership, modularity_params=modularity_params)
 
 
+def _community_voronoi(graph, lengths=None, weights=None, mode="out", radius=None):
+    """Finds communities using Voronoi partitioning.
+
+    This function finds communities using a Voronoi partitioning of vertices based
+    on the given edge lengths divided by the edge clustering coefficient.
+    The generator vertices are chosen to be those with the largest local relative
+    density within a radius, with the local relative density of a vertex defined
+    as C{s * m / (m + k)}, where C{s} is the strength of the vertex, C{m} is
+    the number of edges within the vertex's first order neighborhood, while C{k}
+    is the number of edges with only one endpoint within this neighborhood.
+
+    B{References}
+
+      - Deritei et al., Community detection by graph Voronoi diagrams,
+        I{New Journal of Physics} 16, 063007 (2014).
+        U{https://doi.org/10.1088/1367-2630/16/6/063007}.
+      - Molnár et al., Community Detection in Directed Weighted Networks using
+        Voronoi Partitioning, I{Scientific Reports} 14, 8124 (2024).
+        U{https://doi.org/10.1038/s41598-024-58624-4}.
+
+    @param lengths: edge lengths, or C{None} to consider all edges as having
+      unit length. Voronoi partitioning will use edge lengths equal to
+      lengths / ECC where ECC is the edge clustering coefficient.
+    @param weights: edge weights, or C{None} to consider all edges as having
+      unit weight. Weights are used when selecting generator points, as well
+      as for computing modularity.
+    @param mode: specifies how to use the direction of edges when computing
+      distances from generator points. If C{"out"} (the default), distances
+      from generator points to all other nodes are considered following the
+      direction of edges. If C{"in"}, distances are computed in the reverse
+      direction (i.e., from all nodes to generator points). If C{"all"}, 
+      edge directions are ignored and the graph is treated as undirected.
+      This parameter is ignored for undirected graphs.
+    @param radius: the radius/resolution to use when selecting generator points.
+      The larger this value, the fewer partitions there will be. Pass C{None}
+      to automatically select the radius that maximizes modularity.
+    @return: an appropriate L{VertexClustering} object with an extra attribute
+      called C{generators} (the generator vertices).
+    """
+    # Convert mode string to proper enum value to avoid deprecation warning
+    if isinstance(mode, str):
+        mode_map = {"out": "out", "in": "in", "all": "all", "total": "all"}  # alias
+        if mode.lower() in mode_map:
+            mode = mode_map[mode.lower()]
+        else:
+            raise ValueError(f"Invalid mode '{mode}'. Must be one of: out, in, all")
+    
+    membership, generators, modularity = GraphBase.community_voronoi(graph, lengths, weights, mode, radius)
+
+    params = {"generators": generators}
+    modularity_params = {}
+    if weights is not None:
+        modularity_params["weights"] = weights
+
+    clustering = VertexClustering(
+        graph, membership, modularity=modularity, params=params, modularity_params=modularity_params
+    )
+
+    clustering.generators = generators
+    return clustering
+
+
 def _community_walktrap(graph, weights=None, steps=4):
     """Community detection algorithm of Latapy & Pons, based on random
     walks.
@@ -392,7 +461,8 @@ def _community_leiden(
     initial_membership=None,
     n_iterations=2,
     node_weights=None,
-    **kwds
+    node_in_weights=None,
+    **kwds,
 ):
     """Finds the community structure of the graph using the Leiden
     algorithm of Traag, van Eck & Waltman.
@@ -422,6 +492,11 @@ def _community_leiden(
       If this is not provided, it will be automatically determined on the
       basis of whether you want to use CPM or modularity. If you do provide
       this, please make sure that you understand what you are doing.
+    @param node_in_weights: the inbound node weights used in the directed
+      variant of the Leiden algorithm. If this is not provided, it will be
+      automatically determined on the basis of whether you want to use CPM or
+      modularity. If you do provide this, please make sure that you understand
+      what you are doing.
     @return: an appropriate L{VertexClustering} object with an extra attribute
       called C{quality} that stores the value of the internal quality function
       optimized by the algorithm.
@@ -443,6 +518,7 @@ def _community_leiden(
         graph,
         edge_weights=weights,
         node_weights=node_weights,
+        node_in_weights=node_in_weights,
         resolution=resolution,
         normalize_resolution=(objective_function == "modularity"),
         beta=beta,
@@ -461,6 +537,47 @@ def _community_leiden(
     )
 
 
+def _community_fluid_communities(graph, no_of_communities):
+    """Community detection based on fluids interacting on the graph.
+
+    The algorithm is based on the simple idea of several fluids interacting 
+    in a non-homogeneous environment (the graph topology), expanding and 
+    contracting based on their interaction and density. Weighted graphs are 
+    not supported.
+
+    This function implements the community detection method described in:
+    Parés F, Gasulla DG, et. al. (2018) Fluid Communities: A Competitive,
+    Scalable and Diverse Community Detection Algorithm.
+
+    @param no_of_communities: The number of communities to be found. Must be
+      greater than 0 and fewer than or equal to the number of vertices in the graph.
+    @return: an appropriate L{VertexClustering} object.
+    """
+    # Validate input parameters
+    if no_of_communities <= 0:
+        raise ValueError("no_of_communities must be greater than 0")
+    
+    if no_of_communities > graph.vcount():
+        raise ValueError("no_of_communities must be fewer than or equal to the number of vertices")
+    
+    # Check if graph is weighted (not supported)
+    if graph.is_weighted():
+        raise ValueError("Weighted graphs are not supported by the fluid communities algorithm")
+    
+    # Handle directed graphs - the algorithm works on undirected graphs
+    # but can accept directed graphs (they are treated as undirected)
+    if graph.is_directed():
+        import warnings
+        warnings.warn(
+            "Directed graphs are treated as undirected in the fluid communities algorithm",
+            UserWarning,
+            stacklevel=2
+        )
+    
+    membership = GraphBase.community_fluid_communities(graph, no_of_communities)
+    return VertexClustering(graph, membership)
+  
+  
 def _modularity(self, membership, weights=None, resolution=1, directed=True):
     """Calculates the modularity score of the graph with respect to a given
     clustering.

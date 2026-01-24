@@ -85,6 +85,7 @@ pub struct Range {
 
 impl Range {
     /// Creates a new [`Range`] from [`crate::commit::Commit`].
+    #[must_use]
     pub fn new(from: &Commit, to: &Commit) -> Self {
         Self {
             from: from.id.clone(),
@@ -139,6 +140,10 @@ pub struct Commit<'a> {
     #[cfg(feature = "bitbucket")]
     #[deprecated(note = "Use `remote` field instead")]
     pub bitbucket: crate::contributor::RemoteContributor,
+    /// Azure DevOps metadata of the commit.
+    #[cfg(feature = "azure_devops")]
+    #[deprecated(note = "Use `remote` field instead")]
+    pub azure_devops: crate::contributor::RemoteContributor,
 
     /// Raw message of the normal commit, works as a placeholder for converting
     /// normal commit into conventional commit.
@@ -187,6 +192,7 @@ impl From<&GitCommit<'_>> for Commit<'_> {
 
 impl Commit<'_> {
     /// Constructs a new instance.
+    #[must_use]
     pub fn new(id: String, message: String) -> Self {
         Self {
             id,
@@ -196,6 +202,7 @@ impl Commit<'_> {
     }
 
     /// Get raw message for converting into conventional commit.
+    #[must_use]
     pub fn raw_message(&self) -> &str {
         self.raw_message.as_deref().unwrap_or(&self.message)
     }
@@ -260,7 +267,7 @@ impl Commit<'_> {
     /// `false`. Returns `true` otherwise.
     fn skip_commit(&self, parser: &CommitParser, protect_breaking: bool) -> bool {
         parser.skip.unwrap_or(false) &&
-            !(self.conv.as_ref().map(|c| c.breaking()).unwrap_or(false) && protect_breaking)
+            !(self.conv.as_ref().is_some_and(ConventionalCommit::breaking) && protect_breaking)
     }
 
     /// Parses the commit using [`CommitParser`]s.
@@ -281,19 +288,19 @@ impl Commit<'_> {
         for parser in parsers {
             let mut regex_checks = Vec::new();
             if let Some(message_regex) = parser.message.as_ref() {
-                regex_checks.push((message_regex, self.message.to_string()));
+                regex_checks.push((message_regex, self.message.clone()));
             }
             let body = self
                 .conv
                 .as_ref()
-                .and_then(|v| v.body())
-                .map(|v| v.to_string());
+                .and_then(ConventionalCommit::body)
+                .map(ToString::to_string);
             if let Some(body_regex) = parser.body.as_ref() {
                 regex_checks.push((body_regex, body.clone().unwrap_or_default()));
             }
             if let (Some(footer_regex), Some(footers)) = (
                 parser.footer.as_ref(),
-                self.conv.as_ref().map(|v| v.footers()),
+                self.conv.as_ref().map(ConventionalCommit::footers),
             ) {
                 regex_checks.extend(footers.iter().map(|f| (footer_regex, f.to_string())));
             }
@@ -327,7 +334,7 @@ impl Commit<'_> {
                 match values {
                     Some(values) => {
                         if values.is_empty() {
-                            trace!("field '{field_name}' is present but empty");
+                            log::trace!("Field '{field_name}' is present but empty");
                         } else {
                             for value in values {
                                 regex_checks.push((pattern_regex, value));
@@ -385,6 +392,7 @@ impl Commit<'_> {
     /// Sets the [`links`] of the commit.
     ///
     /// [`links`]: Commit::links
+    #[must_use]
     pub fn parse_links(mut self, parsers: &[LinkParser]) -> Self {
         for parser in parsers {
             let regex = &parser.pattern;
@@ -479,6 +487,8 @@ impl Serialize for Commit<'_> {
         commit.serialize_field("gitea", &self.gitea)?;
         #[cfg(feature = "bitbucket")]
         commit.serialize_field("bitbucket", &self.bitbucket)?;
+        #[cfg(feature = "azure_devops")]
+        commit.serialize_field("azure_devops", &self.azure_devops)?;
         if let Some(remote) = &self.remote {
             commit.serialize_field("remote", remote)?;
         }

@@ -5,7 +5,7 @@ authors = [
 ]
 description = 'NFS-safe file locking with timeouts for POSIX and Windows'
 readme = 'README.rst'
-requires-python = '>=3.9'
+requires-python = '>=3.10'
 license = {text = 'Apache-2.0'}
 keywords = [
     'locking',
@@ -31,6 +31,14 @@ dependencies = [
 ]
 dynamic = ['version']
 
+[dependency-groups]
+docs = [
+    'furo',
+    'sphinx',
+    'sphinx-autobuild',
+    'sphinx-copybutton',
+]
+
 [project.urls]
 'Home Page' = 'https://flufllock.readthedocs.io'
 'Documentation' = 'https://flufllock.readthedocs.io'
@@ -55,6 +63,9 @@ include = [
 excludes = [
     '**/.mypy_cache',
 ]
+
+[tool.hatch.envs.default]
+installer = 'uv'
 
 [tool.hatch.envs.default.scripts]
 all = [
@@ -83,7 +94,7 @@ cov-combine = ''
 cov-report = ''
 
 [[tool.hatch.envs.test.matrix]]
-python = ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+python = ['3.10', '3.11', '3.12', '3.13', '3.14']
 
 [tool.hatch.envs.qa]
 dependencies = [
@@ -107,15 +118,20 @@ preview = [
     'hatch fmt --diff src',
 ]
 
+[tool.hatch.envs.hatch-static-analysis]
+config-path = 'none'
+
 [tool.hatch.envs.docs]
-dependencies = [
-    'sphinx',
-    'furo',
+dependency-groups = [
+    'docs',
 ]
 
 [tool.hatch.envs.docs.scripts]
 docs = [
     'sphinx-build docs build/html',
+]
+serve = [
+    'sphinx-autobuild docs build/html --port 9000 --open-browser',
 ]
 
 [tool.coverage.run]

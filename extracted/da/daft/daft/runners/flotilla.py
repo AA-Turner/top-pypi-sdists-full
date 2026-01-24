@@ -3,8 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import uuid
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 from daft.daft import (
     DistributedPhysicalPlan,
@@ -19,6 +20,7 @@ from daft.daft import (
     RayTaskResult,
     set_compute_runtime_num_worker_threads,
 )
+from daft.event_loop import set_event_loop
 from daft.expressions import Expression, ExpressionsProjection
 from daft.recordbatch.micropartition import MicroPartition
 from daft.runners.partitioning import (
@@ -40,6 +42,11 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+class SwordfishTaskMetadata(NamedTuple):
+    partition_metadatas: list[PartitionMetadata]
+    stats: bytes
+
+
 @ray.remote
 class RaySwordfishActor:
     """RaySwordfishActor is a ray actor that runs local physical plans on swordfish.
@@ -48,35 +55,45 @@ class RaySwordfishActor:
     """
 
     def __init__(self, num_cpus: int, num_gpus: int) -> None:
+        os.environ["DAFT_FLOTILLA_WORKER"] = "1"
         if num_gpus > 0:
             os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(str(i) for i in range(num_gpus))
         # Configure the number of worker threads for swordfish, according to the number of CPUs visible to ray.
         set_compute_runtime_num_worker_threads(num_cpus)
+        set_event_loop(asyncio.get_running_loop())
 
     async def run_plan(
         self,
         plan: LocalPhysicalPlan,
-        config: PyDaftExecutionConfig,
+        exec_cfg: PyDaftExecutionConfig,
         psets: dict[str, list[ray.ObjectRef]],
         context: dict[str, str] | None,
-    ) -> AsyncGenerator[MicroPartition | list[PartitionMetadata], None]:
+    ) -> AsyncGenerator[MicroPartition | SwordfishTaskMetadata, None]:
         """Run a plan on swordfish and yield partitions."""
+        # We import PyDaftContext inside the function because PyDaftContext is not serializable.
+        from daft.daft import PyDaftContext
+
         with profile():
             psets = {k: await asyncio.gather(*v) for k, v in psets.items()}
             psets_mp = {k: [v._micropartition for v in v] for k, v in psets.items()}
 
             metas = []
             native_executor = NativeExecutor()
-            async for partition in native_executor.run_async(plan, psets_mp, config, None, context):
+            ctx = PyDaftContext()
+            ctx._daft_execution_config = exec_cfg
+            result_handle = native_executor.run(plan, psets_mp, ctx, None, context)
+            async for partition in result_handle:
                 if partition is None:
                     break
                 mp = MicroPartition._from_pymicropartition(partition)
                 metas.append(PartitionMetadata.from_table(mp))
                 yield mp
-            yield metas
+
+            stats = await result_handle.finish()
+            yield SwordfishTaskMetadata(partition_metadatas=metas, stats=stats)
 
 
-@ray.remote  # type: ignore[misc]
+@ray.remote  # type: ignore[untyped-decorator]
 def get_boundaries_remote(
     sort_by: list[Expression],
     descending: list[bool],
@@ -119,16 +136,17 @@ class RaySwordfishTaskHandle:
         try:
             await self.result_handle.completed()
             results = [result for result in self.result_handle]
-            metadatas_ref = results.pop()
+            metadata_ref = results.pop()
 
-            metadatas = await metadatas_ref
-            assert len(results) == len(metadatas)
+            task_metadata: SwordfishTaskMetadata = await metadata_ref
+            assert len(results) == len(task_metadata.partition_metadatas)
 
             return RayTaskResult.success(
                 [
-                    RayPartitionRef(result, metadata.num_rows, metadata.size_bytes)
-                    for result, metadata in zip(results, metadatas)
-                ]
+                    RayPartitionRef(result, metadata.num_rows, metadata.size_bytes or 0)
+                    for result, metadata in zip(results, task_metadata.partition_metadatas)
+                ],
+                task_metadata.stats,
             )
         except (ray.exceptions.ActorDiedError, ray.exceptions.ActorUnschedulableError):
             return RayTaskResult.worker_died()
@@ -224,6 +242,7 @@ class RemoteFlotillaRunner:
         self.curr_result_gens: dict[str, AsyncIterator[RayPartitionRef]] = {}
         self.plan_runner = DistributedPhysicalPlanRunner()
         ray._private.worker.blocking_get_inside_async_warned = True
+        set_event_loop(asyncio.get_running_loop())
 
     def run_plan(
         self,
@@ -234,8 +253,8 @@ class RemoteFlotillaRunner:
             k: [RayPartitionRef(v.partition(), v.metadata().num_rows, v.metadata().size_bytes or 0) for v in v.values()]
             for k, v in partition_sets.items()
         }
-        self.curr_plans[plan.id()] = plan
-        self.curr_result_gens[plan.id()] = self.plan_runner.run_plan(plan, psets)
+        self.curr_plans[plan.idx()] = plan
+        self.curr_result_gens[plan.idx()] = self.plan_runner.run_plan(plan, psets)
 
     async def get_next_partition(self, plan_id: str) -> RayMaterializedResult | None:
         from daft.runners.ray_runner import (
@@ -265,6 +284,44 @@ class RemoteFlotillaRunner:
 
 FLOTILLA_RUNNER_NAMESPACE = "daft"
 FLOTILLA_RUNNER_NAME = "flotilla-plan-runner"
+_FLOTILLA_RUNNER_NAME_SUFFIX: str | None = None
+
+
+def _get_ray_job_id_for_actor_naming() -> str | None:
+    """Best-effort detection of the current Ray job id for flotilla actor naming."""
+    try:
+        runtime_ctx = ray.get_runtime_context()
+    except Exception:
+        runtime_ctx = None
+
+    if runtime_ctx is not None:
+        job_id = getattr(runtime_ctx, "job_id", None)
+        if job_id is not None:
+            try:
+                return job_id.hex()
+            except Exception:
+                return str(job_id)
+
+    return None
+
+
+def get_flotilla_runner_actor_name() -> str:
+    """Return the per-Ray-job actor name for RemoteFlotillaRunner."""
+    global _FLOTILLA_RUNNER_NAME_SUFFIX
+
+    if _FLOTILLA_RUNNER_NAME_SUFFIX is None:
+        job_id: str | None
+        try:
+            job_id = _get_ray_job_id_for_actor_naming()
+        except Exception:
+            job_id = None
+
+        if job_id is None:
+            _FLOTILLA_RUNNER_NAME_SUFFIX = uuid.uuid4().hex
+        else:
+            _FLOTILLA_RUNNER_NAME_SUFFIX = job_id
+
+    return f"{FLOTILLA_RUNNER_NAME}-{_FLOTILLA_RUNNER_NAME_SUFFIX}"
 
 
 def get_head_node_id() -> str | None:
@@ -284,7 +341,7 @@ class FlotillaRunner:
     def __init__(self) -> None:
         head_node_id = get_head_node_id()
         self.runner = RemoteFlotillaRunner.options(  # type: ignore
-            name=FLOTILLA_RUNNER_NAME,
+            name=get_flotilla_runner_actor_name(),
             namespace=FLOTILLA_RUNNER_NAMESPACE,
             get_if_exists=True,
             scheduling_strategy=(
@@ -302,7 +359,7 @@ class FlotillaRunner:
         plan: DistributedPhysicalPlan,
         partition_sets: dict[str, PartitionSet[ray.ObjectRef]],
     ) -> Iterator[RayMaterializedResult]:
-        plan_id = plan.id()
+        plan_id = plan.idx()
         ray.get(self.runner.run_plan.remote(plan, partition_sets))
         while True:
             materialized_result = ray.get(self.runner.get_next_partition.remote(plan_id))
